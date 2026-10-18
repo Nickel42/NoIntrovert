@@ -141,6 +141,7 @@ chdman_status run(chdman_context *ctx, F &&f) noexcept
 		return CHDMAN_ERR_INVALID_ARGUMENT;
 	try
 	{
+		chdman::session_scope const scope(ctx->session);
 		ctx->last_error.clear();
 		ctx->session.begin_operation();
 		f();
@@ -150,7 +151,16 @@ chdman_status run(chdman_context *ctx, F &&f) noexcept
 	{
 		std::string message;
 		chdman_status const status = chdman::translate_current_exception(message);
-		try { ctx->last_error = std::move(message); } catch (...) { }
+		try
+		{
+			// MAME often prints the specific cause (e.g. a missing .bin file)
+			// and returns a generic error code; add the cause to the message
+			std::string const &detail = ctx->session.last_osd_error();
+			if (!detail.empty() && message.find(detail) == std::string::npos)
+				message += ": " + detail;
+			ctx->last_error = std::move(message);
+		}
+		catch (...) { }
 		return status;
 	}
 }

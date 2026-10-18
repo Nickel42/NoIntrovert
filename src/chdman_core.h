@@ -47,7 +47,7 @@ public:
 	int num_processors = 0;
 
 	// clears cancellation and progress throttling; called as each operation starts
-	void begin_operation() noexcept { cancel_requested = false; m_last_progress_ns = -1; }
+	void begin_operation() noexcept { cancel_requested = false; m_last_progress_ns = -1; m_last_osd_error.clear(); }
 
 	// reports progress (throttled unless force) and throws if cancelled
 	void progress(chdman_phase phase, double fraction, double ratio = 0.0, bool force = false);
@@ -55,8 +55,34 @@ public:
 	void info(std::string const &message) const;
 	void warning(std::string const &message) const;
 
+	// MAME's osd_printf_error/warning/info output from this thread while a
+	// session_scope for this session is active
+	void osd_message(chdman_log_level level, bool is_error, std::string message);
+	// last error line MAME printed during the current operation ("" if none)
+	std::string const &last_osd_error() const noexcept { return m_last_osd_error; }
+
 private:
 	int64_t m_last_progress_ns = -1;
+	std::string m_last_osd_error;
+};
+
+
+// ======================> session_scope
+//
+// Routes MAME's osd_printf_* output on the calling thread to a session for
+// the lifetime of the scope. The process-wide osd_output that does this is
+// registered once, on first use; output with no active scope is dropped.
+
+class session_scope
+{
+public:
+	explicit session_scope(session &s);
+	~session_scope();
+	session_scope(session_scope const &) = delete;
+	session_scope &operator=(session_scope const &) = delete;
+
+private:
+	session *m_previous;
 };
 
 

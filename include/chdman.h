@@ -107,7 +107,12 @@ typedef enum chdman_log_level {
 	CHDMAN_LOG_WARNING = 1
 } chdman_log_level;
 
-/* Log callback for non-fatal diagnostics (warnings that chdman prints). */
+/*
+ * Log callback for diagnostics: the informational lines and warnings that
+ * chdman prints, plus error and warning lines from MAME's parsers (e.g.
+ * "ERROR: couldn't find bin file [x.bin]"), which arrive as
+ * CHDMAN_LOG_WARNING. Called on the thread that invoked the operation.
+ */
 typedef void (CHDMAN_CALL *chdman_log_fn)(void *user, chdman_log_level level, const char *message);
 
 CHDMAN_API chdman_status CHDMAN_CALL chdman_context_create(chdman_context **out_ctx);
@@ -125,7 +130,11 @@ CHDMAN_API void CHDMAN_CALL chdman_context_set_num_processors(chdman_context *ct
  */
 CHDMAN_API void CHDMAN_CALL chdman_context_cancel(chdman_context *ctx);
 
-/* Message for the last failed call on ctx ("" after success). Never NULL. */
+/*
+ * Message for the last failed call on ctx ("" after success). Never NULL.
+ * When MAME reported a more specific cause than its error code (for example
+ * a .cue naming a missing .bin), that cause is appended after ": ".
+ */
 CHDMAN_API const char *CHDMAN_CALL chdman_last_error(const chdman_context *ctx);
 
 /* Free memory returned by the library (e.g. chdman_get_metadata). */

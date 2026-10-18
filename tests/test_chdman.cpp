@@ -15,6 +15,7 @@
 #include <iostream>
 #include <iterator>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -795,6 +796,51 @@ void test_struct_size()
 	CHECK(vr.v1.outcome == CHDMAN_VERIFY_NOT_APPLICABLE);
 }
 
+void test_cd_parse_errors()
+{
+	context ctx;
+	std::vector<std::pair<chdman_log_level, std::string>> lines;
+	chdman_context_set_log(ctx, [](void *user, chdman_log_level level, const char *msg) {
+		static_cast<std::vector<std::pair<chdman_log_level, std::string>> *>(user)->emplace_back(level, msg);
+	}, &lines);
+
+	// a .cue that names a .bin that isn't there: MAME prints the cause and
+	// returns a generic error, so the cause must reach last_error and the log
+	std::string const cue = path("missing_bin.cue"), chd = path("missing_bin.chd");
+	{
+		std::ofstream f(cue, std::ios::trunc);
+		f << "FILE \"no_such_track.bin\" BINARY\n"
+		  << "  TRACK 01 MODE1/2352\n"
+		  << "    INDEX 01 00:00:00\n";
+	}
+	chdman_create_cd_options co;
+	chdman_create_cd_options_init(&co);
+	co.input = cue.c_str();
+	co.out.output = chd.c_str();
+	co.out.force = 1;
+	CHECK(chdman_create_cd(ctx, &co) != CHDMAN_OK);
+	std::string const err = chdman_last_error(ctx);
+	CHECK(err.find("Error parsing input file") != std::string::npos);
+	CHECK(err.find("couldn't find bin file") != std::string::npos);
+	CHECK(err.find("no_such_track.bin") != std::string::npos);
+	CHECK(!fs::exists(chd));
+	bool logged = false;
+	for (auto const &l : lines)
+		logged = logged || (l.first == CHDMAN_LOG_WARNING && l.second.find("couldn't find bin file") != std::string::npos && l.second.back() != '\n');
+	CHECK(logged);
+
+	// the detail belongs to that operation only
+	auto const data = make_raw_image(65536);
+	write_file(path("cdp.img"), data);
+	CHECK(create_raw(ctx, path("cdp.img"), path("cdp.chd"), "abcd", true) == CHDMAN_ERR_INVALID_ARGUMENT);
+	CHECK(std::string(chdman_last_error(ctx)).find("couldn't find bin file") == std::string::npos);
+
+	// without a log callback the error message still carries the cause
+	context quiet;
+	CHECK(chdman_create_cd(quiet, &co) != CHDMAN_OK);
+	CHECK(std::string(chdman_last_error(quiet)).find("couldn't find bin file") != std::string::npos);
+}
+
 } // anonymous namespace
 
 int main()
@@ -816,6 +862,7 @@ int main()
 		{ "ld_roundtrip", test_ld_roundtrip },
 		{ "errors_and_cancel", test_errors_and_cancel },
 		{ "struct_size", test_struct_size },
+		{ "cd_parse_errors", test_cd_parse_errors },
 	};
 	for (auto const &t : tests)
 	{
