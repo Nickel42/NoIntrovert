@@ -13,6 +13,7 @@ public partial class MainViewModel : ViewModelBase
         Convert = new ConvertViewModel(Settings, Log, dialogs);
         Verify = new VerifyViewModel(Settings, Log, dialogs);
         Extract = new ExtractViewModel(Settings, Log, dialogs);
+        Archive = new ArchiveViewModel(Settings, Log, dialogs);
         Info = new InfoViewModel(Log, dialogs);
         Tests = new TestsViewModel(Settings, Log, dialogs);
 
@@ -35,6 +36,7 @@ public partial class MainViewModel : ViewModelBase
     public ConvertViewModel Convert { get; }
     public VerifyViewModel Verify { get; }
     public ExtractViewModel Extract { get; }
+    public ArchiveViewModel Archive { get; }
     public InfoViewModel Info { get; }
     public TestsViewModel Tests { get; }
 
@@ -42,9 +44,9 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty] public partial int SelectedTab { get; set; }
 
-    public bool IsAnyRunning => Convert.IsRunning || Verify.IsRunning || Extract.IsRunning || Tests.IsRunning;
+    public bool IsAnyRunning => Convert.IsRunning || Verify.IsRunning || Extract.IsRunning || Archive.IsRunning || Tests.IsRunning;
 
-    private static readonly string[] TabNames = ["convert", "verify", "extract", "info", "tests"];
+    private static readonly string[] TabNames = ["convert", "verify", "extract", "archive", "info", "tests"];
 
     /// <summary>
     /// Handles the command line: file and folder paths are added to the
@@ -76,11 +78,12 @@ public partial class MainViewModel : ViewModelBase
             case 0: Convert.AddPaths(paths); break;
             case 1: Verify.AddPaths(paths); break;
             case 2: Extract.AddPaths(paths); break;
-            case 3:
+            case 3: Archive.AddPaths(paths); break;
+            case 4:
                 var chd = paths.FirstOrDefault(p => p.EndsWith(".chd", StringComparison.OrdinalIgnoreCase));
                 if (chd is not null) await Info.LoadAsync(chd);
                 break;
-            case 4: Tests.AddPaths(paths); break;
+            case 5: Tests.AddPaths(paths); break;
         }
     }
 }

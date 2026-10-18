@@ -33,4 +33,16 @@
   <PropertyGroup>
     <ChdmanLibDir Condition="'$(ChdmanLibDir)' == ''">$(LibChdmanRoot)/artifacts/native/$(ChdmanNativeDir)</ChdmanLibDir>
   </PropertyGroup>
+
+  <!--
+    The archive engine: 7-Zip's library and noi_archive (our C interface over
+    bit7z), built by native/build-win.cmd or native/build-mac.sh into
+    native/out/<dir>, using the same <dir> names as above:
+      win-*  -> 7z.dll + noi_archive.dll
+      osx    -> 7z.so + libnoi_archive.dylib (universal)
+    Pass -p:NoiArchiveLibDir=<dir> to use another build.
+  -->
+  <PropertyGroup>
+    <NoiArchiveLibDir Condition="'$(NoiArchiveLibDir)' == ''">$(MSBuildThisFileDirectory)native/out/$(ChdmanNativeDir)</NoiArchiveLibDir>
+  </PropertyGroup>
 </Project>

@@ -84,6 +84,16 @@ jobs:
             Copy-Item "libchdman/build-$arch/Release/chdman.dll" $dir
           }
 
+      - name: Fetch 7-Zip and bit7z sources
+        shell: bash
+        run: bash app/native/fetch-sources.sh
+
+      - name: Build the archive engine (x64 and ARM64)
+        shell: cmd
+        run: |
+          call app\native\build-win.cmd x64 app\native\_deps\7zip-src app\native\_deps\bit7z-src || exit /b 1
+          call app\native\build-win.cmd arm64 app\native\_deps\7zip-src app\native\_deps\bit7z-src || exit /b 1
+
       - name: Publish and zip
         shell: pwsh
         run: |
@@ -95,8 +105,13 @@ jobs:
               -p:DebugType=none -p:Version=$env:VERSION `
               "-p:LibChdmanRoot=$env:GITHUB_WORKSPACE/libchdman" -o $out
             if (-not (Test-Path "$out/NoIntrovert.exe")) { throw "publish for $rid produced no NoIntrovert.exe" }
-            Copy-Item app/README.md, libchdman/LICENSE, libchdman/THIRD_PARTY_NOTICES.md $out
-            Rename-Item "$out/LICENSE" "LICENSE-libchdman.txt"
+            foreach ($lib in '7z.dll', 'noi_archive.dll') {
+              if (-not (Test-Path "$out/$lib")) { throw "publish for $rid is missing $lib" }
+            }
+            Copy-Item app/README.md, app/packaging/THIRD_PARTY_ARCHIVES.md, libchdman/THIRD_PARTY_NOTICES.md $out
+            Copy-Item libchdman/LICENSE "$out/LICENSE-libchdman.txt"
+            Copy-Item app/native/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
+            Copy-Item app/native/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
             Compress-Archive -Path "$out/*" -DestinationPath "dist/NoIntrovert-$env:VERSION-$rid.zip" -Force
           }
 
@@ -135,19 +150,29 @@ jobs:
           cp -L libchdman/build/libchdman.dylib libchdman/artifacts/native/osx/libchdman.dylib
           lipo -info libchdman/artifacts/native/osx/libchdman.dylib
 
+      - name: Build the archive engine (universal)
+        run: |
+          bash app/native/fetch-sources.sh
+          bash app/native/build-mac.sh
+
       - name: Publish, bundle and zip
         run: |
           mkdir -p dist
           cp libchdman/LICENSE LICENSE-libchdman.txt
+          cp app/native/_deps/7zip-src/DOC/License.txt LICENSE-7-Zip.txt
+          cp app/native/_deps/bit7z-src/LICENSE LICENSE-bit7z.txt
           for rid in osx-arm64 osx-x64; do
             # Single-file packs the managed DLLs into the executable, so Contents/MacOS holds
             # only Mach-O files, whose signatures live inside them and survive any unzip tool.
             dotnet publish app/NoIntrovert/NoIntrovert.csproj -c Release -r "$rid" --self-contained \
               -p:UseAppHost=true -p:PublishSingleFile=true -p:DebugType=none -p:Version="$VERSION" \
               "-p:LibChdmanRoot=$GITHUB_WORKSPACE/libchdman" -o "publish/$rid"
-            test -f "publish/$rid/libchdman.dylib" || { echo "libchdman.dylib missing from $rid publish"; exit 1; }
+            for lib in libchdman.dylib 7z.so libnoi_archive.dylib; do
+              test -f "publish/$rid/$lib" || { echo "$lib missing from $rid publish"; exit 1; }
+            done
             bash app/packaging/macos/make-app.sh "publish/$rid" "$GITHUB_WORKSPACE/dist/NoIntrovert-$VERSION-$rid.zip" "$VERSION" \
-              app/README.md LICENSE-libchdman.txt libchdman/THIRD_PARTY_NOTICES.md
+              app/README.md LICENSE-libchdman.txt libchdman/THIRD_PARTY_NOTICES.md \
+              LICENSE-7-Zip.txt LICENSE-bit7z.txt app/packaging/THIRD_PARTY_ARCHIVES.md
           done
 
       - name: Check the Apple silicon zip unpacks to a validly signed app

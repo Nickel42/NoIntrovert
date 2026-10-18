@@ -51,6 +51,7 @@ public partial class MainWindow : Window, IDialogs
             vm.Convert.CancelCommand.Execute(null);
             vm.Verify.CancelCommand.Execute(null);
             vm.Extract.CancelCommand.Execute(null);
+            vm.Archive.CancelCommand.Execute(null);
             vm.Tests.CancelCommand.Execute(null);
             _closeConfirmed = true;
             Close();

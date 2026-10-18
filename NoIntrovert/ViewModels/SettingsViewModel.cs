@@ -133,6 +133,91 @@ public partial class SettingsViewModel : ViewModelBase
     public bool VerboseLog { get => _s.VerboseLog; set => Set(value, (s, v) => s.VerboseLog = v); }
     public bool LogProgress { get => _s.LogProgress; set => Set(value, (s, v) => s.LogProgress = v); }
 
+    // Archive tab
+
+    public static IReadOnlyList<Choice<Core.Archives.ArchiveAction>> ArchiveActions { get; } =
+    [
+        new(Core.Archives.ArchiveAction.Compress, "Compress files and folders"),
+        new(Core.Archives.ArchiveAction.Convert, "Convert archives (zip ↔ 7z)"),
+    ];
+
+    public static IReadOnlyList<Choice<Core.Archives.ArchiveFormat>> ArchiveFormats { get; } =
+    [
+        new(Core.Archives.ArchiveFormat.SevenZip, "7z (LZMA2, smallest)"),
+        new(Core.Archives.ArchiveFormat.Zip, "zip (Deflate, opens anywhere)"),
+    ];
+
+    public static IReadOnlyList<Choice<Core.Archives.ArchiveLevel>> ArchiveLevels { get; } =
+    [
+        new(Core.Archives.ArchiveLevel.Store, "Store (no compression)"),
+        new(Core.Archives.ArchiveLevel.Fastest, "Fastest"),
+        new(Core.Archives.ArchiveLevel.Fast, "Fast"),
+        new(Core.Archives.ArchiveLevel.Normal, "Normal"),
+        new(Core.Archives.ArchiveLevel.Maximum, "Maximum"),
+        new(Core.Archives.ArchiveLevel.Ultra, "Ultra (slowest)"),
+    ];
+
+    public static IReadOnlyList<Choice<Core.Archives.ArchiveGrouping>> ArchiveGroupings { get; } =
+    [
+        new(Core.Archives.ArchiveGrouping.PerItem, "One archive per file or folder in the list"),
+        new(Core.Archives.ArchiveGrouping.PerEntryInFolders, "One archive per file/subfolder inside each folder"),
+        new(Core.Archives.ArchiveGrouping.Single, "Everything into one archive"),
+    ];
+
+    public static IReadOnlyList<Choice<Core.Archives.ConvertTarget>> ConvertTargets { get; } =
+    [
+        new(Core.Archives.ConvertTarget.Swap, "Swap: zip → 7z, 7z → zip"),
+        new(Core.Archives.ConvertTarget.ToSevenZip, "Everything to 7z"),
+        new(Core.Archives.ConvertTarget.ToZip, "Everything to zip"),
+    ];
+
+    public Choice<Core.Archives.ArchiveAction> SelectedArchiveAction
+    {
+        get => ArchiveActions.First(a => a.Value == _s.ArchiveAction);
+        set
+        {
+            Set(value.Value, (s, v) => s.ArchiveAction = v);
+            OnPropertyChanged(nameof(IsArchiveCompress));
+            OnPropertyChanged(nameof(IsArchiveConvert));
+        }
+    }
+
+    public bool IsArchiveCompress => _s.ArchiveAction == Core.Archives.ArchiveAction.Compress;
+    public bool IsArchiveConvert => _s.ArchiveAction == Core.Archives.ArchiveAction.Convert;
+
+    public Choice<Core.Archives.ArchiveFormat> SelectedArchiveFormat
+    {
+        get => ArchiveFormats.First(f => f.Value == _s.ArchiveFormat);
+        set { Set(value.Value, (s, v) => s.ArchiveFormat = v); OnPropertyChanged(nameof(IsSevenZipFormat)); }
+    }
+
+    public bool IsSevenZipFormat => _s.ArchiveFormat == Core.Archives.ArchiveFormat.SevenZip;
+
+    public Choice<Core.Archives.ArchiveLevel> SelectedArchiveLevel
+    {
+        get => ArchiveLevels.First(l => l.Value == _s.ArchiveLevel);
+        set => Set(value.Value, (s, v) => s.ArchiveLevel = v);
+    }
+
+    public Choice<Core.Archives.ArchiveGrouping> SelectedArchiveGrouping
+    {
+        get => ArchiveGroupings.First(g => g.Value == _s.ArchiveGrouping);
+        set { Set(value.Value, (s, v) => s.ArchiveGrouping = v); OnPropertyChanged(nameof(IsSingleArchive)); }
+    }
+
+    public bool IsSingleArchive => _s.ArchiveGrouping == Core.Archives.ArchiveGrouping.Single;
+
+    public Choice<Core.Archives.ConvertTarget> SelectedConvertTarget
+    {
+        get => ConvertTargets.First(t => t.Value == _s.ArchiveConvertTarget);
+        set => Set(value.Value, (s, v) => s.ArchiveConvertTarget = v);
+    }
+
+    public bool ArchiveSolid { get => _s.ArchiveSolid; set => Set(value, (s, v) => s.ArchiveSolid = v); }
+    public string ArchiveSingleName { get => _s.ArchiveSingleName; set => Set(value, (s, v) => s.ArchiveSingleName = v); }
+    public bool ArchiveTestAfter { get => _s.ArchiveTestAfter; set => Set(value, (s, v) => s.ArchiveTestAfter = v); }
+    public bool ArchiveDeleteOriginals { get => _s.ArchiveDeleteOriginals; set => Set(value, (s, v) => s.ArchiveDeleteOriginals = v); }
+
     public double WindowWidth { get => _s.WindowWidth; set => _s.WindowWidth = value; }
     public double WindowHeight { get => _s.WindowHeight; set => _s.WindowHeight = value; }
 

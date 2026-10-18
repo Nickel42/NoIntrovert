@@ -34,9 +34,9 @@ if [ -n "$stray" ]; then
     exit 1
 fi
 
-# Sign the libraries first, then the app, which seals everything inside it.
-for f in "$app/Contents/MacOS"/*.dylib; do
-    codesign --force --sign - "$f"
+# Sign the libraries first (dylibs, and 7-Zip's 7z.so), then the app, which seals everything inside it.
+for f in "$app/Contents/MacOS"/*.dylib "$app/Contents/MacOS"/*.so; do
+    [ -e "$f" ] && codesign --force --sign - "$f"
 done
 codesign --force --sign - "$app"
 codesign --verify --deep --strict "$app"

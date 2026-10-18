@@ -26,6 +26,17 @@ public sealed class AppSettings
     // Verification
     public bool FixHeaderSha1 { get; set; }
 
+    // Archives (7z / zip)
+    public Archives.ArchiveAction ArchiveAction { get; set; } = Archives.ArchiveAction.Compress;
+    public Archives.ArchiveFormat ArchiveFormat { get; set; } = Archives.ArchiveFormat.SevenZip;
+    public Archives.ArchiveLevel ArchiveLevel { get; set; } = Archives.ArchiveLevel.Normal;
+    public bool ArchiveSolid { get; set; } = true;
+    public Archives.ArchiveGrouping ArchiveGrouping { get; set; } = Archives.ArchiveGrouping.PerItem;
+    public string ArchiveSingleName { get; set; } = "Archive";
+    public Archives.ConvertTarget ArchiveConvertTarget { get; set; } = Archives.ConvertTarget.Swap;
+    public bool ArchiveTestAfter { get; set; } = true;
+    public bool ArchiveDeleteOriginals { get; set; }
+
     // Performance
     public int ParallelJobs { get; set; } = 1;
     public int ThreadsPerJob { get; set; } // 0 = all processors

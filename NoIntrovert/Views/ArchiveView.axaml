@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             xmlns:v="using:NoIntrovert.Views"
+             x:Class="NoIntrovert.Views.ArchiveView"
+             x:DataType="vm:ArchiveViewModel">
+    <Grid ColumnDefinitions="*,310" ColumnSpacing="12" Margin="0,10,0,0">
+        <v:JobListPanel />
+
+        <ScrollViewer Grid.Column="1">
+            <Border Classes="card">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="ARCHIVES" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Classes="hint" Text="7z and zip archives, made and checked with 7-Zip's own engine (through bit7z)." />
+
+                    <TextBlock Text="ACTION" Classes="section" />
+                    <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.ArchiveActions}"
+                              SelectedItem="{Binding Settings.SelectedArchiveAction}" HorizontalAlignment="Stretch" />
+
+                    <!-- Compress -->
+                    <StackPanel Spacing="4" IsVisible="{Binding Settings.IsArchiveCompress}">
+                        <TextBlock Text="FORMAT" Classes="section" />
+                        <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.ArchiveFormats}"
+                                  SelectedItem="{Binding Settings.SelectedArchiveFormat}" HorizontalAlignment="Stretch" />
+
+                        <TextBlock Text="ARCHIVES TO MAKE" Classes="section" />
+                        <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.ArchiveGroupings}"
+                                  SelectedItem="{Binding Settings.SelectedArchiveGrouping}" HorizontalAlignment="Stretch" />
+                        <TextBox Text="{Binding Settings.ArchiveSingleName}" PlaceholderText="Name of the combined archive"
+                                 IsVisible="{Binding Settings.IsSingleArchive}" />
+                        <TextBlock Classes="hint"
+                                   Text="Files are named after themselves without their extension (game.iso → game.7z); folders after the folder." />
+                    </StackPanel>
+
+                    <!-- Convert -->
+                    <StackPanel Spacing="4" IsVisible="{Binding Settings.IsArchiveConvert}">
+                        <TextBlock Text="CONVERT TO" Classes="section" />
+                        <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.ConvertTargets}"
+                                  SelectedItem="{Binding Settings.SelectedConvertTarget}" HorizontalAlignment="Stretch" />
+                        <TextBlock Classes="hint"
+                                   Text="Each archive is unpacked into the temp folder and packed again, keeping its folder layout. rar archives can be read but not written." />
+                    </StackPanel>
+
+                    <TextBlock Text="COMPRESSION" Classes="section" />
+                    <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.ArchiveLevels}"
+                              SelectedItem="{Binding Settings.SelectedArchiveLevel}" HorizontalAlignment="Stretch" />
+                    <CheckBox Content="Solid 7z archive (smaller, slower to open one file)" IsChecked="{Binding Settings.ArchiveSolid}"
+                              IsVisible="{Binding Settings.IsSevenZipFormat}" />
+
+                    <TextBlock Text="AFTERWARDS" Classes="section" />
+                    <CheckBox Content="Test each new archive" IsChecked="{Binding Settings.ArchiveTestAfter}"
+                              ToolTip.Tip="Decompress every file in the new archive and check its CRC, as 7-Zip's Test does." />
+                    <CheckBox Content="Remove the originals" IsChecked="{Binding Settings.ArchiveDeleteOriginals}"
+                              ToolTip.Tip="Only after the new archive tests OK. Compressing removes the files and folders that went in; converting removes the old archive." />
+                    <CheckBox Content="{Binding Settings.RecycleBinLabel}" IsChecked="{Binding Settings.UseRecycleBin}"
+                              IsVisible="{Binding Settings.CanUseRecycleBin}" IsEnabled="{Binding Settings.ArchiveDeleteOriginals}" Margin="22,0,0,0" />
+                    <TextBlock Classes="hint" Text="Removing originals always tests first, even if Test is off."
+                               IsVisible="{Binding Settings.ArchiveDeleteOriginals}" />
+
+                    <Separator Margin="0,10" />
+                    <ContentControl Content="{Binding Settings}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:SettingsViewModel"><v:SharedOptions /></DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                    <TextBlock Classes="hint"
+                               Text="7-Zip already uses every core for one archive; “Threads per file” caps that (0 = all)." />
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

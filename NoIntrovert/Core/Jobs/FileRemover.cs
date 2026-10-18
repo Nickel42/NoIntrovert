@@ -13,37 +13,41 @@ internal static class FileRemover
 
     public static bool CanUseBin => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
 
-    public static void Remove(IEnumerable<string> files, bool useBin, ILog log)
+    /// <summary>Removes files and folders (folders with everything in them).</summary>
+    public static void Remove(IEnumerable<string> paths, bool useBin, ILog log)
     {
         var toBin = useBin && CanUseBin;
-        foreach (var file in files.Distinct(StringComparer.OrdinalIgnoreCase))
+        foreach (var path in paths.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            if (!File.Exists(file)) continue;
+            var isFolder = Directory.Exists(path);
+            if (!isFolder && !File.Exists(path)) continue;
             try
             {
-                if (toBin && OperatingSystem.IsWindows()) SendToRecycleBin(file);
-                else if (toBin) MoveToTrash(file);
-                else File.Delete(file);
-                log.Info($"  removed {Path.GetFileName(file)}{(toBin ? $" (to the {BinName})" : "")}");
+                if (toBin && OperatingSystem.IsWindows()) SendToRecycleBin(path);
+                else if (toBin) MoveToTrash(path, isFolder);
+                else if (isFolder) Directory.Delete(path, recursive: true);
+                else File.Delete(path);
+                log.Info($"  removed {Path.GetFileName(path)}{(isFolder ? " (folder)" : "")}{(toBin ? $" (to the {BinName})" : "")}");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
             {
-                log.Warn($"  couldn't remove {Path.GetFileName(file)}: {ex.Message}");
+                log.Warn($"  couldn't remove {Path.GetFileName(path)}: {ex.Message}");
             }
         }
     }
 
-    /// <summary>Moves a file into ~/.Trash, adding a number when the name is taken (as Finder does).</summary>
-    private static void MoveToTrash(string path)
+    /// <summary>Moves a file or folder into ~/.Trash, adding a number when the name is taken (as Finder does).</summary>
+    private static void MoveToTrash(string path, bool isFolder)
     {
         var trash = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".Trash");
         Directory.CreateDirectory(trash);
-        var name = Path.GetFileNameWithoutExtension(path);
-        var ext = Path.GetExtension(path);
+        var name = isFolder ? Path.GetFileName(path) : Path.GetFileNameWithoutExtension(path);
+        var ext = isFolder ? "" : Path.GetExtension(path);
         var target = Path.Combine(trash, name + ext);
         for (var i = 2; File.Exists(target) || Directory.Exists(target); i++)
             target = Path.Combine(trash, $"{name} {i}{ext}");
-        File.Move(path, target);
+        if (isFolder) Directory.Move(path, target);
+        else File.Move(path, target);
     }
 
     private static void SendToRecycleBin(string path)

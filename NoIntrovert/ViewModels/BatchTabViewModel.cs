@@ -40,7 +40,24 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     /// <summary>Narrows a folder scan, e.g. to drop bins a cue already covers.</summary>
     protected virtual IEnumerable<string> SelectFromFolder(IEnumerable<string> files) => files.Where(Accepts);
 
+    /// <summary>What a folder added to the list becomes: by default the files found in it.</summary>
+    protected virtual IEnumerable<string> ItemsForFolder(string folder)
+    {
+        var option = Settings.ScanSubfolders ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+        return Directory.EnumerateFiles(folder, "*", option)
+            .GroupBy(f => Path.GetDirectoryName(f)!)
+            .SelectMany(g => SelectFromFolder(g))
+            .ToList();
+    }
+
     protected abstract JobOutcome Work(JobContext context, JobItemViewModel item);
+
+    /// <summary>How pending rows become jobs: by default one job per row.</summary>
+    protected virtual IReadOnlyList<IReadOnlyList<JobItemViewModel>> GroupItems(IReadOnlyList<JobItemViewModel> pending) =>
+        pending.Select(i => (IReadOnlyList<JobItemViewModel>)[i]).ToList();
+
+    /// <summary>The work for one job; a job covering several rows reports through the first.</summary>
+    protected virtual JobOutcome WorkGroup(JobContext context, IReadOnlyList<JobItemViewModel> group) => Work(context, group[0]);
 
     public ObservableCollection<JobItemViewModel> Items { get; } = [];
     [ObservableProperty] public partial System.Collections.IList? SelectedItems { get; set; }
@@ -80,13 +97,9 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             IEnumerable<string> candidates;
             if (Directory.Exists(path))
             {
-                var option = Settings.ScanSubfolders ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
                 try
                 {
-                    candidates = Directory.EnumerateFiles(path, "*", option)
-                        .GroupBy(f => Path.GetDirectoryName(f)!)
-                        .SelectMany(g => SelectFromFolder(g))
-                        .ToList();
+                    candidates = ItemsForFolder(path).ToList();
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
@@ -160,15 +173,15 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         var started = DateTime.Now;
         var finished = 0;
 
-        var jobs = pending.Select(item => new BatchJob(
-            item.Name,
-            item,
-            ctx => Work(ctx, item),
-            _ => Dispatcher.UIThread.Post(item.Started),
+        var jobs = GroupItems(pending).Select(group => new BatchJob(
+            group[0].Name,
+            group[0],
+            ctx => WorkGroup(ctx, group),
+            _ => Dispatcher.UIThread.Post(() => { foreach (var item in group) item.Started(); }),
             outcome => Dispatcher.UIThread.Post(() =>
             {
-                item.Finished(outcome);
-                finished++;
+                foreach (var item in group) item.Finished(outcome);
+                finished += group.Count;
                 OverallProgress = 100.0 * finished / pending.Count;
                 RefreshSummary();
             }))).ToList();

@@ -38,6 +38,31 @@
 
   <Import Project="$(LibChdmanRoot)/bindings/csharp/ChdmanNativeCopy.targets" />
 
+  <!--
+    The archive engine's native libraries (see Directory.Build.props). They stay
+    next to the executable even in a single-file publish: bit7z loads 7-Zip's
+    library by its path, which must be a real file beside the app.
+  -->
+  <ItemGroup>
+    <None Include="$(NoiArchiveLibDir)/7z.dll" Condition="Exists('$(NoiArchiveLibDir)/7z.dll')" Link="7z.dll"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
+    <None Include="$(NoiArchiveLibDir)/noi_archive.dll" Condition="Exists('$(NoiArchiveLibDir)/noi_archive.dll')" Link="noi_archive.dll"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
+    <None Include="$(NoiArchiveLibDir)/7z.so" Condition="Exists('$(NoiArchiveLibDir)/7z.so')" Link="7z.so"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
+    <None Include="$(NoiArchiveLibDir)/libnoi_archive.dylib" Condition="Exists('$(NoiArchiveLibDir)/libnoi_archive.dylib')" Link="libnoi_archive.dylib"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
+  </ItemGroup>
+
+  <Target Name="WarnMissingArchiveNative" BeforeTargets="Build"
+          Condition="!Exists('$(NoiArchiveLibDir)/noi_archive.dll') And !Exists('$(NoiArchiveLibDir)/libnoi_archive.dylib')">
+    <Warning Text="No archive engine in $(NoiArchiveLibDir); the Archive tab won't work. Build it with native/build-win.cmd or native/build-mac.sh." />
+  </Target>
+  <Target Name="RequireArchiveNativeForPublish" BeforeTargets="PrepareForPublish"
+          Condition="'$(RuntimeIdentifier)' != '' And !(Exists('$(NoiArchiveLibDir)/noi_archive.dll') And Exists('$(NoiArchiveLibDir)/7z.dll')) And !(Exists('$(NoiArchiveLibDir)/libnoi_archive.dylib') And Exists('$(NoiArchiveLibDir)/7z.so'))">
+    <Error Text="Can't publish for $(RuntimeIdentifier): the archive engine (7-Zip library + noi_archive) is missing from $(NoiArchiveLibDir)." />
+  </Target>
+
   <!-- A plain build may run without libchdman (with a warning); a publish for a platform must include it. -->
   <Target Name="WarnMissingChdmanNative" BeforeTargets="Build"
           Condition="!Exists('$(ChdmanLibDir)/chdman.dll') And !Exists('$(ChdmanLibDir)/libchdman.dylib')">

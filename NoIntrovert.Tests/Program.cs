@@ -3,6 +3,7 @@ using System.Formats.Tar;
 using System.IO.Compression;
 using LibChdman;
 using NoIntrovert.Core;
+using NoIntrovert.Core.Archives;
 using NoIntrovert.Core.Cd;
 using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.Jobs;
@@ -455,6 +456,134 @@ Test("Cancelling stops a conversion and leaves no CHD", () =>
     return o.Status == JobStatus.Cancelled && left.Length == 0 ? null : $"{o.Status}, {left.Length} file(s) left";
 });
 
+// ---- Archives (7z / zip through bit7z + 7-Zip) ---------------------------------
+
+var sevenZipExe = new[] { @"C:\Program Files\7-Zip\7z.exe", "/opt/homebrew/bin/7zz", "/usr/local/bin/7zz" }.FirstOrDefault(File.Exists);
+var archiveSrc = Dir("archive-src");
+File.Copy(synthBin, Path.Combine(archiveSrc, "disc.bin"));
+using (var o = File.Create(Path.Combine(archiveSrc, "data.iso"))) CopyRange(isoSlice, o, 0, 8L << 20);
+File.WriteAllText(Path.Combine(archiveSrc, "notes.txt"), string.Concat(Enumerable.Repeat("NoIntrovert archive test line\n", 2000)));
+File.WriteAllBytes(Path.Combine(archiveSrc, "empty.dat"), []);
+Directory.CreateDirectory(Path.Combine(archiveSrc, "Sub Folder"));
+File.WriteAllText(Path.Combine(archiveSrc, "Sub Folder", "日本語 é.txt"), "unicode name");
+
+if (!ArchiveEngine.IsAvailable(out var archiveProblem))
+{
+    Test("Archive engine loads", () => archiveProblem);
+}
+else
+{
+    foreach (var format in new[] { ArchiveFormat.SevenZip, ArchiveFormat.Zip })
+    {
+        var ext = ArchiveJobs.Extension(format);
+        Test($"Archive {ext}: compress a folder, test, extract, compare", () =>
+        {
+            var dir = Dir("arc-" + ext.TrimStart('.'));
+            var archive = Path.Combine(dir, "src" + ext);
+            using var engine = new ArchiveEngine();
+            double last = 0;
+            engine.Compress(format, ArchiveLevel.Normal, 0, solid: true, [archiveSrc], archive, contentsOnly: false, f => last = f, CancellationToken.None);
+            engine.Test(archive, null, CancellationToken.None);
+            var outDir = Path.Combine(dir, "out");
+            engine.Extract(archive, outDir, null, CancellationToken.None);
+            var problem = SameTree(archiveSrc, Path.Combine(outDir, "archive-src"));
+            var ratio = (double)new FileInfo(archive).Length / ArchiveJobs.SizeOf(archiveSrc);
+            return problem ?? Note($"{ratio:P1} of the input; progress reached {last:P0}");
+        });
+
+        if (sevenZipExe is not null)
+            Test($"Archive {ext}: 7-Zip itself accepts what we wrote", () =>
+            {
+                var archive = Path.Combine(scratch, "arc-" + ext.TrimStart('.'), "src" + ext);
+                var psi = new ProcessStartInfo(sevenZipExe, ["t", archive]) { RedirectStandardOutput = true, UseShellExecute = false };
+                using var p = Process.Start(psi)!;
+                var text = p.StandardOutput.ReadToEnd();
+                p.WaitForExit();
+                return p.ExitCode == 0 && text.Contains("Everything is Ok") ? Note(Path.GetFileName(sevenZipExe)) : $"7-Zip exit {p.ExitCode}";
+            });
+    }
+
+    Test("Archive: convert zip → 7z → zip keeps every file", () =>
+    {
+        var dir = Dir("arc-convert");
+        using (var engine = new ArchiveEngine())
+            engine.Compress(ArchiveFormat.Zip, ArchiveLevel.Fast, 0, false, [archiveSrc], Path.Combine(dir, "set.zip"), true, null, CancellationToken.None);
+        var o = RunJob(c => ArchiveJobs.Convert(c, Path.Combine(dir, "set.zip")), s => s.ArchiveConvertTarget = ConvertTarget.Swap);
+        if (o.Status != JobStatus.Succeeded || !File.Exists(Path.Combine(dir, "set.7z"))) return $"zip→7z: {o.Status} {o.Summary}";
+        File.Delete(Path.Combine(dir, "set.zip"));
+        o = RunJob(c => ArchiveJobs.Convert(c, Path.Combine(dir, "set.7z")), s => s.ArchiveConvertTarget = ConvertTarget.Swap);
+        if (o.Status != JobStatus.Succeeded || !File.Exists(Path.Combine(dir, "set.zip"))) return $"7z→zip: {o.Status} {o.Summary}";
+        using (var engine = new ArchiveEngine())
+            engine.Extract(Path.Combine(dir, "set.zip"), Path.Combine(dir, "out"), null, CancellationToken.None);
+        return SameTree(archiveSrc, Path.Combine(dir, "out"));
+    });
+
+    Test("Archive: converting to the format it already has is skipped", () =>
+    {
+        var o = RunJob(c => ArchiveJobs.Convert(c, Path.Combine(scratch, "arc-convert", "set.zip")), s => s.ArchiveConvertTarget = ConvertTarget.ToZip);
+        return o.Status == JobStatus.Skipped ? null : $"{o.Status}: {o.Summary}";
+    });
+
+    Test("Archive: one archive per file or subfolder in a folder", () =>
+    {
+        var outDir = Dir("arc-entries");
+        var o = RunJob(c => ArchiveJobs.CompressEntries(c, archiveSrc, outDir), s => s.ArchiveFormat = ArchiveFormat.SevenZip);
+        var made = Directory.GetFiles(outDir).Select(Path.GetFileName).OrderBy(n => n, StringComparer.Ordinal).ToList();
+        var expected = new[] { "Sub Folder.7z", "data.7z", "disc.7z", "empty.7z", "notes.7z" }.OrderBy(n => n, StringComparer.Ordinal);
+        return o.Status == JobStatus.Succeeded && made.SequenceEqual(expected) ? Note(o.Summary) : $"{o.Status} {o.Summary}: {string.Join(", ", made)}";
+    });
+
+    Test("Archive: several items into one archive", () =>
+    {
+        var outDir = Dir("arc-single");
+        var o = RunJob(c => ArchiveJobs.CompressOne(c, [Path.Combine(archiveSrc, "notes.txt"), Path.Combine(archiveSrc, "Sub Folder")], "Combined", outDir));
+        if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+        using var engine = new ArchiveEngine();
+        engine.Extract(Path.Combine(outDir, "Combined.7z"), Path.Combine(outDir, "x"), null, CancellationToken.None);
+        return File.Exists(Path.Combine(outDir, "x", "notes.txt")) && File.Exists(Path.Combine(outDir, "x", "Sub Folder", "日本語 é.txt")) ? null : "missing entries";
+    });
+
+    Test("Archive: name clashes keep the extension (game.bin / game.cue)", () =>
+    {
+        var names = ArchiveJobs.UniqueNames(["a/game.bin", "a/game.cue", "a/other.iso"]);
+        return names.SequenceEqual(["game.bin", "game.cue", "other"]) ? null : string.Join(", ", names);
+    });
+
+    Test("Archive: remove originals after the archive tests OK", () =>
+    {
+        var dir = Dir("arc-delete");
+        var folder = Path.Combine(dir, "Game Folder");
+        Directory.CreateDirectory(folder);
+        File.Copy(synthBin, Path.Combine(folder, "game.bin"));
+        var o = RunJob(c => ArchiveJobs.CompressOne(c, [folder], "Game Folder", dir), s => { s.ArchiveDeleteOriginals = true; s.UseRecycleBin = false; s.ArchiveTestAfter = false; });
+        return o.Status == JobStatus.Succeeded && !Directory.Exists(folder) && File.Exists(Path.Combine(dir, "Game Folder.7z"))
+            ? null : $"{o.Status} {o.Summary}; folder still there: {Directory.Exists(folder)}";
+    });
+
+    Test("Archive: a damaged archive fails its test", () =>
+    {
+        var damaged = Path.Combine(Dir("arc-damaged"), "bad.7z");
+        File.Copy(Path.Combine(scratch, "arc-7z", "src.7z"), damaged);
+        var bytes = File.ReadAllBytes(damaged);
+        for (var i = bytes.Length / 2; i < bytes.Length / 2 + 256; i++) bytes[i] ^= 0xA5;
+        File.WriteAllBytes(damaged, bytes);
+        using var engine = new ArchiveEngine();
+        try { engine.Test(damaged, null, CancellationToken.None); return "damaged archive passed its test"; }
+        catch (ArchiveException ex) { return Note(ex.Message.Split('\n')[0]); }
+    });
+
+    Test("Archive: cancelling leaves no partial archive", () =>
+    {
+        var outDir = Dir("arc-cancel");
+        using var cts = new CancellationTokenSource();
+        var report = new CancelAtProgress(cts, 0.1);
+        var o = RunJob(c => ArchiveJobs.CompressOne(c, [isoSlice], "slice", outDir),
+            s => { s.ArchiveLevel = ArchiveLevel.Ultra; s.ThreadsPerJob = 1; }, cts.Token, report);
+        var left = Directory.GetFiles(outDir);
+        return o.Status == JobStatus.Cancelled && left.Length == 0 ? null : $"{o.Status} {o.Summary}, {left.Length} file(s) left";
+    });
+}
+
 // ---- Library tests tab -------------------------------------------------------
 
 if (File.Exists(upstream))
@@ -615,6 +744,20 @@ static string? SameFile(string expected, string actual)
     if (a != b) return $"length {b:N0}, expected {a:N0}";
     var at = TestJobs.FirstDifference(expected, actual, CancellationToken.None);
     return at < 0 ? null : $"differs at byte {at:N0}";
+}
+
+/// <summary>Compares two folders: the same relative file names, each with the same bytes.</summary>
+static string? SameTree(string expected, string actual)
+{
+    if (!Directory.Exists(actual)) return $"{actual} does not exist";
+    static List<string> Files(string root) => Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+        .Select(f => Path.GetRelativePath(root, f)).OrderBy(f => f, StringComparer.Ordinal).ToList();
+    var a = Files(expected);
+    var b = Files(actual);
+    if (!a.SequenceEqual(b)) return $"file lists differ: [{string.Join(", ", a)}] vs [{string.Join(", ", b)}]";
+    foreach (var f in a)
+        if (SameFile(Path.Combine(expected, f), Path.Combine(actual, f)) is { } p) return $"{f}: {p}";
+    return null;
 }
 
 static void CopyRange(string source, Stream destination, long offset, long count)

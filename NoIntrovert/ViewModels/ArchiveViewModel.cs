@@ -1,0 +1,104 @@
+using System.ComponentModel;
+using NoIntrovert.Core;
+using NoIntrovert.Core.Archives;
+using NoIntrovert.Core.Jobs;
+using NoIntrovert.Services;
+
+namespace NoIntrovert.ViewModels;
+
+/// <summary>
+/// The Archive tab: compress files and folders into 7z or zip, or convert
+/// zip/7z (and rar) archives into the other format, with 7-Zip's engine.
+/// </summary>
+public partial class ArchiveViewModel : BatchTabViewModel
+{
+    public ArchiveViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs) : base(settings, log, dialogs)
+    {
+        settings.PropertyChanged += OnSettingChanged;
+    }
+
+    private void OnSettingChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(SettingsViewModel.SelectedArchiveAction))
+        {
+            OnPropertyChanged(nameof(StartLabel));
+            OnPropertyChanged(nameof(EmptyHint));
+        }
+    }
+
+    private bool Converting => Settings.IsArchiveConvert;
+
+    public override string Title => "Archive";
+    public override string StartLabel => Converting ? "Convert archives" : "Create archives";
+    public override string EmptyHint => Converting
+        ? "Drop .zip, .7z or .rar archives (or folders holding them) here to convert them to the other format."
+        : "Drop files and folders here to pack them into .7z or .zip archives.\nEach folder you add stays one row; the grouping option decides how many archives it makes.";
+    protected override string FilterName => Converting ? "Archives" : "All files";
+    protected override IReadOnlyList<string> Patterns => Converting ? ["*.zip", "*.7z", "*.rar"] : ["*.*"];
+
+    protected override bool Accepts(string path) =>
+        Converting ? ArchiveJobs.IsConvertible(path) : File.Exists(path) || Directory.Exists(path);
+
+    /// <summary>Compressing keeps a folder as one row; converting adds the archives found in it.</summary>
+    protected override IEnumerable<string> ItemsForFolder(string folder) =>
+        Converting ? base.ItemsForFolder(folder) : [folder];
+
+    protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
+    {
+        if (!ArchiveEngine.IsAvailable(out var problem))
+        {
+            Log.Error($"Archive: {problem}");
+            return false;
+        }
+        if (Converting && pending.Any(i => !ArchiveJobs.IsConvertible(i.Path)))
+            Log.Warn("Archive: rows that aren't .zip, .7z or .rar files are skipped when converting.");
+        if (!Converting && Settings.IsSingleArchive && string.IsNullOrWhiteSpace(Settings.ArchiveSingleName))
+        {
+            Log.Error("Archive: give the combined archive a name first.");
+            return false;
+        }
+        if (Settings.ArchiveDeleteOriginals)
+            Log.Warn($"Archive: originals will be {(Settings.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently")} after each archive tests OK.");
+        return true;
+    }
+
+    /// <summary>"Everything into one archive" makes the whole list a single job.</summary>
+    protected override IReadOnlyList<IReadOnlyList<JobItemViewModel>> GroupItems(IReadOnlyList<JobItemViewModel> pending) =>
+        !Converting && Settings.IsSingleArchive ? [pending] : base.GroupItems(pending);
+
+    protected override JobOutcome WorkGroup(JobContext context, IReadOnlyList<JobItemViewModel> group)
+    {
+        var s = context.Settings;
+        if (s.ArchiveAction == ArchiveAction.Convert)
+        {
+            var item = group[0];
+            return ArchiveJobs.IsConvertible(item.Path)
+                ? ArchiveJobs.Convert(context, item.Path)
+                : JobOutcome.Skipped("Not a zip, 7z or rar archive");
+        }
+
+        if (s.ArchiveGrouping == ArchiveGrouping.Single)
+        {
+            var paths = group.Select(i => i.Path).ToList();
+            var folder = OutputPaths.FolderFor(s, paths[0]);
+            return ArchiveJobs.CompressOne(context, paths, s.ArchiveSingleName.Trim(), folder);
+        }
+
+        var row = group[0];
+        if (s.ArchiveGrouping == ArchiveGrouping.PerEntryInFolders && row.IsFolder)
+            return ArchiveJobs.CompressEntries(context, row.Path, s.OutputFolder);
+
+        return ArchiveJobs.CompressOne(context, [row.Path], NameFor(row), OutputPaths.FolderFor(s, row.Path));
+    }
+
+    protected override JobOutcome Work(JobContext context, JobItemViewModel item) => WorkGroup(context, [item]);
+
+    /// <summary>Archive name for a row, keeping the extension when two rows would otherwise clash.</summary>
+    private string NameFor(JobItemViewModel row)
+    {
+        var siblings = Items.Where(i => string.Equals(i.Folder, row.Folder, StringComparison.OrdinalIgnoreCase)).Select(i => i.Path).ToList();
+        var names = ArchiveJobs.UniqueNames(siblings);
+        var index = siblings.FindIndex(p => p.Equals(row.Path, StringComparison.OrdinalIgnoreCase));
+        return index >= 0 ? names[index] : ArchiveJobs.BaseName(row.Path);
+    }
+}

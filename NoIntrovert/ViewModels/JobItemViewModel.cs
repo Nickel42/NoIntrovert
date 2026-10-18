@@ -42,15 +42,23 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
 
     public JobItemViewModel(string path)
     {
-        Path = path;
-        Name = System.IO.Path.GetFileName(path);
-        Folder = System.IO.Path.GetDirectoryName(path) ?? "";
-        TypeText = System.IO.Path.GetExtension(path).TrimStart('.').ToUpperInvariant();
+        Path = System.IO.Path.TrimEndingDirectorySeparator(path);
+        Name = System.IO.Path.GetFileName(Path);
+        Folder = System.IO.Path.GetDirectoryName(Path) ?? "";
+        IsFolder = Directory.Exists(Path);
+        TypeText = IsFolder ? "FOLDER" : System.IO.Path.GetExtension(Path).TrimStart('.').ToUpperInvariant();
         long size = 0;
-        try { size = Core.Formats.DiscFiles.SetFiles(path).Where(File.Exists).Sum(f => new FileInfo(f).Length); }
+        try
+        {
+            size = IsFolder
+                ? Core.Archives.ArchiveJobs.SizeOf(Path)
+                : Core.Formats.DiscFiles.SetFiles(Path).Where(File.Exists).Sum(f => new FileInfo(f).Length);
+        }
         catch (IOException) { }
         SizeText = ChdJobs.Size(size);
     }
+
+    public bool IsFolder { get; }
 
     partial void OnStatusChanged(JobStatus value)
     {

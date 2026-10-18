@@ -480,3 +480,8 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Downloaded third-party sources and native build output
+native/_deps/
+native/build*/
+native/out/
