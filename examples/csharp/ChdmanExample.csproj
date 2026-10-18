@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- Directory containing chdman.dll / libchdman.dylib (pass -p:ChdmanLibDir=...) -->
+    <ChdmanLibDir Condition="'$(ChdmanLibDir)' == ''">$(MSBuildThisFileDirectory)../../build</ChdmanLibDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(ChdmanLibDir)/chdman.dll" Condition="Exists('$(ChdmanLibDir)/chdman.dll')" CopyToOutputDirectory="PreserveNewest" Link="chdman.dll" />
+    <None Include="$(ChdmanLibDir)/libchdman.dylib" Condition="Exists('$(ChdmanLibDir)/libchdman.dylib')" CopyToOutputDirectory="PreserveNewest" Link="libchdman.dylib" />
+  </ItemGroup>
+
+</Project>
