@@ -104,14 +104,17 @@ typedef int (CHDMAN_CALL *chdman_progress_fn)(void *user, chdman_phase phase, do
 
 typedef enum chdman_log_level {
 	CHDMAN_LOG_INFO = 0,
-	CHDMAN_LOG_WARNING = 1
+	CHDMAN_LOG_WARNING = 1,
+	CHDMAN_LOG_ERROR = 2   /* the cause of a failure, reported as it happens */
 } chdman_log_level;
 
 /*
  * Log callback for diagnostics: the informational lines and warnings that
- * chdman prints, plus error and warning lines from MAME's parsers (e.g.
- * "ERROR: couldn't find bin file [x.bin]"), which arrive as
- * CHDMAN_LOG_WARNING. Called on the thread that invoked the operation.
+ * chdman prints, plus the info, warning and error lines from MAME's parsers
+ * at the matching level (e.g. CHDMAN_LOG_ERROR "ERROR: couldn't find bin
+ * file [x.bin]"). An error line is also appended to chdman_last_error() if
+ * the operation fails. Treat unknown levels as CHDMAN_LOG_WARNING.
+ * Called on the thread that invoked the operation.
  */
 typedef void (CHDMAN_CALL *chdman_log_fn)(void *user, chdman_log_level level, const char *message);
 

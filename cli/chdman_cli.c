@@ -160,10 +160,10 @@ static void CHDMAN_CALL log_cb(void *user, chdman_log_level level, const char *m
 		fprintf(stderr, "%70s\r", "");
 		g_progress_shown = 0;
 	}
-	if (level == CHDMAN_LOG_WARNING)
-		fprintf(stderr, "%s\n", message);
-	else
+	if (level == CHDMAN_LOG_INFO)
 		printf("%s\n", message);
+	else
+		fprintf(stderr, "%s\n", message);
 	fflush(stdout);
 }
 

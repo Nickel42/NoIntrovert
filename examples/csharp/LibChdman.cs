@@ -15,7 +15,7 @@ namespace LibChdman
     }
 
     public enum Phase : int { WalkingParent = 0, Compressing = 1, Verifying = 2, Extracting = 3, Analyzing = 4 }
-    public enum LogLevel : int { Info = 0, Warning = 1 }
+    public enum LogLevel : int { Info = 0, Warning = 1, Error = 2 }
     public enum VerifyOutcome : int { Ok = 0, RawMismatch = 1, OverallMismatch = 2, Fixed = 3, NotApplicable = 4 }
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]

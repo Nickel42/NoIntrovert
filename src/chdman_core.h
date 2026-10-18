@@ -61,7 +61,7 @@ public:
 
 	// MAME's osd_printf_error/warning/info output from this thread while a
 	// session_scope for this session is active
-	void osd_message(chdman_log_level level, bool is_error, std::string message);
+	void osd_message(chdman_log_level level, std::string message);
 	// last error line MAME printed during the current operation ("" if none)
 	std::string const &last_osd_error() const noexcept { return m_last_osd_error; }
 

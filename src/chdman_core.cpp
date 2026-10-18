@@ -1154,7 +1154,7 @@ void session::warning(std::string const &message) const
 		log_cb(CHDMAN_LOG_WARNING, message);
 }
 
-void session::osd_message(chdman_log_level level, bool is_error, std::string message)
+void session::osd_message(chdman_log_level level, std::string message)
 {
 	// MAME terminates lines with '\n'; strip it, and keep only the last line
 	// of a multi-line error for the error message
@@ -1164,7 +1164,7 @@ void session::osd_message(chdman_log_level level, bool is_error, std::string mes
 		return;
 	if (log_cb)
 		log_cb(level, message);
-	if (is_error)
+	if (level == CHDMAN_LOG_ERROR)
 	{
 		std::string::size_type const nl = message.find_last_of('\n');
 		std::string line = (nl == std::string::npos) ? message : message.substr(nl + 1);
@@ -1201,9 +1201,9 @@ public:
 		{
 			switch (channel)
 			{
-			case OSD_OUTPUT_CHANNEL_ERROR:   s->osd_message(CHDMAN_LOG_WARNING, true, util::string_format(args)); break;
-			case OSD_OUTPUT_CHANNEL_WARNING: s->osd_message(CHDMAN_LOG_WARNING, false, util::string_format(args)); break;
-			case OSD_OUTPUT_CHANNEL_INFO:    s->osd_message(CHDMAN_LOG_INFO, false, util::string_format(args)); break;
+			case OSD_OUTPUT_CHANNEL_ERROR:   s->osd_message(CHDMAN_LOG_ERROR, util::string_format(args)); break;
+			case OSD_OUTPUT_CHANNEL_WARNING: s->osd_message(CHDMAN_LOG_WARNING, util::string_format(args)); break;
+			case OSD_OUTPUT_CHANNEL_INFO:    s->osd_message(CHDMAN_LOG_INFO, util::string_format(args)); break;
 			default:                         break; // verbose/debug/log are dropped, as in chdman
 			}
 		}

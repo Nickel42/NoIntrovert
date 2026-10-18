@@ -855,7 +855,7 @@ void test_cd_parse_errors()
 	CHECK(!fs::exists(chd));
 	bool logged = false;
 	for (auto const &l : lines)
-		logged = logged || (l.first == CHDMAN_LOG_WARNING && l.second.find("couldn't find bin file") != std::string::npos && l.second.back() != '\n');
+		logged = logged || (l.first == CHDMAN_LOG_ERROR &&l.second.find("couldn't find bin file") != std::string::npos && l.second.back() != '\n');
 	CHECK(logged);
 
 	// the detail belongs to that operation only
