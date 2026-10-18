@@ -15,9 +15,16 @@
  *    on the same context.
  *  - No exceptions, no stdout/stderr output, no process exit. Diagnostics go
  *    to the optional log callback.
- *  - Option structs carry a struct_size field and must be initialized with
- *    the matching chdman_*_options_init() function before use. This lets new
- *    fields be appended without breaking binary compatibility.
+ *  - Option and result structs carry a struct_size field and must be
+ *    initialized with the matching chdman_*_init() function before use. New
+ *    fields are only ever appended. The library accepts any struct_size from
+ *    the ABI 1 size upward: fields beyond the caller's struct_size take their
+ *    *_init() defaults, fields the library doesn't know are ignored, and a
+ *    result struct is written only up to its struct_size. A struct_size below
+ *    the ABI 1 size fails with CHDMAN_ERR_ABI_MISMATCH.
+ *  - chdman_output_options and chdman_range_options are embedded in other
+ *    structs without a struct_size of their own, so their layout is frozen.
+ *    New output or range settings will be appended to the outer structs.
  *  - Numeric "not specified" values use CHDMAN_UNSET (all bits set).
  */
 #ifndef CHDMAN_H
@@ -219,7 +226,9 @@ CHDMAN_API chdman_status CHDMAN_CALL chdman_verify(chdman_context *ctx, const ch
 /* ------------------------------------------------------------------ create */
 
 /*
- * Shared output settings for create and copy.
+ * Shared output settings for create and copy. Frozen: this struct has no
+ * struct_size, so it can never grow. New output settings will be appended
+ * to the outer chdman_create_*_options / chdman_copy_options structs.
  *   compression: NULL = default for the media type, "none", or up to four
  *                comma-separated 4CCs ("lzma,zlib,huff,flac").
  *   hunk_size:   0 = default for the media type.
@@ -232,7 +241,10 @@ typedef struct chdman_output_options {
 	const char *compression;
 } chdman_output_options;
 
-/* Input range selection; at most one start and one length field may be set. */
+/*
+ * Input range selection; at most one start and one length field may be set.
+ * Frozen like chdman_output_options: new fields go in the outer structs.
+ */
 typedef struct chdman_range_options {
 	uint64_t start_byte;        /* CHDMAN_UNSET when not used */
 	uint64_t start_hunk;

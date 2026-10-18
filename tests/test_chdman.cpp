@@ -5,6 +5,7 @@
 #include "chdman.h"
 #include "sha1.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -733,6 +734,67 @@ void test_errors_and_cancel()
 	CHECK(saw_complete);
 }
 
+void test_struct_size()
+{
+	context ctx;
+	auto const data = make_raw_image(65536 * 2);
+	write_file(path("ss.img"), data);
+	std::string const img = path("ss.img"), out = path("ss.chd");
+
+	// a struct_size that stops at the end of the last v1 field (no trailing
+	// padding) is accepted; one that cuts off a v1 field is not
+	chdman_create_raw_options ro;
+	chdman_create_raw_options_init(&ro);
+	ro.input = img.c_str();
+	ro.out.output = out.c_str();
+	ro.out.force = 1;
+	ro.unit_size = 512;
+	ro.struct_size = offsetof(chdman_create_raw_options, unit_size) + sizeof(ro.unit_size);
+	CHECK_OK(ctx, chdman_create_raw(ctx, &ro));
+	ro.struct_size = offsetof(chdman_create_raw_options, unit_size);
+	CHECK(chdman_create_raw(ctx, &ro) == CHDMAN_ERR_ABI_MISMATCH);
+	CHECK(std::string(chdman_last_error(ctx)).find("struct_size") != std::string::npos);
+	ro.struct_size = 0;
+	CHECK(chdman_create_raw(ctx, &ro) == CHDMAN_ERR_ABI_MISMATCH);
+
+	// a caller built against a newer header passes a larger struct; the
+	// unknown trailing fields are ignored
+	struct newer_raw { chdman_create_raw_options v1; uint64_t future[4]; } nr;
+	std::memset(&nr, 0xa5, sizeof(nr));
+	chdman_create_raw_options_init(&nr.v1);
+	nr.v1.struct_size = sizeof(nr);
+	nr.v1.input = img.c_str();
+	nr.v1.out.output = out.c_str();
+	nr.v1.out.force = 1;
+	nr.v1.unit_size = 512;
+	CHECK_OK(ctx, chdman_create_raw(ctx, &nr.v1));
+	std::string const sha = info_raw_sha1(ctx, out);
+	CHECK_EQ_STR(sha, sha1_hex(data));
+
+	// a larger result struct is written only up to the library's own size
+	struct newer_result { chdman_verify_result v1; uint8_t future[32]; } vr;
+	std::memset(&vr, 0xa5, sizeof(vr));
+	chdman_verify_result_init(&vr.v1);
+	vr.v1.struct_size = sizeof(vr);
+	chdman_verify_options vo;
+	chdman_verify_options_init(&vo);
+	vo.input = out.c_str();
+	CHECK_OK(ctx, chdman_verify(ctx, &vo, &vr.v1));
+	CHECK(vr.v1.outcome == CHDMAN_VERIFY_OK);
+	CHECK(vr.v1.struct_size == sizeof(vr));
+	CHECK_EQ_STR(vr.v1.computed_raw_sha1, sha);
+	bool untouched = true;
+	for (uint8_t b : vr.future)
+		untouched = untouched && b == 0xa5;
+	CHECK(untouched);
+
+	// a result struct cut short is rejected before anything is written
+	chdman_verify_result_init(&vr.v1);
+	vr.v1.struct_size = offsetof(chdman_verify_result, computed_sha1);
+	CHECK(chdman_verify(ctx, &vo, &vr.v1) == CHDMAN_ERR_ABI_MISMATCH);
+	CHECK(vr.v1.outcome == CHDMAN_VERIFY_NOT_APPLICABLE);
+}
+
 } // anonymous namespace
 
 int main()
@@ -753,6 +815,7 @@ int main()
 		{ "dvd_and_hd", test_dvd_and_hd },
 		{ "ld_roundtrip", test_ld_roundtrip },
 		{ "errors_and_cancel", test_errors_and_cancel },
+		{ "struct_size", test_struct_size },
 	};
 	for (auto const &t : tests)
 	{
