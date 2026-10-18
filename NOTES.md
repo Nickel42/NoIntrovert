@@ -117,10 +117,12 @@ first:
   with the same function names, using typed option structs, a `session`
   for progress/cancel/log, and errors thrown as `chdman::error`.
   `src/chdman_capi.cpp` catches everything at the C boundary.
-- **Edits to MAME code (two):** `compress_wait_idle()` added to
+- **Edits to MAME code (three):** `compress_wait_idle()` added to
   `chd_file_compressor`, so cancelling mid-compression can't race the I/O
-  thread, and two `fprintf(stderr)` calls removed. See `vendor/PATCHES.md`.
-  Neither changes the bytes written; the parity test proves it.
+  thread; two `fprintf(stderr)` calls removed; and `m_codecs` given one
+  extra slot for the thread that waits on the work queue (otherwise hosts
+  with 18+ CPUs crash on cancel). See `vendor/PATCHES.md`.
+  None of them changes the bytes written; the parity test proves it.
 - **Metadata editing:** add and delete only work on *uncompressed* CHDs.
   This is upstream behavior (MAME opens compressed v5 CHDs read-only), not
   a bug.
@@ -135,5 +137,5 @@ first:
 ## Updating to a newer MAME
 
 `vendor/PATCHES.md` has the procedure: sparse checkout, re-copy, re-apply
-the two `chd.*` patches, port any `chdman.cpp` changes into
+the three `chd.*` patches, port any `chdman.cpp` changes into
 `src/chdman_core.cpp`, then run the parity test.
