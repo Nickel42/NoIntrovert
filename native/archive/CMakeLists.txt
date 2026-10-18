@@ -45,6 +45,15 @@ set(BIT7Z_INSTALL OFF CACHE BOOL "" FORCE)
 # nothing through CPM, so a local stand-in keeps the build fully offline.
 set(CPM_SOURCE_CACHE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpm-offline" CACHE PATH "" FORCE)
 
+# bit7z checks for std::filesystem by building and *running* a test program.
+# Cross-compiling for ARM64 on an x64 machine, the program can't run, so the
+# check fails and bit7z would fall back to downloading ghc::filesystem. MSVC
+# has had std::filesystem built in (no extra libraries) since VS 2017, so
+# answer the check up front; check_cxx_source_runs skips a defined result.
+if(MSVC)
+  set(STANDARD_FILESYSTEM_LINKS 1 CACHE INTERNAL "MSVC provides std::filesystem in its standard library")
+endif()
+
 add_subdirectory("${NOI_BIT7Z_DIR}" bit7z EXCLUDE_FROM_ALL)
 
 add_library(noi_archive SHARED noi_archive.cpp noi_archive.h)
