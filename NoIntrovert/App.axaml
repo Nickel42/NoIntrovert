@@ -1,0 +1,82 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NoIntrovert.App"
+             xmlns:local="using:NoIntrovert"
+             RequestedThemeVariant="Dark">
+
+    <Application.DataTemplates>
+        <local:ViewLocator />
+    </Application.DataTemplates>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="AppBackground" Color="#16181D" />
+                    <SolidColorBrush x:Key="PanelBackground" Color="#1E2128" />
+                    <SolidColorBrush x:Key="PanelBorder" Color="#2C3039" />
+                    <SolidColorBrush x:Key="RowAlt" Color="#20232B" />
+                    <SolidColorBrush x:Key="SubtleText" Color="#9AA0AA" />
+                    <SolidColorBrush x:Key="HeaderBackground" Color="#101216" />
+                    <SolidColorBrush x:Key="LogBackground" Color="#121419" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="AppBackground" Color="#F3F4F6" />
+                    <SolidColorBrush x:Key="PanelBackground" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="PanelBorder" Color="#DDE0E5" />
+                    <SolidColorBrush x:Key="RowAlt" Color="#F7F8FA" />
+                    <SolidColorBrush x:Key="SubtleText" Color="#5F6670" />
+                    <SolidColorBrush x:Key="HeaderBackground" Color="#E8EAEE" />
+                    <SolidColorBrush x:Key="LogBackground" Color="#FAFAFB" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            <Color x:Key="SystemAccentColor">#E0703A</Color>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource PanelBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+            <Setter Property="Margin" Value="0,10,0,4" />
+        </Style>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="TextBlock.colhead">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentColor}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="18,7" />
+        </Style>
+        <Style Selector="Button.tool">
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style Selector="TabControl.main > TabItem">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Padding" Value="14,0" />
+        </Style>
+    </Application.Styles>
+</Application>

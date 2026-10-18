@@ -1,0 +1,87 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NoIntrovert.ViewModels"
+        xmlns:core="using:NoIntrovert.Core"
+        xmlns:v="using:NoIntrovert.Views"
+        x:Class="NoIntrovert.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="NoIntrovert — libchdman test bench"
+        MinWidth="900" MinHeight="600"
+        Background="{DynamicResource AppBackground}"
+        DragDrop.AllowDrop="True">
+
+    <Grid RowDefinitions="Auto,*,Auto,230">
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="{DynamicResource HeaderBackground}" Padding="18,10">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Border Width="30" Height="30" CornerRadius="15" Background="{DynamicResource SystemAccentColor}">
+                        <Ellipse Width="10" Height="10" Fill="{DynamicResource HeaderBackground}" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="NoIntrovert" FontSize="18" FontWeight="Bold" />
+                        <TextBlock Text="CHD batch tool · libchdman test bench" Classes="hint" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <TextBlock Text="{Binding LibraryVersion}" Classes="hint" HorizontalAlignment="Right" />
+                    <TextBlock Classes="hint" HorizontalAlignment="Right">
+                        <Run Text="{Binding Log.ErrorCount}" /><Run Text=" errors · " /><Run Text="{Binding Log.WarningCount}" /><Run Text=" warnings" />
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Tabs -->
+        <TabControl Grid.Row="1" Classes="main" Margin="12,6,12,0" SelectedIndex="{Binding SelectedTab}">
+            <TabItem Header="Convert"><ContentControl Content="{Binding Convert}" /></TabItem>
+            <TabItem Header="Verify"><ContentControl Content="{Binding Verify}" /></TabItem>
+            <TabItem Header="Extract"><ContentControl Content="{Binding Extract}" /></TabItem>
+            <TabItem Header="CHD Info"><ContentControl Content="{Binding Info}" /></TabItem>
+            <TabItem Header="Library tests"><ContentControl Content="{Binding Tests}" /></TabItem>
+        </TabControl>
+
+        <GridSplitter Grid.Row="2" Height="6" Background="Transparent" ResizeDirection="Rows" />
+
+        <!-- Log -->
+        <Border Grid.Row="3" Classes="card" Margin="12,0,12,12" Padding="0" x:Name="LogCard">
+            <Grid RowDefinitions="Auto,*">
+                <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,6">
+                    <TextBlock Text="Log" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                        <CheckBox Content="Show debug" IsChecked="{Binding Log.ShowDebug}" />
+                        <CheckBox Content="libchdman messages" IsChecked="{Binding Settings.VerboseLog}"
+                                  ToolTip.Tip="Log every message libchdman sends (shown as debug lines)." />
+                        <CheckBox Content="Progress" IsChecked="{Binding Settings.LogProgress}"
+                                  ToolTip.Tip="Log libchdman progress reports every 10% (debug lines)." />
+                        <Button Classes="tool" Content="Copy" Command="{Binding Log.CopyCommand}" />
+                        <Button Classes="tool" Content="Save…" Command="{Binding Log.SaveCommand}" />
+                        <Button Classes="tool" Content="Clear" Command="{Binding Log.ClearCommand}" />
+                    </StackPanel>
+                </Grid>
+                <ListBox Grid.Row="1" x:Name="LogList" ItemsSource="{Binding Log.Entries}"
+                         Background="{DynamicResource LogBackground}" Padding="0,2">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Padding" Value="10,1" />
+                            <Setter Property="MinHeight" Value="0" />
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="core:LogEntry">
+                            <Grid ColumnDefinitions="64,34,*" Opacity="{Binding Level, Converter={x:Static v:Palette.LevelOpacity}}">
+                                <TextBlock Text="{Binding TimeText}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Classes="hint" />
+                                <Border Grid.Column="1" Width="4" Height="12" CornerRadius="2" HorizontalAlignment="Left"
+                                        Background="{Binding Level, Converter={x:Static v:Palette.LevelBrush}}" />
+                                <SelectableTextBlock Grid.Column="2" Text="{Binding Message}" FontFamily="Cascadia Mono,Consolas,monospace"
+                                                     FontSize="12" TextWrapping="Wrap" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

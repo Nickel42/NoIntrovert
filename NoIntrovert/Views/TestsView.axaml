@@ -1,0 +1,95 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             xmlns:jobs="using:NoIntrovert.Core.Jobs"
+             xmlns:v="using:NoIntrovert.Views"
+             x:Class="NoIntrovert.Views.TestsView"
+             x:DataType="vm:TestsViewModel">
+    <Grid ColumnDefinitions="*,310" ColumnSpacing="12" Margin="0,10,0,0">
+
+        <Grid RowDefinitions="3*,Auto,2*" RowSpacing="0">
+            <v:JobListPanel />
+
+            <GridSplitter Grid.Row="1" Height="8" Background="Transparent" ResizeDirection="Rows" />
+
+            <!-- Results -->
+            <Border Grid.Row="2" Classes="card" Padding="0">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="14,8,10,4">
+                        <TextBlock Text="RESULTS" Classes="section" Margin="0" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding RecordSummary}" Classes="hint" Margin="12,0" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                            <Button Classes="tool" Content="Export CSV…" Command="{Binding ExportCsvCommand}" />
+                            <Button Classes="tool" Content="Clear" Command="{Binding ClearResultsCommand}" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid Grid.Row="1" ColumnDefinitions="56,*,90,80,80,90,90,2*" Margin="24,0,24,2">
+                        <TextBlock Text="RESULT" Classes="colhead" />
+                        <TextBlock Grid.Column="1" Text="DISC" Classes="colhead" />
+                        <TextBlock Grid.Column="2" Text="TEST" Classes="colhead" />
+                        <TextBlock Grid.Column="3" Text="LIB TIME" Classes="colhead" />
+                        <TextBlock Grid.Column="4" Text="EXE TIME" Classes="colhead" />
+                        <TextBlock Grid.Column="5" Text="LIB SIZE" Classes="colhead" />
+                        <TextBlock Grid.Column="6" Text="EXE SIZE" Classes="colhead" />
+                        <TextBlock Grid.Column="7" Text="NOTES" Classes="colhead" />
+                    </Grid>
+                    <ListBox Grid.Row="2" ItemsSource="{Binding Records}" Background="Transparent" Margin="10,0,10,8">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="jobs:TestRecord">
+                                <Grid ColumnDefinitions="56,*,90,80,80,90,90,2*">
+                                    <TextBlock Text="{Binding Passed, Converter={x:Static v:Palette.PassText}}" FontWeight="Bold"
+                                               Foreground="{Binding Passed, Converter={x:Static v:Palette.PassBrush}}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Disc}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Input}" />
+                                    <TextBlock Grid.Column="2" Text="{Binding Test}" Classes="hint" />
+                                    <TextBlock Grid.Column="3" Text="{Binding LibTime, Converter={x:Static v:Palette.Seconds}}" />
+                                    <TextBlock Grid.Column="4" Text="{Binding ExeTime, Converter={x:Static v:Palette.Seconds}}" />
+                                    <TextBlock Grid.Column="5" Text="{Binding LibBytes, Converter={x:Static v:Palette.Bytes}}" />
+                                    <TextBlock Grid.Column="6" Text="{Binding ExeBytes, Converter={x:Static v:Palette.Bytes}}" />
+                                    <TextBlock Grid.Column="7" Text="{Binding Notes}" TextWrapping="Wrap" FontSize="12" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <ScrollViewer Grid.Column="1">
+            <Border Classes="card">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="LIBRARY TESTS" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Classes="hint"
+                               Text="Checks libchdman against your own discs. Test files go in the temp folder and are deleted after each disc." />
+
+                    <TextBlock Text="TEST" Classes="section" />
+                    <ComboBox ItemsSource="{x:Static vm:TestsViewModel.TestChoices}" SelectedItem="{Binding SelectedTest}"
+                              HorizontalAlignment="Stretch" />
+
+                    <StackPanel IsVisible="{Binding NeedsChdman}" Spacing="4">
+                        <TextBlock Text="CHDMAN.EXE TO COMPARE WITH" Classes="section" />
+                        <TextBox Text="{Binding Settings.ChdmanExePath}" PlaceholderText="Path to chdman.exe" />
+                        <Button Classes="tool" Content="Browse…" Command="{Binding Settings.BrowseChdmanExeCommand}" />
+                        <TextBlock Classes="hint" Text="{Binding ChdmanVersion}" />
+                        <TextBlock Classes="hint"
+                                   Text="Both use the compression, hunk size and thread settings below, so their CHDs should be byte-identical." />
+                    </StackPanel>
+
+                    <TextBlock Text="COMPRESSION" Classes="section" />
+                    <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.CompressionChoices}"
+                              SelectedItem="{Binding Settings.SelectedCompression}" HorizontalAlignment="Stretch" />
+                    <TextBox Text="{Binding Settings.CustomCompression}" PlaceholderText="e.g. cdzs,cdzl,cdfl"
+                             IsVisible="{Binding Settings.IsCustomCompression}" />
+                    <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.IsoModes}"
+                              SelectedItem="{Binding Settings.SelectedIsoMode}" HorizontalAlignment="Stretch" Margin="0,4,0,0" />
+
+                    <Separator Margin="0,10" />
+                    <ContentControl Content="{Binding Settings}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:SettingsViewModel"><v:SharedOptions /></DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

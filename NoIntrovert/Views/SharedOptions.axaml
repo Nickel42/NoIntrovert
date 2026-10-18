@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             x:Class="NoIntrovert.Views.SharedOptions"
+             x:DataType="vm:SettingsViewModel">
+    <!-- Output folder, folder scanning and performance: the same on every batch tab. -->
+    <StackPanel Spacing="4">
+        <TextBlock Text="OUTPUT" Classes="section" Margin="0,0,0,4" />
+        <TextBlock Classes="hint" TextTrimming="LeadingCharacterEllipsis"
+                   Text="{Binding OutputFolder, TargetNullValue='', FallbackValue=''}"
+                   IsVisible="{Binding !UseSourceFolder}" ToolTip.Tip="{Binding OutputFolder}" />
+        <TextBlock Classes="hint" Text="Next to each source file" IsVisible="{Binding UseSourceFolder}" />
+        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2,0,0">
+            <Button Classes="tool" Content="Choose folder…" Command="{Binding BrowseOutputFolderCommand}" />
+            <Button Classes="tool" Content="Use source folders" Command="{Binding UseSourceFoldersCommand}" IsVisible="{Binding !UseSourceFolder}" />
+        </StackPanel>
+        <CheckBox Content="Overwrite existing files" IsChecked="{Binding Overwrite}" />
+        <CheckBox Content="Include subfolders when adding a folder" IsChecked="{Binding ScanSubfolders}" />
+
+        <TextBlock Text="PERFORMANCE" Classes="section" />
+        <Grid ColumnDefinitions="*,110" RowDefinitions="Auto,Auto" RowSpacing="6">
+            <TextBlock Text="Files at once" VerticalAlignment="Center"
+                       ToolTip.Tip="Each parallel job gets its own libchdman context." />
+            <NumericUpDown Grid.Column="1" Value="{Binding ParallelJobs}" Minimum="1" Maximum="{Binding MaxThreads}"
+                           Increment="1" FormatString="0" />
+            <TextBlock Grid.Row="1" Text="Threads per file (0 = all)" VerticalAlignment="Center" />
+            <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding ThreadsPerJob}" Minimum="0"
+                           Maximum="{Binding MaxThreads}" Increment="1" FormatString="0" />
+        </Grid>
+    </StackPanel>
+</UserControl>

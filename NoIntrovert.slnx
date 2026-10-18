@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="NoIntrovert.Tests/NoIntrovert.Tests.csproj" />
+  <Project Path="NoIntrovert/NoIntrovert.csproj" />
+</Solution>

@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             xmlns:v="using:NoIntrovert.Views"
+             x:Class="NoIntrovert.Views.ExtractView"
+             x:DataType="vm:ExtractViewModel">
+    <Grid ColumnDefinitions="*,310" ColumnSpacing="12" Margin="0,10,0,0">
+        <v:JobListPanel />
+
+        <ScrollViewer Grid.Column="1">
+            <Border Classes="card">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="EXTRACT CHDS" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Classes="hint" Text="Turns CHDs back into disc images." />
+
+                    <TextBlock Text="FORMAT" Classes="section" />
+                    <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.ExtractFormats}"
+                              SelectedItem="{Binding Settings.SelectedExtractFormat}" HorizontalAlignment="Stretch" />
+                    <CheckBox Content="One .bin per track (cue/bin)" IsChecked="{Binding Settings.SplitBin}"
+                              ToolTip.Tip="Write each track to its own file, as Redump-style sets do. Off writes one .bin for the whole disc." />
+                    <TextBlock Classes="hint"
+                               Text="ISO from a CD works for single-track Mode 1 / Mode 2 Form 1 discs only; PS1 discs and discs with audio stay cue/bin." />
+
+                    <Separator Margin="0,10" />
+                    <ContentControl Content="{Binding Settings}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:SettingsViewModel"><v:SharedOptions /></DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
