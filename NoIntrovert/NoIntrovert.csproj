@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
@@ -8,12 +8,6 @@
     <AssemblyTitle>NoIntrovert</AssemblyTitle>
     <Product>NoIntrovert - libchdman test bench</Product>
     <Version>0.1.0</Version>
-  </PropertyGroup>
-
-  <!-- libchdman lives next to this repo; ChdmanLibDir points at its native build. -->
-  <PropertyGroup>
-    <LibChdmanRoot Condition="'$(LibChdmanRoot)' == ''">$(MSBuildThisFileDirectory)..\..\libchdman</LibChdmanRoot>
-    <ChdmanLibDir Condition="'$(ChdmanLibDir)' == ''">$(LibChdmanRoot)\artifacts\native\win-x64</ChdmanLibDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -35,12 +29,29 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(LibChdmanRoot)\bindings\csharp\LibChdman\LibChdman.csproj" />
+    <ProjectReference Include="$(LibChdmanRoot)/bindings/csharp/LibChdman/LibChdman.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="NoIntrovert.Tests" />
   </ItemGroup>
 
-  <Import Project="$(LibChdmanRoot)\bindings\csharp\ChdmanNativeCopy.targets" />
+  <Import Project="$(LibChdmanRoot)/bindings/csharp/ChdmanNativeCopy.targets" />
+
+  <!-- A plain build may run without libchdman (with a warning); a publish for a platform must include it. -->
+  <Target Name="WarnMissingChdmanNative" BeforeTargets="Build"
+          Condition="!Exists('$(ChdmanLibDir)/chdman.dll') And !Exists('$(ChdmanLibDir)/libchdman.dylib')">
+    <Warning Text="No libchdman native library in $(ChdmanLibDir); the app builds but can't run CHD operations. Build libchdman for $(ChdmanNativeDir) first." />
+  </Target>
+  <Target Name="RequireChdmanNativeForPublish" BeforeTargets="PrepareForPublish"
+          Condition="'$(RuntimeIdentifier)' != '' And !Exists('$(ChdmanLibDir)/chdman.dll') And !Exists('$(ChdmanLibDir)/libchdman.dylib')">
+    <Error Text="Can't publish for $(RuntimeIdentifier): no libchdman native library in $(ChdmanLibDir)." />
+  </Target>
+
+  <!-- SkiaSharp and HarfBuzz ship ~100 MB of native .pdb files; release downloads don't need them. -->
+  <Target Name="DropPackageSymbolsFromPublish" AfterTargets="ComputeResolvedFilesToPublishList" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb' Or '%(Extension)' == '.xml'" />
+    </ItemGroup>
+  </Target>
 </Project>

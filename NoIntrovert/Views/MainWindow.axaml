@@ -72,10 +72,10 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="core:LogEntry">
                             <Grid ColumnDefinitions="64,34,*" Opacity="{Binding Level, Converter={x:Static v:Palette.LevelOpacity}}">
-                                <TextBlock Text="{Binding TimeText}" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" Classes="hint" />
+                                <TextBlock Text="{Binding TimeText}" FontFamily="Cascadia Mono,Consolas,Menlo,monospace" FontSize="12" Classes="hint" />
                                 <Border Grid.Column="1" Width="4" Height="12" CornerRadius="2" HorizontalAlignment="Left"
                                         Background="{Binding Level, Converter={x:Static v:Palette.LevelBrush}}" />
-                                <SelectableTextBlock Grid.Column="2" Text="{Binding Message}" FontFamily="Cascadia Mono,Consolas,monospace"
+                                <SelectableTextBlock Grid.Column="2" Text="{Binding Message}" FontFamily="Cascadia Mono,Consolas,Menlo,monospace"
                                                      FontSize="12" TextWrapping="Wrap" />
                             </Grid>
                         </DataTemplate>

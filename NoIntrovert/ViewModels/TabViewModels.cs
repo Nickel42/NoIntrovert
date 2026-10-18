@@ -28,7 +28,7 @@ public partial class ConvertViewModel(SettingsViewModel settings, LogViewModel l
     protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
     {
         if (Settings.DeleteOriginals)
-            Log.Warn($"Originals will be {(Settings.UseRecycleBin ? "moved to the Recycle Bin" : "deleted permanently")} after each CHD verifies.");
+            Log.Warn($"Originals will be {(Settings.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently")} after each CHD verifies.");
         return true;
     }
 }
@@ -69,7 +69,7 @@ public partial class TestsViewModel : BatchTabViewModel
     public override string EmptyHint =>
         "Drop disc images here (any format the Convert tab takes).\n" +
         "Round trip: create → verify → extract, then compare with the original data.\n" +
-        "Compare: create with libchdman and chdman.exe, then compare the CHDs byte for byte.";
+        "Compare: create with libchdman and a chdman executable, then compare the CHDs byte for byte.";
     protected override string FilterName => "Disc images and archives";
     protected override IReadOnlyList<string> Patterns { get; } =
         DiscFiles.Descriptors.Concat(DiscFiles.Images).Concat(ArchiveExtractor.Extensions).Append(".001").Select(e => "*" + e).ToList();
@@ -78,7 +78,7 @@ public partial class TestsViewModel : BatchTabViewModel
 
     public static IReadOnlyList<Choice<TestKind>> TestChoices { get; } =
     [
-        new(TestKind.CompareWithChdman, "Compare with chdman.exe (byte-identical output, speed)"),
+        new(TestKind.CompareWithChdman, "Compare with chdman (byte-identical output, speed)"),
         new(TestKind.RoundTrip, "Round trip (create → verify → extract → compare data)"),
     ];
 
@@ -97,7 +97,7 @@ public partial class TestsViewModel : BatchTabViewModel
     {
         if (NeedsChdman && (string.IsNullOrWhiteSpace(Settings.ChdmanExePath) || !File.Exists(Settings.ChdmanExePath)))
         {
-            Log.Error("Library tests: choose chdman.exe first (needed for the comparison test).");
+            Log.Error("Library tests: choose a chdman executable first (needed for the comparison test).");
             return false;
         }
         if (NeedsChdman)

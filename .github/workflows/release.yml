@@ -1,0 +1,190 @@
+# Builds libchdman and NoIntrovert for Windows x64, Windows ARM64 and macOS
+# (Apple silicon and Intel), and publishes them as a GitHub release when a
+# v* tag is pushed. Run it by hand (Actions → Release → Run workflow) to get
+# the same zips as workflow artifacts without making a release.
+#
+# libchdman is a private repository: the LIBCHDMAN_TOKEN secret must hold a
+# token with read access to Nickel42/libchdman (Contents: read).
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-ci.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+  windows:
+    needs: version
+    runs-on: windows-2022
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: app
+
+      - uses: actions/checkout@v4
+        with:
+          repository: Nickel42/libchdman
+          token: ${{ secrets.LIBCHDMAN_TOKEN }}
+          path: libchdman
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build libchdman (x64) and run its tests
+        shell: pwsh
+        run: |
+          cmake -S libchdman -B libchdman/build-x64 -G "Visual Studio 17 2022" -A x64
+          cmake --build libchdman/build-x64 --config Release --parallel
+          ctest --test-dir libchdman/build-x64 -C Release --output-on-failure
+
+      - name: Build libchdman (ARM64)
+        shell: pwsh
+        # Cross-compiled on the x64 runner, so its tests can't run here.
+        run: |
+          cmake -S libchdman -B libchdman/build-arm64 -G "Visual Studio 17 2022" -A ARM64 `
+            -DCHDMAN_BUILD_TESTS=OFF -DCHDMAN_BUILD_STATIC=OFF -DCHDMAN_BUILD_CLI=OFF
+          cmake --build libchdman/build-arm64 --config Release --parallel --target chdman_shared
+
+      - name: Stage native libraries
+        shell: pwsh
+        run: |
+          foreach ($arch in 'x64', 'arm64') {
+            $dir = "libchdman/artifacts/native/win-$arch"
+            New-Item -ItemType Directory -Force $dir | Out-Null
+            Copy-Item "libchdman/build-$arch/Release/chdman.dll" $dir
+          }
+
+      - name: Publish and zip
+        shell: pwsh
+        run: |
+          foreach ($rid in 'win-x64', 'win-arm64') {
+            $out = "publish/$rid"
+            dotnet publish app/NoIntrovert/NoIntrovert.csproj -c Release -r $rid --self-contained `
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+              -p:DebugType=none -p:Version=$env:VERSION `
+              "-p:LibChdmanRoot=$env:GITHUB_WORKSPACE/libchdman" -o $out
+            if (-not (Test-Path "$out/NoIntrovert.exe")) { throw "publish for $rid produced no NoIntrovert.exe" }
+            Copy-Item app/README.md, libchdman/LICENSE, libchdman/THIRD_PARTY_NOTICES.md $out
+            Rename-Item "$out/LICENSE" "LICENSE-libchdman.txt"
+            Compress-Archive -Path "$out/*" -DestinationPath "dist/NoIntrovert-$env:VERSION-$rid.zip" -Force
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*.zip
+          if-no-files-found: error
+
+  macos:
+    needs: version
+    runs-on: macos-15
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: app
+
+      - uses: actions/checkout@v4
+        with:
+          repository: Nickel42/libchdman
+          token: ${{ secrets.LIBCHDMAN_TOKEN }}
+          path: libchdman
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build libchdman (universal) and run its tests
+        run: |
+          cmake -S libchdman -B libchdman/build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
+          cmake --build libchdman/build --parallel
+          ctest --test-dir libchdman/build --output-on-failure
+          mkdir -p libchdman/artifacts/native/osx
+          cp -L libchdman/build/libchdman.dylib libchdman/artifacts/native/osx/libchdman.dylib
+          lipo -info libchdman/artifacts/native/osx/libchdman.dylib
+
+      - name: Publish, bundle and zip
+        run: |
+          mkdir -p dist
+          cp libchdman/LICENSE LICENSE-libchdman.txt
+          for rid in osx-arm64 osx-x64; do
+            dotnet publish app/NoIntrovert/NoIntrovert.csproj -c Release -r "$rid" --self-contained \
+              -p:UseAppHost=true -p:DebugType=none -p:Version="$VERSION" \
+              "-p:LibChdmanRoot=$GITHUB_WORKSPACE/libchdman" -o "publish/$rid"
+            test -f "publish/$rid/libchdman.dylib" || { echo "libchdman.dylib missing from $rid publish"; exit 1; }
+            bash app/packaging/macos/make-app.sh "publish/$rid" "$GITHUB_WORKSPACE/dist/NoIntrovert-$VERSION-$rid.zip" "$VERSION" \
+              app/README.md LICENSE-libchdman.txt libchdman/THIRD_PARTY_NOTICES.md
+          done
+
+      - name: Smoke test (Apple silicon build loads libchdman)
+        run: |
+          unzip -q "dist/NoIntrovert-$VERSION-osx-arm64.zip" -d smoke
+          # The app has no command-line mode; checking the bundle's binaries is the most CI can do without a display.
+          file smoke/NoIntrovert.app/Contents/MacOS/NoIntrovert
+          codesign --verify --deep --strict smoke/NoIntrovert.app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [version, windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          cat > notes.md <<EOF
+          NoIntrovert $VERSION, built with libchdman.
+
+          | Download | For |
+          |---|---|
+          | NoIntrovert-$VERSION-win-x64.zip | Windows 10/11 on Intel or AMD (64-bit) |
+          | NoIntrovert-$VERSION-win-arm64.zip | Windows 11 on ARM (Snapdragon and similar) |
+          | NoIntrovert-$VERSION-osx-arm64.zip | macOS 12 or later on Apple silicon (M1 and newer) |
+          | NoIntrovert-$VERSION-osx-x64.zip | macOS 12 or later on Intel Macs |
+
+          Windows: unzip and run NoIntrovert.exe. SmartScreen may warn that the app is unrecognised; choose More info → Run anyway.
+
+          macOS: unzip and move NoIntrovert.app to Applications. The app isn't notarised, so the first time, right-click it and choose Open (or run \`xattr -dr com.apple.quarantine /Applications/NoIntrovert.app\`).
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/*.zip --repo "$GITHUB_REPOSITORY" \
+            --title "NoIntrovert $VERSION" --notes-file notes.md

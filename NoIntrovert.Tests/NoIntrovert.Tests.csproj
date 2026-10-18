@@ -16,13 +16,11 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <LibChdmanRoot Condition="'$(LibChdmanRoot)' == ''">$(MSBuildThisFileDirectory)..\..\libchdman</LibChdmanRoot>
-    <ChdmanLibDir Condition="'$(ChdmanLibDir)' == ''">$(LibChdmanRoot)\artifacts\native\win-x64</ChdmanLibDir>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\NoIntrovert\NoIntrovert.csproj" />
   </ItemGroup>
 
-  <Import Project="$(LibChdmanRoot)\bindings\csharp\ChdmanNativeCopy.targets" />
+  <Import Project="$(LibChdmanRoot)/bindings/csharp/ChdmanNativeCopy.targets" />
 </Project>

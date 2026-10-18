@@ -1,0 +1,36 @@
+<Project>
+  <!--
+    Where libchdman lives and which native build of it to ship.
+
+    LibChdmanRoot defaults to a checkout next to this repo (../libchdman);
+    CI passes -p:LibChdmanRoot=... instead. The native library is taken from
+    $(LibChdmanRoot)/artifacts/native/<dir>, where <dir> follows the
+    RuntimeIdentifier being built or published:
+
+      win-x64    -> win-x64/chdman.dll
+      win-arm64  -> win-arm64/chdman.dll
+      osx-*      -> osx/libchdman.dylib   (universal arm64 + x86_64)
+
+    With no RuntimeIdentifier, the machine doing the build decides.
+    Pass -p:ChdmanLibDir=<dir> to point at any other build.
+  -->
+  <PropertyGroup>
+    <LibChdmanRoot Condition="'$(LibChdmanRoot)' == ''">$(MSBuildThisFileDirectory)../libchdman</LibChdmanRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(ChdmanNativeDir)' == ''">
+    <ChdmanNativeDir Condition="'$(RuntimeIdentifier)' == 'win-arm64'">win-arm64</ChdmanNativeDir>
+    <ChdmanNativeDir Condition="'$(RuntimeIdentifier)' == 'win-x64'">win-x64</ChdmanNativeDir>
+    <ChdmanNativeDir Condition="$(RuntimeIdentifier.StartsWith('osx'))">osx</ChdmanNativeDir>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(ChdmanNativeDir)' == ''">
+    <ChdmanNativeDir Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx</ChdmanNativeDir>
+    <ChdmanNativeDir Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64'">win-arm64</ChdmanNativeDir>
+    <ChdmanNativeDir Condition="'$(ChdmanNativeDir)' == ''">win-x64</ChdmanNativeDir>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ChdmanLibDir Condition="'$(ChdmanLibDir)' == ''">$(LibChdmanRoot)/artifacts/native/$(ChdmanNativeDir)</ChdmanLibDir>
+  </PropertyGroup>
+</Project>

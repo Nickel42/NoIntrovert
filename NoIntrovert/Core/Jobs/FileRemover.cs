@@ -2,27 +2,48 @@ using System.Runtime.InteropServices;
 
 namespace NoIntrovert.Core.Jobs;
 
-/// <summary>Removes source files after a successful conversion, to the Recycle Bin where possible.</summary>
+/// <summary>
+/// Removes source files after a successful conversion: to the Recycle Bin on
+/// Windows or the Trash on macOS when asked, otherwise permanently.
+/// </summary>
 internal static class FileRemover
 {
-    public static void Remove(IEnumerable<string> files, bool useRecycleBin, ILog log)
+    /// <summary>What the platform calls its bin, for messages and labels.</summary>
+    public static string BinName => OperatingSystem.IsMacOS() ? "Trash" : "Recycle Bin";
+
+    public static bool CanUseBin => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
+
+    public static void Remove(IEnumerable<string> files, bool useBin, ILog log)
     {
+        var toBin = useBin && CanUseBin;
         foreach (var file in files.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             if (!File.Exists(file)) continue;
             try
             {
-                if (useRecycleBin && OperatingSystem.IsWindows())
-                    SendToRecycleBin(file);
-                else
-                    File.Delete(file);
-                log.Info($"  removed {Path.GetFileName(file)}{(useRecycleBin && OperatingSystem.IsWindows() ? " (to Recycle Bin)" : "")}");
+                if (toBin && OperatingSystem.IsWindows()) SendToRecycleBin(file);
+                else if (toBin) MoveToTrash(file);
+                else File.Delete(file);
+                log.Info($"  removed {Path.GetFileName(file)}{(toBin ? $" (to the {BinName})" : "")}");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
             {
                 log.Warn($"  couldn't remove {Path.GetFileName(file)}: {ex.Message}");
             }
         }
+    }
+
+    /// <summary>Moves a file into ~/.Trash, adding a number when the name is taken (as Finder does).</summary>
+    private static void MoveToTrash(string path)
+    {
+        var trash = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".Trash");
+        Directory.CreateDirectory(trash);
+        var name = Path.GetFileNameWithoutExtension(path);
+        var ext = Path.GetExtension(path);
+        var target = Path.Combine(trash, name + ext);
+        for (var i = 2; File.Exists(target) || Directory.Exists(target); i++)
+            target = Path.Combine(trash, $"{name} {i}{ext}");
+        File.Move(path, target);
     }
 
     private static void SendToRecycleBin(string path)

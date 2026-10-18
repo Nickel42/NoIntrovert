@@ -66,8 +66,8 @@
                               HorizontalAlignment="Stretch" />
 
                     <StackPanel IsVisible="{Binding NeedsChdman}" Spacing="4">
-                        <TextBlock Text="CHDMAN.EXE TO COMPARE WITH" Classes="section" />
-                        <TextBox Text="{Binding Settings.ChdmanExePath}" PlaceholderText="Path to chdman.exe" />
+                        <TextBlock Text="CHDMAN TO COMPARE WITH" Classes="section" />
+                        <TextBox Text="{Binding Settings.ChdmanExePath}" PlaceholderText="Path to chdman" />
                         <Button Classes="tool" Content="Browse…" Command="{Binding Settings.BrowseChdmanExeCommand}" />
                         <TextBlock Classes="hint" Text="{Binding ChdmanVersion}" />
                         <TextBlock Classes="hint"

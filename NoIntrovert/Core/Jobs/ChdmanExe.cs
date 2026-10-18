@@ -4,7 +4,7 @@ using System.Text;
 namespace NoIntrovert.Core.Jobs;
 
 /// <summary>
-/// Runs a chdman.exe chosen by the user, for side-by-side comparisons with
+/// Runs a chdman executable chosen by the user, for side-by-side comparisons with
 /// libchdman. Only the Library tests tab uses this.
 /// </summary>
 internal static class ChdmanExe
@@ -44,7 +44,7 @@ internal static class ChdmanExe
     private static RunResult Run(string exePath, IEnumerable<string> args, CancellationToken token, TimeSpan? timeout = null)
     {
         if (!File.Exists(exePath))
-            throw new FileNotFoundException("chdman.exe was not found. Set its path on the Library tests tab.", exePath);
+            throw new FileNotFoundException("chdman was not found. Set its path on the Library tests tab.", exePath);
 
         var psi = new ProcessStartInfo(exePath)
         {
@@ -69,7 +69,7 @@ internal static class ChdmanExe
         {
             if (timeout is { } t)
             {
-                if (!process.WaitForExit(t)) { process.Kill(true); throw new TimeoutException("chdman.exe did not answer."); }
+                if (!process.WaitForExit(t)) { process.Kill(true); throw new TimeoutException("chdman did not answer."); }
             }
             process.WaitForExit();
         }

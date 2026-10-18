@@ -15,7 +15,7 @@ public sealed record TestRecord(
     double LibMbps, double? ExeMbps, string Notes);
 
 /// <summary>
-/// Library test bench: compare libchdman's CHDs with chdman.exe's, and
+/// Library test bench: compare libchdman's CHDs with the chdman executable's, and
 /// check that create → verify → extract gives back the original data.
 /// </summary>
 public static class TestJobs
@@ -50,7 +50,7 @@ public static class TestJobs
     {
         var exe = c.Settings.ChdmanExePath;
         if (string.IsNullOrWhiteSpace(exe) || !File.Exists(exe))
-            throw new FileNotFoundException("Set the path to chdman.exe on the Library tests tab to run comparisons.");
+            throw new FileNotFoundException("Set the path to chdman on the Library tests tab to run comparisons.");
 
         var libOut = Path.Combine(work, disc.OutputName + ".lib.chd");
         var exeOut = Path.Combine(work, disc.OutputName + ".exe.chd");
@@ -60,14 +60,14 @@ public static class TestJobs
         c.TrackChdman("libchdman: compressing");
         var lib = ChdService.Create(c.Chdman, disc, libOut, settings, c.Token);
 
-        c.Report.SetStage("chdman.exe: compressing");
+        c.Report.SetStage("chdman: compressing");
         c.Report.SetProgress(0.5);
         var exeRun = ChdmanExe.Create(exe, disc, exeOut, c.Settings, c.Token);
         if (exeRun.ExitCode != 0 || !File.Exists(exeOut))
         {
             var tail = exeRun.Output.Trim().Split('\n').LastOrDefault()?.Trim();
             return new TestRecord(Path.GetFileName(source), disc.OutputName, "Compare", false, lib.Elapsed, exeRun.Elapsed,
-                lib.OutputBytes, null, lib.MegabytesPerSecond, null, $"chdman.exe failed (exit {exeRun.ExitCode}): {tail}");
+                lib.OutputBytes, null, lib.MegabytesPerSecond, null, $"chdman failed (exit {exeRun.ExitCode}): {tail}");
         }
 
         c.Report.SetStage("Comparing outputs");
@@ -78,7 +78,7 @@ public static class TestJobs
         bool same = difference < 0;
         if (same)
         {
-            notes = $"byte-identical ({ChdJobs.Size(lib.OutputBytes)}); libchdman {lib.Elapsed.TotalSeconds:F1}s vs chdman.exe {exeRun.Elapsed.TotalSeconds:F1}s";
+            notes = $"byte-identical ({ChdJobs.Size(lib.OutputBytes)}); libchdman {lib.Elapsed.TotalSeconds:F1}s vs chdman {exeRun.Elapsed.TotalSeconds:F1}s";
         }
         else
         {

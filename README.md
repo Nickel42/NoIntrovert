@@ -40,20 +40,49 @@ Known limits: password-protected or multi-part ISZ, encrypted (PSN) PBPs and
 password-protected archives are refused with a message. Multi-session Alcohol
 CDs are written as one session (as chdman does).
 
+## Platforms and downloads
+
+Releases have four zips, built by `.github/workflows/release.yml` when a
+`v*` tag is pushed:
+
+| Zip | For |
+|---|---|
+| `win-x64` | Windows 10/11, Intel or AMD (64-bit) |
+| `win-arm64` | Windows 11 on ARM |
+| `osx-arm64` | macOS 12+, Apple silicon |
+| `osx-x64` | macOS 12+, Intel |
+
+Windows builds are one self-contained `NoIntrovert.exe`. macOS builds are a
+self-contained `NoIntrovert.app`, signed ad hoc but not notarised: right-click
+→ Open the first time. On macOS, removed originals go to the Trash.
+
+The workflow builds libchdman from source on each platform (and runs its
+tests on x64 Windows and macOS). libchdman is private, so the repository
+needs a `LIBCHDMAN_TOKEN` secret: a token with read access to
+`Nickel42/libchdman` contents.
+
 ## Build and run
 
 Needs the .NET 10 SDK and libchdman checked out next to this folder
-(`..\libchdman`) with `artifacts\native\win-x64\chdman.dll` built.
+(`../libchdman`), with its native library built into
+`artifacts/native/win-x64`, `win-arm64` or `osx` (see `Directory.Build.props`).
 
 ```
 dotnet run --project NoIntrovert
 ```
 
+To make a release build by hand:
+
+```
+dotnet publish NoIntrovert -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+```
+
 Paths given on the command line are added to the list, as if dropped on the
 window; `--tab convert|verify|extract|info|tests` picks the starting tab.
 
-Settings live in `%AppData%\NoIntrovert\settings.json`; each session's log is
-written to `%LocalAppData%\NoIntrovert\logs`.
+Settings live in `%AppData%\NoIntrovert\settings.json` (macOS:
+`~/.config/NoIntrovert`); each session's log is written to
+`%LocalAppData%\NoIntrovert\logs` (macOS: `~/.local/share/NoIntrovert/logs`).
 
 ## Tests
 

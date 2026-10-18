@@ -34,7 +34,7 @@
                     <CheckBox Content="Verify each CHD" IsChecked="{Binding Settings.VerifyAfterCreate}" />
                     <CheckBox Content="Remove the original files" IsChecked="{Binding Settings.DeleteOriginals}"
                               ToolTip.Tip="Only after the new CHD verifies. Includes the bins, tracks, archive volumes and split parts that belong to it." />
-                    <CheckBox Content="…to the Recycle Bin (not permanently)" IsChecked="{Binding Settings.UseRecycleBin}"
+                    <CheckBox Content="{Binding Settings.RecycleBinLabel}" IsChecked="{Binding Settings.UseRecycleBin}" IsVisible="{Binding Settings.CanUseRecycleBin}"
                               IsEnabled="{Binding Settings.DeleteOriginals}" Margin="22,0,0,0" />
                     <TextBlock Classes="hint" Text="Removing originals always verifies first, even if Verify is off."
                                IsVisible="{Binding Settings.DeleteOriginals}" />

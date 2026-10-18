@@ -120,6 +120,8 @@ public partial class SettingsViewModel : ViewModelBase
     public bool VerifyAfterCreate { get => _s.VerifyAfterCreate; set => Set(value, (s, v) => s.VerifyAfterCreate = v); }
     public bool DeleteOriginals { get => _s.DeleteOriginals; set => Set(value, (s, v) => s.DeleteOriginals = v); }
     public bool UseRecycleBin { get => _s.UseRecycleBin; set => Set(value, (s, v) => s.UseRecycleBin = v); }
+    public string RecycleBinLabel => $"…to the {Core.Jobs.FileRemover.BinName} (not permanently)";
+    public bool CanUseRecycleBin => Core.Jobs.FileRemover.CanUseBin;
     public bool SplitBin { get => _s.SplitBin; set => Set(value, (s, v) => s.SplitBin = v); }
     public bool FixHeaderSha1 { get => _s.FixHeaderSha1; set => Set(value, (s, v) => s.FixHeaderSha1 = v); }
     public decimal ParallelJobs { get => _s.ParallelJobs; set => Set((int)value, (s, v) => s.ParallelJobs = Math.Max(1, v)); }
@@ -162,7 +164,7 @@ public partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private async Task BrowseChdmanExe()
     {
-        var file = await _dialogs.PickFileAsync("Find chdman.exe", "chdman", ["chdman*.exe", "*.exe"]);
+        var file = await _dialogs.PickFileAsync("Find chdman", "chdman", OperatingSystem.IsWindows() ? ["chdman*.exe", "*.exe"] : ["chdman*"]);
         if (file is not null) ChdmanExePath = file;
     }
 }
