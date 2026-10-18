@@ -19,8 +19,17 @@ Files under `vendor/mame/` are unmodified except for the following.
    `chd_file_compressor::async_read()`'s exception handlers. The error is
    still recorded in `m_read_error` and returned by `compress_continue()`.
    libchdman reports it through `chdman_last_error()`.
+3. Sized `chd_file_compressor::m_codecs` as `WORK_MAX_THREADS + 1` instead
+   of `WORK_MAX_THREADS`. A thread that calls `osd_work_queue_wait()` on a
+   `WORK_QUEUE_FLAG_MULTI` queue helps run queued items with
+   `threadid == queue->threads`, and `osd_work_queue_alloc()` caps
+   `queue->threads` at `WORK_MAX_THREADS` (16). So on a host with 18 or
+   more logical CPUs, `compress_wait_idle()` (change 1) made
+   `async_compress_hunk()` read `m_codecs[16]`, one past the end, and
+   crash. Upstream chdman never waits on the work queue, so it doesn't hit
+   this.
 
-Neither change affects the bytes written to CHD files; `tests/parity.cmake`
+None of these changes affects the bytes written to CHD files; `tests/parity.cmake`
 checks that output is byte-identical to the unmodified upstream `chdman`
 logic.
 
@@ -36,7 +45,7 @@ logic.
 ## Updating to a newer MAME
 
 1. Sparse-checkout the new tag (see the paths in `vendor/CMakeLists.txt`).
-2. Re-copy the files and re-apply the two `chd.*` changes above.
+2. Re-copy the files and re-apply the three `chd.*` changes above.
 3. Diff `src/tools/chdman.cpp` against the previous version and port any
    logic changes into `src/chdman_core.cpp`. That file keeps upstream's
    function names to make this easier.
