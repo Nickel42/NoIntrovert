@@ -21,12 +21,27 @@ set(CMAKE_C_STANDARD 11)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
-if(MSVC)
-  # static CRT keeps the DLL self-contained; override with CMAKE_MSVC_RUNTIME_LIBRARY
-  if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-  endif()
+# MSVC C runtime. The DLL defaults to the static CRT, so chdman.dll needs no
+# VC++ redistributable. The static library defaults to the DLL CRT (/MD),
+# which is what Visual Studio projects use, so it links into a typical app
+# without LNK2038 runtime mismatches. Passing CMAKE_MSVC_RUNTIME_LIBRARY sets
+# the default for both.
+if(DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
+  set(_chdman_shared_rt "${CMAKE_MSVC_RUNTIME_LIBRARY}")
+  set(_chdman_static_rt "${CMAKE_MSVC_RUNTIME_LIBRARY}")
+else()
+  set(_chdman_shared_rt "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  set(_chdman_static_rt "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 endif()
+set(CHDMAN_SHARED_MSVC_RUNTIME "${_chdman_shared_rt}" CACHE STRING "MSVC runtime for chdman.dll and chdman-cli")
+set(CHDMAN_STATIC_MSVC_RUNTIME "${_chdman_static_rt}" CACHE STRING "MSVC runtime for chdman_static.lib")
+if(CHDMAN_BUILD_SHARED)
+  set(CHDMAN_PRIMARY_MSVC_RUNTIME "${CHDMAN_SHARED_MSVC_RUNTIME}")
+else()
+  set(CHDMAN_PRIMARY_MSVC_RUNTIME "${CHDMAN_STATIC_MSVC_RUNTIME}")
+endif()
+# targets that don't pick a runtime explicitly (CLI, tests, upstream reference)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "${CHDMAN_PRIMARY_MSVC_RUNTIME}")
 
 add_subdirectory(vendor)
 
@@ -34,13 +49,8 @@ set(CHDMAN_SOURCES
   src/chdman_core.cpp
   src/chdman_capi.cpp)
 
-set(CHDMAN_VENDOR_OBJECTS
-  $<TARGET_OBJECTS:chdman_mame>
-  $<TARGET_OBJECTS:chdman_zlib>
-  $<TARGET_OBJECTS:chdman_lzma>
-  $<TARGET_OBJECTS:chdman_zstd>
-  $<TARGET_OBJECTS:chdman_flac>
-  $<TARGET_OBJECTS:chdman_utf8proc>)
+chdman_vendor_objects(CHDMAN_VENDOR_OBJECTS "")
+chdman_vendor_objects(CHDMAN_STATIC_VENDOR_OBJECTS "${CHDMAN_STATIC_VENDOR_SUFFIX}")
 
 function(chdman_configure_library tgt)
   target_include_directories(${tgt}
@@ -93,13 +103,16 @@ if(CHDMAN_BUILD_SHARED)
     # export only the C API, whatever the vendored headers ask for
     target_link_options(chdman_shared PRIVATE "LINKER:-exported_symbol,_chdman_*")
   endif()
+  # same names as the installed package (find_package(chdman))
+  add_library(chdman::chdman_shared ALIAS chdman_shared)
   add_library(chdman::shared ALIAS chdman_shared)
   list(APPEND CHDMAN_INSTALL_TARGETS chdman_shared)
 endif()
 
 if(CHDMAN_BUILD_STATIC)
-  add_library(chdman_static STATIC ${CHDMAN_SOURCES} ${CHDMAN_VENDOR_OBJECTS})
+  add_library(chdman_static STATIC ${CHDMAN_SOURCES} ${CHDMAN_STATIC_VENDOR_OBJECTS})
   chdman_configure_library(chdman_static)
+  set_target_properties(chdman_static PROPERTIES MSVC_RUNTIME_LIBRARY "${CHDMAN_STATIC_MSVC_RUNTIME}")
   target_compile_definitions(chdman_static PRIVATE CHDMAN_BUILDING_STATIC PUBLIC CHDMAN_STATIC)
   # avoid chdman.lib clashing with the DLL import library on Windows
   set_target_properties(chdman_static PROPERTIES OUTPUT_NAME $<IF:$<BOOL:${WIN32}>,chdman_static,chdman>)
@@ -131,6 +144,7 @@ $<JOIN:$<TARGET_OBJECTS:chdman_utf8proc>,\n>
       COMMENT "Prelinking libchdman.a (hiding non-API symbols)"
       VERBATIM)
   endif()
+  add_library(chdman::chdman_static ALIAS chdman_static)
   add_library(chdman::static ALIAS chdman_static)
   list(APPEND CHDMAN_INSTALL_TARGETS chdman_static)
 endif()

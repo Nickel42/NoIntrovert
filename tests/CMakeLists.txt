@@ -1,14 +1,24 @@
 # Helper that writes a tiny AVI using MAME's own aviio (internal API), so the
 # laserdisc path can be exercised without binary fixtures.
-add_library(chdman_test_avi OBJECT avi_helper.cpp)
-target_include_directories(chdman_test_avi PRIVATE
-  $<TARGET_PROPERTY:chdman_mame,INTERFACE_INCLUDE_DIRECTORIES>)
-target_compile_definitions(chdman_test_avi PRIVATE
-  $<TARGET_PROPERTY:chdman_mame,INTERFACE_COMPILE_DEFINITIONS>)
-chdman_msvc_options(chdman_test_avi)
+# Built once per MSVC runtime in use (see CHDMAN_STATIC_MSVC_RUNTIME).
+function(chdman_add_test_avi tgt runtime)
+  add_library(${tgt} OBJECT avi_helper.cpp)
+  target_include_directories(${tgt} PRIVATE
+    $<TARGET_PROPERTY:chdman_mame,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_compile_definitions(${tgt} PRIVATE
+    $<TARGET_PROPERTY:chdman_mame,INTERFACE_COMPILE_DEFINITIONS>)
+  set_target_properties(${tgt} PROPERTIES MSVC_RUNTIME_LIBRARY "${runtime}")
+  chdman_msvc_options(${tgt})
+endfunction()
 
-function(chdman_add_test_exe name lib workdir)
-  add_executable(${name} test_chdman.cpp sha1.c $<TARGET_OBJECTS:chdman_test_avi> ${ARGN})
+chdman_add_test_avi(chdman_test_avi "${CHDMAN_PRIMARY_MSVC_RUNTIME}")
+if(TARGET chdman_static)
+  chdman_add_test_avi(chdman_test_avi_static "${CHDMAN_STATIC_MSVC_RUNTIME}")
+endif()
+
+function(chdman_add_test_exe name lib avi runtime workdir)
+  add_executable(${name} test_chdman.cpp sha1.c $<TARGET_OBJECTS:${avi}> ${ARGN})
+  set_target_properties(${name} PROPERTIES MSVC_RUNTIME_LIBRARY "${runtime}")
   target_link_libraries(${name} PRIVATE ${lib})
   chdman_msvc_options(${name})
   target_compile_definitions(${name} PRIVATE CHDMAN_TEST_WORKDIR="${CMAKE_CURRENT_BINARY_DIR}/${workdir}")
@@ -24,7 +34,7 @@ endfunction()
 
 if(TARGET chdman_shared)
   # the shared library hides MAME internals, so the AVI helper gets its own copy
-  chdman_add_test_exe(chdman_tests chdman_shared work_shared ${CHDMAN_VENDOR_OBJECTS})
+  chdman_add_test_exe(chdman_tests chdman_shared chdman_test_avi "${CHDMAN_SHARED_MSVC_RUNTIME}" work_shared ${CHDMAN_VENDOR_OBJECTS})
   if(APPLE)
     set_target_properties(chdman_tests PROPERTIES BUILD_RPATH "$<TARGET_FILE_DIR:chdman_shared>")
   endif()
@@ -37,10 +47,10 @@ endif()
 if(TARGET chdman_static)
   if(APPLE AND CHDMAN_STATIC_PRELINK)
     # the prelinked archive hides MAME internals; the AVI helper needs its own copy
-    chdman_add_test_exe(chdman_tests_static chdman_static work_static ${CHDMAN_VENDOR_OBJECTS})
+    chdman_add_test_exe(chdman_tests_static chdman_static chdman_test_avi_static "${CHDMAN_STATIC_MSVC_RUNTIME}" work_static ${CHDMAN_STATIC_VENDOR_OBJECTS})
   else()
     # MAME internals (used by the AVI helper) come from the static archive
-    chdman_add_test_exe(chdman_tests_static chdman_static work_static)
+    chdman_add_test_exe(chdman_tests_static chdman_static chdman_test_avi_static "${CHDMAN_STATIC_MSVC_RUNTIME}" work_static)
   endif()
 endif()
 
