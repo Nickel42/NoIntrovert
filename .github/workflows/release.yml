@@ -65,6 +65,11 @@ jobs:
       - name: Build libchdman (ARM64)
         shell: pwsh
         # Cross-compiled on the x64 runner, so its tests can't run here.
+        # MSVC rejects the brace-initialised NEON vectors in FLAC's
+        # lpc_intrin_neon.c (C2078), so FLAC uses its portable C code on this
+        # target. CFLAGS only seeds the first configure, adding to CMake's defaults.
+        env:
+          CFLAGS: /DFLAC__NO_ASM
         run: |
           cmake -S libchdman -B libchdman/build-arm64 -G "Visual Studio 17 2022" -A ARM64 `
             -DCHDMAN_BUILD_TESTS=OFF -DCHDMAN_BUILD_STATIC=OFF -DCHDMAN_BUILD_CLI=OFF
@@ -134,20 +139,22 @@ jobs:
           mkdir -p dist
           cp libchdman/LICENSE LICENSE-libchdman.txt
           for rid in osx-arm64 osx-x64; do
+            # Single-file packs the managed DLLs into the executable, so Contents/MacOS holds
+            # only Mach-O files, whose signatures live inside them and survive any unzip tool.
             dotnet publish app/NoIntrovert/NoIntrovert.csproj -c Release -r "$rid" --self-contained \
-              -p:UseAppHost=true -p:DebugType=none -p:Version="$VERSION" \
+              -p:UseAppHost=true -p:PublishSingleFile=true -p:DebugType=none -p:Version="$VERSION" \
               "-p:LibChdmanRoot=$GITHUB_WORKSPACE/libchdman" -o "publish/$rid"
             test -f "publish/$rid/libchdman.dylib" || { echo "libchdman.dylib missing from $rid publish"; exit 1; }
             bash app/packaging/macos/make-app.sh "publish/$rid" "$GITHUB_WORKSPACE/dist/NoIntrovert-$VERSION-$rid.zip" "$VERSION" \
               app/README.md LICENSE-libchdman.txt libchdman/THIRD_PARTY_NOTICES.md
           done
 
-      - name: Smoke test (Apple silicon build loads libchdman)
+      - name: Check the Apple silicon zip unpacks to a validly signed app
         run: |
           unzip -q "dist/NoIntrovert-$VERSION-osx-arm64.zip" -d smoke
           # The app has no command-line mode; checking the bundle's binaries is the most CI can do without a display.
-          file smoke/NoIntrovert.app/Contents/MacOS/NoIntrovert
-          codesign --verify --deep --strict smoke/NoIntrovert.app
+          file smoke/NoIntrovert.app/Contents/MacOS/*
+          codesign --verify --deep --strict --verbose=2 smoke/NoIntrovert.app
 
       - uses: actions/upload-artifact@v4
         with:

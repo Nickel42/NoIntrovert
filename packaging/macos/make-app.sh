@@ -22,7 +22,23 @@ chmod +x "$app/Contents/MacOS/NoIntrovert"
 # Debug symbols aren't needed in a release download.
 find "$app" -name '*.pdb' -delete
 
-codesign --force --deep --sign - "$app"
+# codesign keeps the signature of a non-Mach-O file in Contents/MacOS in
+# extended attributes, which plain zip tools drop, so the app would arrive
+# "not signed". Publish single-file so only executables and dylibs land here.
+stray=""
+for f in "$app/Contents/MacOS"/*; do
+    file -b "$f" | grep -q 'Mach-O' || stray="$stray $(basename "$f")"
+done
+if [ -n "$stray" ]; then
+    echo "Not Mach-O, can't be signed inside Contents/MacOS:$stray" >&2
+    exit 1
+fi
+
+# Sign the libraries first, then the app, which seals everything inside it.
+for f in "$app/Contents/MacOS"/*.dylib; do
+    codesign --force --sign - "$f"
+done
+codesign --force --sign - "$app"
 codesign --verify --deep --strict "$app"
 
 for extra in "$@"; do
