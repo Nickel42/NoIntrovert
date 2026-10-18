@@ -23,7 +23,10 @@ src/chdman_core.{h,cpp}     chdman's do_* logic as a C++ library core
 src/chdman_capi.cpp         C ABI layer (catches everything, maps to status codes)
 cli/chdman_cli.c            chdman-compatible CLI (pure C, uses only chdman.h)
 tests/                      round-trip/determinism tests, upstream parity test
+bindings/csharp/            .NET binding + NuGet package (LibChdman)
+bindings/swift/, Package.swift  Swift package (Chdman) over a prebuilt XCFramework
 examples/swift, examples/csharp
+scripts/make-xcframework.sh builds the XCFramework for the Swift package
 vendor/mame/                vendored MAME 0.289 subset (see vendor/PATCHES.md)
 vendor/osd_shim.cpp         minimal OSD layer replacing MAME's osdlib
 THIRD_PARTY_NOTICES.md      licenses of everything bundled
@@ -112,11 +115,20 @@ cmake --build build
 ```
 
 Outputs: `chdman.dll` + `chdman.lib` (import library), `chdman_static.lib`
-and `chdman-cli.exe`. When linking `chdman_static.lib`, define
-`CHDMAN_STATIC` before including `chdman.h` (the CMake target does this for
-you). The CRT is linked statically by default, so `chdman.dll` has no VC++
-redistributable dependency. To use the DLL CRT instead, pass
-`-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>DLL`.
+and `chdman-cli.exe`.
+
+Which one to link on Windows:
+
+- **`chdman.dll` (recommended).** It uses the static CRT, so it needs no
+  VC++ redistributable, and it exports only the 60 `chdman_*` functions, so
+  it can't clash with anything in your app.
+- **`chdman_static.lib`.** Define `CHDMAN_STATIC` before including
+  `chdman.h` (the CMake target does this for you). It is built with the DLL
+  CRT (`/MD`, Visual Studio's default for apps); set
+  `CHDMAN_STATIC_MSVC_RUNTIME` to `MultiThreaded` if your app uses `/MT`.
+  Unlike the macOS archive, it can't hide the bundled zlib, zstd, FLAC and
+  LZMA symbols: if your app links its own copy of one of those, you'll get
+  LNK2005 duplicate symbols, so use the DLL instead.
 
 ### CMake options
 
@@ -128,10 +140,16 @@ redistributable dependency. To use the DLL CRT instead, pass
 | `CHDMAN_BUILD_TESTS` | ON | test suite (`ctest`) |
 | `CHDMAN_STATIC_PRELINK` | ON | Apple: hide non-API symbols in the static library |
 | `CHDMAN_BUILD_UPSTREAM_REFERENCE` | OFF | build unmodified upstream `chdman` and add the parity test |
+| `CHDMAN_SHARED_MSVC_RUNTIME` | `MultiThreaded$<$<CONFIG:Debug>:Debug>` | MSVC: CRT for the DLL and CLI (static) |
+| `CHDMAN_STATIC_MSVC_RUNTIME` | `MultiThreaded$<$<CONFIG:Debug>:Debug>DLL` | MSVC: CRT for the static library (DLL CRT) |
+
+Passing `CMAKE_MSVC_RUNTIME_LIBRARY` sets the default for both runtimes. When
+the two differ, the bundled code is compiled once for each.
 
 `cmake --install build --prefix <dir>` installs the libraries, header, module
 map, license files and a `chdmanConfig.cmake` (`find_package(chdman)`, then
-link `chdman::chdman_shared` or `chdman::chdman_static`).
+link `chdman::chdman_shared` or `chdman::chdman_static`). The same names
+work with `add_subdirectory()`.
 
 ## Using the C API
 
@@ -180,64 +198,55 @@ Rules:
 
 ## Using from Swift (macOS)
 
-`include/module.modulemap` defines the `CChdman` module. Point
-`SWIFT_INCLUDE_PATHS` / `-I` at `include` (or use the XCFramework above) and
-link `libchdman`. `examples/swift/Chdman.swift` is a small wrapper that
-turns callbacks into closures and errors into Swift `throws`:
+Add the package `https://github.com/Nickel42/libchdman` and depend on the
+`Chdman` product. It wraps the whole C API with Swift types, `throws`, and
+an async `run` that ties cancellation to Swift tasks:
 
 ```swift
-import CChdman
+import Chdman
 
 let chdman = try Chdman()
-chdman.onProgress = { phase, fraction, ratio in
-    DispatchQueue.main.async { progressView.doubleValue = fraction }
-    return isCancelled                // true cancels
+chdman.onProgress = { p in
+    DispatchQueue.main.async { progressView.doubleValue = p.fraction }
+    return false                      // true cancels
 }
-try chdman.createCD(input: "/path/game.cue", output: "/path/game.chd")
+try await chdman.run { try $0.createCD(input: "/path/game.cue", output: "/path/game.chd") }
 let info = try chdman.info("/path/game.chd")
 print(info.mediaType, info.compression, info.rawSHA1)
 ```
 
-Build and run the bundled example (verified with Swift 6.4, against both the
-dylib and the static library):
+The package downloads a prebuilt static XCFramework from the GitHub release.
+`bindings/swift/README.md` covers the API rules, local development and how
+to publish a release with `scripts/make-xcframework.sh`.
 
-```bash
-cd examples/swift && swiftc -I ../../include -L ../../build -lchdman -Xlinker -rpath -Xlinker ../../build Chdman.swift main.swift -o chdman-swift && ./chdman-swift
-```
+Without the package, `include/module.modulemap` defines the `CChdman`
+module for using the C API directly: point `-I` at `include` and link
+`libchdman`.
 
-Run long operations off the main thread (each `Chdman` instance owns one
-context). Call `cancel()` from anywhere.
+## Using from C# / .NET
 
-## Using from C# / .NET (P/Invoke)
-
-`examples/csharp/LibChdman.cs` contains `[DllImport("chdman")]` declarations
-for the whole API, struct layouts that mirror `chdman.h` (UTF-8 string
-marshaling), and a disposable `Chdman` wrapper. `DllImport("chdman")`
-resolves to `chdman.dll` on Windows and `libchdman.dylib` on macOS.
+`bindings/csharp/LibChdman` is a .NET 8+ binding for the whole API, packed
+as the `LibChdman` NuGet package with the native libraries for win-x64,
+win-arm64 and osx inside:
 
 ```csharp
 using LibChdman;
 
 using var chdman = new Chdman();
-chdman.OnProgress = (phase, fraction, ratio) => { Report(fraction); return token.IsCancellationRequested; };
-chdman.CreateCd(@"C:\games\game.cue", @"C:\games\game.chd");
+chdman.Progress = new Progress<ChdmanProgress>(p => progressBar.Value = p.Fraction * 100);
+await Task.Run(() => chdman.CreateCd(@"C:\games\game.cue", @"C:\games\game.chd", cancellationToken: token));
 var info = chdman.Info(@"C:\games\game.chd");
-Console.WriteLine($"{info.mediaType} {info.compression} {info.rawSha1}");
+Console.WriteLine($"{info.MediaType} {info.Compression} {info.RawSha1}");
 ```
+
+Handles are `SafeHandle`s, every operation takes a `CancellationToken`, and
+errors are `ChdmanException`s carrying chdman's message.
+`bindings/csharp/README.md` covers the API rules, building the package and
+the tests. The example in `examples/csharp` uses the binding:
 
 ```bash
-cd examples/csharp && dotnet run -p:ChdmanLibDir=../../build
+cd examples/csharp && dotnet run -p:ChdmanLibDir=../../build-x64/Release
 ```
-
-(Pass the directory holding `chdman.dll` or `libchdman.dylib`; with the Visual Studio
-generator that is `build-x64/Release`.) For a NuGet package, put the
-binaries under `runtimes/win-x64/native/chdman.dll`,
-`runtimes/win-arm64/native/chdman.dll` and `runtimes/osx/native/libchdman.dylib`
-(the universal dylib serves both macOS architectures). The wrapper keeps its
-callback delegates alive for the context's lifetime, so do the same if you
-call `Native.*` directly. The example targets `net8.0`. On macOS it was
-built and run with the .NET 10 SDK (`TargetFramework` set to `net10.0`),
-and the marshaled struct sizes match the C `sizeof` values.
 
 ## CLI
 
