@@ -46,8 +46,12 @@ public:
 	std::atomic<bool> cancel_requested{ false };
 	int num_processors = 0;
 
-	// clears cancellation and progress throttling; called as each operation starts
-	void begin_operation() noexcept { cancel_requested = false; m_last_progress_ns = -1; m_last_osd_error.clear(); }
+	// resets progress throttling and MAME diagnostics; called as each operation
+	// starts. Leaves cancel_requested alone so a cancel that arrives just
+	// before the operation still cancels it.
+	void begin_operation() noexcept { m_last_progress_ns = -1; m_last_osd_error.clear(); }
+	// clears cancellation; called as each operation finishes, however it ends
+	void end_operation() noexcept { cancel_requested = false; }
 
 	// reports progress (throttled unless force) and throws if cancelled
 	void progress(chdman_phase phase, double fraction, double ratio = 0.0, bool force = false);

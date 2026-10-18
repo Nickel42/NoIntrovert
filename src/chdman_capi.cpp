@@ -144,11 +144,14 @@ chdman_status run(chdman_context *ctx, F &&f) noexcept
 		chdman::session_scope const scope(ctx->session);
 		ctx->last_error.clear();
 		ctx->session.begin_operation();
+		ctx->session.check_cancel(); // honour a cancel requested before the start
 		f();
+		ctx->session.end_operation();
 		return CHDMAN_OK;
 	}
 	catch (...)
 	{
+		ctx->session.end_operation();
 		std::string message;
 		chdman_status const status = chdman::translate_current_exception(message);
 		try

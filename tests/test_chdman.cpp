@@ -15,6 +15,7 @@
 #include <iostream>
 #include <iterator>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -717,11 +718,39 @@ void test_errors_and_cancel()
 	CHECK(extract_raw(ctx, chd, path("cancel.out")) == CHDMAN_ERR_CANCELLED);
 	CHECK(!fs::exists(path("cancel.out")));
 
-	// chdman_context_cancel() before start is cleared by the next operation
+	// a cancel from the progress callback doesn't leak into the next operation
 	chdman_context_set_progress(ctx, nullptr, nullptr);
-	chdman_context_cancel(ctx);
+	CHECK_OK(ctx, create_raw(ctx, path("err.img"), path("after_cb_cancel.chd"), nullptr, true));
+
+	// chdman_context_cancel() before start (here from another thread) is not
+	// lost: it cancels the next operation, then is cleared
+	std::thread([c = ctx.ctx] { chdman_context_cancel(c); }).join();
+	CHECK(create_raw(ctx, path("err.img"), path("early_cancel.chd"), nullptr, true) == CHDMAN_ERR_CANCELLED);
+	CHECK(std::string(chdman_last_error(ctx)).find("cancelled") != std::string::npos);
+	CHECK(!fs::exists(path("early_cancel.chd")));
 	CHECK_OK(ctx, create_raw(ctx, path("err.img"), path("after_cancel.chd"), nullptr, true));
 	CHECK(std::strlen(chdman_last_error(ctx)) == 0);
+
+	// it also applies to operations that report no progress
+	chdman_context_cancel(ctx);
+	chdman_info_options io;
+	chdman_info_options_init(&io);
+	io.input = chd.c_str();
+	chdman_info *info = nullptr;
+	CHECK(chdman_info_open(ctx, &io, &info) == CHDMAN_ERR_CANCELLED);
+	CHECK(info == nullptr);
+	CHECK_OK(ctx, chdman_info_open(ctx, &io, &info));
+	chdman_info_free(info);
+
+	// a cancel during an operation is cleared when it finishes
+	chdman_context_set_progress(ctx, [](void *user, chdman_phase, double, double) -> int {
+		chdman_context_cancel(static_cast<chdman_context *>(user));
+		return 0;
+	}, ctx.ctx);
+	CHECK(create_raw(ctx, path("err.img"), path("mid_cancel.chd"), nullptr, true) == CHDMAN_ERR_CANCELLED);
+	CHECK(!fs::exists(path("mid_cancel.chd")));
+	chdman_context_set_progress(ctx, nullptr, nullptr);
+	CHECK_OK(ctx, create_raw(ctx, path("err.img"), path("after_mid_cancel.chd"), nullptr, true));
 
 	// log callback receives chdman's informational lines
 	std::vector<std::string> lines;

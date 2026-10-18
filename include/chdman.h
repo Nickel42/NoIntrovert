@@ -126,7 +126,10 @@ CHDMAN_API void CHDMAN_CALL chdman_context_set_num_processors(chdman_context *ct
 
 /*
  * Request cancellation of the operation running on ctx. Thread-safe.
- * The flag is cleared automatically when the next operation starts.
+ * If no operation is running yet, the request is kept and the next
+ * operation on ctx fails with CHDMAN_ERR_CANCELLED before doing any work,
+ * so a cancel racing with the start of an operation is never lost.
+ * The request is cleared when an operation finishes, however it ends.
  */
 CHDMAN_API void CHDMAN_CALL chdman_context_cancel(chdman_context *ctx);
 
