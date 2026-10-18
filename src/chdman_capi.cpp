@@ -6,7 +6,9 @@
 #include "chdman.h"
 #include "chdman_core.h"
 
+#include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -56,13 +58,49 @@ std::optional<uint32_t> opt_nonzero(uint32_t v)
 	return v;
 }
 
+// Smallest struct_size accepted for each versioned struct: its ABI 1 layout
+// up to the end of the last v1 field. These values must never change; fields
+// added later make sizeof() grow but not the minimum.
+template <typename T> constexpr size_t v1_size();
+#define CHDMAN_V1_SIZE(T, last) template <> constexpr size_t v1_size<T>() { return offsetof(T, last) + sizeof(T::last); }
+CHDMAN_V1_SIZE(chdman_info_options, hunk_stats)
+CHDMAN_V1_SIZE(chdman_verify_options, fix)
+CHDMAN_V1_SIZE(chdman_verify_result, computed_sha1)
+CHDMAN_V1_SIZE(chdman_create_raw_options, unit_size)
+CHDMAN_V1_SIZE(chdman_create_hd_options, sector_size)
+CHDMAN_V1_SIZE(chdman_create_cd_options, input)
+CHDMAN_V1_SIZE(chdman_create_dvd_options, range)
+CHDMAN_V1_SIZE(chdman_create_ld_options, length_frames)
+CHDMAN_V1_SIZE(chdman_copy_options, range)
+CHDMAN_V1_SIZE(chdman_extract_raw_options, range)
+CHDMAN_V1_SIZE(chdman_extract_cd_options, force)
+CHDMAN_V1_SIZE(chdman_extract_ld_options, length_frames)
+CHDMAN_V1_SIZE(chdman_add_metadata_options, no_checksum)
+#undef CHDMAN_V1_SIZE
+
+// Copies a caller's struct into a local one. The local copy starts from the
+// matching *_init() defaults, so fields the caller's (older) header lacks get
+// their defaults, and fields from a newer header that this library doesn't
+// know are ignored.
 template <typename T>
-void check_struct(const T *opts)
+T read_struct(const T *in, void (CHDMAN_CALL *init)(T *))
 {
-	if (!opts)
+	if (!in)
 		throw chdman::error(CHDMAN_ERR_INVALID_ARGUMENT, "Options pointer is NULL");
-	if (opts->struct_size < sizeof(T))
-		throw chdman::error(CHDMAN_ERR_ABI_MISMATCH, "Options struct_size is smaller than expected; call the matching *_options_init()");
+	if (in->struct_size < v1_size<T>())
+		throw chdman::error(CHDMAN_ERR_ABI_MISMATCH, "Options struct_size is smaller than expected; call the matching *_init()");
+	T local;
+	init(&local);
+	std::memcpy(&local, in, std::min(in->struct_size, sizeof(T)));
+	return local;
+}
+
+// Copies a result struct obtained from read_struct() back to the caller,
+// writing no more than the caller's struct_size.
+template <typename T>
+void write_struct(T *out, T const &local)
+{
+	std::memcpy(out, &local, std::min(out->struct_size, sizeof(T)));
 }
 
 chdman::output_options convert(const chdman_output_options &o)
@@ -103,16 +141,29 @@ chdman_status run(chdman_context *ctx, F &&f) noexcept
 		return CHDMAN_ERR_INVALID_ARGUMENT;
 	try
 	{
+		chdman::session_scope const scope(ctx->session);
 		ctx->last_error.clear();
 		ctx->session.begin_operation();
+		ctx->session.check_cancel(); // honour a cancel requested before the start
 		f();
+		ctx->session.end_operation();
 		return CHDMAN_OK;
 	}
 	catch (...)
 	{
+		ctx->session.end_operation();
 		std::string message;
 		chdman_status const status = chdman::translate_current_exception(message);
-		try { ctx->last_error = std::move(message); } catch (...) { }
+		try
+		{
+			// MAME often prints the specific cause (e.g. a missing .bin file)
+			// and returns a generic error code; add the cause to the message
+			std::string const &detail = ctx->session.last_osd_error();
+			if (!detail.empty() && message.find(detail) == std::string::npos)
+				message += ": " + detail;
+			ctx->last_error = std::move(message);
+		}
+		catch (...) { }
 		return status;
 	}
 }
@@ -236,11 +287,11 @@ CHDMAN_API chdman_status CHDMAN_CALL chdman_info_open(chdman_context *ctx, const
 		if (!out_info)
 			throw chdman::error(CHDMAN_ERR_INVALID_ARGUMENT, "out_info is NULL");
 		*out_info = nullptr;
-		check_struct(opts);
+		chdman_info_options const args = read_struct(opts, chdman_info_options_init);
 		chdman::info_options o;
-		o.input = req_str(opts->input, "Input file name");
-		o.input_parent = opt_str(opts->input_parent);
-		o.hunk_stats = opts->hunk_stats != 0;
+		o.input = req_str(args.input, "Input file name");
+		o.input_parent = opt_str(args.input_parent);
+		o.hunk_stats = args.hunk_stats != 0;
 		auto info = std::make_unique<chdman_info>();
 		info->result = chdman::info(ctx->session, o);
 		*out_info = info.release();
@@ -338,18 +389,19 @@ CHDMAN_API void CHDMAN_CALL chdman_verify_result_init(chdman_verify_result *resu
 CHDMAN_API chdman_status CHDMAN_CALL chdman_verify(chdman_context *ctx, const chdman_verify_options *opts, chdman_verify_result *result)
 {
 	return run(ctx, [&] {
-		check_struct(opts);
-		check_struct(result);
+		chdman_verify_options const args = read_struct(opts, chdman_verify_options_init);
+		chdman_verify_result res = read_struct(result, chdman_verify_result_init);
 		chdman::verify_options o;
-		o.input = req_str(opts->input, "Input file name");
-		o.input_parent = opt_str(opts->input_parent);
-		o.fix = opts->fix != 0;
+		o.input = req_str(args.input, "Input file name");
+		o.input_parent = opt_str(args.input_parent);
+		o.fix = args.fix != 0;
 		chdman::verify_result r = chdman::verify(ctx->session, o);
-		result->outcome = r.outcome;
-		copy_sha1(result->header_raw_sha1, r.header_raw_sha1);
-		copy_sha1(result->computed_raw_sha1, r.computed_raw_sha1);
-		copy_sha1(result->header_sha1, r.header_sha1);
-		copy_sha1(result->computed_sha1, r.computed_sha1);
+		res.outcome = r.outcome;
+		copy_sha1(res.header_raw_sha1, r.header_raw_sha1);
+		copy_sha1(res.computed_raw_sha1, r.computed_raw_sha1);
+		copy_sha1(res.header_sha1, r.header_sha1);
+		copy_sha1(res.computed_sha1, r.computed_sha1);
+		write_struct(result, res);
 		if (!r.message.empty())
 			ctx->session.info(r.message);
 	});
@@ -415,12 +467,12 @@ CHDMAN_API void CHDMAN_CALL chdman_create_ld_options_init(chdman_create_ld_optio
 CHDMAN_API chdman_status CHDMAN_CALL chdman_create_raw(chdman_context *ctx, const chdman_create_raw_options *opts)
 {
 	return run(ctx, [&] {
-		check_struct(opts);
+		chdman_create_raw_options const args = read_struct(opts, chdman_create_raw_options_init);
 		chdman::create_raw_options o;
-		o.out = convert(opts->out);
-		o.input = req_str(opts->input, "Input file name");
-		o.range = convert(opts->range);
-		o.unit_size = opt_nonzero(opts->unit_size);
+		o.out = convert(args.out);
+		o.input = req_str(args.input, "Input file name");
+		o.range = convert(args.range);
+		o.unit_size = opt_nonzero(args.unit_size);
 		chdman::create_raw(ctx->session, o);
 	});
 }
@@ -428,19 +480,19 @@ CHDMAN_API chdman_status CHDMAN_CALL chdman_create_raw(chdman_context *ctx, cons
 CHDMAN_API chdman_status CHDMAN_CALL chdman_create_hd(chdman_context *ctx, const chdman_create_hd_options *opts)
 {
 	return run(ctx, [&] {
-		check_struct(opts);
+		chdman_create_hd_options const args = read_struct(opts, chdman_create_hd_options_init);
 		chdman::create_hd_options o;
-		o.out = convert(opts->out);
-		o.input = opt_str(opts->input);
-		o.range = convert(opts->range);
-		o.size = opt_u64(opts->size);
-		if (opts->template_id >= 0)
-			o.template_id = uint32_t(opts->template_id);
-		o.ident = opt_str(opts->ident);
-		o.cylinders = opt_nonzero(opts->cylinders);
-		o.heads = opt_nonzero(opts->heads);
-		o.sectors = opt_nonzero(opts->sectors);
-		o.sector_size = opt_nonzero(opts->sector_size);
+		o.out = convert(args.out);
+		o.input = opt_str(args.input);
+		o.range = convert(args.range);
+		o.size = opt_u64(args.size);
+		if (args.template_id >= 0)
+			o.template_id = uint32_t(args.template_id);
+		o.ident = opt_str(args.ident);
+		o.cylinders = opt_nonzero(args.cylinders);
+		o.heads = opt_nonzero(args.heads);
+		o.sectors = opt_nonzero(args.sectors);
+		o.sector_size = opt_nonzero(args.sector_size);
 		chdman::create_hd(ctx->session, o);
 	});
 }
@@ -448,10 +500,10 @@ CHDMAN_API chdman_status CHDMAN_CALL chdman_create_hd(chdman_context *ctx, const
 CHDMAN_API chdman_status CHDMAN_CALL chdman_create_cd(chdman_context *ctx, const chdman_create_cd_options *opts)
 {
 	return run(ctx, [&] {
-		check_struct(opts);
+		chdman_create_cd_options const args = read_struct(opts, chdman_create_cd_options_init);
 		chdman::create_cd_options o;
-		o.out = convert(opts->out);
-		o.input = req_str(opts->input, "Input file name");
+		o.out = convert(args.out);
+		o.input = req_str(args.input, "Input file name");
 		chdman::create_cd(ctx->session, o);
 	});
 }
@@ -459,11 +511,11 @@ CHDMAN_API chdman_status CHDMAN_CALL chdman_create_cd(chdman_context *ctx, const
 CHDMAN_API chdman_status CHDMAN_CALL chdman_create_dvd(chdman_context *ctx, const chdman_create_dvd_options *opts)
 {
 	return run(ctx, [&] {
-		check_struct(opts);
+		chdman_create_dvd_options const args = read_struct(opts, chdman_create_dvd_options_init);
 		chdman::create_dvd_options o;
-		o.out = convert(opts->out);
-		o.input = req_str(opts->input, "Input file name");
-		o.range = convert(opts->range);
+		o.out = convert(args.out);
+		o.input = req_str(args.input, "Input file name");
+		o.range = convert(args.range);
 		chdman::create_dvd(ctx->session, o);
 	});
 }
@@ -471,12 +523,12 @@ CHDMAN_API chdman_status CHDMAN_CALL chdman_create_dvd(chdman_context *ctx, cons
 CHDMAN_API chdman_status CHDMAN_CALL chdman_create_ld(chdman_context *ctx, const chdman_create_ld_options *opts)
 {
 	return run(ctx, [&] {
-		check_struct(opts);
+		chdman_create_ld_options const args = read_struct(opts, chdman_create_ld_options_init);
 		chdman::create_ld_options o;
-		o.out = convert(opts->out);
-		o.input = req_str(opts->input, "Input file name");
-		o.range.start_frame = opt_u64(opts->start_frame);
-		o.range.length_frames = opt_u64(opts->length_frames);
+		o.out = convert(args.out);
+		o.input = req_str(args.input, "Input file name");
+		o.range.start_frame = opt_u64(args.start_frame);
+		o.range.length_frames = opt_u64(args.length_frames);
 		chdman::create_ld(ctx->session, o);
 	});
 }
@@ -499,12 +551,12 @@ CHDMAN_API void CHDMAN_CALL chdman_copy_options_init(chdman_copy_options *opts)
 CHDMAN_API chdman_status CHDMAN_CALL chdman_copy(chdman_context *ctx, const chdman_copy_options *opts)
 {
 	return run(ctx, [&] {
-		check_struct(opts);
+		chdman_copy_options const args = read_struct(opts, chdman_copy_options_init);
 		chdman::copy_options o;
-		o.out = convert(opts->out);
-		o.input = req_str(opts->input, "Input file name");
-		o.input_parent = opt_str(opts->input_parent);
-		o.range = convert(opts->range);
+		o.out = convert(args.out);
+		o.input = req_str(args.input, "Input file name");
+		o.input_parent = opt_str(args.input_parent);
+		o.range = convert(args.range);
 		chdman::copy(ctx->session, o);
 	});
 }
@@ -544,13 +596,13 @@ CHDMAN_API void CHDMAN_CALL chdman_extract_ld_options_init(chdman_extract_ld_opt
 CHDMAN_API chdman_status CHDMAN_CALL chdman_extract_raw(chdman_context *ctx, const chdman_extract_raw_options *opts)
 {
 	return run(ctx, [&] {
-		check_struct(opts);
+		chdman_extract_raw_options const args = read_struct(opts, chdman_extract_raw_options_init);
 		chdman::extract_raw_options o;
-		o.input = req_str(opts->input, "Input file name");
-		o.input_parent = opt_str(opts->input_parent);
-		o.output = req_str(opts->output, "Output file name");
-		o.force = opts->force != 0;
-		o.range = convert(opts->range);
+		o.input = req_str(args.input, "Input file name");
+		o.input_parent = opt_str(args.input_parent);
+		o.output = req_str(args.output, "Output file name");
+		o.force = args.force != 0;
+		o.range = convert(args.range);
 		chdman::extract_raw(ctx->session, o);
 	});
 }
@@ -558,14 +610,14 @@ CHDMAN_API chdman_status CHDMAN_CALL chdman_extract_raw(chdman_context *ctx, con
 CHDMAN_API chdman_status CHDMAN_CALL chdman_extract_cd(chdman_context *ctx, const chdman_extract_cd_options *opts)
 {
 	return run(ctx, [&] {
-		check_struct(opts);
+		chdman_extract_cd_options const args = read_struct(opts, chdman_extract_cd_options_init);
 		chdman::extract_cd_options o;
-		o.input = req_str(opts->input, "Input file name");
-		o.input_parent = opt_str(opts->input_parent);
-		o.output = req_str(opts->output, "Output file name");
-		o.output_bin = opt_str(opts->output_bin);
-		o.split_bin = opts->split_bin != 0;
-		o.force = opts->force != 0;
+		o.input = req_str(args.input, "Input file name");
+		o.input_parent = opt_str(args.input_parent);
+		o.output = req_str(args.output, "Output file name");
+		o.output_bin = opt_str(args.output_bin);
+		o.split_bin = args.split_bin != 0;
+		o.force = args.force != 0;
 		chdman::extract_cd(ctx->session, o);
 	});
 }
@@ -573,14 +625,14 @@ CHDMAN_API chdman_status CHDMAN_CALL chdman_extract_cd(chdman_context *ctx, cons
 CHDMAN_API chdman_status CHDMAN_CALL chdman_extract_ld(chdman_context *ctx, const chdman_extract_ld_options *opts)
 {
 	return run(ctx, [&] {
-		check_struct(opts);
+		chdman_extract_ld_options const args = read_struct(opts, chdman_extract_ld_options_init);
 		chdman::extract_ld_options o;
-		o.input = req_str(opts->input, "Input file name");
-		o.input_parent = opt_str(opts->input_parent);
-		o.output = req_str(opts->output, "Output file name");
-		o.force = opts->force != 0;
-		o.range.start_frame = opt_u64(opts->start_frame);
-		o.range.length_frames = opt_u64(opts->length_frames);
+		o.input = req_str(args.input, "Input file name");
+		o.input_parent = opt_str(args.input_parent);
+		o.output = req_str(args.output, "Output file name");
+		o.force = args.force != 0;
+		o.range.start_frame = opt_u64(args.start_frame);
+		o.range.length_frames = opt_u64(args.length_frames);
 		chdman::extract_ld(ctx->session, o);
 	});
 }
@@ -601,18 +653,18 @@ CHDMAN_API void CHDMAN_CALL chdman_add_metadata_options_init(chdman_add_metadata
 CHDMAN_API chdman_status CHDMAN_CALL chdman_add_metadata(chdman_context *ctx, const chdman_add_metadata_options *opts)
 {
 	return run(ctx, [&] {
-		check_struct(opts);
+		chdman_add_metadata_options const args = read_struct(opts, chdman_add_metadata_options_init);
 		chdman::add_metadata_options o;
-		o.ref.input = req_str(opts->input, "Input file name");
-		o.ref.input_parent = opt_str(opts->input_parent);
-		o.ref.tag = req_str(opts->tag, "Metadata tag");
-		o.ref.index = opts->index;
-		if (opts->value_text)
-			o.value_text = std::string(opts->value_text);
-		o.value_file = opt_str(opts->value_file);
-		if (opts->value_data)
-			o.value_data.emplace(opts->value_data, opts->value_data + opts->value_length);
-		o.no_checksum = opts->no_checksum != 0;
+		o.ref.input = req_str(args.input, "Input file name");
+		o.ref.input_parent = opt_str(args.input_parent);
+		o.ref.tag = req_str(args.tag, "Metadata tag");
+		o.ref.index = args.index;
+		if (args.value_text)
+			o.value_text = std::string(args.value_text);
+		o.value_file = opt_str(args.value_file);
+		if (args.value_data)
+			o.value_data.emplace(args.value_data, args.value_data + args.value_length);
+		o.no_checksum = args.no_checksum != 0;
 		chdman::add_metadata(ctx->session, o);
 	});
 }

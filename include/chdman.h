@@ -15,9 +15,16 @@
  *    on the same context.
  *  - No exceptions, no stdout/stderr output, no process exit. Diagnostics go
  *    to the optional log callback.
- *  - Option structs carry a struct_size field and must be initialized with
- *    the matching chdman_*_options_init() function before use. This lets new
- *    fields be appended without breaking binary compatibility.
+ *  - Option and result structs carry a struct_size field and must be
+ *    initialized with the matching chdman_*_init() function before use. New
+ *    fields are only ever appended. The library accepts any struct_size from
+ *    the ABI 1 size upward: fields beyond the caller's struct_size take their
+ *    *_init() defaults, fields the library doesn't know are ignored, and a
+ *    result struct is written only up to its struct_size. A struct_size below
+ *    the ABI 1 size fails with CHDMAN_ERR_ABI_MISMATCH.
+ *  - chdman_output_options and chdman_range_options are embedded in other
+ *    structs without a struct_size of their own, so their layout is frozen.
+ *    New output or range settings will be appended to the outer structs.
  *  - Numeric "not specified" values use CHDMAN_UNSET (all bits set).
  */
 #ifndef CHDMAN_H
@@ -97,10 +104,18 @@ typedef int (CHDMAN_CALL *chdman_progress_fn)(void *user, chdman_phase phase, do
 
 typedef enum chdman_log_level {
 	CHDMAN_LOG_INFO = 0,
-	CHDMAN_LOG_WARNING = 1
+	CHDMAN_LOG_WARNING = 1,
+	CHDMAN_LOG_ERROR = 2   /* the cause of a failure, reported as it happens */
 } chdman_log_level;
 
-/* Log callback for non-fatal diagnostics (warnings that chdman prints). */
+/*
+ * Log callback for diagnostics: the informational lines and warnings that
+ * chdman prints, plus the info, warning and error lines from MAME's parsers
+ * at the matching level (e.g. CHDMAN_LOG_ERROR "ERROR: couldn't find bin
+ * file [x.bin]"). An error line is also appended to chdman_last_error() if
+ * the operation fails. Treat unknown levels as CHDMAN_LOG_WARNING.
+ * Called on the thread that invoked the operation.
+ */
 typedef void (CHDMAN_CALL *chdman_log_fn)(void *user, chdman_log_level level, const char *message);
 
 CHDMAN_API chdman_status CHDMAN_CALL chdman_context_create(chdman_context **out_ctx);
@@ -114,11 +129,18 @@ CHDMAN_API void CHDMAN_CALL chdman_context_set_num_processors(chdman_context *ct
 
 /*
  * Request cancellation of the operation running on ctx. Thread-safe.
- * The flag is cleared automatically when the next operation starts.
+ * If no operation is running yet, the request is kept and the next
+ * operation on ctx fails with CHDMAN_ERR_CANCELLED before doing any work,
+ * so a cancel racing with the start of an operation is never lost.
+ * The request is cleared when an operation finishes, however it ends.
  */
 CHDMAN_API void CHDMAN_CALL chdman_context_cancel(chdman_context *ctx);
 
-/* Message for the last failed call on ctx ("" after success). Never NULL. */
+/*
+ * Message for the last failed call on ctx ("" after success). Never NULL.
+ * When MAME reported a more specific cause than its error code (for example
+ * a .cue naming a missing .bin), that cause is appended after ": ".
+ */
 CHDMAN_API const char *CHDMAN_CALL chdman_last_error(const chdman_context *ctx);
 
 /* Free memory returned by the library (e.g. chdman_get_metadata). */
@@ -219,7 +241,9 @@ CHDMAN_API chdman_status CHDMAN_CALL chdman_verify(chdman_context *ctx, const ch
 /* ------------------------------------------------------------------ create */
 
 /*
- * Shared output settings for create and copy.
+ * Shared output settings for create and copy. Frozen: this struct has no
+ * struct_size, so it can never grow. New output settings will be appended
+ * to the outer chdman_create_*_options / chdman_copy_options structs.
  *   compression: NULL = default for the media type, "none", or up to four
  *                comma-separated 4CCs ("lzma,zlib,huff,flac").
  *   hunk_size:   0 = default for the media type.
@@ -232,7 +256,10 @@ typedef struct chdman_output_options {
 	const char *compression;
 } chdman_output_options;
 
-/* Input range selection; at most one start and one length field may be set. */
+/*
+ * Input range selection; at most one start and one length field may be set.
+ * Frozen like chdman_output_options: new fields go in the outer structs.
+ */
 typedef struct chdman_range_options {
 	uint64_t start_byte;        /* CHDMAN_UNSET when not used */
 	uint64_t start_hunk;

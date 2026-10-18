@@ -1154,6 +1154,79 @@ void session::warning(std::string const &message) const
 		log_cb(CHDMAN_LOG_WARNING, message);
 }
 
+void session::osd_message(chdman_log_level level, std::string message)
+{
+	// MAME terminates lines with '\n'; strip it, and keep only the last line
+	// of a multi-line error for the error message
+	while (!message.empty() && std::isspace(static_cast<unsigned char>(message.back())))
+		message.pop_back();
+	if (message.empty())
+		return;
+	if (log_cb)
+		log_cb(level, message);
+	if (level == CHDMAN_LOG_ERROR)
+	{
+		std::string::size_type const nl = message.find_last_of('\n');
+		std::string line = (nl == std::string::npos) ? message : message.substr(nl + 1);
+		if (line.compare(0, 7, "ERROR: ") == 0)
+			line.erase(0, 7);
+		m_last_osd_error = std::move(line);
+	}
+}
+
+
+//**************************************************************************
+//  OSD OUTPUT ROUTING
+//**************************************************************************
+
+namespace {
+
+thread_local session *t_current_session = nullptr;
+
+// The osd_output stack in osdcore.cpp is a global array without locking, so
+// exactly one delegate is pushed, once, for the whole process. It forwards
+// each message to whichever session is active on the printing thread.
+class osd_router : public osd_output
+{
+public:
+	osd_router() { osd_output::push(this); }
+	~osd_router() { osd_output::pop(this); }
+
+	virtual void output_callback(osd_output_channel channel, util::format_argument_pack<char> const &args) override
+	{
+		session *const s = t_current_session;
+		if (!s)
+			return;
+		try
+		{
+			switch (channel)
+			{
+			case OSD_OUTPUT_CHANNEL_ERROR:   s->osd_message(CHDMAN_LOG_ERROR, util::string_format(args)); break;
+			case OSD_OUTPUT_CHANNEL_WARNING: s->osd_message(CHDMAN_LOG_WARNING, util::string_format(args)); break;
+			case OSD_OUTPUT_CHANNEL_INFO:    s->osd_message(CHDMAN_LOG_INFO, util::string_format(args)); break;
+			default:                         break; // verbose/debug/log are dropped, as in chdman
+			}
+		}
+		catch (...)
+		{
+			// diagnostics must never turn into failures
+		}
+	}
+};
+
+} // anonymous namespace
+
+session_scope::session_scope(session &s) : m_previous(t_current_session)
+{
+	static osd_router router;
+	t_current_session = &s;
+}
+
+session_scope::~session_scope()
+{
+	t_current_session = m_previous;
+}
+
 
 //**************************************************************************
 //  INFO

@@ -5,6 +5,7 @@
 #include "chdman.h"
 #include "sha1.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -14,6 +15,8 @@
 #include <iostream>
 #include <iterator>
 #include <string>
+#include <thread>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -715,11 +718,39 @@ void test_errors_and_cancel()
 	CHECK(extract_raw(ctx, chd, path("cancel.out")) == CHDMAN_ERR_CANCELLED);
 	CHECK(!fs::exists(path("cancel.out")));
 
-	// chdman_context_cancel() before start is cleared by the next operation
+	// a cancel from the progress callback doesn't leak into the next operation
 	chdman_context_set_progress(ctx, nullptr, nullptr);
-	chdman_context_cancel(ctx);
+	CHECK_OK(ctx, create_raw(ctx, path("err.img"), path("after_cb_cancel.chd"), nullptr, true));
+
+	// chdman_context_cancel() before start (here from another thread) is not
+	// lost: it cancels the next operation, then is cleared
+	std::thread([c = ctx.ctx] { chdman_context_cancel(c); }).join();
+	CHECK(create_raw(ctx, path("err.img"), path("early_cancel.chd"), nullptr, true) == CHDMAN_ERR_CANCELLED);
+	CHECK(std::string(chdman_last_error(ctx)).find("cancelled") != std::string::npos);
+	CHECK(!fs::exists(path("early_cancel.chd")));
 	CHECK_OK(ctx, create_raw(ctx, path("err.img"), path("after_cancel.chd"), nullptr, true));
 	CHECK(std::strlen(chdman_last_error(ctx)) == 0);
+
+	// it also applies to operations that report no progress
+	chdman_context_cancel(ctx);
+	chdman_info_options io;
+	chdman_info_options_init(&io);
+	io.input = chd.c_str();
+	chdman_info *info = nullptr;
+	CHECK(chdman_info_open(ctx, &io, &info) == CHDMAN_ERR_CANCELLED);
+	CHECK(info == nullptr);
+	CHECK_OK(ctx, chdman_info_open(ctx, &io, &info));
+	chdman_info_free(info);
+
+	// a cancel during an operation is cleared when it finishes
+	chdman_context_set_progress(ctx, [](void *user, chdman_phase, double, double) -> int {
+		chdman_context_cancel(static_cast<chdman_context *>(user));
+		return 0;
+	}, ctx.ctx);
+	CHECK(create_raw(ctx, path("err.img"), path("mid_cancel.chd"), nullptr, true) == CHDMAN_ERR_CANCELLED);
+	CHECK(!fs::exists(path("mid_cancel.chd")));
+	chdman_context_set_progress(ctx, nullptr, nullptr);
+	CHECK_OK(ctx, create_raw(ctx, path("err.img"), path("after_mid_cancel.chd"), nullptr, true));
 
 	// log callback receives chdman's informational lines
 	std::vector<std::string> lines;
@@ -731,6 +762,112 @@ void test_errors_and_cancel()
 	for (auto const &l : lines)
 		saw_complete = saw_complete || l.find("Compression complete") != std::string::npos;
 	CHECK(saw_complete);
+}
+
+void test_struct_size()
+{
+	context ctx;
+	auto const data = make_raw_image(65536 * 2);
+	write_file(path("ss.img"), data);
+	std::string const img = path("ss.img"), out = path("ss.chd");
+
+	// a struct_size that stops at the end of the last v1 field (no trailing
+	// padding) is accepted; one that cuts off a v1 field is not
+	chdman_create_raw_options ro;
+	chdman_create_raw_options_init(&ro);
+	ro.input = img.c_str();
+	ro.out.output = out.c_str();
+	ro.out.force = 1;
+	ro.unit_size = 512;
+	ro.struct_size = offsetof(chdman_create_raw_options, unit_size) + sizeof(ro.unit_size);
+	CHECK_OK(ctx, chdman_create_raw(ctx, &ro));
+	ro.struct_size = offsetof(chdman_create_raw_options, unit_size);
+	CHECK(chdman_create_raw(ctx, &ro) == CHDMAN_ERR_ABI_MISMATCH);
+	CHECK(std::string(chdman_last_error(ctx)).find("struct_size") != std::string::npos);
+	ro.struct_size = 0;
+	CHECK(chdman_create_raw(ctx, &ro) == CHDMAN_ERR_ABI_MISMATCH);
+
+	// a caller built against a newer header passes a larger struct; the
+	// unknown trailing fields are ignored
+	struct newer_raw { chdman_create_raw_options v1; uint64_t future[4]; } nr;
+	std::memset(&nr, 0xa5, sizeof(nr));
+	chdman_create_raw_options_init(&nr.v1);
+	nr.v1.struct_size = sizeof(nr);
+	nr.v1.input = img.c_str();
+	nr.v1.out.output = out.c_str();
+	nr.v1.out.force = 1;
+	nr.v1.unit_size = 512;
+	CHECK_OK(ctx, chdman_create_raw(ctx, &nr.v1));
+	std::string const sha = info_raw_sha1(ctx, out);
+	CHECK_EQ_STR(sha, sha1_hex(data));
+
+	// a larger result struct is written only up to the library's own size
+	struct newer_result { chdman_verify_result v1; uint8_t future[32]; } vr;
+	std::memset(&vr, 0xa5, sizeof(vr));
+	chdman_verify_result_init(&vr.v1);
+	vr.v1.struct_size = sizeof(vr);
+	chdman_verify_options vo;
+	chdman_verify_options_init(&vo);
+	vo.input = out.c_str();
+	CHECK_OK(ctx, chdman_verify(ctx, &vo, &vr.v1));
+	CHECK(vr.v1.outcome == CHDMAN_VERIFY_OK);
+	CHECK(vr.v1.struct_size == sizeof(vr));
+	CHECK_EQ_STR(vr.v1.computed_raw_sha1, sha);
+	bool untouched = true;
+	for (uint8_t b : vr.future)
+		untouched = untouched && b == 0xa5;
+	CHECK(untouched);
+
+	// a result struct cut short is rejected before anything is written
+	chdman_verify_result_init(&vr.v1);
+	vr.v1.struct_size = offsetof(chdman_verify_result, computed_sha1);
+	CHECK(chdman_verify(ctx, &vo, &vr.v1) == CHDMAN_ERR_ABI_MISMATCH);
+	CHECK(vr.v1.outcome == CHDMAN_VERIFY_NOT_APPLICABLE);
+}
+
+void test_cd_parse_errors()
+{
+	context ctx;
+	std::vector<std::pair<chdman_log_level, std::string>> lines;
+	chdman_context_set_log(ctx, [](void *user, chdman_log_level level, const char *msg) {
+		static_cast<std::vector<std::pair<chdman_log_level, std::string>> *>(user)->emplace_back(level, msg);
+	}, &lines);
+
+	// a .cue that names a .bin that isn't there: MAME prints the cause and
+	// returns a generic error, so the cause must reach last_error and the log
+	std::string const cue = path("missing_bin.cue"), chd = path("missing_bin.chd");
+	{
+		std::ofstream f(cue, std::ios::trunc);
+		f << "FILE \"no_such_track.bin\" BINARY\n"
+		  << "  TRACK 01 MODE1/2352\n"
+		  << "    INDEX 01 00:00:00\n";
+	}
+	chdman_create_cd_options co;
+	chdman_create_cd_options_init(&co);
+	co.input = cue.c_str();
+	co.out.output = chd.c_str();
+	co.out.force = 1;
+	CHECK(chdman_create_cd(ctx, &co) != CHDMAN_OK);
+	std::string const err = chdman_last_error(ctx);
+	CHECK(err.find("Error parsing input file") != std::string::npos);
+	CHECK(err.find("couldn't find bin file") != std::string::npos);
+	CHECK(err.find("no_such_track.bin") != std::string::npos);
+	CHECK(!fs::exists(chd));
+	bool logged = false;
+	for (auto const &l : lines)
+		logged = logged || (l.first == CHDMAN_LOG_ERROR &&l.second.find("couldn't find bin file") != std::string::npos && l.second.back() != '\n');
+	CHECK(logged);
+
+	// the detail belongs to that operation only
+	auto const data = make_raw_image(65536);
+	write_file(path("cdp.img"), data);
+	CHECK(create_raw(ctx, path("cdp.img"), path("cdp.chd"), "abcd", true) == CHDMAN_ERR_INVALID_ARGUMENT);
+	CHECK(std::string(chdman_last_error(ctx)).find("couldn't find bin file") == std::string::npos);
+
+	// without a log callback the error message still carries the cause
+	context quiet;
+	CHECK(chdman_create_cd(quiet, &co) != CHDMAN_OK);
+	CHECK(std::string(chdman_last_error(quiet)).find("couldn't find bin file") != std::string::npos);
 }
 
 } // anonymous namespace
@@ -753,6 +890,8 @@ int main()
 		{ "dvd_and_hd", test_dvd_and_hd },
 		{ "ld_roundtrip", test_ld_roundtrip },
 		{ "errors_and_cancel", test_errors_and_cancel },
+		{ "struct_size", test_struct_size },
+		{ "cd_parse_errors", test_cd_parse_errors },
 	};
 	for (auto const &t : tests)
 	{
