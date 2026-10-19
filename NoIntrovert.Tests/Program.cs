@@ -361,7 +361,10 @@ Test("Folder scan picks descriptors, not the files they use", () =>
         "FILE \"a (Track 1).bin\" BINARY\n TRACK 01 MODE2/2352\n  INDEX 01 00:00:00\nFILE \"a (Track 2).bin\" BINARY\n TRACK 02 AUDIO\n  INDEX 01 00:00:00\n");
     var picked = DiscFiles.SelectPrimaries(Directory.EnumerateFiles(dir)).Select(Path.GetFileName).ToList();
     var expected = new[] { "a.cue", "b.ccd", "c.mds", "d.iso.001", "e.cso", "f.zip" };
-    return picked.SequenceEqual(expected) ? null : $"picked {string.Join(", ", picked)}";
+    if (!picked.SequenceEqual(expected)) return $"picked {string.Join(", ", picked)}";
+    // The same folder given with forward slashes (command line, some drag sources).
+    var slashed = DiscFiles.SelectPrimaries(Directory.EnumerateFiles(dir.Replace('\\', '/'))).Select(Path.GetFileName).ToList();
+    return slashed.SequenceEqual(expected) ? null : $"with / separators picked {string.Join(", ", slashed)}";
 });
 
 Test("RAR inputs are refused", () =>

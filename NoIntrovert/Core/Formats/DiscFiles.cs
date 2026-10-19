@@ -74,7 +74,9 @@ internal static partial class DiscFiles
     /// </summary>
     public static List<string> SelectPrimaries(IEnumerable<string> candidates)
     {
-        var all = candidates.Where(IsSupported).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        // Compare full paths: a folder given with "/" or mixed separators must
+        // still match the members that SetFiles builds with Path.Combine.
+        var all = candidates.Where(IsSupported).Select(Normalize).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in all)
         {
@@ -87,11 +89,17 @@ internal static partial class DiscFiles
             var ext = Path.GetExtension(file);
             if (Descriptors.Contains(ext, StringComparer.OrdinalIgnoreCase) || ext is ".001")
                 foreach (var member in SetFiles(file).Skip(1))
-                    claimed.Add(member);
+                    claimed.Add(Normalize(member));
         }
         // A lone "game.bin.ecm" next to "game.cue" is claimed through the cue above;
         // a loose .img next to a .ccd of the same name too.
         return all.Where(f => !claimed.Contains(f)).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private static string Normalize(string path)
+    {
+        try { return Path.GetFullPath(path); }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return path; }
     }
 
     public static IEnumerable<string> CueReferences(string cuePath) =>
