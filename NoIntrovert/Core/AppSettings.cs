@@ -45,6 +45,9 @@ public sealed class AppSettings
     public bool ArchiveDeleteOriginals { get; set; }
     public bool ArchiveExtractToOwnFolder { get; set; } = true;
 
+    // Wii U (.wua)
+    public bool WiiUDeleteOriginals { get; set; }
+
     // Performance
     public int ParallelJobs { get; set; } = 1;
     public int ThreadsPerJob { get; set; } // 0 = all processors

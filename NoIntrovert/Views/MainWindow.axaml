@@ -39,6 +39,7 @@
             <TabItem Header="Verify"><ContentControl Content="{Binding Verify}" /></TabItem>
             <TabItem Header="Extract"><ContentControl Content="{Binding Extract}" /></TabItem>
             <TabItem Header="Archive"><ContentControl Content="{Binding Archive}" /></TabItem>
+            <TabItem Header="Wii U"><ContentControl Content="{Binding WiiU}" /></TabItem>
             <TabItem Header="CHD Info"><ContentControl Content="{Binding Info}" /></TabItem>
             <TabItem Header="Library tests"><ContentControl Content="{Binding Tests}" /></TabItem>
         </TabControl>

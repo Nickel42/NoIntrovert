@@ -266,6 +266,30 @@ jobs:
           dotnet run --project app/NoIntrovert.Tests/NoIntrovert.Tests.csproj -c Release \
             -- --quick --synthetic
 
+      # The .wua writer and reader against Exzap's reference implementation, both ways.
+      - uses: actions/checkout@v4
+        with:
+          repository: Exzap/ZArchive
+          ref: d2c717730092c7bf8cbb033b12fd4001b7c4d932 # v0.1.2
+          path: zarchive
+
+      - name: Check .wua files against Exzap's zarchive tool
+        run: |
+          sudo apt-get install -y -q libzstd-dev
+          cmake -S zarchive -B zarchive/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build zarchive/build --parallel --target zarchiveTool
+          tool=zarchive/build/zarchive
+          tests="dotnet run --project app/NoIntrovert.Tests/NoIntrovert.Tests.csproj -c Release --no-build --"
+          # 1. The reference tool unpacks NoIntrovert's .wua to exactly the titles that went in.
+          $tests --wua-sample wua-check
+          "$tool" wua-check/sample.wua wua-check/by-zarchive
+          diff -r wua-check/expected wua-check/by-zarchive
+          # 2. NoIntrovert's reader verifies and unpacks an archive the reference tool wrote.
+          "$tool" wua-check/expected wua-check/by-zarchive.zar
+          $tests --unpack-zar wua-check/by-zarchive.zar wua-check/by-noi
+          diff -r wua-check/expected wua-check/by-noi
+          echo "Both directions match."
+
       - name: Publish and tar
         run: |
           rid=linux-x64

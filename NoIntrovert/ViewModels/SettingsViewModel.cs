@@ -303,6 +303,7 @@ public partial class SettingsViewModel : ViewModelBase
     public string ArchiveSingleName { get => _s.ArchiveSingleName; set => Set(value, (s, v) => s.ArchiveSingleName = v); }
     public bool ArchiveTestAfter { get => _s.ArchiveTestAfter; set => Set(value, (s, v) => s.ArchiveTestAfter = v); }
     public bool ArchiveDeleteOriginals { get => _s.ArchiveDeleteOriginals; set => Set(value, (s, v) => s.ArchiveDeleteOriginals = v); }
+    public bool WiiUDeleteOriginals { get => _s.WiiUDeleteOriginals; set => Set(value, (s, v) => s.WiiUDeleteOriginals = v); }
 
     public double WindowWidth { get => _s.WindowWidth; set => _s.WindowWidth = value; }
     public double WindowHeight { get => _s.WindowHeight; set => _s.WindowHeight = value; }

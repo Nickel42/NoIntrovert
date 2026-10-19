@@ -34,6 +34,16 @@ var log = new ConsoleLog();
 var failures = new List<string>();
 var passes = 0;
 var total = Stopwatch.StartNew();
+if (ArgValue("--wua-sample") is { } wuaSampleDir) return WriteWuaSample(Path.GetFullPath(wuaSampleDir));
+// --unpack-zar ARCHIVE DIR: checks an archive's SHA-256 and unpacks it with NoIntrovert's reader (CI reads the official tool's output with this).
+if (Array.IndexOf(args, "--unpack-zar") is var zi and >= 0 && zi + 2 < args.Length)
+{
+    using (var zr = NoIntrovert.Core.WiiU.ZArchiveReader.Open(args[zi + 1]))
+        if (!zr.CheckIntegrity()) { Console.WriteLine($"FAIL  {args[zi + 1]}: SHA-256 doesn't match"); return 1; }
+    WiiUSample.Unpack(args[zi + 1], args[zi + 2]);
+    Console.WriteLine($"unpacked {args[zi + 1]} to {args[zi + 2]}");
+    return 0;
+}
 
 Console.WriteLine($"libchdman {Chdman.Version} · roms {roms} · scratch {scratch}{(quick ? " · quick" : "")}{(synthetic ? " · synthetic discs" : "")}");
 
@@ -712,6 +722,138 @@ else
     });
 }
 
+// ---- Wii U (.wua: ZArchive) ------------------------------------------------------
+
+Test("ZArchive: writer and reader round trip", () =>
+{
+    var dir = Dir("zar-roundtrip");
+    var archive = Path.Combine(dir, "t.zar");
+    var rng = new Random(7);
+    var files = new Dictionary<string, byte[]>
+    {
+        ["b/Zeta.bin"] = RandomBytes(rng, 300_000),                     // incompressible: raw blocks
+        ["b/alpha.txt"] = TextBytes(400_000),                           // compressible
+        ["B/sub/empty.dat"] = [],
+        ["a.txt"] = TextBytes(10),
+        ["big/many.bin"] = TextBytes(17 * 65536 + 123),                // more than 16 blocks: two offset records
+    };
+    for (var i = 0; i < 40; i++) files[$"many/f{i:00}.bin"] = RandomBytes(rng, rng.Next(0, 5000));
+    using (var w = new NoIntrovert.Core.WiiU.ZArchiveWriter(archive))
+    {
+        foreach (var (path, data) in files)
+        {
+            var slash = path.LastIndexOf('/');
+            if (slash > 0) w.AddDirectory(path[..slash]);
+            w.AddFile(path, new MemoryStream(data));
+        }
+        w.AddDirectory("emptyfolder");
+        w.Finish();
+    }
+    using var r = NoIntrovert.Core.WiiU.ZArchiveReader.Open(archive);
+    if (!r.CheckIntegrity()) return "SHA-256 doesn't match";
+    var rootNames = r.Children(r.Root).Select(e => e.Name).ToList();
+    if (!rootNames.SequenceEqual(["a.txt", "b", "big", "emptyfolder", "many"])) return $"root order {string.Join(",", rootNames)}";
+    foreach (var (path, data) in files)
+    {
+        var e = r.Find(path.Replace("B/", "b/"));
+        if (e is null || !e.IsFile) return $"{path} missing";
+        var ms = new MemoryStream();
+        r.CopyFile(e, ms);
+        if (!ms.ToArray().AsSpan().SequenceEqual(data)) return $"{path} reads back differently";
+    }
+    return Note($"{files.Count} files, {new FileInfo(archive).Length:N0} bytes");
+});
+
+Test("ZArchive: damage is caught by the integrity check", () =>
+{
+    var src = Path.Combine(scratch, "zar-roundtrip", "t.zar");
+    var bad = Path.Combine(Dir("zar-damaged"), "bad.zar");
+    var bytes = File.ReadAllBytes(src);
+    bytes[1000] ^= 0x40;
+    File.WriteAllBytes(bad, bytes);
+    using var r = NoIntrovert.Core.WiiU.ZArchiveReader.Open(bad);
+    return r.CheckIntegrity() ? "damaged archive passed" : null;
+});
+
+var wiiuDir = Dir("wiiu");
+var baseTitle = WiiUSample.MakeTitle(Path.Combine(wiiuDir, "Game"), 0x0005000010101C00, 0, "Test Game", 1);
+var updateTitle = WiiUSample.MakeTitle(Path.Combine(wiiuDir, "Update v32"), 0x0005000E10101C00, 32, "Test Game", 2);
+var dlcTitle = WiiUSample.MakeTitle(Path.Combine(wiiuDir, "DLC"), 0x0005000C10101C00, 16, "Test Game", 3);
+
+Test("Wii U: title folders are recognised", () =>
+{
+    var t = NoIntrovert.Core.WiiU.WiiUTitles.FromFolder(updateTitle);
+    return t.TitleId == 0x0005000E10101C00 && t.Version == 32 && t.Kind == NoIntrovert.Core.WiiU.WiiUTitleKind.Update
+        && t.BaseId == 0x0005000010101C00 && t.ArchiveFolder == "0005000e10101c00_v32" && t.Name == "Test Game"
+        ? null : t.ToString();
+});
+
+Test("Wii U: base + update + DLC folders become one .wua", () =>
+{
+    var outDir = Dir("wiiu-out");
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [baseTitle, updateTitle, dlcTitle]),
+        s => s.OutputFolder = outDir);
+    if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+    var wua = Path.Combine(outDir, "Test Game [0005000010101C00].wua");
+    if (!File.Exists(wua)) return $"missing {wua}: {string.Join(", ", Directory.GetFiles(outDir).Select(Path.GetFileName))}";
+    var unpacked = Path.Combine(outDir, "unpacked");
+    WiiUSample.Unpack(wua, unpacked);
+    var expected = Path.Combine(outDir, "expected");
+    WiiUSample.CopyTree(baseTitle, Path.Combine(expected, "0005000010101c00_v0"));
+    WiiUSample.CopyTree(updateTitle, Path.Combine(expected, "0005000e10101c00_v32"));
+    WiiUSample.CopyTree(dlcTitle, Path.Combine(expected, "0005000c10101c00_v16"));
+    return SameTree(expected, unpacked) ?? Note(o.Summary);
+});
+
+Test("Wii U: a newer update is merged into an existing .wua", () =>
+{
+    var dir = Dir("wiiu-merge");
+    var wua = Path.Combine(dir, "Test Game [0005000010101C00].wua");
+    File.Copy(Path.Combine(scratch, "wiiu-out", "Test Game [0005000010101C00].wua"), wua);
+    var newer = WiiUSample.MakeTitle(Path.Combine(dir, "Update v48"), 0x0005000E10101C00, 48, "Test Game", 4);
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [wua, newer]), s => s.OutputFolder = dir);
+    if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+    var titles = NoIntrovert.Core.WiiU.WiiUTitles.FromWua(wua).Select(t => t.ArchiveFolder).OrderBy(n => n).ToList();
+    var want = new[] { "0005000010101c00_v0", "0005000c10101c00_v16", "0005000e10101c00_v48" };
+    if (!titles.SequenceEqual(want)) return $"titles {string.Join(", ", titles)}";
+    var unpacked = Path.Combine(dir, "unpacked");
+    WiiUSample.Unpack(wua, unpacked);
+    return SameTree(newer, Path.Combine(unpacked, "0005000e10101c00_v48"))
+        ?? SameTree(baseTitle, Path.Combine(unpacked, "0005000010101c00_v0"));
+});
+
+Test("Wii U: an existing .wua is skipped unless Overwrite is on", () =>
+{
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [baseTitle]), s => s.OutputFolder = Path.Combine(scratch, "wiiu-out"));
+    return o.Status == JobStatus.Skipped ? null : $"{o.Status}: {o.Summary}";
+});
+
+Test("Wii U: folder scan finds titles and .wua files, not folders inside titles", () =>
+{
+    var found = NoIntrovert.Core.WiiU.WiiUTitles.FindSources(wiiuDir, recursive: true).Select(Path.GetFileName).OrderBy(n => n).ToList();
+    return found.SequenceEqual(["DLC", "Game", "Update v32"]) ? null : string.Join(", ", found);
+});
+
+Test("Wii U: encrypted and disc formats are named, not guessed at", () =>
+{
+    var dir = Dir("wiiu-unsupported");
+    var nus = Directory.CreateDirectory(Path.Combine(dir, "nus")).FullName;
+    File.WriteAllBytes(Path.Combine(nus, "title.tmd"), [0]);
+    File.WriteAllBytes(Path.Combine(dir, "game.wux"), [0]);
+    var a = NoIntrovert.Core.WiiU.WiiUTitles.UnsupportedReason(nus);
+    var b = NoIntrovert.Core.WiiU.WiiUTitles.UnsupportedReason(Path.Combine(dir, "game.wux"));
+    return a is not null && b is not null && a.Contains("NUS") && b.Contains("WUX") ? null : $"{a} / {b}";
+});
+
+Test("Wii U: remove the originals once the .wua verifies", () =>
+{
+    var dir = Dir("wiiu-delete");
+    var game = WiiUSample.MakeTitle(Path.Combine(dir, "Game"), 0x0005000010202D00, 0, "Other Game", 5);
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010202D00, [game]), s => { s.WiiUDeleteOriginals = true; s.UseRecycleBin = false; });
+    return o.Status == JobStatus.Succeeded && !Directory.Exists(game) && File.Exists(Path.Combine(dir, "Other Game [0005000010202D00].wua"))
+        ? null : $"{o.Status} {o.Summary}; folder still there: {Directory.Exists(game)}";
+});
+
 // ---- GameCube / Wii (libdolphinrvz) ---------------------------------------------
 
 var rvzProblem = (string?)null;
@@ -975,6 +1117,32 @@ static string? SameFile(string expected, string actual)
 }
 
 /// <summary>Compares two folders: the same relative file names, each with the same bytes.</summary>
+static byte[] RandomBytes(Random rng, int length) => WiiUSample.Random(rng, length);
+static byte[] TextBytes(int length) => WiiUSample.Text(length);
+
+/// <summary>
+/// --wua-sample DIR: writes DIR/sample.wua from three synthetic titles (base,
+/// update, DLC) through the real Wii U job, and DIR/expected with the layout
+/// it should unpack to, for checking with Exzap's own zarchive tool in CI.
+/// </summary>
+int WriteWuaSample(string dir)
+{
+    Directory.CreateDirectory(dir);
+    var titles = Path.Combine(dir, "titles");
+    var game = WiiUSample.MakeTitle(Path.Combine(titles, "Game"), 0x0005000010101C00, 0, "Sample Game", 11);
+    var update = WiiUSample.MakeTitle(Path.Combine(titles, "Update"), 0x0005000E10101C00, 64, "Sample Game", 12);
+    var dlc = WiiUSample.MakeTitle(Path.Combine(titles, "DLC"), 0x0005000C10101C00, 32, "Sample Game", 13);
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [game, update, dlc]), s => s.OutputFolder = dir);
+    if (o.Status != JobStatus.Succeeded) { Console.WriteLine($"FAIL  sample .wua: {o.Status} {o.Summary}"); return 1; }
+    File.Move(Path.Combine(dir, "Sample Game [0005000010101C00].wua"), Path.Combine(dir, "sample.wua"), true);
+    var expected = Path.Combine(dir, "expected");
+    WiiUSample.CopyTree(game, Path.Combine(expected, "0005000010101c00_v0"));
+    WiiUSample.CopyTree(update, Path.Combine(expected, "0005000e10101c00_v64"));
+    WiiUSample.CopyTree(dlc, Path.Combine(expected, "0005000c10101c00_v32"));
+    Console.WriteLine($"wrote {Path.Combine(dir, "sample.wua")} and {expected}");
+    return 0;
+}
+
 static string? SameTree(string expected, string actual)
 {
     if (!Directory.Exists(actual)) return $"{actual} does not exist";
