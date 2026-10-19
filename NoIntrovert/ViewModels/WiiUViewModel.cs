@@ -1,4 +1,5 @@
 using NoIntrovert.Core;
+using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.Jobs;
 using NoIntrovert.Core.WiiU;
 using NoIntrovert.Services;
@@ -19,13 +20,10 @@ public partial class WiiUViewModel(SettingsViewModel settings, LogViewModel log,
         "WUD/WUX disc images or .wua files, or a folder that holds them.\n" +
         "Everything that belongs to the same game (base, update, DLC) goes into one .wua.";
     protected override string FilterName => "Wii U archives";
-    protected override IReadOnlyList<string> Patterns { get; } = ["*.wua", "*.wud", "*.wux", "*.wuhb"];
+    protected override IReadOnlyList<FormatInfo> InputFormats => KnownFormats.WiiUInputs;
 
-    protected override bool Accepts(string path) =>
-        WiiUTitles.IsSource(path) || WiiUTitles.UnsupportedReason(path) is not null;
-
-    protected override IEnumerable<string> ItemsForFolder(string folder) =>
-        WiiUTitles.FindSources(folder, Settings.ScanSubfolders);
+    /// <summary>Titles sit a few levels down at most; deeper folders are never looked through.</summary>
+    protected override int ScanDepth => 4;
 
     // Filled by GroupItems on the UI thread before a run; read by the workers.
     private readonly Dictionary<string, ulong> _baseIds = new(StringComparer.OrdinalIgnoreCase);

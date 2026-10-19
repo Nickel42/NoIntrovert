@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoIntrovert.Core;
+using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.Jobs;
 using NoIntrovert.Services;
 
@@ -32,21 +33,30 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     public abstract string StartLabel { get; }
     public abstract string EmptyHint { get; }
     protected abstract string FilterName { get; }
-    protected abstract IReadOnlyList<string> Patterns { get; }
+
+    /// <summary>
+    /// The formats this tab takes. The format registry then decides which
+    /// files are accepted and what a folder scan finds (a cue claims its bins,
+    /// a Wii U title folder is one row). Null for a tab that takes anything.
+    /// </summary>
+    protected abstract IReadOnlyList<FormatInfo>? InputFormats { get; }
+
+    /// <summary>How many folder levels a scan looks through when subfolders are on, the added folder included.</summary>
+    protected virtual int ScanDepth => int.MaxValue;
+
+    protected virtual IReadOnlyList<string> Patterns => InputFormats is { } formats ? KnownFormats.Patterns(formats) : ["*.*"];
 
     /// <summary>Whether a file belongs in this tab's list.</summary>
-    protected abstract bool Accepts(string path);
+    protected virtual bool Accepts(string path) =>
+        InputFormats is not { } formats || (FormatRegistry.Default.Detect(path) is { } format && formats.Contains(format));
 
-    /// <summary>Narrows a folder scan, e.g. to drop bins a cue already covers.</summary>
-    protected virtual IEnumerable<string> SelectFromFolder(IEnumerable<string> files) => files.Where(Accepts);
-
-    /// <summary>What a folder added to the list becomes: by default the files found in it.</summary>
+    /// <summary>What a folder added to the list becomes: by default the inputs the registry finds in it.</summary>
     protected virtual IEnumerable<string> ItemsForFolder(string folder)
     {
-        var option = Settings.ScanSubfolders ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        return Directory.EnumerateFiles(folder, "*", option)
-            .GroupBy(f => Path.GetDirectoryName(f)!)
-            .SelectMany(g => SelectFromFolder(g))
+        if (InputFormats is not { } formats) return [folder];
+        return FormatRegistry.Default.Scan(folder, Settings.ScanSubfolders, ScanDepth)
+            .Where(s => formats.Contains(s.Format))
+            .Select(s => s.Primary)
             .ToList();
     }
 

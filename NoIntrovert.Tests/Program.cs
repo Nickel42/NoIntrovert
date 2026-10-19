@@ -367,6 +367,114 @@ Test("Folder scan picks descriptors, not the files they use", () =>
     return slashed.SequenceEqual(expected) ? null : $"with / separators picked {string.Join(", ", slashed)}";
 });
 
+Test("Format registry: what each path is", () =>
+{
+    var dir = Dir("registry-detect");
+    var title = Path.Combine(dir, "0005000010101a00_v0");
+    Directory.CreateDirectory(Path.Combine(title, "meta"));
+    File.WriteAllText(Path.Combine(title, "meta", "meta.xml"), "<menu/>");
+    var nus = Path.Combine(dir, "nus");
+    Directory.CreateDirectory(nus);
+    File.WriteAllText(Path.Combine(nus, "title.tmd"), "");
+    File.WriteAllText(Path.Combine(nus, "title.tik"), "");
+    foreach (var f in new[] { "g.wua", "g.wux", "g_part1.wud", "g_part2.wud", "h.wuhb" }) File.WriteAllText(Path.Combine(dir, f), "");
+    var expected = new Dictionary<string, string?>
+    {
+        ["a.cue"] = "cue", ["a.GDI"] = "gdi", ["a.iso"] = "iso", ["a.rvz"] = "rvz", ["a.chd"] = "chd", ["a.zip"] = "zip",
+        ["a.tar.gz"] = "gz", ["a.iso.001"] = "split", ["a.iso.002"] = null, ["a.rar"] = null, ["a.txt"] = null,
+        [Path.Combine(dir, "g.wua")] = "wua", [Path.Combine(dir, "g.wux")] = "wiiu-disc", [Path.Combine(dir, "g_part1.wud")] = "wiiu-disc",
+        [Path.Combine(dir, "g_part2.wud")] = null, [Path.Combine(dir, "h.wuhb")] = "wiiu-unsupported",
+        [title] = "wiiu-folder", [nus] = "nus", [dir] = null,
+    };
+    foreach (var (path, id) in expected)
+    {
+        var got = FormatRegistry.Default.Detect(path)?.Id;
+        if (got != id) return $"{Path.GetFileName(path)}: expected {id ?? "nothing"}, got {got ?? "nothing"}";
+    }
+    return null;
+});
+
+Test("Format registry: scans claim in priority order, never inside a title", () =>
+{
+    var dir = Dir("registry-scan");
+    void Make(string rel, string text = "")
+    {
+        var p = Path.Combine(dir, rel);
+        Directory.CreateDirectory(Path.GetDirectoryName(p)!);
+        File.WriteAllText(p, text);
+    }
+    Make("a.cue", "FILE \"a.bin\" BINARY\n TRACK 01 MODE1/2352\n  INDEX 01 00:00:00\n");
+    Make("a.bin");
+    Make("loose.bin");
+    Make("x.chd");
+    Make("notes.txt");
+    Make(Path.Combine("sub", "d.iso.001"));
+    Make(Path.Combine("sub", "d.iso.002"));
+    Make(Path.Combine("sub", "e.rvz"));
+    Make(Path.Combine("sub", "deep", "f.7z"));
+    Make(Path.Combine("Game [0005000010101a00]", "code", "app.xml"));
+    Make(Path.Combine("Game [0005000010101a00]", "content", "inside.iso"));
+    Make(Path.Combine("sub", "g.wua"));
+
+    string Show(List<FileSet> sets) => string.Join(", ", sets.Select(s => $"{Path.GetRelativePath(dir, s.Primary).Replace('\\', '/')}:{s.Format.Id}"));
+    var all = Show(FormatRegistry.Default.Scan(dir.Replace('\\', '/'), recursive: true));
+    const string expectAll = "a.cue:cue, loose.bin:bin, x.chd:chd, Game [0005000010101a00]:wiiu-folder, sub/d.iso.001:split, sub/e.rvz:rvz, sub/g.wua:wua, sub/deep/f.7z:7z";
+    if (all != expectAll) return $"recursive scan gave {all}";
+    var top = Show(FormatRegistry.Default.Scan(dir, recursive: false));
+    const string expectTop = "a.cue:cue, loose.bin:bin, x.chd:chd, Game [0005000010101a00]:wiiu-folder";
+    if (top != expectTop) return $"top-level scan gave {top}";
+    var shallow = Show(FormatRegistry.Default.Scan(dir, recursive: true, maxDepth: 2));
+    if (shallow.Contains("f.7z")) return $"depth 2 looked too deep: {shallow}";
+    var cue = FormatRegistry.Default.Scan(dir, false)[0];
+    if (cue.Members.Count != 2 || !cue.Members[1].EndsWith("a.bin")) return $"the cue's members are {string.Join(", ", cue.Members)}";
+    return null;
+});
+
+Test("Format registry: tabs keep their file-picker patterns", () =>
+{
+    var convert = DiscFiles.Descriptors.Concat(DiscFiles.Images).Concat(ArchiveExtractor.Extensions).Append(".001").Select(e => "*" + e);
+    var extract = new[] { "*.chd" }.Concat(NintendoDisc.Decodable.Select(e => "*" + e));
+    var checks = new (string Tab, IEnumerable<string> Old, IReadOnlyList<FormatInfo> Formats)[]
+    {
+        ("Convert", convert, KnownFormats.DiscInputs),
+        ("Verify", ["*.chd"], [KnownFormats.Chd]),
+        ("Extract", extract, KnownFormats.Extractable),
+        ("Archive", ["*.zip", "*.7z"], KnownFormats.ConvertibleArchives),
+        ("Wii U", ["*.wua", "*.wud", "*.wux", "*.wuhb"], KnownFormats.WiiUInputs),
+    };
+    foreach (var (tab, old, formats) in checks)
+    {
+        var now = KnownFormats.Patterns(formats);
+        if (!now.SequenceEqual(old)) return $"{tab}: {string.Join(" ", now)} instead of {string.Join(" ", old)}";
+    }
+    return null;
+});
+
+Test("Format registry: Convert finds what it did before in test-roms", () =>
+{
+    if (!Directory.Exists(roms)) return Note("no test-roms folder");
+    // The scan as it was before the registry: every file, grouped by folder,
+    // then descriptors and .001s claim the files they use.
+    List<string> OldScan(string folder) => Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
+        .GroupBy(f => Path.GetDirectoryName(f)!)
+        .SelectMany(g =>
+        {
+            var files = g.Where(f => DiscFiles.Descriptors.Concat(DiscFiles.Images).Concat(ArchiveExtractor.Extensions)
+                    .Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase) || ArchiveExtractor.IsFirstSplitPart(f))
+                .Select(Path.GetFullPath).ToList();
+            var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var f in files.Where(f => DiscFiles.Descriptors.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase) || f.EndsWith(".001")))
+                foreach (var m in DiscFiles.SetFiles(f).Skip(1)) claimed.Add(Path.GetFullPath(m));
+            return files.Where(f => !claimed.Contains(f)).OrderBy(f => f, StringComparer.OrdinalIgnoreCase);
+        }).ToList();
+    var old = OldScan(roms).Order(StringComparer.OrdinalIgnoreCase).ToList();
+    var now = FormatRegistry.Default.Scan(roms, recursive: true).Where(s => KnownFormats.DiscInputs.Contains(s.Format))
+        .Select(s => s.Primary).Order(StringComparer.OrdinalIgnoreCase).ToList();
+    if (!old.SequenceEqual(now, StringComparer.OrdinalIgnoreCase))
+        return $"before: {old.Count} inputs, now: {now.Count}; first difference: {old.Except(now).Concat(now.Except(old)).FirstOrDefault()}";
+    return Note($"{now.Count} inputs, same as before");
+});
+
 Test("RAR inputs are refused", () =>
 {
     foreach (var name in new[] { "g.rar", "g.part1.rar", "g.r00", "G.RAR" })

@@ -14,14 +14,9 @@ internal static partial class DiscFiles
     public static readonly string[] Images = [.. new[] { ".iso", ".cso", ".zso", ".isz", ".pbp", ".ecm", ".bin", ".img", ".nrg" }
         .Concat(NintendoDisc.Containers)];
 
-    public static bool IsSupported(string path)
-    {
-        var ext = Path.GetExtension(path);
-        return Descriptors.Contains(ext, StringComparer.OrdinalIgnoreCase)
-            || Images.Contains(ext, StringComparer.OrdinalIgnoreCase)
-            || ArchiveExtractor.IsArchive(path)
-            || ArchiveExtractor.IsFirstSplitPart(path);
-    }
+    /// <summary>Whether Convert takes this file (see <see cref="KnownFormats.DiscInputs"/>).</summary>
+    public static bool IsSupported(string path) =>
+        FormatRegistry.Default.Detect(path) is { } format && KnownFormats.DiscInputs.Contains(format);
 
     /// <summary>Every file that makes up this input, including itself (used for deleting originals).</summary>
     public static List<string> SetFiles(string path)
@@ -70,37 +65,13 @@ internal static partial class DiscFiles
     /// <summary>
     /// Picks the files to convert from a set (a folder scan or an unpacked
     /// archive): descriptors win over the images they reference, and a .001
-    /// over its later parts.
+    /// over its later parts. The format registry does the claiming.
     /// </summary>
-    public static List<string> SelectPrimaries(IEnumerable<string> candidates)
-    {
-        // Compare full paths: a folder given with "/" or mixed separators must
-        // still match the members that SetFiles builds with Path.Combine.
-        var all = candidates.Where(IsSupported).Select(Normalize).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in all)
-        {
-            // Later split parts are never primaries.
-            if (ArchiveExtractor.IsSecondaryVolume(file))
-            {
-                claimed.Add(file);
-                continue;
-            }
-            var ext = Path.GetExtension(file);
-            if (Descriptors.Contains(ext, StringComparer.OrdinalIgnoreCase) || ext is ".001")
-                foreach (var member in SetFiles(file).Skip(1))
-                    claimed.Add(Normalize(member));
-        }
-        // A lone "game.bin.ecm" next to "game.cue" is claimed through the cue above;
-        // a loose .img next to a .ccd of the same name too.
-        return all.Where(f => !claimed.Contains(f)).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
-    }
-
-    private static string Normalize(string path)
-    {
-        try { return Path.GetFullPath(path); }
-        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return path; }
-    }
+    public static List<string> SelectPrimaries(IEnumerable<string> candidates) =>
+        FormatRegistry.Default.Claim(new ScanSet(candidates))
+            .Where(s => KnownFormats.DiscInputs.Contains(s.Format))
+            .Select(s => s.Primary)
+            .ToList();
 
     public static IEnumerable<string> CueReferences(string cuePath) =>
         CueSheet.Load(cuePath).Files.Select(f => f.Name);

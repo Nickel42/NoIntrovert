@@ -19,11 +19,7 @@ public partial class ConvertViewModel(SettingsViewModel settings, LogViewModel l
         "cue/bin · gdi · toc · nrg · iso · ccd/img · mds/mdf · cso · zso · isz · pbp · ecm · zip · 7z · .001 split files\n" +
         "GameCube/Wii: iso · gcm · gcz · wia · rvz · tgc (to RVZ or CHD)";
     protected override string FilterName => "Disc images and archives";
-    protected override IReadOnlyList<string> Patterns { get; } =
-        DiscFiles.Descriptors.Concat(DiscFiles.Images).Concat(ArchiveExtractor.Extensions).Append(".001").Select(e => "*" + e).ToList();
-
-    protected override bool Accepts(string path) => DiscFiles.IsSupported(path);
-    protected override IEnumerable<string> SelectFromFolder(IEnumerable<string> files) => DiscFiles.SelectPrimaries(files);
+    protected override IReadOnlyList<FormatInfo> InputFormats => KnownFormats.DiscInputs;
     protected override JobOutcome Work(JobContext context, JobItemViewModel item) => ChdJobs.Convert(context, item.Path);
 
     protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
@@ -43,8 +39,7 @@ public partial class VerifyViewModel(SettingsViewModel settings, LogViewModel lo
     public override string StartLabel => "Verify CHDs";
     public override string EmptyHint => "Drop CHD files or folders here to check their data against the stored SHA-1.";
     protected override string FilterName => "CHD files";
-    protected override IReadOnlyList<string> Patterns { get; } = ["*.chd"];
-    protected override bool Accepts(string path) => path.EndsWith(".chd", StringComparison.OrdinalIgnoreCase);
+    protected override IReadOnlyList<FormatInfo> InputFormats { get; } = [KnownFormats.Chd];
     protected override JobOutcome Work(JobContext context, JobItemViewModel item) => ChdJobs.Verify(context, item.Path);
 }
 
@@ -57,9 +52,7 @@ public partial class ExtractViewModel(SettingsViewModel settings, LogViewModel l
         "Drop CHD files or folders here to turn them back into cue/bin, gdi, iso or img.\n" +
         "GameCube/Wii RVZ, WIA and GCZ images become ISO.";
     protected override string FilterName => "CHD, RVZ, WIA and GCZ files";
-    protected override IReadOnlyList<string> Patterns { get; } = ["*.chd", .. NintendoDisc.Decodable.Select(e => "*" + e)];
-    protected override bool Accepts(string path) =>
-        path.EndsWith(".chd", StringComparison.OrdinalIgnoreCase) || NintendoDisc.IsDecodable(path);
+    protected override IReadOnlyList<FormatInfo> InputFormats => KnownFormats.Extractable;
     protected override JobOutcome Work(JobContext context, JobItemViewModel item) =>
         NintendoDisc.IsDecodable(item.Path) ? RvzJobs.Extract(context, item.Path) : ChdJobs.Extract(context, item.Path);
 }
@@ -78,10 +71,7 @@ public partial class TestsViewModel : BatchTabViewModel
         "Round trip: create → verify → extract, then compare with the original data.\n" +
         "Compare: create with libchdman and a chdman executable, then compare the CHDs byte for byte.";
     protected override string FilterName => "Disc images and archives";
-    protected override IReadOnlyList<string> Patterns { get; } =
-        DiscFiles.Descriptors.Concat(DiscFiles.Images).Concat(ArchiveExtractor.Extensions).Append(".001").Select(e => "*" + e).ToList();
-    protected override bool Accepts(string path) => DiscFiles.IsSupported(path);
-    protected override IEnumerable<string> SelectFromFolder(IEnumerable<string> files) => DiscFiles.SelectPrimaries(files);
+    protected override IReadOnlyList<FormatInfo> InputFormats => KnownFormats.DiscInputs;
 
     public static IReadOnlyList<Choice<TestKind>> TestChoices { get; } =
     [
