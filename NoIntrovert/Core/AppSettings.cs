@@ -68,7 +68,10 @@ public sealed class AppSettings
     [JsonIgnore] public string EffectiveTempFolder => string.IsNullOrWhiteSpace(TempFolder) ? WorkPaths.DefaultTempRoot : TempFolder;
 
     public static string SettingsDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NoIntrovert");
+        SettingsDirectoryOverride ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NoIntrovert");
+
+    /// <summary>Tests point this at a scratch folder so they never touch the real settings file.</summary>
+    internal static string? SettingsDirectoryOverride { get; set; }
 
     private static string SettingsPath => Path.Combine(SettingsDirectory, "settings.json");
 
@@ -96,13 +99,18 @@ public sealed class AppSettings
     {
         try
         {
+            var json = ToJson();
+            if (File.Exists(SettingsPath) && File.ReadAllText(SettingsPath) == json) return; // nothing changed
             Directory.CreateDirectory(SettingsDirectory);
-            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(this, JsonOptions));
+            File.WriteAllText(SettingsPath, json);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
         }
     }
+
+    /// <summary>The JSON <see cref="Save"/> writes; comparing two of these tells whether anything changed.</summary>
+    public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
 
     public AppSettings Clone() => (AppSettings)MemberwiseClone();
 }

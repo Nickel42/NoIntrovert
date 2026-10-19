@@ -14,6 +14,8 @@ public sealed record Choice<T>(T Value, string Label)
 
 /// <summary>
 /// The options shown on the tabs, bound two-way and saved as they change.
+/// Only real changes are saved: the window's two-way bindings write their
+/// current values back when it opens, and that mustn't rewrite the file.
 /// Batches run on a snapshot (<see cref="Snapshot"/>), so edits during a
 /// run apply to the next one.
 /// </summary>
@@ -26,18 +28,32 @@ public partial class SettingsViewModel : ViewModelBase
     {
         _s = settings;
         _dialogs = dialogs;
-        SelectedCompression = CompressionChoices.FirstOrDefault(c => c.Value == _s.Compression) ?? CompressionChoices[0];
-        if (SelectedCompression.Value != _s.Compression) CustomCompression = _s.Compression;
+        // The custom text goes in first, so picking "Custom…" keeps the saved string instead of blanking it.
+        var saved = _s.Compression;
+        var choice = CompressionChoices.FirstOrDefault(c => c.Value == saved) ?? CompressionChoices[^1];
+        if (choice.Value != saved) CustomCompression = saved;
+        SelectedCompression = choice;
     }
 
     public AppSettings Snapshot() => _s.Clone();
     public void Save() => _s.Save();
 
-    private void Set<T>(T value, Action<AppSettings, T> apply, [System.Runtime.CompilerServices.CallerMemberName] string? name = null)
+    /// <summary>Applies a change and saves it; returns false (no save, no event) when nothing changed.</summary>
+    private bool Set<T>(T value, Action<AppSettings, T> apply, [System.Runtime.CompilerServices.CallerMemberName] string? name = null)
     {
-        apply(_s, value);
-        _s.Save();
+        if (!Change(s => apply(s, value))) return false;
         OnPropertyChanged(name);
+        return true;
+    }
+
+    /// <summary>Runs <paramref name="apply"/> and saves only if the settings' JSON is different afterwards.</summary>
+    private bool Change(Action<AppSettings> apply)
+    {
+        var before = _s.ToJson();
+        apply(_s);
+        if (_s.ToJson() == before) return false;
+        _s.Save();
+        return true;
     }
 
     public static IReadOnlyList<Choice<string>> CompressionChoices { get; } =
@@ -81,20 +97,18 @@ public partial class SettingsViewModel : ViewModelBase
 
     [ObservableProperty] public partial Choice<string> SelectedCompression { get; set; }
     [ObservableProperty] public partial string CustomCompression { get; set; } = "";
-    public bool IsCustomCompression => SelectedCompression.Value == "custom";
+    public bool IsCustomCompression => SelectedCompression?.Value == "custom"; // null while the constructor runs
 
     partial void OnSelectedCompressionChanged(Choice<string> value)
     {
         OnPropertyChanged(nameof(IsCustomCompression));
-        _s.Compression = value.Value == "custom" ? CustomCompression : value.Value;
-        _s.Save();
+        Change(s => s.Compression = value.Value == "custom" ? CustomCompression.Trim() : value.Value);
     }
 
     partial void OnCustomCompressionChanged(string value)
     {
         if (!IsCustomCompression) return;
-        _s.Compression = value.Trim();
-        _s.Save();
+        Change(s => s.Compression = value.Trim());
     }
 
     public Choice<IsoMode> SelectedIsoMode
@@ -148,8 +162,7 @@ public partial class SettingsViewModel : ViewModelBase
         get => NintendoTargets.FirstOrDefault(t => t.Value == _s.NintendoTarget) ?? NintendoTargets[0];
         set
         {
-            Set(value.Value, (s, v) => s.NintendoTarget = v);
-            OnPropertyChanged(nameof(IsRvzTarget));
+            if (Set(value.Value, (s, v) => s.NintendoTarget = v)) OnPropertyChanged(nameof(IsRvzTarget));
         }
     }
 
@@ -160,10 +173,12 @@ public partial class SettingsViewModel : ViewModelBase
         get => RvzCompressions.FirstOrDefault(c => c.Value == _s.RvzCompression) ?? RvzCompressions[0];
         set
         {
-            Set(value.Value, (s, v) => s.RvzCompression = v);
             // Keep the level inside the new method's range (Dolphin's dialog uses the same ranges).
-            _s.RvzCompressionLevel = Math.Clamp(_s.RvzCompressionLevel, (int)RvzLevelMinimum, (int)RvzLevelMaximum);
-            _s.Save();
+            if (!Set(value.Value, (s, v) =>
+                {
+                    s.RvzCompression = v;
+                    s.RvzCompressionLevel = Math.Clamp(s.RvzCompressionLevel, (int)RvzLevelMinimum, (int)RvzLevelMaximum);
+                })) return;
             OnPropertyChanged(nameof(RvzCompressionLevel));
             OnPropertyChanged(nameof(RvzLevelMaximum));
             OnPropertyChanged(nameof(HasRvzLevel));
@@ -252,7 +267,7 @@ public partial class SettingsViewModel : ViewModelBase
         get => ArchiveActions.First(a => a.Value == _s.ArchiveAction);
         set
         {
-            Set(value.Value, (s, v) => s.ArchiveAction = v);
+            if (!Set(value.Value, (s, v) => s.ArchiveAction = v)) return;
             OnPropertyChanged(nameof(IsArchiveCompress));
             OnPropertyChanged(nameof(IsArchiveConvert));
             OnPropertyChanged(nameof(IsArchiveExtract));
@@ -274,7 +289,7 @@ public partial class SettingsViewModel : ViewModelBase
     public Choice<Core.Archives.ArchiveFormat> SelectedArchiveFormat
     {
         get => ArchiveFormats.First(f => f.Value == _s.ArchiveFormat);
-        set { Set(value.Value, (s, v) => s.ArchiveFormat = v); OnPropertyChanged(nameof(IsSevenZipFormat)); }
+        set { if (Set(value.Value, (s, v) => s.ArchiveFormat = v)) OnPropertyChanged(nameof(IsSevenZipFormat)); }
     }
 
     public bool IsSevenZipFormat => _s.ArchiveFormat == Core.Archives.ArchiveFormat.SevenZip;
@@ -288,7 +303,7 @@ public partial class SettingsViewModel : ViewModelBase
     public Choice<Core.Archives.ArchiveGrouping> SelectedArchiveGrouping
     {
         get => ArchiveGroupings.First(g => g.Value == _s.ArchiveGrouping);
-        set { Set(value.Value, (s, v) => s.ArchiveGrouping = v); OnPropertyChanged(nameof(IsSingleArchive)); }
+        set { if (Set(value.Value, (s, v) => s.ArchiveGrouping = v)) OnPropertyChanged(nameof(IsSingleArchive)); }
     }
 
     public bool IsSingleArchive => _s.ArchiveGrouping == Core.Archives.ArchiveGrouping.Single;
@@ -308,7 +323,7 @@ public partial class SettingsViewModel : ViewModelBase
     public string WiiUKeysPath
     {
         get => _s.WiiUKeysPath;
-        set { Set(value, (s, v) => s.WiiUKeysPath = v); OnPropertyChanged(nameof(WiiUKeysSummary)); }
+        set { if (Set(value, (s, v) => s.WiiUKeysPath = v)) OnPropertyChanged(nameof(WiiUKeysSummary)); }
     }
 
     /// <summary>Which keys.txt the Wii U tab will use, and how many keys it holds.</summary>
