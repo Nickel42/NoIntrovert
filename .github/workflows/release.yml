@@ -1,7 +1,8 @@
-# Builds libchdman and NoIntrovert for Windows x64, Windows ARM64 and macOS
-# (Apple silicon and Intel), and publishes them as a GitHub release when a
-# v* tag is pushed. Run it by hand (Actions → Release → Run workflow) to get
-# the same zips as workflow artifacts without making a release.
+# Builds libchdman and NoIntrovert for Windows x64, Windows ARM64, macOS
+# (Apple silicon and Intel) and Linux x64, and publishes them as a GitHub
+# release when a v* tag is pushed. Run it by hand (Actions → Release → Run
+# workflow) to get the same downloads as workflow artifacts without making a
+# release.
 #
 # libchdman is a private repository: the LIBCHDMAN_TOKEN secret must hold a
 # token with read access to Nickel42/libchdman (Contents: read).
@@ -188,9 +189,117 @@ jobs:
           path: dist/*.zip
           if-no-files-found: error
 
+  linux:
+    needs: version
+    # The oldest supported Ubuntu LTS image: the native libraries need this
+    # glibc (2.35) or newer, so building on it keeps the download portable.
+    runs-on: ubuntu-22.04
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: app
+
+      - uses: actions/checkout@v4
+        with:
+          repository: Nickel42/libchdman
+          token: ${{ secrets.LIBCHDMAN_TOKEN }}
+          path: libchdman
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build libchdman and run its tests
+        # The version script keeps libchdman.so's exports to the C API (chdman_*),
+        # as -exported_symbol does in libchdman's own macOS build.
+        run: |
+          cmake -S libchdman -B libchdman/build -DCMAKE_BUILD_TYPE=Release \
+            "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,--version-script=$GITHUB_WORKSPACE/app/native/libchdman.map"
+          cmake --build libchdman/build --parallel "$(nproc)"
+          ctest --test-dir libchdman/build --output-on-failure
+          mkdir -p libchdman/artifacts/native/linux-x64
+          cp -L libchdman/build/libchdman.so libchdman/artifacts/native/linux-x64/libchdman.so
+
+      - name: Build the archive engine
+        run: |
+          bash app/native/fetch-sources.sh
+          bash app/native/build-linux.sh
+
+      - name: Check the native libraries' exports and dependencies
+        run: |
+          check() { # library, prefix of the only symbols it may export
+            local extra
+            extra="$(nm -D --defined-only "$1" | awk '{print $3}' | grep -v "^$2" || true)"
+            if [ -n "$extra" ]; then echo "$1 exports more than $2*:"; echo "$extra" | head -20; exit 1; fi
+            echo "$1: $(nm -D --defined-only "$1" | wc -l) exports, all $2*"
+            if ldd "$1" | grep 'not found'; then exit 1; fi
+            echo "  needs glibc $(objdump -T "$1" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)," \
+              "libstdc++ $(objdump -T "$1" | grep -o 'GLIBCXX_[0-9.]*' | sort -uV | tail -1)"
+          }
+          check libchdman/artifacts/native/linux-x64/libchdman.so chdman_
+          check app/native/out/linux-x64/libnoi_archive.so noi_
+          ldd app/native/out/linux-x64/7z.so
+
+      - name: Self-test (quick, synthetic discs)
+        # test-roms isn't available here, so the tests generate stand-in discs.
+        run: |
+          dotnet run --project app/NoIntrovert.Tests/NoIntrovert.Tests.csproj -c Release \
+            "-p:LibChdmanRoot=$GITHUB_WORKSPACE/libchdman" -- --quick --synthetic
+
+      - name: Publish and tar
+        run: |
+          rid=linux-x64
+          name="NoIntrovert-$VERSION-$rid"
+          out="publish/$name"
+          dotnet publish app/NoIntrovert/NoIntrovert.csproj -c Release -r "$rid" --self-contained \
+            -p:PublishSingleFile=true -p:DebugType=none -p:Version="$VERSION" \
+            "-p:LibChdmanRoot=$GITHUB_WORKSPACE/libchdman" -o "$out"
+          for f in NoIntrovert libchdman.so 7z.so libnoi_archive.so; do
+            test -f "$out/$f" || { echo "$f missing from the $rid publish"; exit 1; }
+          done
+          test -x "$out/NoIntrovert"
+          cp app/README.md app/packaging/THIRD_PARTY_ARCHIVES.md libchdman/THIRD_PARTY_NOTICES.md "$out/"
+          cp libchdman/LICENSE "$out/LICENSE-libchdman.txt"
+          cp app/native/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
+          cp app/native/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
+          ls -l "$out"
+          mkdir -p dist
+          tar -C publish -czf "dist/$name.tar.gz" "$name"
+
+      - name: Smoke test the app under a virtual display
+        # The app has no command-line mode: start it on Xvfb, check it is still
+        # running after a while, and keep a screenshot of its window.
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q xvfb x11-apps imagemagick
+          mkdir smoke && tar -xzf "dist/NoIntrovert-$VERSION-linux-x64.tar.gz" -C smoke
+          Xvfb :99 -screen 0 1280x800x24 & xvfb=$!
+          export DISPLAY=:99
+          sleep 2
+          "smoke/NoIntrovert-$VERSION-linux-x64/NoIntrovert" > smoke/app.log 2>&1 & app=$!
+          sleep 20
+          if ! kill -0 "$app" 2>/dev/null; then echo "The app exited:"; cat smoke/app.log; exit 1; fi
+          xwd -root -silent | convert xwd:- smoke/linux-x64.png
+          kill "$app" "$xvfb" || true
+          cat smoke/app.log
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-screenshot
+          path: smoke/linux-x64.png
+          if-no-files-found: ignore
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [version, windows, macos]
+    needs: [version, windows, macos, linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -214,10 +323,13 @@ jobs:
           | NoIntrovert-$VERSION-win-arm64.zip | Windows 11 on ARM (Snapdragon and similar) |
           | NoIntrovert-$VERSION-osx-arm64.zip | macOS 12 or later on Apple silicon (M1 and newer) |
           | NoIntrovert-$VERSION-osx-x64.zip | macOS 12 or later on Intel Macs |
+          | NoIntrovert-$VERSION-linux-x64.tar.gz | Linux on Intel or AMD (64-bit), glibc 2.35 or later (Ubuntu 22.04, Debian 12, Fedora 36 and newer) |
 
           Windows: unzip and run NoIntrovert.exe. SmartScreen may warn that the app is unrecognised; choose More info → Run anyway.
 
           macOS: unzip and move NoIntrovert.app to Applications. The app isn't notarised, so the first time, right-click it and choose Open (or run \`xattr -dr com.apple.quarantine /Applications/NoIntrovert.app\`).
+
+          Linux: extract the tar.gz and run NoIntrovert from the folder it makes (\`tar -xzf NoIntrovert-$VERSION-linux-x64.tar.gz && ./NoIntrovert-$VERSION-linux-x64/NoIntrovert\`). Keep the .so files next to it.
           EOF
-          gh release create "$GITHUB_REF_NAME" dist/*.zip --repo "$GITHUB_REPOSITORY" \
+          gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.tar.gz --repo "$GITHUB_REPOSITORY" \
             --title "NoIntrovert $VERSION" --notes-file notes.md

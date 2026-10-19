@@ -12,7 +12,9 @@ using NoIntrovert.Tests;
 // ---------------------------------------------------------------------------
 // NoIntrovert self-test. Reads discs from test-roms (never writes there),
 // builds every supported input format in a scratch folder, and checks that
-// each converts to a CHD holding exactly the original data.
+// each converts to a CHD holding exactly the original data. With --synthetic,
+// or when test-roms isn't there, the quick tests run on generated stand-ins
+// for the discs they slice (see SyntheticRoms) and the full-disc ones skip.
 // ---------------------------------------------------------------------------
 
 var quick = args.Contains("--quick");
@@ -21,13 +23,19 @@ var roms = ArgValue("--roms") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDi
 var upstream = ArgValue("--upstream") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "libchdman", "build-x64", "Release", "chdman-upstream.exe"));
 var scratch = Path.Combine(Path.GetTempPath(), "NoIntrovert-tests", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
 Directory.CreateDirectory(scratch);
+var synthetic = args.Contains("--synthetic") || !Directory.Exists(roms);
+if (synthetic)
+{
+    roms = Path.Combine(scratch, "synthetic-roms");
+    SyntheticRoms.Write(roms);
+}
 
 var log = new ConsoleLog();
 var failures = new List<string>();
 var passes = 0;
 var total = Stopwatch.StartNew();
 
-Console.WriteLine($"libchdman {Chdman.Version} · roms {roms} · scratch {scratch}{(quick ? " · quick" : "")}");
+Console.WriteLine($"libchdman {Chdman.Version} · roms {roms} · scratch {scratch}{(quick ? " · quick" : "")}{(synthetic ? " · synthetic discs" : "")}");
 
 string Rom(params string[] parts) => Path.Combine([roms, .. parts]);
 var crashBin = Rom("PS1", "Crash Bandicoot (USA)", "Crash Bandicoot (USA).bin");
@@ -371,6 +379,34 @@ Test("Remove originals after a verified conversion", () =>
     return left.SequenceEqual(["synth.chd"]) ? null : $"folder holds {string.Join(", ", left)}";
 });
 
+if (OperatingSystem.IsLinux())
+    Test("Remove to the Trash (freedesktop.org, under a scratch XDG_DATA_HOME)", () =>
+    {
+        var dir = Dir("trash");
+        var xdg = Dir("trash-xdg");
+        var saved = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
+        Environment.SetEnvironmentVariable("XDG_DATA_HOME", xdg);
+        try
+        {
+            var file = Path.Combine(dir, "a b%.bin");
+            var folder = Path.Combine(dir, "Game");
+            File.WriteAllText(file, "x");
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, "game.cue"), "y");
+            FileRemover.Remove([file, folder], useBin: true, log);
+            File.WriteAllText(file, "z"); // a second file of the same name
+            FileRemover.Remove([file], useBin: true, log);
+            var trash = Path.Combine(xdg, "Trash");
+            if (File.Exists(file) || Directory.Exists(folder)) return "originals still there";
+            var files = Directory.GetFileSystemEntries(Path.Combine(trash, "files")).Select(Path.GetFileName).Order(StringComparer.Ordinal).ToList();
+            if (!files.SequenceEqual(["Game", "a b% 2.bin", "a b%.bin"])) return $"trash holds {string.Join(", ", files)}";
+            var info = File.ReadAllText(Path.Combine(trash, "info", "a b%.bin.trashinfo"));
+            var expected = "Path=" + file.Replace("%", "%25").Replace(" ", "%20");
+            return info.StartsWith("[Trash Info]\n", StringComparison.Ordinal) && info.Contains(expected + "\n") ? null : $"trashinfo: {info}";
+        }
+        finally { Environment.SetEnvironmentVariable("XDG_DATA_HOME", saved); }
+    });
+
 Test("Verify flags a damaged CHD", () =>
 {
     var damaged = Path.Combine(Dir("damaged"), "synth.chd");
@@ -458,7 +494,7 @@ Test("Cancelling stops a conversion and leaves no CHD", () =>
 
 // ---- Archives (7z / zip through bit7z + 7-Zip) ---------------------------------
 
-var sevenZipExe = new[] { @"C:\Program Files\7-Zip\7z.exe", "/opt/homebrew/bin/7zz", "/usr/local/bin/7zz" }.FirstOrDefault(File.Exists);
+var sevenZipExe = new[] { @"C:\Program Files\7-Zip\7z.exe", "/opt/homebrew/bin/7zz", "/usr/local/bin/7zz", "/usr/bin/7zz", "/usr/bin/7z" }.FirstOrDefault(File.Exists);
 var archiveSrc = Dir("archive-src");
 File.Copy(synthBin, Path.Combine(archiveSrc, "disc.bin"));
 using (var o = File.Create(Path.Combine(archiveSrc, "data.iso"))) CopyRange(isoSlice, o, 0, 8L << 20);

@@ -60,12 +60,12 @@
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:MetadataRow">
                                     <Grid ColumnDefinitions="70,40,90,80,*">
-                                        <TextBlock Text="{Binding Tag}" FontFamily="Cascadia Mono,Consolas,Menlo,monospace" />
+                                        <TextBlock Text="{Binding Tag}" FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace" />
                                         <TextBlock Grid.Column="1" Text="{Binding Index}" />
                                         <TextBlock Grid.Column="2" Text="{Binding Flags}" Classes="hint" />
                                         <TextBlock Grid.Column="3" Text="{Binding LengthText}" Classes="hint" />
                                         <SelectableTextBlock Grid.Column="4" Text="{Binding Text}" TextWrapping="Wrap"
-                                                             FontFamily="Cascadia Mono,Consolas,Menlo,monospace" FontSize="12" />
+                                                             FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace" FontSize="12" />
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
