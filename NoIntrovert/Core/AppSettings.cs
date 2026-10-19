@@ -24,9 +24,16 @@ public sealed class AppSettings
     public ArchiveSettings Archives { get; set; } = new();
     public KeySettings Keys { get; set; } = new();
     public DiagnosticsSettings Diagnostics { get; set; } = new();
+    public LibrarySettings Library { get; set; } = new();
 
+    /// <summary>
+    /// Where settings and the library index live: %AppData%\NoIntrovert, or
+    /// NOINTROVERT_SETTINGS_DIR when set (tests, screenshots, a portable copy).
+    /// </summary>
     public static string SettingsDirectory =>
-        SettingsDirectoryOverride ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NoIntrovert");
+        SettingsDirectoryOverride
+        ?? (Environment.GetEnvironmentVariable("NOINTROVERT_SETTINGS_DIR") is { Length: > 0 } dir ? dir : null)
+        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NoIntrovert");
 
     /// <summary>Tests point this at a scratch folder so they never touch the real settings file.</summary>
     internal static string? SettingsDirectoryOverride { get; set; }
@@ -203,6 +210,15 @@ public sealed class ArchiveSettings
 public sealed class KeySettings
 {
     public string WiiUKeysPath { get; set; } = ""; // empty = look in the usual places
+}
+
+/// <summary>The folders the Library page keeps track of.</summary>
+public sealed class LibrarySettings
+{
+    public List<string> Folders { get; set; } = [];
+
+    /// <summary>Look through the folders again (only changed files are reread) when the app starts.</summary>
+    public bool RescanOnStart { get; set; } = true;
 }
 
 /// <summary>Developer tools: the libchdman test bench.</summary>

@@ -33,6 +33,7 @@ public partial class SettingsViewModel : ViewModelBase
         Archives = new ArchiveSettingsViewModel(settings);
         Keys = new KeySettingsViewModel(settings, dialogs);
         Diagnostics = new DiagnosticsSettingsViewModel(settings, dialogs);
+        Library = new LibrarySettingsViewModel(settings);
     }
 
     public GeneralSettingsViewModel General { get; }
@@ -43,9 +44,10 @@ public partial class SettingsViewModel : ViewModelBase
     public ArchiveSettingsViewModel Archives { get; }
     public KeySettingsViewModel Keys { get; }
     public DiagnosticsSettingsViewModel Diagnostics { get; }
+    public LibrarySettingsViewModel Library { get; }
 
     /// <summary>Every section, in the order the Settings page shows them.</summary>
-    public IReadOnlyList<SettingsSectionViewModel> Sections => [General, Output, Performance, Chd, Nintendo, Archives, Keys, Diagnostics];
+    public IReadOnlyList<SettingsSectionViewModel> Sections => [General, Library, Output, Performance, Chd, Nintendo, Archives, Keys, Diagnostics];
 
     public AppSettings Snapshot() => _s.Clone();
     public void Save() => _s.Save();
@@ -465,6 +467,54 @@ public sealed partial class KeySettingsViewModel(AppSettings settings, IDialogs 
 
     [RelayCommand]
     private void RefreshWiiUKeys() => OnPropertyChanged(nameof(WiiUKeysSummary));
+}
+
+public sealed class LibrarySettingsViewModel(AppSettings settings) : SettingsSectionViewModel(settings)
+{
+    public override string Title => "Library";
+
+    /// <summary>The folders the Library page looks through (managed on that page).</summary>
+    public IReadOnlyList<string> Folders => S.Library.Folders;
+
+    public string FoldersSummary => S.Library.Folders.Count switch
+    {
+        0 => "No folders yet: add them on the Library page.",
+        1 => "1 folder, managed on the Library page.",
+        var n => $"{n} folders, managed on the Library page.",
+    };
+
+    public bool RescanOnStart { get => S.Library.RescanOnStart; set => Set(value, (s, v) => s.Library.RescanOnStart = v); }
+
+    /// <summary>Adds folders not already there (or inside one that is); returns those added.</summary>
+    public List<string> AddFolders(IEnumerable<string> folders)
+    {
+        var added = new List<string>();
+        Change(s =>
+        {
+            foreach (var f in folders.Select(Core.Formats.ScanSet.Normalize))
+            {
+                if (s.Library.Folders.Any(have => Covers(have, f))) continue;
+                // A new parent folder replaces the folders inside it.
+                s.Library.Folders.RemoveAll(have => Covers(f, have));
+                s.Library.Folders.Add(f);
+                added.Add(f);
+            }
+        });
+        OnPropertyChanged(nameof(Folders));
+        OnPropertyChanged(nameof(FoldersSummary));
+        return added;
+    }
+
+    public void RemoveFolder(string folder)
+    {
+        if (!Change(s => s.Library.Folders.RemoveAll(f => string.Equals(f, folder, StringComparison.OrdinalIgnoreCase)))) return;
+        OnPropertyChanged(nameof(Folders));
+        OnPropertyChanged(nameof(FoldersSummary));
+    }
+
+    private static bool Covers(string parent, string child) =>
+        string.Equals(parent, child, StringComparison.OrdinalIgnoreCase) ||
+        child.StartsWith(Path.TrimEndingDirectorySeparator(parent) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed partial class DiagnosticsSettingsViewModel(AppSettings settings, IDialogs dialogs) : SettingsSectionViewModel(settings)

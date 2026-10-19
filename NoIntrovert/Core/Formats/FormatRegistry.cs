@@ -95,6 +95,7 @@ public sealed class FormatRegistry
         new ImageHandler(),
         new ChdHandler(),
         new ArchiveHandler(),
+        new CartridgeHandler(),
     ]);
 
     private readonly List<IFormatHandler> _handlers;

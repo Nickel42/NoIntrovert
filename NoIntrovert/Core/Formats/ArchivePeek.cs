@@ -10,9 +10,28 @@ namespace NoIntrovert.Core.Formats;
 /// </summary>
 internal static class ArchivePeek
 {
+    // What unchanged archives were seen to hold (seeded from the library index), so a rescan doesn't open them again.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long Size, long Ticks, IReadOnlyList<string> Ids)> Known =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Records what <paramref name="archive"/> holds while it keeps this size and date.</summary>
+    public static void Remember(string archive, long size, long ticks, IReadOnlyList<string> formatIds) =>
+        Known[archive] = (size, ticks, formatIds);
+
     /// <summary>The formats inside <paramref name="archive"/>, or null if its list can't be read.</summary>
     public static IReadOnlyList<FormatInfo>? Inside(string archive)
     {
+        if (Known.TryGetValue(archive, out var known))
+        {
+            try
+            {
+                var info = new FileInfo(archive);
+                if (info.Exists && info.Length == known.Size && info.LastWriteTimeUtc.Ticks == known.Ticks)
+                    return known.Ids.Select(KnownFormats.ById).OfType<FormatInfo>().ToList();
+            }
+            catch (IOException) { }
+            Known.TryRemove(archive, out _);
+        }
         List<string> names;
         try
         {

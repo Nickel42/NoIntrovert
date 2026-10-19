@@ -12,6 +12,17 @@ public static class KnownFormats
     public static readonly IReadOnlyList<FormatInfo> Archives = ByExtension(ArchiveExtractor.Extensions);
     public static readonly FormatInfo Chd = new("chd", "CHD", ".chd");
 
+    /// <summary>
+    /// Cartridge, handheld and computer ROM files, by extension. Nothing here
+    /// converts them; the Library lists them, and DAT matching (No-Intro) checks them.
+    /// </summary>
+    public static readonly IReadOnlyList<FormatInfo> Cartridges = ByExtension(
+    [
+        ".nes", ".fds", ".unf", ".sfc", ".smc", ".gb", ".gbc", ".gba", ".nds", ".dsi", ".3ds", ".cia",
+        ".n64", ".z64", ".v64", ".md", ".gen", ".smd", ".sms", ".gg", ".32x", ".pce", ".sgx",
+        ".a26", ".a52", ".a78", ".lnx", ".ws", ".wsc", ".ngp", ".vb", ".min", ".col", ".int", ".vec", ".j64",
+    ]);
+
     public static readonly FormatInfo Wua = new("wua", "Wii U archive (.wua)", ".wua");
     public static readonly FormatInfo WiiUDisc = new("wiiu-disc", "Wii U disc image", ".wud", ".wux");
     public static readonly FormatInfo WiiUFolder = new("wiiu-folder", "Wii U title folder");
@@ -50,7 +61,14 @@ public static class KnownFormats
         WiiUInputs.Contains(set.Format) || (Archives.Contains(set.Format) && set.Holds(WiiUBuildable));
 
     /// <summary>Every format recognised from a file name alone (what an archive's list can show).</summary>
-    private static readonly IReadOnlyList<FormatInfo> ByNameFormats = [.. Descriptors, .. Images, Chd, .. Archives, Wua, WiiUDisc, WiiUUnsupported];
+    private static readonly IReadOnlyList<FormatInfo> ByNameFormats = [.. Descriptors, .. Images, Chd, .. Archives, Wua, WiiUDisc, WiiUUnsupported, .. Cartridges];
+
+    /// <summary>A format by its <see cref="FormatInfo.Id"/>, for indexes saved to disk.</summary>
+    public static FormatInfo? ById(string id) => AllById.GetValueOrDefault(id);
+
+    private static readonly Dictionary<string, FormatInfo> AllById =
+        ((FormatInfo[])[.. ByNameFormats, SplitFile, WiiUFolder, Nus, ConvertTargets.OtherFile, ConvertTargets.PackedFolder])
+            .GroupBy(f => f.Id).ToDictionary(g => g.Key, g => g.First());
 
     /// <summary>The format a file name says, without looking at the file (it may be inside an archive).</summary>
     public static FormatInfo? ByName(string fileName) =>
@@ -141,6 +159,9 @@ public sealed class SplitFileHandler() : ExtensionHandler("split-file", 200, [Kn
 public sealed class ImageHandler() : ExtensionHandler("disc-image", 100, KnownFormats.Images);
 
 public sealed class ChdHandler() : ExtensionHandler("chd", 100, [KnownFormats.Chd]);
+
+/// <summary>Cartridge and handheld ROMs (see <see cref="KnownFormats.Cartridges"/>): listed, never converted.</summary>
+public sealed class CartridgeHandler() : ExtensionHandler("cartridge", 30, KnownFormats.Cartridges);
 
 /// <summary>zip, 7z, tar and gz, each looked into for what it holds. RAR is never recognised.</summary>
 public sealed class ArchiveHandler() : ExtensionHandler("archive", 50, KnownFormats.Archives)

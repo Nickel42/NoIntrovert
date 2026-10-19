@@ -116,6 +116,11 @@ public partial class MainWindow : Window, IDialogs
         return file?.TryGetLocalPath();
     }
 
+    public async Task OpenFolderAsync(string folder)
+    {
+        if (Directory.Exists(folder)) await Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(folder));
+    }
+
     public async Task SetClipboardAsync(string text)
     {
         if (Clipboard is { } clipboard)

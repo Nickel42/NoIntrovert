@@ -18,10 +18,21 @@ public partial class MainViewModel : ViewModelBase
         Verify = new VerifyViewModel(Settings, Log, dialogs, queue);
         Info = new InfoViewModel(Log, dialogs);
         Tests = new TestsViewModel(Settings, Log, dialogs, queue);
+        Library = new LibraryViewModel(Settings, Log, dialogs);
+        Library.SendToConvert = paths => { Show("convert"); Convert.AddPaths(paths); };
+        Library.SendToVerify = paths => { Show("verify"); Verify.AddPaths(paths); };
 
         // The one place pages are listed: the rail, --page and drops all follow it.
         Pages =
         [
+            new("library", "Library", "M4 5h4v14H4zM10 5h4v14h-4zM16 6l3.5-1 3 13.5-3.5 1z", Library, async p =>
+            {
+                // Folders become library folders; loose files go to Convert, which is where they'd be used.
+                var folders = p.Where(Directory.Exists).ToList();
+                if (folders.Count > 0) await Library.AddFoldersAsync(folders);
+                var files = p.Where(File.Exists).ToList();
+                if (files.Count > 0) { Show("convert"); Convert.AddPaths(files); }
+            }),
             new("convert", "Convert", "M4 8h13l-3-3M20 16H7l3 3", Convert, p => { Convert.AddPaths(p); return Task.CompletedTask; }),
             new("verify", "Verify", "M5 12l4 4L19 6", Verify, p => { Verify.AddPaths(p); return Task.CompletedTask; }),
             new("info", "CHD info", "M12 8h.01M11 12h1v5h1M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z", Info, async p =>
@@ -40,7 +51,8 @@ public partial class MainViewModel : ViewModelBase
         {
             if (e.PropertyName == nameof(GeneralSettingsViewModel.PowerUserMode)) UpdateVisibility();
         };
-        SelectedPage = Pages[0];
+        // Open on the Library once it has folders; until then on Convert, where a first drop does something.
+        SelectedPage = Pages.First(p => p.Id == (settings.Library.Folders.Count > 0 ? "library" : "convert"));
 
         try
         {
@@ -72,6 +84,7 @@ public partial class MainViewModel : ViewModelBase
 
     /// <summary>The shared job queue, shown in the status bar and the queue drawer.</summary>
     public QueueViewModel Queue { get; }
+    public LibraryViewModel Library { get; }
     public ConvertViewModel Convert { get; }
     public VerifyViewModel Verify { get; }
     public InfoViewModel Info { get; }
@@ -121,7 +134,7 @@ public partial class MainViewModel : ViewModelBase
         var power = Settings.General.PowerUserMode;
         var tests = Pages.First(p => p.Id == "tests");
         tests.IsVisible = power;
-        if (!power && SelectedPage == tests) SelectedPage = Pages[0];
+        if (!power && SelectedPage == tests) Show("convert");
     }
 
     /// <summary>
@@ -145,7 +158,7 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>Drops go to the page that's showing; a page that doesn't take files hands them to Convert.</summary>
     public async Task DropAsync(IReadOnlyList<string> paths)
     {
-        if (SelectedPage.Accept is null) SelectedPage = Pages[0];
+        if (SelectedPage.Accept is null) Show("convert");
         await SelectedPage.Accept!(paths);
     }
 }
