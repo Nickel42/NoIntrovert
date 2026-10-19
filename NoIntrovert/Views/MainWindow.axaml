@@ -104,9 +104,14 @@
                             <Button Classes="tool" Content="Cancel all" Command="{Binding Queue.CancelAllCommand}" IsEnabled="{Binding Queue.IsBusy}" />
                         </StackPanel>
                     </Grid>
-                    <ScrollViewer Grid.Row="1" MaxHeight="220" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Queue.Rows}" Margin="12,0,12,8">
-                            <ItemsControl.ItemTemplate>
+                    <ListBox Grid.Row="1" MaxHeight="220" ItemsSource="{Binding Queue.Rows}" Margin="12,0,12,8" Background="Transparent">
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="MinHeight" Value="0" />
+                                </Style>
+                            </ListBox.Styles>
+                            <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:QueueRowViewModel">
                                     <Grid ColumnDefinitions="2*,90,1.5*,180,44,84" Margin="0,3">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding Name}" />
@@ -121,9 +126,8 @@
                                                 IsVisible="{Binding CanCancel}" ToolTip.Tip="Cancel this job; a queued job never starts." />
                                     </Grid>
                                 </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                            </ListBox.ItemTemplate>
+                    </ListBox>
                 </Grid>
             </Border>
         </Grid>

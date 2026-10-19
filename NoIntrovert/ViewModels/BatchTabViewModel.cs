@@ -17,6 +17,9 @@ public abstract partial class BatchTabViewModel : ViewModelBase
 {
     private JobGroup? _group;
     private readonly DispatcherTimer _progressTimer;
+    private readonly Coalesced _summary;
+    private readonly Coalesced _visible;
+    private CancellationTokenSource? _scanCts;
 
     protected BatchTabViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
     {
@@ -24,7 +27,13 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         Log = log;
         Dialogs = dialogs;
         Queue = queue;
-        Items.CollectionChanged += (_, _) => RefreshSummary();
+        _summary = new Coalesced(RefreshSummary);
+        _visible = new Coalesced(RefreshVisible);
+        Items.CollectionChanged += (_, _) =>
+        {
+            _summary.Request();
+            _visible.Request();
+        };
         settings.Output.PropertyChanged += (_, _) => RefreshRunOptions();
         _progressTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(400), DispatcherPriority.Background, (_, _) => RefreshProgress());
     }
@@ -148,11 +157,53 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     /// <summary>The work for one job; a job covering several rows reports through the first.</summary>
     protected virtual JobOutcome WorkGroup(JobContext context, IReadOnlyList<JobItemViewModel> group) => Work(context, group[0]);
 
-    public ObservableCollection<JobItemViewModel> Items { get; } = [];
+    public BulkObservableCollection<JobItemViewModel> Items { get; } = [];
+
+    /// <summary>The rows the list shows: all of them, or those matching <see cref="Filter"/>. Runs always use <see cref="Items"/>.</summary>
+    public BulkObservableCollection<JobItemViewModel> VisibleItems { get; } = [];
+
+    /// <summary>Shows only rows whose name, folder, target or status contains this text (every word, any order).</summary>
+    [ObservableProperty] public partial string Filter { get; set; } = "";
+
+    partial void OnFilterChanged(string value) => _visible.Request();
+
+    [ObservableProperty] public partial string FilterNote { get; set; } = "";
+
+    /// <summary>There are rows, but the filter hides them all.</summary>
+    public bool NoMatches => Items.Count > 0 && VisibleItems.Count == 0;
+
+    private void RefreshVisible()
+    {
+        var words = Filter.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0)
+        {
+            VisibleItems.ReplaceAll(Items);
+            FilterNote = "";
+            OnPropertyChanged(nameof(NoMatches));
+            return;
+        }
+        bool Match(JobItemViewModel i) => words.All(w =>
+            i.Name.Contains(w, StringComparison.OrdinalIgnoreCase) || i.Folder.Contains(w, StringComparison.OrdinalIgnoreCase) ||
+            (i.Target?.Label.Contains(w, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            i.StatusText.Contains(w, StringComparison.OrdinalIgnoreCase) || i.TypeText.Contains(w, StringComparison.OrdinalIgnoreCase));
+        VisibleItems.ReplaceAll(Items.Where(Match));
+        OnPropertyChanged(nameof(NoMatches));
+        var hidden = Items.Count - VisibleItems.Count;
+        FilterNote = hidden == 0 ? "" : $"{VisibleItems.Count:N0} of {Items.Count:N0} shown";
+    }
+
+    [RelayCommand]
+    private void ClearFilter() => Filter = "";
     [ObservableProperty] public partial System.Collections.IList? SelectedItems { get; set; }
 
     [ObservableProperty, NotifyPropertyChangedFor(nameof(IsIdle)), NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(CancelCommand))]
     public partial bool IsRunning { get; set; }
+
+    /// <summary>A folder scan is running in the background (rows appear when it's done).</summary>
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(StartCommand))]
+    public partial bool IsScanning { get; set; }
+
+    [ObservableProperty] public partial string ScanStatus { get; set; } = "";
 
     public bool IsIdle => !IsRunning;
     public bool HasItems => Items.Count > 0;
@@ -175,65 +226,114 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         if (folder is not null) AddPaths([folder]);
     }
 
-    /// <summary>Adds files and folders (from pickers or drag and drop), skipping duplicates.</summary>
-    public void AddPaths(IEnumerable<string> paths)
-    {
-        var existing = new HashSet<string>(Items.Select(i => i.Path), StringComparer.OrdinalIgnoreCase);
-        var added = 0;
-        var ignored = 0;
-        var rar = 0;
-        foreach (var path in paths)
-        {
-            IEnumerable<string> candidates;
-            if (Directory.Exists(path))
-            {
-                try
-                {
-                    candidates = ItemsForFolder(path).ToList();
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                {
-                    Log.Warn($"Couldn't read {path}: {ex.Message}");
-                    continue;
-                }
-            }
-            else if (File.Exists(path) && Accepts(path))
-            {
-                candidates = [path];
-            }
-            else
-            {
-                if (Core.Formats.ArchiveExtractor.IsRar(path)) rar++;
-                else ignored++;
-                continue;
-            }
+    /// <summary>Adds files and folders (from pickers or drag and drop), skipping duplicates. Returns at once; see <see cref="AddPathsAsync"/>.</summary>
+    public void AddPaths(IEnumerable<string> paths) => _ = AddPathsAsync(paths);
 
-            foreach (var file in candidates)
+    /// <summary>
+    /// Scans folders and builds the new rows on a background thread (a big
+    /// library can take a while, more so on a network or cloud drive), then
+    /// adds them all at once. The window stays responsive and shows a count;
+    /// <see cref="CancelScanCommand"/> stops it.
+    /// </summary>
+    public async Task AddPathsAsync(IEnumerable<string> paths)
+    {
+        var list = paths.ToList();
+        if (list.Count == 0) return;
+        var existing = new HashSet<string>(Items.Select(i => i.Path), StringComparer.OrdinalIgnoreCase);
+        _scanCts?.Cancel();
+        var cts = _scanCts = new CancellationTokenSource();
+        var token = cts.Token;
+        var found = 0;
+        IsScanning = true;
+        ScanStatus = "Looking through the files…";
+        PrepareForAdding();
+        var ticker = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background,
+            (_, _) => ScanStatus = $"Looking through the files… {Volatile.Read(ref found):N0} found");
+        ticker.Start();
+        try
+        {
+            var (items, ignored, rar, problems) = await Task.Run(() =>
             {
-                if (!existing.Add(file)) continue;
-                Items.Add(CreateItem(file));
-                added++;
-            }
+                var made = new List<JobItemViewModel>();
+                var skipped = 0;
+                var rars = 0;
+                var unreadable = new List<string>();
+                foreach (var path in list)
+                {
+                    token.ThrowIfCancellationRequested();
+                    IEnumerable<string> candidates;
+                    if (Directory.Exists(path))
+                    {
+                        try { candidates = ItemsForFolder(path).ToList(); }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        {
+                            unreadable.Add($"Couldn't read {path}: {ex.Message}");
+                            continue;
+                        }
+                    }
+                    else if (File.Exists(path) && Accepts(path))
+                    {
+                        candidates = [path];
+                    }
+                    else
+                    {
+                        if (Core.Formats.ArchiveExtractor.IsRar(path)) rars++;
+                        else skipped++;
+                        continue;
+                    }
+                    foreach (var file in candidates)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        if (!existing.Add(file)) continue;
+                        made.Add(CreateItem(file));
+                        Interlocked.Increment(ref found);
+                    }
+                }
+                return (made, skipped, rars, unreadable);
+            }, token);
+
+            Items.AddRange(items);
+            foreach (var p in problems) Log.Warn(p);
+            if (items.Count > 0) Log.Info($"{Title}: added {items.Count:N0} file(s)");
+            if (ignored > 0) Log.Warn($"{Title}: ignored {ignored} item(s) this page can't use");
+            if (rar > 0) Log.Warn($"{Title}: ignored {rar} RAR file(s). {Core.Formats.ArchiveExtractor.RarNotSupported}");
         }
-        if (added > 0) Log.Info($"{Title}: added {added} file(s)");
-        if (ignored > 0) Log.Warn($"{Title}: ignored {ignored} item(s) this tab can't use");
-        if (rar > 0) Log.Warn($"{Title}: ignored {rar} RAR file(s). {Core.Formats.ArchiveExtractor.RarNotSupported}");
+        catch (OperationCanceledException)
+        {
+            Log.Warn($"{Title}: stopped looking through the files; nothing was added.");
+        }
+        finally
+        {
+            ticker.Stop();
+            if (_scanCts == cts)
+            {
+                IsScanning = false;
+                ScanStatus = "";
+                _scanCts = null;
+            }
+            cts.Dispose();
+        }
     }
+
+    /// <summary>Called on the UI thread before a background scan, to take what rows need from settings.</summary>
+    protected virtual void PrepareForAdding() { }
+
+    [RelayCommand]
+    private void CancelScan() => _scanCts?.Cancel();
 
     [RelayCommand]
     private void RemoveSelected()
     {
         if (IsRunning || SelectedItems is null) return;
-        foreach (var item in SelectedItems.Cast<JobItemViewModel>().ToList())
-            Items.Remove(item);
+        var doomed = new HashSet<JobItemViewModel>(SelectedItems.Cast<JobItemViewModel>());
+        Items.RemoveWhere(doomed.Contains);
     }
 
     [RelayCommand]
     private void ClearFinished()
     {
         if (IsRunning) return;
-        foreach (var item in Items.Where(i => i.Status is JobStatus.Succeeded or JobStatus.Warning or JobStatus.Skipped).ToList())
-            Items.Remove(item);
+        Items.RemoveWhere(i => i.Status is JobStatus.Succeeded or JobStatus.Warning or JobStatus.Skipped);
     }
 
     [RelayCommand]
@@ -242,7 +342,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         if (!IsRunning) Items.Clear();
     }
 
-    private bool CanStart => !IsRunning;
+    private bool CanStart => !IsRunning && !IsScanning;
 
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task Start()
@@ -274,7 +374,8 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             outcome => Dispatcher.UIThread.Post(() =>
             {
                 foreach (var item in group) item.Finished(outcome);
-                RefreshSummary();
+                _summary.Request();
+                if (Filter.Length > 0) _visible.Request(); // a status filter ("failed") follows the run
             }),
             CostBytes: group.Sum(i => i.SizeBytes))).ToList();
 

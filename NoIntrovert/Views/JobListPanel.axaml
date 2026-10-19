@@ -9,7 +9,7 @@
         <Grid RowDefinitions="Auto,Auto,*,Auto">
 
             <!-- Toolbar -->
-            <Grid ColumnDefinitions="*,Auto" Margin="12,10,12,8">
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,10,12,8">
                 <StackPanel Orientation="Horizontal" Spacing="6" IsEnabled="{Binding IsIdle}">
                     <Button Classes="tool" Content="Add files…" Command="{Binding AddFilesCommand}" />
                     <Button Classes="tool" Content="Add folder…" Command="{Binding AddFolderCommand}" />
@@ -18,7 +18,20 @@
                     <Button Classes="tool" Content="Clear finished" Command="{Binding ClearFinishedCommand}" />
                     <Button Classes="tool" Content="Clear all" Command="{Binding ClearAllCommand}" />
                 </StackPanel>
-                <TextBlock Grid.Column="1" Text="{Binding Summary}" Classes="hint" TextWrapping="NoWrap" VerticalAlignment="Center" />
+                <!-- The filter stays usable during a run: that's when you look for what failed. -->
+                <TextBox Grid.Column="1" Text="{Binding Filter}" PlaceholderText="Filter rows…" MinWidth="140" MaxWidth="260"
+                         HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0"
+                         ToolTip.Tip="Shows only rows whose name, folder, target or status contains every word. Ctrl+A then selects just those. A run still converts every row, shown or not." />
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" IsVisible="{Binding !IsScanning}">
+                    <TextBlock Text="{Binding Summary}" Classes="hint" TextWrapping="NoWrap" HorizontalAlignment="Right" />
+                    <TextBlock Text="{Binding FilterNote}" Classes="hint" FontSize="11" TextWrapping="NoWrap" HorizontalAlignment="Right"
+                               IsVisible="{Binding FilterNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsScanning}">
+                    <ProgressBar IsIndeterminate="True" Width="80" Height="6" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ScanStatus}" Classes="hint" VerticalAlignment="Center" />
+                    <Button Classes="tool" Content="Stop" Command="{Binding CancelScanCommand}" />
+                </StackPanel>
             </Grid>
 
             <!-- Column headings -->
@@ -35,7 +48,7 @@
 
             <!-- Items -->
             <Panel Grid.Row="2">
-                <ListBox x:Name="List" ItemsSource="{Binding Items}" SelectionMode="Multiple"
+                <ListBox x:Name="List" ItemsSource="{Binding VisibleItems}" SelectionMode="Multiple"
                          SelectedItems="{Binding SelectedItems}" Background="Transparent" Margin="10,0">
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
@@ -76,6 +89,10 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+                <StackPanel IsVisible="{Binding NoMatches}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                    <TextBlock Text="No rows match the filter." Classes="hint" FontSize="13" HorizontalAlignment="Center" />
+                    <Button Classes="tool" Content="Clear the filter" Command="{Binding ClearFilterCommand}" HorizontalAlignment="Center" />
+                </StackPanel>
                 <TextBlock Text="{Binding EmptyHint}" IsVisible="{Binding !HasItems}" Classes="hint" FontSize="13"
                            TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30" />
             </Panel>

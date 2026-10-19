@@ -477,6 +477,44 @@ Test("Format registry: Convert finds what it did before in test-roms", () =>
     return Note($"{now.Count} inputs, same as before");
 });
 
+// ---- Scale: a library of 5,000 inputs in 100 folders, the size the app has to handle ----
+
+var bigLibrary = Dir("scale-library");
+var bigCount = ScaleLibrary.Make(bigLibrary, 5000);
+
+Test("Scale: 5,000 inputs in 100 folders are scanned, targeted and planned quickly", () =>
+{
+    var sw = Stopwatch.StartNew();
+    var sets = FormatRegistry.Default.Scan(bigLibrary, recursive: true);
+    var scan = sw.Elapsed;
+    if (sets.Count != bigCount) return $"the scan found {sets.Count} inputs, expected {bigCount}";
+    sw.Restart();
+    var settings = new AppSettings();
+    var rows = sets.Select(s => new PlanInput(s.Primary, ConvertTargets.For(s, settings).Default.Kind, 1)).ToList();
+    var targets = sw.Elapsed;
+    sw.Restart();
+    var plan = ConvertPlanner.Plan(rows, settings, log);
+    var planning = sw.Elapsed;
+    if (plan.Jobs.Count + plan.Left.Count != bigCount) return $"the plan covers {plan.Jobs.Count + plan.Left.Count} rows";
+    var total = scan + targets + planning;
+    var report = $"scan {scan.TotalSeconds:F1}s, targets {targets.TotalSeconds:F1}s, plan {planning.TotalSeconds:F2}s";
+    return total < TimeSpan.FromSeconds(20) ? Note(report) : $"too slow: {report}";
+});
+
+Test("Scale: the queue runs 5,000 jobs without slowing down", () =>
+{
+    var queue = new JobQueue(() => 4);
+    var jobs = Enumerable.Range(0, 5000)
+        .Select(i => new BatchJob($"job {i}", new NullReport(), _ => new JobOutcome(JobStatus.Succeeded, "ok"), _ => { }, _ => { }, CostBytes: 1000))
+        .ToList();
+    var sw = Stopwatch.StartNew();
+    var group = queue.Submit("Convert", jobs, new AppSettings(), log);
+    if (!group.Completion.Wait(TimeSpan.FromSeconds(60))) return "5,000 jobs didn't finish in a minute";
+    var took = sw.Elapsed;
+    if (group.Jobs.Any(j => j.Outcome?.Status != JobStatus.Succeeded)) return "some jobs didn't succeed";
+    return took < TimeSpan.FromSeconds(15) ? Note($"{took.TotalSeconds:F1}s") : $"too slow: {took.TotalSeconds:F1}s";
+});
+
 Test("Job queue: one concurrency budget across every group", () =>
 {
     var settings = new AppSettings();
