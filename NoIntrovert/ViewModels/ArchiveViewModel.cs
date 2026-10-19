@@ -15,20 +15,20 @@ public partial class ArchiveViewModel : BatchTabViewModel
 {
     public ArchiveViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue) : base(settings, log, dialogs, queue)
     {
-        settings.PropertyChanged += OnSettingChanged;
+        settings.Archives.PropertyChanged += OnSettingChanged;
     }
 
     private void OnSettingChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(SettingsViewModel.SelectedArchiveAction))
+        if (e.PropertyName is nameof(ArchiveSettingsViewModel.SelectedAction))
         {
             OnPropertyChanged(nameof(StartLabel));
             OnPropertyChanged(nameof(EmptyHint));
         }
     }
 
-    private bool Converting => Settings.IsArchiveConvert;
-    private bool Extracting => Settings.IsArchiveExtract;
+    private bool Converting => Settings.Archives.IsConvert;
+    private bool Extracting => Settings.Archives.IsExtract;
 
     /// <summary>Converting and extracting both work on existing archives rather than on any file.</summary>
     private bool TakesArchives => Converting || Extracting;
@@ -56,14 +56,14 @@ public partial class ArchiveViewModel : BatchTabViewModel
         }
         if (TakesArchives && pending.Any(i => !ArchiveJobs.IsConvertible(i.Path)))
             Log.Warn($"Archive: rows that aren't .zip or .7z files are skipped when {(Extracting ? "extracting" : "converting")}.");
-        if (Settings.IsArchiveCompress && Settings.IsSingleArchive && string.IsNullOrWhiteSpace(Settings.ArchiveSingleName))
+        if (Settings.Archives.IsCompress && Settings.Archives.IsSingle && string.IsNullOrWhiteSpace(Settings.Archives.SingleName))
         {
             Log.Error("Archive: give the combined archive a name first.");
             return false;
         }
-        if (Settings.ArchiveDeleteOriginals)
+        if (Settings.Output.RemoveArchiveOriginals)
         {
-            var fate = Settings.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently";
+            var fate = Settings.Output.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently";
             Log.Warn(Extracting
                 ? $"Archive: each archive will be {fate} after it extracts cleanly."
                 : $"Archive: originals will be {fate} after each archive tests OK.");
@@ -73,12 +73,12 @@ public partial class ArchiveViewModel : BatchTabViewModel
 
     /// <summary>"Everything into one archive" makes the whole list a single job.</summary>
     protected override IReadOnlyList<IReadOnlyList<JobItemViewModel>> GroupItems(IReadOnlyList<JobItemViewModel> pending) =>
-        Settings.IsArchiveCompress && Settings.IsSingleArchive ? [pending] : base.GroupItems(pending);
+        Settings.Archives.IsCompress && Settings.Archives.IsSingle ? [pending] : base.GroupItems(pending);
 
     protected override JobOutcome WorkGroup(JobContext context, IReadOnlyList<JobItemViewModel> group)
     {
         var s = context.Settings;
-        if (s.ArchiveAction == ArchiveAction.Extract)
+        if (s.Archives.Action == ArchiveAction.Extract)
         {
             var item = group[0];
             return ArchiveJobs.IsConvertible(item.Path)
@@ -86,7 +86,7 @@ public partial class ArchiveViewModel : BatchTabViewModel
                 : JobOutcome.Skipped("Not a zip or 7z archive");
         }
 
-        if (s.ArchiveAction == ArchiveAction.Convert)
+        if (s.Archives.Action == ArchiveAction.Convert)
         {
             var item = group[0];
             return ArchiveJobs.IsConvertible(item.Path)
@@ -94,16 +94,16 @@ public partial class ArchiveViewModel : BatchTabViewModel
                 : JobOutcome.Skipped("Not a zip or 7z archive");
         }
 
-        if (s.ArchiveGrouping == ArchiveGrouping.Single)
+        if (s.Archives.Grouping == ArchiveGrouping.Single)
         {
             var paths = group.Select(i => i.Path).ToList();
             var folder = OutputPaths.FolderFor(s, paths[0]);
-            return ArchiveJobs.CompressOne(context, paths, s.ArchiveSingleName.Trim(), folder);
+            return ArchiveJobs.CompressOne(context, paths, s.Archives.SingleName.Trim(), folder);
         }
 
         var row = group[0];
-        if (s.ArchiveGrouping == ArchiveGrouping.PerEntryInFolders && row.IsFolder)
-            return ArchiveJobs.CompressEntries(context, row.Path, s.OutputFolder);
+        if (s.Archives.Grouping == ArchiveGrouping.PerEntryInFolders && row.IsFolder)
+            return ArchiveJobs.CompressEntries(context, row.Path, s.Output.Folder);
 
         return ArchiveJobs.CompressOne(context, [row.Path], NameFor(row), OutputPaths.FolderFor(s, row.Path));
     }

@@ -25,8 +25,8 @@ public partial class MainWindow : Window, IDialogs
     {
         base.OnDataContextChanged(e);
         if (Vm is not { } vm) return;
-        Width = vm.Settings.WindowWidth;
-        Height = vm.Settings.WindowHeight;
+        Width = vm.Settings.General.WindowWidth;
+        Height = vm.Settings.General.WindowHeight;
         vm.Log.EntriesAdded += () =>
         {
             if (vm.Log.Entries.Count > 0)
@@ -45,8 +45,8 @@ public partial class MainWindow : Window, IDialogs
     {
         base.OnClosing(e);
         if (Vm is not { } vm) return;
-        vm.Settings.WindowWidth = Bounds.Width;
-        vm.Settings.WindowHeight = Bounds.Height;
+        vm.Settings.General.WindowWidth = Bounds.Width;
+        vm.Settings.General.WindowHeight = Bounds.Height;
         vm.Settings.Save();
 
         if (!vm.IsAnyRunning || _closeConfirmed) return;

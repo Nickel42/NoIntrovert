@@ -27,8 +27,8 @@ public partial class ConvertViewModel(SettingsViewModel settings, LogViewModel l
 
     protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
     {
-        if (Settings.DeleteOriginals)
-            Log.Warn($"Originals will be {(Settings.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently")} after each CHD or RVZ verifies.");
+        if (Settings.Output.RemoveOriginals)
+            Log.Warn($"Originals will be {(Settings.Output.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently")} after each CHD or RVZ verifies.");
         if (pending.Any(i => Path.GetExtension(i.Path).ToLowerInvariant() is ".wbfs" or ".ciso"))
             Log.Warn("WBFS and CISO images can't be converted (they don't record the disc's exact size); those rows will fail. Convert them to ISO first.");
         return true;
@@ -96,15 +96,15 @@ public partial class TestsViewModel : BatchTabViewModel
 
     protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
     {
-        if (NeedsChdman && (string.IsNullOrWhiteSpace(Settings.ChdmanExePath) || !File.Exists(Settings.ChdmanExePath)))
+        if (NeedsChdman && (string.IsNullOrWhiteSpace(Settings.Diagnostics.ChdmanExePath) || !File.Exists(Settings.Diagnostics.ChdmanExePath)))
         {
             Log.Error("Library tests: choose a chdman executable first (needed for the comparison test).");
             return false;
         }
         if (NeedsChdman)
         {
-            ChdmanVersion = ChdmanExe.Version(Settings.ChdmanExePath);
-            Log.Info($"Comparing libchdman {LibChdman.Chdman.Version} with {(ChdmanVersion.Length > 0 ? ChdmanVersion : Settings.ChdmanExePath)}");
+            ChdmanVersion = ChdmanExe.Version(Settings.Diagnostics.ChdmanExePath);
+            Log.Info($"Comparing libchdman {LibChdman.Chdman.Version} with {(ChdmanVersion.Length > 0 ? ChdmanVersion : Settings.Diagnostics.ChdmanExePath)}");
         }
         return true;
     }

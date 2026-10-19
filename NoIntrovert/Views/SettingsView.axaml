@@ -1,0 +1,182 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             x:Class="NoIntrovert.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+    <!--
+        Every default in one place, one card per section. Each card shows the
+        settings most people need; "Advanced" opens the rest, and Expert ones
+        only appear in Power-user mode. Tabs can still change Output for a run.
+    -->
+    <ScrollViewer Margin="0,10,0,0">
+        <WrapPanel Orientation="Horizontal" ItemWidth="430">
+
+            <!-- General -->
+            <Border Classes="card" Margin="0,0,12,12" DataContext="{Binding General}" x:DataType="vm:GeneralSettingsViewModel">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="GENERAL" Classes="section" Margin="0,0,0,4" />
+                    <CheckBox Content="Power-user mode" IsChecked="{Binding PowerUserMode}" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap"
+                               Text="Shows Expert options (hunk size, threads, temp folder, block sizes), libchdman's own log messages and the Library tests tab." />
+                    <StackPanel Spacing="4" IsVisible="{Binding PowerUserMode}">
+                        <TextBlock Text="EXPERT" Classes="section" />
+                        <CheckBox Content="Log libchdman's messages" IsChecked="{Binding VerboseLog}"
+                                  ToolTip.Tip="Every message libchdman sends, shown as debug lines." />
+                        <CheckBox Content="Log progress every 10%" IsChecked="{Binding LogProgress}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Output -->
+            <Border Classes="card" Margin="0,0,12,12" DataContext="{Binding Output}" x:DataType="vm:OutputSettingsViewModel">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="OUTPUT" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Text="Results go to" />
+                    <TextBlock Classes="hint" Text="{Binding FolderText}" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding FolderText}" />
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Classes="tool" Content="Choose folder…" Command="{Binding BrowseFolderCommand}" Margin="0,0,6,6" />
+                        <Button Classes="tool" Content="Next to each source" Command="{Binding UseSourceFoldersCommand}" Margin="0,0,6,6"
+                                IsVisible="{Binding !UseSourceFolder}" />
+                    </WrapPanel>
+                    <CheckBox Content="Overwrite existing files" IsChecked="{Binding Overwrite}" />
+                    <TextBlock Text="REMOVE ORIGINALS" Classes="section" />
+                    <CheckBox Content="Disc images, once their CHD or RVZ verifies" IsChecked="{Binding RemoveOriginals}" />
+                    <CheckBox Content="Archive tab inputs, once the archive tests OK" IsChecked="{Binding RemoveArchiveOriginals}" />
+                    <CheckBox Content="Wii U inputs, once the .wua verifies" IsChecked="{Binding RemoveWiiUOriginals}" />
+                    <Expander Header="Advanced" Margin="0,6,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <StackPanel Spacing="4">
+                            <CheckBox Content="Include subfolders when adding a folder" IsChecked="{Binding ScanSubfolders}" />
+                            <CheckBox Content="{Binding RecycleBinLabel}" IsChecked="{Binding UseRecycleBin}" IsVisible="{Binding CanUseRecycleBin}" />
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </Border>
+
+            <!-- Performance -->
+            <Border Classes="card" Margin="0,0,12,12" DataContext="{Binding Performance}" x:DataType="vm:PerformanceSettingsViewModel">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="PERFORMANCE" Classes="section" Margin="0,0,0,4" />
+                    <Grid ColumnDefinitions="*,110">
+                        <TextBlock Text="Jobs at once (whole app)" VerticalAlignment="Center"
+                                   ToolTip.Tip="How many jobs the shared queue runs at the same time, across every tab." />
+                        <NumericUpDown Grid.Column="1" Value="{Binding ParallelJobs}" Minimum="1" Maximum="{Binding MaxThreads}" Increment="1" FormatString="0" />
+                    </Grid>
+                    <StackPanel Spacing="4" IsVisible="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).General.PowerUserMode}">
+                        <TextBlock Text="EXPERT" Classes="section" />
+                        <Grid ColumnDefinitions="*,110">
+                            <TextBlock Text="Threads per job (0 = all)" VerticalAlignment="Center" />
+                            <NumericUpDown Grid.Column="1" Value="{Binding ThreadsPerJob}" Minimum="0" Maximum="{Binding MaxThreads}" Increment="1" FormatString="0" />
+                        </Grid>
+                        <TextBlock Text="Temp folder" />
+                        <TextBlock Classes="hint" Text="{Binding TempFolderHint}" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding TempFolderHint}" />
+                        <WrapPanel Orientation="Horizontal">
+                            <Button Classes="tool" Content="Choose…" Command="{Binding BrowseTempFolderCommand}" Margin="0,0,6,6" />
+                            <Button Classes="tool" Content="Default" Command="{Binding UseDefaultTempFolderCommand}" Margin="0,0,6,6" />
+                        </WrapPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- CHD -->
+            <Border Classes="card" Margin="0,0,12,12" DataContext="{Binding Chd}" x:DataType="vm:ChdSettingsViewModel">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="CHD" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Text="Compression" />
+                    <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.CompressionChoices}" SelectedItem="{Binding SelectedCompression}" HorizontalAlignment="Stretch" />
+                    <TextBox Text="{Binding CustomCompression}" PlaceholderText="e.g. cdzs,cdzl,cdfl (up to four codecs)" IsVisible="{Binding IsCustomCompression}" />
+                    <CheckBox Content="Verify each new CHD or RVZ" IsChecked="{Binding VerifyAfterCreate}" />
+                    <Expander Header="Advanced" Margin="0,6,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="ISO images" />
+                            <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.IsoModes}" SelectedItem="{Binding SelectedIsoMode}" HorizontalAlignment="Stretch" />
+                            <TextBlock Text="Extract to" Margin="0,4,0,0" />
+                            <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.ExtractFormats}" SelectedItem="{Binding SelectedExtractFormat}" HorizontalAlignment="Stretch" />
+                            <CheckBox Content="One .bin per track when extracting" IsChecked="{Binding SplitBin}" />
+                            <CheckBox Content="Fix a wrong header SHA-1 when verifying" IsChecked="{Binding FixHeaderSha1}" />
+                            <StackPanel Spacing="4" IsVisible="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).General.PowerUserMode}">
+                                <TextBlock Text="EXPERT" Classes="section" />
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                    <TextBlock Text="Hunk size" VerticalAlignment="Center" />
+                                    <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:ChdSettingsViewModel.HunkSizes}" SelectedItem="{Binding SelectedHunkSize}" HorizontalAlignment="Stretch" />
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </Border>
+
+            <!-- GameCube / Wii -->
+            <Border Classes="card" Margin="0,0,12,12" DataContext="{Binding Nintendo}" x:DataType="vm:NintendoSettingsViewModel">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="GAMECUBE / WII" Classes="section" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{x:Static vm:NintendoSettingsViewModel.Targets}" SelectedItem="{Binding SelectedTarget}" HorizontalAlignment="Stretch" />
+                    <Expander Header="Advanced" Margin="0,6,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsVisible="{Binding IsRvzTarget}">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="RVZ compression" />
+                            <ComboBox ItemsSource="{x:Static vm:NintendoSettingsViewModel.Compressions}" SelectedItem="{Binding SelectedCompression}" HorizontalAlignment="Stretch" />
+                            <Grid ColumnDefinitions="*,110" IsEnabled="{Binding HasLevel}">
+                                <TextBlock Text="Level" VerticalAlignment="Center" />
+                                <NumericUpDown Grid.Column="1" Value="{Binding CompressionLevel}" Minimum="{Binding LevelMinimum}" Maximum="{Binding LevelMaximum}" Increment="1" FormatString="0" />
+                            </Grid>
+                            <StackPanel Spacing="4" IsVisible="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).General.PowerUserMode}">
+                                <TextBlock Text="EXPERT" Classes="section" />
+                                <Grid ColumnDefinitions="*,140">
+                                    <TextBlock Text="Block size" VerticalAlignment="Center" />
+                                    <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:NintendoSettingsViewModel.BlockSizes}" SelectedItem="{Binding SelectedBlockSize}" HorizontalAlignment="Stretch" />
+                                </Grid>
+                                <CheckBox Content="Scrub unused data" IsChecked="{Binding Scrub}"
+                                          ToolTip.Tip="Saves little, and the result no longer matches Redump checksums." />
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </Border>
+
+            <!-- Archives -->
+            <Border Classes="card" Margin="0,0,12,12" DataContext="{Binding Archives}" x:DataType="vm:ArchiveSettingsViewModel">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="ARCHIVES" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Text="New archives are" />
+                    <ComboBox ItemsSource="{x:Static vm:ArchiveSettingsViewModel.Formats}" SelectedItem="{Binding SelectedFormat}" HorizontalAlignment="Stretch" />
+                    <Expander Header="Advanced" Margin="0,6,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Compression" />
+                            <ComboBox ItemsSource="{x:Static vm:ArchiveSettingsViewModel.Levels}" SelectedItem="{Binding SelectedLevel}" HorizontalAlignment="Stretch" />
+                            <CheckBox Content="Solid 7z archives" IsChecked="{Binding Solid}" IsVisible="{Binding IsSevenZip}" />
+                            <CheckBox Content="Test each new archive" IsChecked="{Binding TestAfter}" />
+                            <CheckBox Content="Extract each archive into its own folder" IsChecked="{Binding ExtractToOwnFolder}" />
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </Border>
+
+            <!-- Keys -->
+            <Border Classes="card" Margin="0,0,12,12" DataContext="{Binding Keys}" x:DataType="vm:KeySettingsViewModel">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="KEYS" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap"
+                               Text="Encrypted Wii U titles and discs need your own keys.txt (the one Cemu uses). NoIntrovert doesn't include any keys." />
+                    <TextBlock Classes="hint" Text="{Binding WiiUKeysSummary}" TextWrapping="Wrap" />
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Classes="tool" Content="Choose keys.txt…" Command="{Binding BrowseWiiUKeysCommand}" Margin="0,0,6,6" />
+                        <Button Classes="tool" Content="Find automatically" Command="{Binding FindWiiUKeysAutomaticallyCommand}" Margin="0,0,6,6" />
+                        <Button Classes="tool" Content="Refresh" Command="{Binding RefreshWiiUKeysCommand}" Margin="0,0,6,6" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Diagnostics -->
+            <Border Classes="card" Margin="0,0,12,12" DataContext="{Binding Diagnostics}" x:DataType="vm:DiagnosticsSettingsViewModel"
+                    IsVisible="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).General.PowerUserMode}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="DIAGNOSTICS" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Text="chdman executable (for the Library tests' comparison)" TextWrapping="Wrap" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <TextBox Text="{Binding ChdmanExePath}" PlaceholderText="Path to chdman" />
+                        <Button Grid.Column="1" Classes="tool" Content="Browse…" Command="{Binding BrowseChdmanExeCommand}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </WrapPanel>
+    </ScrollViewer>
+</UserControl>

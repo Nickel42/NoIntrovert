@@ -251,13 +251,13 @@ public sealed class JobQueue
                 if (job is null) continue;
 
                 var settings = job.Group.Settings;
-                if (chdman is null || chdmanThreads != settings.ThreadsPerJob)
+                if (chdman is null || chdmanThreads != settings.Performance.ThreadsPerJob)
                 {
                     chdman?.Dispose();
-                    chdman = new Chdman(settings.ThreadsPerJob);
-                    chdmanThreads = settings.ThreadsPerJob;
+                    chdman = new Chdman(settings.Performance.ThreadsPerJob);
+                    chdmanThreads = settings.Performance.ThreadsPerJob;
                     if (rvz?.IsValueCreated == true) rvz.Value.Dispose();
-                    var threads = settings.ThreadsPerJob;
+                    var threads = settings.Performance.ThreadsPerJob;
                     rvz = new Lazy<DolphinRvz>(() => new DolphinRvz(threads));
                 }
                 Run(index, job, chdman, rvz!);
@@ -281,7 +281,7 @@ public sealed class JobQueue
             {
                 case ChdmanLogLevel.Error: log.Error("libchdman: " + message); break;
                 case ChdmanLogLevel.Warning: log.Warn("libchdman: " + message); break;
-                default: if (settings.VerboseLog) log.Debug("libchdman: " + message.TrimEnd()); break;
+                default: if (settings.General.VerboseLog) log.Debug("libchdman: " + message.TrimEnd()); break;
             }
         };
         chdman.Progress = null;
@@ -311,7 +311,7 @@ public sealed class JobQueue
         {
             outcome = JobOutcome.Failed(OutputPaths.Describe(ex));
             log.Error($"{job.Name}: {OutputPaths.Describe(ex)}");
-            if (settings.VerboseLog) log.Debug(ex.ToString());
+            if (settings.General.VerboseLog) log.Debug(ex.ToString());
         }
         Finish(job, outcome);
     }

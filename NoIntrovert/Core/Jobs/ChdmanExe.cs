@@ -21,9 +21,9 @@ internal static class ChdmanExe
     public static RunResult Create(string exePath, PreparedDisc disc, string output, AppSettings settings, CancellationToken token)
     {
         var args = new List<string> { CommandFor(disc.Kind), "-i", disc.InputPath, "-o", output, "-f" };
-        if (!string.IsNullOrWhiteSpace(settings.Compression)) { args.Add("-c"); args.Add(settings.Compression.Trim()); }
-        if (settings.HunkSize > 0) { args.Add("-hs"); args.Add(settings.HunkSize.ToString()); }
-        if (settings.ThreadsPerJob > 0) { args.Add("-np"); args.Add(settings.ThreadsPerJob.ToString()); }
+        if (!string.IsNullOrWhiteSpace(settings.Chd.Compression)) { args.Add("-c"); args.Add(settings.Chd.Compression.Trim()); }
+        if (settings.Chd.HunkSize > 0) { args.Add("-hs"); args.Add(settings.Chd.HunkSize.ToString()); }
+        if (settings.Performance.ThreadsPerJob > 0) { args.Add("-np"); args.Add(settings.Performance.ThreadsPerJob.ToString()); }
         return Run(exePath, args, token);
     }
 

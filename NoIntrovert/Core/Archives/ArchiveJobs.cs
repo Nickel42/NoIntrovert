@@ -40,12 +40,12 @@ public static class ArchiveJobs
     public static JobOutcome CompressOne(JobContext c, IReadOnlyList<string> inputs, string name, string outputFolder)
     {
         var s = c.Settings;
-        var output = Path.Combine(outputFolder, name + Extension(s.ArchiveFormat));
+        var output = Path.Combine(outputFolder, name + Extension(s.Archives.Format));
         if (inputs.Any(i => Path.GetFullPath(i).Equals(Path.GetFullPath(output), StringComparison.OrdinalIgnoreCase)))
             return JobOutcome.Failed($"{Path.GetFileName(output)} would overwrite one of its own inputs.");
         if (File.Exists(output))
         {
-            if (!s.Overwrite)
+            if (!s.Output.Overwrite)
             {
                 c.Log.Warn($"  {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
                 return JobOutcome.Skipped("Archive already exists");
@@ -57,13 +57,13 @@ public static class ArchiveJobs
 
         // Already-compressed files (CHD, RVZ, 7z, ...) don't get smaller: one on its own is
         // left alone, and a set that's nearly all compressed is stored, not compressed again.
-        var level = s.ArchiveLevel;
+        var level = s.Archives.Level;
         var packedBytes = CompressedBytes(inputs);
         if (inputs.Count == 1 && File.Exists(inputs[0]) && KnownFormats.IsAlreadyCompressed(inputs[0]))
         {
             var ext = Path.GetExtension(inputs[0]).TrimStart('.').ToUpperInvariant();
             var hint = ext is "ZIP" or "7Z" ? " Use Convert to switch between zip and 7z." : "";
-            c.Log.Info($"  {Path.GetFileName(inputs[0])} is already compressed ({ext}); a {FormatName(s.ArchiveFormat)} wouldn't make it smaller, so it's skipped.{hint}");
+            c.Log.Info($"  {Path.GetFileName(inputs[0])} is already compressed ({ext}); a {FormatName(s.Archives.Format)} wouldn't make it smaller, so it's skipped.{hint}");
             return JobOutcome.Skipped($"Already compressed ({ext})");
         }
         if (level != ArchiveLevel.Store && inputBytes > 0 && packedBytes >= 0.9 * inputBytes)
@@ -72,11 +72,11 @@ public static class ArchiveJobs
             c.Log.Info($"  {packedBytes * 100 / inputBytes}% of {Describe(inputs)} is already compressed; storing it without compressing again.");
         }
 
-        c.Log.Info($"Compressing {Describe(inputs)} → {Path.GetFileName(output)} ({FormatName(s.ArchiveFormat)}, {level})");
+        c.Log.Info($"Compressing {Describe(inputs)} → {Path.GetFileName(output)} ({FormatName(s.Archives.Format)}, {level})");
         var sw = System.Diagnostics.Stopwatch.StartNew();
         using var engine = new ArchiveEngine();
         c.Report.SetStage(level == ArchiveLevel.Store ? "Storing" : "Compressing");
-        engine.Compress(s.ArchiveFormat, level, s.ThreadsPerJob, s.ArchiveSolid, inputs, output,
+        engine.Compress(s.Archives.Format, level, s.Performance.ThreadsPerJob, s.Archives.Solid, inputs, output,
             contentsOnly: false, c.Report.SetProgress, c.Token);
         sw.Stop();
 
@@ -88,7 +88,7 @@ public static class ArchiveJobs
     public static JobOutcome CompressEntries(JobContext c, string folder, string outputFolderOrEmpty)
     {
         var entries = Directory.EnumerateFileSystemEntries(folder)
-            .Where(e => !IsOwnOutput(e, c.Settings.ArchiveFormat))
+            .Where(e => !IsOwnOutput(e, c.Settings.Archives.Format))
             .OrderBy(e => e, StringComparer.OrdinalIgnoreCase).ToList();
         if (entries.Count == 0) return JobOutcome.Skipped("Folder is empty");
 
@@ -125,7 +125,7 @@ public static class ArchiveJobs
     {
         var s = c.Settings;
         var ext = Path.GetExtension(archive).ToLowerInvariant();
-        var target = s.ArchiveConvertTarget switch
+        var target = s.Archives.ConvertTarget switch
         {
             ConvertTarget.ToZip => ArchiveFormat.Zip,
             ConvertTarget.ToSevenZip => ArchiveFormat.SevenZip,
@@ -138,7 +138,7 @@ public static class ArchiveJobs
         var output = Path.Combine(outputFolder, Path.GetFileNameWithoutExtension(archive) + Extension(target));
         if (File.Exists(output))
         {
-            if (!s.Overwrite)
+            if (!s.Output.Overwrite)
             {
                 c.Log.Warn($"  {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
                 return JobOutcome.Skipped("Target already exists");
@@ -146,8 +146,8 @@ public static class ArchiveJobs
             File.Delete(output);
         }
 
-        Directory.CreateDirectory(s.EffectiveTempFolder);
-        using var work = new WorkDirectory(s.EffectiveTempFolder);
+        Directory.CreateDirectory(s.Performance.EffectiveTempFolder);
+        using var work = new WorkDirectory(s.Performance.EffectiveTempFolder);
         var contents = Path.Combine(work.Path, "contents");
         using var engine = new ArchiveEngine();
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -159,7 +159,7 @@ public static class ArchiveJobs
             return JobOutcome.Skipped("Archive is empty");
 
         c.Report.SetStage($"Compressing to {FormatName(target)}");
-        engine.Compress(target, s.ArchiveLevel, s.ThreadsPerJob, s.ArchiveSolid, [contents], output,
+        engine.Compress(target, s.Archives.Level, s.Performance.ThreadsPerJob, s.Archives.Solid, [contents], output,
             contentsOnly: true, f => c.Report.SetProgress(0.4 + f * 0.6), c.Token);
         sw.Stop();
 
@@ -178,12 +178,12 @@ public static class ArchiveJobs
     {
         var s = c.Settings;
         var outputFolder = OutputPaths.FolderFor(s, archive);
-        var destination = s.ArchiveExtractToOwnFolder
+        var destination = s.Archives.ExtractToOwnFolder
             ? Path.Combine(outputFolder, Path.GetFileNameWithoutExtension(archive))
             : outputFolder;
 
-        if (s.ArchiveExtractToOwnFolder && Directory.Exists(destination) &&
-            Directory.EnumerateFileSystemEntries(destination).Any() && !s.Overwrite)
+        if (s.Archives.ExtractToOwnFolder && Directory.Exists(destination) &&
+            Directory.EnumerateFileSystemEntries(destination).Any() && !s.Output.Overwrite)
         {
             c.Log.Warn($"  {Path.GetFileName(destination)} already exists; skipped (turn on Overwrite to extract into it anyway).");
             return JobOutcome.Skipped("Folder already exists");
@@ -203,7 +203,7 @@ public static class ArchiveJobs
 
             c.Report.SetStage("Moving into place");
             Directory.CreateDirectory(destination);
-            var (moved, kept) = MoveEntries(staging, destination, s.Overwrite, c.Log);
+            var (moved, kept) = MoveEntries(staging, destination, s.Output.Overwrite, c.Log);
             sw.Stop();
 
             var stats = new OperationStats(sw.Elapsed, new FileInfo(archive).Length, SizeOf(destination));
@@ -216,14 +216,14 @@ public static class ArchiveJobs
                 return new JobOutcome(JobStatus.Warning, $"{moved} extracted, {kept} kept", stats);
             }
 
-            if (s.ArchiveDeleteOriginals)
+            if (s.Output.RemoveArchiveOriginals)
             {
                 c.Report.SetStage("Removing the archive");
-                FileRemover.Remove([archive], s.UseRecycleBin, c.Log);
+                FileRemover.Remove([archive], s.Output.UseRecycleBin, c.Log);
             }
 
             c.Log.Success($"{Path.GetFileName(archive)}: extracted {moved} item(s) in {sw.Elapsed:mm\\:ss\\.f}");
-            var where = s.ArchiveExtractToOwnFolder ? Path.GetFileName(destination) + Path.DirectorySeparatorChar : "output folder";
+            var where = s.Archives.ExtractToOwnFolder ? Path.GetFileName(destination) + Path.DirectorySeparatorChar : "output folder";
             return new JobOutcome(JobStatus.Succeeded, $"{moved} item(s) → {where}", stats);
         }
         finally
@@ -283,7 +283,7 @@ public static class ArchiveJobs
         var stats = new OperationStats(elapsed, inputBytes, outputBytes);
         c.Log.Info($"  wrote {Path.GetFileName(output)}: {ChdJobs.Size(inputBytes)} → {ChdJobs.Size(outputBytes)} ({stats.Ratio:P1}) in {elapsed:mm\\:ss\\.f}");
 
-        if (s.ArchiveTestAfter || s.ArchiveDeleteOriginals)
+        if (s.Archives.TestAfter || s.Output.RemoveArchiveOriginals)
         {
             c.Report.SetStage("Testing");
             try
@@ -298,13 +298,13 @@ public static class ArchiveJobs
             }
         }
 
-        if (s.ArchiveDeleteOriginals)
+        if (s.Output.RemoveArchiveOriginals)
         {
             c.Report.SetStage("Removing originals");
-            FileRemover.Remove(originals, s.UseRecycleBin, c.Log);
+            FileRemover.Remove(originals, s.Output.UseRecycleBin, c.Log);
         }
 
-        c.Log.Success($"{Path.GetFileName(output)}: done{(s.ArchiveTestAfter || s.ArchiveDeleteOriginals ? " and tested" : "")}");
+        c.Log.Success($"{Path.GetFileName(output)}: done{(s.Archives.TestAfter || s.Output.RemoveArchiveOriginals ? " and tested" : "")}");
         return new JobOutcome(JobStatus.Succeeded, $"{Path.GetFileName(output)} · {stats.Ratio:P0}", stats);
     }
 

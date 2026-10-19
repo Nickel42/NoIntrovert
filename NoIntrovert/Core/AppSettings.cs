@@ -1,71 +1,29 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace NoIntrovert.Core;
 
-/// <summary>Everything the app remembers between runs, saved as JSON under %AppData%\NoIntrovert.</summary>
+/// <summary>
+/// Everything the app remembers between runs, saved as JSON under
+/// %AppData%\NoIntrovert, in one section per area. A settings file from
+/// before the sections (schema 1, every value at the top level) is converted
+/// once when it's loaded, and a copy of it is kept as settings.v1.json.
+/// </summary>
 public sealed class AppSettings
 {
-    // Where results go
-    public string OutputFolder { get; set; } = ""; // empty = next to each source file
-    public bool Overwrite { get; set; }
-    public bool ScanSubfolders { get; set; } = true;
+    public const int CurrentSchema = 2;
 
-    // Conversion
-    public string Compression { get; set; } = ""; // empty = chdman's default for the media type
-    public uint HunkSize { get; set; }            // 0 = default
-    public IsoMode IsoMode { get; set; } = IsoMode.Auto;
-    public bool VerifyAfterCreate { get; set; } = true;
-    public bool DeleteOriginals { get; set; }
-    public bool UseRecycleBin { get; set; } = true;
+    public int SchemaVersion { get; set; } = CurrentSchema;
 
-    // GameCube / Wii (libdolphinrvz); defaults are Dolphin's
-    public Jobs.NintendoTarget NintendoTarget { get; set; } = Jobs.NintendoTarget.Rvz;
-    public LibDolphinRvz.RvzCompression RvzCompression { get; set; } = LibDolphinRvz.RvzCompression.Zstd;
-    public int RvzCompressionLevel { get; set; } = 5;
-    public uint RvzBlockSize { get; set; } = 0x20000;
-    public bool RvzScrub { get; set; }
-
-    // Extraction
-    public ExtractFormat ExtractFormat { get; set; } = ExtractFormat.Auto;
-    public bool SplitBin { get; set; } = true;
-
-    // Verification
-    public bool FixHeaderSha1 { get; set; }
-
-    // Archives (7z / zip)
-    public Archives.ArchiveAction ArchiveAction { get; set; } = Archives.ArchiveAction.Compress;
-    public Archives.ArchiveFormat ArchiveFormat { get; set; } = Archives.ArchiveFormat.SevenZip;
-    public Archives.ArchiveLevel ArchiveLevel { get; set; } = Archives.ArchiveLevel.Normal;
-    public bool ArchiveSolid { get; set; } = true;
-    public Archives.ArchiveGrouping ArchiveGrouping { get; set; } = Archives.ArchiveGrouping.PerItem;
-    public string ArchiveSingleName { get; set; } = "Archive";
-    public Archives.ConvertTarget ArchiveConvertTarget { get; set; } = Archives.ConvertTarget.Swap;
-    public bool ArchiveTestAfter { get; set; } = true;
-    public bool ArchiveDeleteOriginals { get; set; }
-    public bool ArchiveExtractToOwnFolder { get; set; } = true;
-
-    // Wii U (.wua)
-    public bool WiiUDeleteOriginals { get; set; }
-    public string WiiUKeysPath { get; set; } = ""; // empty = look in the usual places
-
-    // Performance
-    public int ParallelJobs { get; set; } = 1;
-    public int ThreadsPerJob { get; set; } // 0 = all processors
-
-    // Paths
-    public string TempFolder { get; set; } = ""; // empty = %TEMP%\NoIntrovert
-    public string ChdmanExePath { get; set; } = ""; // for the comparison tests only
-
-    // Logging
-    public bool VerboseLog { get; set; }
-    public bool LogProgress { get; set; }
-
-    // Window
-    public double WindowWidth { get; set; } = 1180;
-    public double WindowHeight { get; set; } = 820;
-
-    [JsonIgnore] public string EffectiveTempFolder => string.IsNullOrWhiteSpace(TempFolder) ? WorkPaths.DefaultTempRoot : TempFolder;
+    public GeneralSettings General { get; set; } = new();
+    public OutputSettings Output { get; set; } = new();
+    public PerformanceSettings Performance { get; set; } = new();
+    public ChdSettings Chd { get; set; } = new();
+    public NintendoSettings Nintendo { get; set; } = new();
+    public ArchiveSettings Archives { get; set; } = new();
+    public KeySettings Keys { get; set; } = new();
+    public DiagnosticsSettings Diagnostics { get; set; } = new();
 
     public static string SettingsDirectory =>
         SettingsDirectoryOverride ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NoIntrovert");
@@ -74,6 +32,9 @@ public sealed class AppSettings
     internal static string? SettingsDirectoryOverride { get; set; }
 
     private static string SettingsPath => Path.Combine(SettingsDirectory, "settings.json");
+
+    /// <summary>Where a schema-1 file is kept after it's converted.</summary>
+    internal static string V1BackupPath => Path.Combine(SettingsDirectory, "settings.v1.json");
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -85,8 +46,17 @@ public sealed class AppSettings
     {
         try
         {
-            if (File.Exists(SettingsPath))
-                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath), JsonOptions) ?? new AppSettings();
+            if (!File.Exists(SettingsPath)) return new AppSettings();
+            var json = File.ReadAllText(SettingsPath);
+            if (JsonNode.Parse(json) is JsonObject root && !root.ContainsKey(nameof(SchemaVersion)))
+            {
+                // Schema 1: keep the original, convert, and save the new layout.
+                var migrated = FromV1(JsonSerializer.Deserialize<SettingsV1>(json, JsonOptions) ?? new SettingsV1());
+                if (!File.Exists(V1BackupPath)) File.Copy(SettingsPath, V1BackupPath);
+                migrated.Save();
+                return migrated;
+            }
+            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
@@ -112,5 +82,173 @@ public sealed class AppSettings
     /// <summary>The JSON <see cref="Save"/> writes; comparing two of these tells whether anything changed.</summary>
     public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
 
-    public AppSettings Clone() => (AppSettings)MemberwiseClone();
+    /// <summary>A deep copy: runs work on one, so later edits don't reach a running batch.</summary>
+    public AppSettings Clone() => JsonSerializer.Deserialize<AppSettings>(ToJson(), JsonOptions)!;
+
+    /// <summary>Maps every schema-1 value to its section.</summary>
+    internal static AppSettings FromV1(SettingsV1 v) => new()
+    {
+        General = new()
+        {
+            VerboseLog = v.VerboseLog, LogProgress = v.LogProgress, WindowWidth = v.WindowWidth, WindowHeight = v.WindowHeight,
+        },
+        Output = new()
+        {
+            Folder = v.OutputFolder, Overwrite = v.Overwrite, ScanSubfolders = v.ScanSubfolders,
+            RemoveOriginals = v.DeleteOriginals, RemoveArchiveOriginals = v.ArchiveDeleteOriginals,
+            RemoveWiiUOriginals = v.WiiUDeleteOriginals, UseRecycleBin = v.UseRecycleBin,
+        },
+        Performance = new() { ParallelJobs = v.ParallelJobs, ThreadsPerJob = v.ThreadsPerJob, TempFolder = v.TempFolder },
+        Chd = new()
+        {
+            Compression = v.Compression, HunkSize = v.HunkSize, IsoMode = v.IsoMode, VerifyAfterCreate = v.VerifyAfterCreate,
+            ExtractFormat = v.ExtractFormat, SplitBin = v.SplitBin, FixHeaderSha1 = v.FixHeaderSha1,
+        },
+        Nintendo = new()
+        {
+            Target = v.NintendoTarget, Compression = v.RvzCompression, CompressionLevel = v.RvzCompressionLevel,
+            BlockSize = v.RvzBlockSize, Scrub = v.RvzScrub,
+        },
+        Archives = new()
+        {
+            Action = v.ArchiveAction, Format = v.ArchiveFormat, Level = v.ArchiveLevel, Solid = v.ArchiveSolid,
+            Grouping = v.ArchiveGrouping, SingleName = v.ArchiveSingleName, ConvertTarget = v.ArchiveConvertTarget,
+            TestAfter = v.ArchiveTestAfter, ExtractToOwnFolder = v.ArchiveExtractToOwnFolder,
+        },
+        Keys = new() { WiiUKeysPath = v.WiiUKeysPath },
+        Diagnostics = new() { ChdmanExePath = v.ChdmanExePath },
+    };
+}
+
+/// <summary>How the app looks and logs.</summary>
+public sealed class GeneralSettings
+{
+    /// <summary>Shows Expert options, raw library messages and the developer test bench.</summary>
+    public bool PowerUserMode { get; set; }
+
+    public bool VerboseLog { get; set; }
+    public bool LogProgress { get; set; }
+    public double WindowWidth { get; set; } = 1180;
+    public double WindowHeight { get; set; } = 820;
+}
+
+/// <summary>Where results go, and what happens to the files they were made from.</summary>
+public sealed class OutputSettings
+{
+    public string Folder { get; set; } = ""; // empty = next to each source file
+    public bool Overwrite { get; set; }
+    public bool ScanSubfolders { get; set; } = true;
+
+    /// <summary>Disc images, after their CHD or RVZ verifies.</summary>
+    public bool RemoveOriginals { get; set; }
+
+    /// <summary>The Archive tab's inputs, after the archive tests OK (or the archive, after it extracts).</summary>
+    public bool RemoveArchiveOriginals { get; set; }
+
+    /// <summary>The Wii U tab's inputs, after the .wua verifies.</summary>
+    public bool RemoveWiiUOriginals { get; set; }
+
+    public bool UseRecycleBin { get; set; } = true;
+}
+
+/// <summary>How much of the machine the queue uses.</summary>
+public sealed class PerformanceSettings
+{
+    /// <summary>Jobs the shared queue runs at once, across every tab.</summary>
+    public int ParallelJobs { get; set; } = 1;
+
+    public int ThreadsPerJob { get; set; } // 0 = all processors
+    public string TempFolder { get; set; } = ""; // empty = %TEMP%\NoIntrovert
+
+    [JsonIgnore] public string EffectiveTempFolder => string.IsNullOrWhiteSpace(TempFolder) ? WorkPaths.DefaultTempRoot : TempFolder;
+}
+
+/// <summary>Creating, verifying and extracting CHDs (libchdman).</summary>
+public sealed class ChdSettings
+{
+    public string Compression { get; set; } = ""; // empty = chdman's default for the media type
+    public uint HunkSize { get; set; }            // 0 = default
+    public IsoMode IsoMode { get; set; } = IsoMode.Auto;
+    public bool VerifyAfterCreate { get; set; } = true;
+    public ExtractFormat ExtractFormat { get; set; } = ExtractFormat.Auto;
+    public bool SplitBin { get; set; } = true;
+    public bool FixHeaderSha1 { get; set; }
+}
+
+/// <summary>GameCube and Wii discs (libdolphinrvz); the defaults are Dolphin's.</summary>
+public sealed class NintendoSettings
+{
+    public Jobs.NintendoTarget Target { get; set; } = Jobs.NintendoTarget.Rvz;
+    public LibDolphinRvz.RvzCompression Compression { get; set; } = LibDolphinRvz.RvzCompression.Zstd;
+    public int CompressionLevel { get; set; } = 5;
+    public uint BlockSize { get; set; } = 0x20000;
+    public bool Scrub { get; set; }
+}
+
+/// <summary>7z and zip archives (7-Zip's engine).</summary>
+public sealed class ArchiveSettings
+{
+    public Archives.ArchiveAction Action { get; set; } = Archives.ArchiveAction.Compress;
+    public Archives.ArchiveFormat Format { get; set; } = Archives.ArchiveFormat.SevenZip;
+    public Archives.ArchiveLevel Level { get; set; } = Archives.ArchiveLevel.Normal;
+    public bool Solid { get; set; } = true;
+    public Archives.ArchiveGrouping Grouping { get; set; } = Archives.ArchiveGrouping.PerItem;
+    public string SingleName { get; set; } = "Archive";
+    public Archives.ConvertTarget ConvertTarget { get; set; } = Archives.ConvertTarget.Swap;
+    public bool TestAfter { get; set; } = true;
+    public bool ExtractToOwnFolder { get; set; } = true;
+}
+
+/// <summary>Keys the user supplies. NoIntrovert never ships any.</summary>
+public sealed class KeySettings
+{
+    public string WiiUKeysPath { get; set; } = ""; // empty = look in the usual places
+}
+
+/// <summary>Developer tools: the libchdman test bench.</summary>
+public sealed class DiagnosticsSettings
+{
+    public string ChdmanExePath { get; set; } = ""; // for the comparison tests only
+}
+
+/// <summary>The settings file before sections (schema 1): read once, to convert it.</summary>
+internal sealed class SettingsV1
+{
+    public string OutputFolder { get; set; } = "";
+    public bool Overwrite { get; set; }
+    public bool ScanSubfolders { get; set; } = true;
+    public string Compression { get; set; } = "";
+    public uint HunkSize { get; set; }
+    public IsoMode IsoMode { get; set; } = IsoMode.Auto;
+    public bool VerifyAfterCreate { get; set; } = true;
+    public bool DeleteOriginals { get; set; }
+    public bool UseRecycleBin { get; set; } = true;
+    public Jobs.NintendoTarget NintendoTarget { get; set; } = Jobs.NintendoTarget.Rvz;
+    public LibDolphinRvz.RvzCompression RvzCompression { get; set; } = LibDolphinRvz.RvzCompression.Zstd;
+    public int RvzCompressionLevel { get; set; } = 5;
+    public uint RvzBlockSize { get; set; } = 0x20000;
+    public bool RvzScrub { get; set; }
+    public ExtractFormat ExtractFormat { get; set; } = ExtractFormat.Auto;
+    public bool SplitBin { get; set; } = true;
+    public bool FixHeaderSha1 { get; set; }
+    public Archives.ArchiveAction ArchiveAction { get; set; } = Archives.ArchiveAction.Compress;
+    public Archives.ArchiveFormat ArchiveFormat { get; set; } = Archives.ArchiveFormat.SevenZip;
+    public Archives.ArchiveLevel ArchiveLevel { get; set; } = Archives.ArchiveLevel.Normal;
+    public bool ArchiveSolid { get; set; } = true;
+    public Archives.ArchiveGrouping ArchiveGrouping { get; set; } = Archives.ArchiveGrouping.PerItem;
+    public string ArchiveSingleName { get; set; } = "Archive";
+    public Archives.ConvertTarget ArchiveConvertTarget { get; set; } = Archives.ConvertTarget.Swap;
+    public bool ArchiveTestAfter { get; set; } = true;
+    public bool ArchiveDeleteOriginals { get; set; }
+    public bool ArchiveExtractToOwnFolder { get; set; } = true;
+    public bool WiiUDeleteOriginals { get; set; }
+    public string WiiUKeysPath { get; set; } = "";
+    public int ParallelJobs { get; set; } = 1;
+    public int ThreadsPerJob { get; set; }
+    public string TempFolder { get; set; } = "";
+    public string ChdmanExePath { get; set; } = "";
+    public bool VerboseLog { get; set; }
+    public bool LogProgress { get; set; }
+    public double WindowWidth { get; set; } = 1180;
+    public double WindowHeight { get; set; } = 820;
 }

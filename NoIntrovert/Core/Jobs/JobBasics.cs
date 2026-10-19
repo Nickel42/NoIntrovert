@@ -30,7 +30,7 @@ public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJ
     public Chdman Chdman { get; } = chdman;
 
     /// <summary>The worker's libdolphinrvz context, shared by its jobs (one runs at a time).</summary>
-    internal Lazy<DolphinRvz> RvzSource { get; } = rvz ?? new Lazy<DolphinRvz>(() => new DolphinRvz(settings.ThreadsPerJob));
+    internal Lazy<DolphinRvz> RvzSource { get; } = rvz ?? new Lazy<DolphinRvz>(() => new DolphinRvz(settings.Performance.ThreadsPerJob));
 
     public DolphinRvz Rvz
     {
@@ -43,7 +43,7 @@ public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJ
                 {
                     case DrvzLogLevel.Error: Log.Error("libdolphinrvz: " + message); break;
                     case DrvzLogLevel.Warning: Log.Warn("libdolphinrvz: " + message); break;
-                    default: if (Settings.VerboseLog) Log.Debug("libdolphinrvz: " + message.TrimEnd()); break;
+                    default: if (Settings.General.VerboseLog) Log.Debug("libdolphinrvz: " + message.TrimEnd()); break;
                 }
             };
             return r;
@@ -75,7 +75,7 @@ public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJ
     {
         Report.SetStage(stage);
         Report.SetProgress(0);
-        var verbose = Settings.LogProgress;
+        var verbose = Settings.General.LogProgress;
         var lastLogged = -1;
         Chdman.Progress = new InlineProgress<ChdmanProgress>(p =>
         {
@@ -93,7 +93,7 @@ public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJ
     {
         Report.SetStage(stage);
         Report.SetProgress(0);
-        var verbose = Settings.LogProgress;
+        var verbose = Settings.General.LogProgress;
         var lastLogged = -1;
         Rvz.Progress = new InlineProgress<DrvzProgress>(p =>
         {
@@ -108,9 +108,9 @@ public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJ
 
     public ChdOutputSettings OutputSettings() => new()
     {
-        Compression = string.IsNullOrWhiteSpace(Settings.Compression) ? null : Settings.Compression.Trim(),
-        HunkSize = Settings.HunkSize,
-        Force = Settings.Overwrite,
+        Compression = string.IsNullOrWhiteSpace(Settings.Chd.Compression) ? null : Settings.Chd.Compression.Trim(),
+        HunkSize = Settings.Chd.HunkSize,
+        Force = Settings.Output.Overwrite,
     };
 }
 
@@ -122,7 +122,7 @@ public static class OutputPaths
     /// <summary>The folder results for <paramref name="source"/> go in: the chosen output folder, or the source's own.</summary>
     public static string FolderFor(AppSettings settings, string source)
     {
-        var folder = string.IsNullOrWhiteSpace(settings.OutputFolder) ? Path.GetDirectoryName(source)! : settings.OutputFolder;
+        var folder = string.IsNullOrWhiteSpace(settings.Output.Folder) ? Path.GetDirectoryName(source)! : settings.Output.Folder;
         Directory.CreateDirectory(folder);
         return folder;
     }
