@@ -8,8 +8,9 @@
     <!-- The .exe's own icon; Windows only (macOS uses packaging/macos/NoIntrovert.icns). -->
     <ApplicationIcon Condition="'$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('win'))">Assets/nointrovert.ico</ApplicationIcon>
     <AssemblyTitle>NoIntrovert</AssemblyTitle>
-    <Product>NoIntrovert - libchdman test bench</Product>
-    <Version>0.1.0</Version>
+    <Product>NoIntrovert - libchdman and libdolphinrvz test bench</Product>
+    <!-- Release builds get the version from the git tag (release.yml passes -p:Version). -->
+    <Version>0.5.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
