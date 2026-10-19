@@ -35,17 +35,30 @@ public sealed record ConvertPreset(string Name, string Summary, string ChdCompre
 /// </summary>
 public partial class ConvertViewModel : BatchTabViewModel
 {
-    private readonly Dictionary<string, FileSet> _scanned = new(StringComparer.OrdinalIgnoreCase);
+    // Filled and read by background scans (ItemsForFolder, then CreateItem), and by Pack a folder.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, FileSet> _scanned = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<JobItemViewModel, PlannedJob> _jobs = [];
+    private readonly HashSet<JobItemViewModel> _watched = [];
+    private readonly Coalesced _sections;
+    private AppSettings? _addSettings;
     private ConvertPlan? _plan;
 
     public ConvertViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
         : base(settings, log, dialogs, queue)
     {
-        Items.CollectionChanged += (_, e) =>
+        _sections = new Coalesced(RefreshSections);
+        Items.CollectionChanged += (_, _) =>
         {
-            foreach (var item in e.NewItems?.OfType<JobItemViewModel>() ?? []) item.PropertyChanged += OnItemChanged;
-            RefreshSections();
+            // Bulk adds arrive as one reset: watch any row not watched yet, and forget removed ones.
+            foreach (var item in Items)
+                if (_watched.Add(item)) item.PropertyChanged += OnItemChanged;
+            if (_watched.Count > Items.Count)
+                foreach (var gone in _watched.Except(Items).ToList())
+                {
+                    gone.PropertyChanged -= OnItemChanged;
+                    _watched.Remove(gone);
+                }
+            _sections.Request();
         };
         foreach (var section in new INotifyPropertyChanged[] { settings.Chd, settings.Nintendo, settings.Archives, settings.Output })
             section.PropertyChanged += (_, _) => RefreshPresets();
@@ -100,12 +113,15 @@ public partial class ConvertViewModel : BatchTabViewModel
 
     protected override JobItemViewModel CreateItem(string path)
     {
-        if (!_scanned.Remove(path, out var set))
+        if (!_scanned.TryRemove(path, out var set))
             set = FormatRegistry.Default.Identify(path)
                   ?? new FileSet(path, [path], Directory.Exists(path) ? ConvertTargets.PackedFolder : ConvertTargets.OtherFile);
-        var options = ConvertTargets.For(set, Settings.Snapshot());
+        var options = ConvertTargets.For(set, _addSettings ?? Settings.Snapshot());
         return new JobItemViewModel(path) { Targets = options.Choices, Target = options.Default };
     }
+
+    /// <summary>One settings copy for a whole scan, not one per row.</summary>
+    protected override void PrepareForAdding() => _addSettings = Settings.Snapshot();
 
     /// <summary>Adds a folder as one row, to pack whole into 7z or zip, without looking inside it.</summary>
     [RelayCommand]
@@ -115,6 +131,7 @@ public partial class ConvertViewModel : BatchTabViewModel
         if (folder is null) return;
         var whole = ScanSet.Normalize(folder);
         if (Items.Any(i => i.Path.Equals(whole, StringComparison.OrdinalIgnoreCase))) return;
+        _addSettings = null; // use the settings as they are now
         _scanned[whole] = new FileSet(whole, [whole], ConvertTargets.PackedFolder);
         Items.Add(CreateItem(whole));
     }
@@ -133,7 +150,7 @@ public partial class ConvertViewModel : BatchTabViewModel
                 if (other.Targets.FirstOrDefault(t => t.Kind == target.Kind) is { } same) other.Target = same;
             _spreading = false;
         }
-        RefreshSections();
+        _sections.Request();
     }
 
     // ---- Which option sections the current targets need ----

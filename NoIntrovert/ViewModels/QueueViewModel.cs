@@ -44,7 +44,7 @@ public partial class QueueViewModel : ViewModelBase
     /// <summary>Set by the window once it has a platform handle.</summary>
     public IProgressIndicator? Indicator { get; set; }
 
-    public ObservableCollection<QueueRowViewModel> Rows { get; } = [];
+    public BulkObservableCollection<QueueRowViewModel> Rows { get; } = [];
 
     [ObservableProperty] public partial bool IsOpen { get; set; }
     [ObservableProperty] public partial bool IsBusy { get; set; }
@@ -72,21 +72,24 @@ public partial class QueueViewModel : ViewModelBase
     {
         var jobs = Queue.Jobs;
         var live = new HashSet<QueuedJob>(jobs);
-        foreach (var gone in _rows.Keys.Where(j => !live.Contains(j)).ToList())
+        if (_rows.Count > live.Count)
         {
-            Rows.Remove(_rows[gone]);
-            _rows.Remove(gone);
+            var gone = _rows.Where(r => !live.Contains(r.Key)).Select(r => r.Value).ToHashSet();
+            Rows.RemoveWhere(gone.Contains);
+            foreach (var job in _rows.Keys.Where(j => !live.Contains(j)).ToList()) _rows.Remove(job);
         }
+        var added = new List<QueueRowViewModel>();
         foreach (var job in jobs)
         {
             if (!_rows.TryGetValue(job, out var row))
             {
                 row = new QueueRowViewModel(job, Queue);
                 _rows[job] = row;
-                Rows.Add(row);
+                added.Add(row);
             }
             row.Refresh();
         }
+        Rows.AddRange(added);
         HasRows = Rows.Count > 0;
 
         var running = jobs.Count(j => j.State == QueuedState.Running);
@@ -162,8 +165,12 @@ public partial class QueueRowViewModel(QueuedJob job, JobQueue queue) : ViewMode
     [ObservableProperty] public partial JobStatus Status { get; set; } = JobStatus.Queued;
     [ObservableProperty] public partial bool CanCancel { get; set; } = true;
 
+    private bool _settled;
+
     internal void Refresh()
     {
+        if (_settled) return; // finished and shown: nothing about it changes again
+        _settled = job.State == QueuedState.Finished;
         CanCancel = job.State != QueuedState.Finished;
         Status = job.State switch
         {
