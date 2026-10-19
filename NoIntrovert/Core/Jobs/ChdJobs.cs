@@ -21,6 +21,9 @@ public static class ChdJobs
         Directory.CreateDirectory(s.EffectiveTempFolder);
 
         log.Info($"Converting {name}");
+        // One bar for the whole job: preparing, then each disc's compress and verify steps.
+        var prepShare = Path.GetExtension(source).ToLowerInvariant() is ".cue" or ".gdi" or ".toc" or ".nrg" or ".iso" or ".bin" or ".img" or ".gcm" ? 0.02 : 0.15;
+        c.Band(0, prepShare);
         c.Report.SetStage("Preparing");
         var preparer = new InputPreparer(s.EffectiveTempFolder, s.IsoMode, log);
         using var prepared = preparer.Prepare(source,
@@ -35,11 +38,14 @@ public static class ChdJobs
         {
             var disc = prepared.Discs[i];
             var discLabel = prepared.Discs.Count > 1 ? $" (disc {i + 1} of {prepared.Discs.Count})" : "";
+            var discShare = (1 - prepShare) / prepared.Discs.Count;
+            var discStart = prepShare + i * discShare;
+            var compressShare = mustVerify ? discShare * 0.75 : discShare;
             log.Debug($"  input {disc.InputPath} [{disc.Note}] → {disc.Kind}");
 
             if (disc.IsNintendo && s.NintendoTarget == NintendoTarget.Rvz)
             {
-                var (result, rvzOutput, rvzStats) = RvzJobs.ConvertDisc(c, disc, outputFolder, discLabel, mustVerify);
+                var (result, rvzOutput, rvzStats) = RvzJobs.ConvertDisc(c, disc, outputFolder, discLabel, mustVerify, discStart, discShare);
                 switch (result)
                 {
                     case RvzJobs.DiscResult.Skipped: skipped++; break;
@@ -59,15 +65,23 @@ public static class ChdJobs
             }
 
             // A GameCube/Wii disc in GCZ/WIA/RVZ/TGC is decoded to ISO first; libchdman stores it as a DVD.
+            var compressStart = discStart;
             if (disc.IsNintendo)
+            {
+                c.Band(discStart, compressShare * 0.3);
                 disc = RvzJobs.DecodeForChd(c, disc, prepared.Work.Path, discLabel);
+                compressStart += compressShare * 0.3;
+                compressShare *= 0.7;
+            }
 
+            c.Band(compressStart, compressShare);
             c.TrackChdman($"Compressing{discLabel}");
             var stats = ChdService.Create(c.Chdman, disc, output, c.OutputSettings(), c.Token);
             log.Info($"  created {Path.GetFileName(output)}: {Size(stats.InputBytes)} → {Size(stats.OutputBytes)} ({stats.Ratio:P1}) in {stats.Elapsed:mm\\:ss\\.f} at {stats.MegabytesPerSecond:F1} MB/s");
 
             if (mustVerify)
             {
+                c.Band(compressStart + compressShare, discStart + discShare - compressStart - compressShare);
                 c.TrackChdman($"Verifying{discLabel}");
                 var (result, _) = ChdService.Verify(c.Chdman, output, fix: false, c.Token);
                 if (result.Outcome != ChdVerifyOutcome.Ok)

@@ -9,8 +9,8 @@ using NoIntrovert.Services;
 
 namespace NoIntrovert.ViewModels;
 
-public partial class ConvertViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs)
-    : BatchTabViewModel(settings, log, dialogs)
+public partial class ConvertViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
+    : BatchTabViewModel(settings, log, dialogs, queue)
 {
     public override string Title => "Convert";
     public override string StartLabel => "Convert";
@@ -32,8 +32,8 @@ public partial class ConvertViewModel(SettingsViewModel settings, LogViewModel l
     }
 }
 
-public partial class VerifyViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs)
-    : BatchTabViewModel(settings, log, dialogs)
+public partial class VerifyViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
+    : BatchTabViewModel(settings, log, dialogs, queue)
 {
     public override string Title => "Verify";
     public override string StartLabel => "Verify CHDs";
@@ -43,8 +43,8 @@ public partial class VerifyViewModel(SettingsViewModel settings, LogViewModel lo
     protected override JobOutcome Work(JobContext context, JobItemViewModel item) => ChdJobs.Verify(context, item.Path);
 }
 
-public partial class ExtractViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs)
-    : BatchTabViewModel(settings, log, dialogs)
+public partial class ExtractViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
+    : BatchTabViewModel(settings, log, dialogs, queue)
 {
     public override string Title => "Extract";
     public override string StartLabel => "Extract";
@@ -59,7 +59,7 @@ public partial class ExtractViewModel(SettingsViewModel settings, LogViewModel l
 
 public partial class TestsViewModel : BatchTabViewModel
 {
-    public TestsViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs) : base(settings, log, dialogs)
+    public TestsViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue) : base(settings, log, dialogs, queue)
     {
         SelectedTest = TestChoices[1];
     }

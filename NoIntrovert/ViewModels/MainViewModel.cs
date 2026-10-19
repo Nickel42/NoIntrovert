@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using NoIntrovert.Core;
+using NoIntrovert.Core.Jobs;
 using NoIntrovert.Services;
 
 namespace NoIntrovert.ViewModels;
@@ -10,13 +11,15 @@ public partial class MainViewModel : ViewModelBase
     {
         Settings = new SettingsViewModel(settings, dialogs);
         Log = new LogViewModel(dialogs, settings.VerboseLog);
-        Convert = new ConvertViewModel(Settings, Log, dialogs);
-        Verify = new VerifyViewModel(Settings, Log, dialogs);
-        Extract = new ExtractViewModel(Settings, Log, dialogs);
-        Archive = new ArchiveViewModel(Settings, Log, dialogs);
-        WiiU = new WiiUViewModel(Settings, Log, dialogs);
+        var queue = new JobQueue(() => (int)Settings.ParallelJobs);
+        Queue = new QueueViewModel(queue);
+        Convert = new ConvertViewModel(Settings, Log, dialogs, queue);
+        Verify = new VerifyViewModel(Settings, Log, dialogs, queue);
+        Extract = new ExtractViewModel(Settings, Log, dialogs, queue);
+        Archive = new ArchiveViewModel(Settings, Log, dialogs, queue);
+        WiiU = new WiiUViewModel(Settings, Log, dialogs, queue);
         Info = new InfoViewModel(Log, dialogs);
-        Tests = new TestsViewModel(Settings, Log, dialogs);
+        Tests = new TestsViewModel(Settings, Log, dialogs, queue);
 
         try
         {
@@ -42,6 +45,9 @@ public partial class MainViewModel : ViewModelBase
 
     public SettingsViewModel Settings { get; }
     public LogViewModel Log { get; }
+
+    /// <summary>The shared job queue, shown in the status bar and the queue drawer.</summary>
+    public QueueViewModel Queue { get; }
     public ConvertViewModel Convert { get; }
     public VerifyViewModel Verify { get; }
     public ExtractViewModel Extract { get; }
@@ -54,7 +60,7 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty] public partial int SelectedTab { get; set; }
 
-    public bool IsAnyRunning => Convert.IsRunning || Verify.IsRunning || Extract.IsRunning || Archive.IsRunning || WiiU.IsRunning || Tests.IsRunning;
+    public bool IsAnyRunning => Queue.Queue.IsBusy;
 
     private static readonly string[] TabNames = ["convert", "verify", "extract", "archive", "wiiu", "info", "tests"];
 

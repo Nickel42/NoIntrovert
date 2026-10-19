@@ -51,7 +51,23 @@ public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJ
     }
     public AppSettings Settings { get; } = settings;
     public ILog Log { get; } = log;
-    public IJobReport Report { get; } = report;
+    /// <summary>Where the job reports; after <see cref="Band"/>, progress lands in that slice of the bar.</summary>
+    public IJobReport Report { get; private set; } = report;
+
+    /// <summary>
+    /// Maps the progress of the next step(s) into <paramref name="start"/> ..
+    /// start + <paramref name="span"/> of the job's bar, so a job with several
+    /// steps (compress, then verify) fills the bar once instead of restarting it.
+    /// </summary>
+    public void Band(double start, double span) => Report = new BandReport(_whole, start, span);
+
+    private readonly IJobReport _whole = report;
+
+    private sealed class BandReport(IJobReport whole, double start, double span) : IJobReport
+    {
+        public void SetStage(string stage) => whole.SetStage(stage);
+        public void SetProgress(double fraction) => whole.SetProgress(start + Math.Clamp(fraction, 0, 1) * span);
+    }
     public CancellationToken Token { get; } = token;
 
     /// <summary>Routes libchdman's progress callbacks to the job's progress bar for one operation.</summary>

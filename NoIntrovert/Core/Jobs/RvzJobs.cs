@@ -28,7 +28,7 @@ public static class RvzJobs
 
     /// <summary>One prepared GameCube/Wii disc → .rvz in <paramref name="outputFolder"/>, then optionally verified.</summary>
     internal static (DiscResult Result, string Output, OperationStats? Stats) ConvertDisc(
-        JobContext c, PreparedDisc disc, string outputFolder, string discLabel, bool verify)
+        JobContext c, PreparedDisc disc, string outputFolder, string discLabel, bool verify, double barStart = 0, double barSpan = 1)
     {
         var s = c.Settings;
         var log = c.Log;
@@ -55,6 +55,7 @@ public static class RvzJobs
 
         var settings = SettingsFor(s);
         var sw = Stopwatch.StartNew();
+        c.Band(barStart, verify ? barSpan * 0.6 : barSpan);
         c.TrackRvz($"Compressing to RVZ{discLabel}");
         rvz.Convert(disc.InputPath, output, settings, c.Token);
         var stats = new OperationStats(sw.Elapsed, new FileInfo(disc.InputPath).Length, new FileInfo(output).Length);
@@ -65,6 +66,7 @@ public static class RvzJobs
 
         // RVZ has no stored checksum for the whole disc: verifying means decoding it again and
         // comparing with the source. A scrubbed RVZ differs from its source by design.
+        c.Band(barStart + barSpan * 0.6, barSpan * 0.2);
         c.TrackRvz($"Verifying{discLabel}: reading the RVZ");
         var made = rvz.Hash(output, c.Token);
         if (settings.Scrub)
@@ -72,6 +74,7 @@ public static class RvzJobs
             log.Warn($"  scrubbed, so only checked that the RVZ decodes (SHA-1 {made.Sha1}); it won't match a Redump checksum.");
             return (DiscResult.Created, output, stats);
         }
+        c.Band(barStart + barSpan * 0.8, barSpan * 0.2);
         c.TrackRvz($"Verifying{discLabel}: reading the source");
         var original = rvz.Hash(disc.InputPath, c.Token);
         if (original.Sha1 != made.Sha1 || original.Size != made.Size)
