@@ -9,32 +9,6 @@ using NoIntrovert.Services;
 
 namespace NoIntrovert.ViewModels;
 
-public partial class ConvertViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
-    : BatchTabViewModel(settings, log, dialogs, queue)
-{
-    public override string Title => "Convert";
-    public override string StartLabel => "Convert";
-    public override string EmptyHint =>
-        "Drop disc images or folders here, or use Add files / Add folder.\n" +
-        "cue/bin · gdi · toc · nrg · iso · ccd/img · mds/mdf · cso · zso · isz · pbp · ecm · zip · 7z · .001 split files\n" +
-        "GameCube/Wii: iso · gcm · gcz · wia · rvz · tgc (to RVZ or CHD)";
-    protected override string FilterName => "Disc images and archives";
-    protected override IReadOnlyList<FormatInfo> InputFormats => KnownFormats.DiscInputs;
-
-    /// <summary>An archive only when it holds a disc image (or its list couldn't be read): a zip of cartridge ROMs isn't listed.</summary>
-    protected override bool Takes(FileSet set) => KnownFormats.TakesDisc(set);
-    protected override JobOutcome Work(JobContext context, JobItemViewModel item) => ChdJobs.Convert(context, item.Path);
-
-    protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
-    {
-        if (Settings.Output.RemoveOriginals)
-            Log.Warn($"Originals will be {(Settings.Output.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently")} after each CHD or RVZ verifies.");
-        if (pending.Any(i => Path.GetExtension(i.Path).ToLowerInvariant() is ".wbfs" or ".ciso"))
-            Log.Warn("WBFS and CISO images can't be converted (they don't record the disc's exact size); those rows will fail. Convert them to ISO first.");
-        return true;
-    }
-}
-
 public partial class VerifyViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
     : BatchTabViewModel(settings, log, dialogs, queue)
 {
@@ -44,20 +18,6 @@ public partial class VerifyViewModel(SettingsViewModel settings, LogViewModel lo
     protected override string FilterName => "CHD files";
     protected override IReadOnlyList<FormatInfo> InputFormats { get; } = [KnownFormats.Chd];
     protected override JobOutcome Work(JobContext context, JobItemViewModel item) => ChdJobs.Verify(context, item.Path);
-}
-
-public partial class ExtractViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
-    : BatchTabViewModel(settings, log, dialogs, queue)
-{
-    public override string Title => "Extract";
-    public override string StartLabel => "Extract";
-    public override string EmptyHint =>
-        "Drop CHD files or folders here to turn them back into cue/bin, gdi, iso or img.\n" +
-        "GameCube/Wii RVZ, WIA and GCZ images become ISO.";
-    protected override string FilterName => "CHD, RVZ, WIA and GCZ files";
-    protected override IReadOnlyList<FormatInfo> InputFormats => KnownFormats.Extractable;
-    protected override JobOutcome Work(JobContext context, JobItemViewModel item) =>
-        NintendoDisc.IsDecodable(item.Path) ? RvzJobs.Extract(context, item.Path) : ChdJobs.Extract(context, item.Path);
 }
 
 public partial class TestsViewModel : BatchTabViewModel

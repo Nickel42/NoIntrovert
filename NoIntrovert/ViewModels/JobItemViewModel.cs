@@ -62,6 +62,14 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
     /// <summary>The input's size on disk, which weights this row in the overall progress.</summary>
     public long SizeBytes { get; }
 
+    /// <summary>What this row can become (Convert page only; empty elsewhere).</summary>
+    public IReadOnlyList<Core.Formats.TargetChoice> Targets { get; init; } = [];
+
+    public bool HasTargets => Targets.Count > 1;
+
+    /// <summary>What this row becomes; changed by the row's own drop-down.</summary>
+    [ObservableProperty] public partial Core.Formats.TargetChoice? Target { get; set; }
+
     public bool IsFolder { get; }
 
     partial void OnStatusChanged(JobStatus value)

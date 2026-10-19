@@ -37,6 +37,10 @@ public static class Palette
     public static readonly IValueConverter LevelOpacity = new FuncValueConverter<LogLevel, double>(l => l == LogLevel.Debug ? 0.65 : 1.0);
 
     public static readonly IValueConverter PassBrush = new FuncValueConverter<bool, IBrush>(p => p ? Ok : Bad);
+
+    /// <summary>SVG path data (a page's rail icon) as a geometry to draw.</summary>
+    public static readonly IValueConverter Geometry = new FuncValueConverter<string, Avalonia.Media.Geometry?>(d =>
+        string.IsNullOrEmpty(d) ? null : StreamGeometry.Parse(d));
     public static readonly IValueConverter PassText = new FuncValueConverter<bool, string>(p => p ? "PASS" : "FAIL");
 
     public static readonly IValueConverter Seconds = new FuncValueConverter<TimeSpan?, string>(t =>
