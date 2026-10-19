@@ -90,6 +90,7 @@ public partial class ConvertViewModel : BatchTabViewModel
         var otherWiiU = scan.Any(s => KnownFormats.WiiUBuildable.Contains(s.Format) && s.Format != KnownFormats.Wua);
         var found = scan
             .Where(s => !IsFinished(s) || (s.Format == KnownFormats.Wua && otherWiiU))
+            .Where(s => !KnownFormats.Cartridges.Contains(s.Format))
             .Where(s => !KnownFormats.Archives.Contains(s.Format) || s.Inside is null
                         || s.Holds(KnownFormats.DiscInputs) || s.Holds(KnownFormats.WiiUBuildable))
             .ToList();

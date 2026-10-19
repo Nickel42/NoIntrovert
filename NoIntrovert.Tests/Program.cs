@@ -1306,7 +1306,7 @@ if (ArchiveEngine.IsAvailable(out _))
         {
             (iso, "iso", true, false),
             (title, "bin, wiiu-folder", false, true), // its .bin doesn't make it a disc image
-            (nes, "", false, false),
+            (nes, "nes", false, false), // a cartridge ROM: listed by the Library, never converted
             (wux7z, "wiiu-disc", false, true),
             (broken, "(unreadable)", true, false),   // Convert keeps it; the job reports the problem
         };
@@ -1474,6 +1474,123 @@ if (ArchiveEngine.IsAvailable(out _))
         var made = Directory.GetFiles(outDir).Select(Path.GetFileName).Order().ToList();
         var expected = new[] { "NES.7z", "Saves.zip", "Test Game [0005000010101C00].wua" };
         return made.SequenceEqual(expected) ? null : $"made {string.Join(", ", made)}";
+    });
+}
+
+// ---- Library (M5): scanning folders into games ----
+
+Test("Library: titles drop disc markers, generic names use their folder", () =>
+{
+    var cases = new (string Path, string Title, string Disc)[]
+    {
+        (@"C:\Lib\PS1\Final Fantasy VII (USA) (Disc 2).cue", "Final Fantasy VII (USA)", "Disc 2"),
+        (@"C:\Lib\PS1\Metal Gear Solid (USA) (Disc 1 of 2).chd", "Metal Gear Solid (USA)", "Disc 1"),
+        (@"C:\Lib\Saturn\Panzer Dragoon Saga - Disc 3.cue", "Panzer Dragoon Saga", "Disc 3"),
+        (@"C:\Lib\DC\Jet Grind Radio (USA)\disc.gdi", "Jet Grind Radio (USA)", ""),
+        (@"C:\Lib\PSP\Corpse Party.iso", "Corpse Party", ""),
+        (@"C:\Lib\Mixed\Game (USA).iso.gz", "Game (USA)", ""),
+    };
+    foreach (var (path, title, disc) in cases)
+    {
+        var got = NoIntrovert.Core.Library.LibraryScanner.TitleOf(path);
+        if (got.Title != title || got.Disc != disc) return $"{Path.GetFileName(path)} → \"{got.Title}\" / \"{got.Disc}\"";
+    }
+    return null;
+});
+
+{
+    var lib = Dir("library");
+    void Put(string rel, byte[]? bytes = null, string? text = null)
+    {
+        var p = Path.Combine(lib, rel);
+        Directory.CreateDirectory(Path.GetDirectoryName(p)!);
+        if (text is not null) File.WriteAllText(p, text); else File.WriteAllBytes(p, bytes ?? new byte[2352]);
+    }
+    string Cue(string bin) => $"FILE \"{bin}\" BINARY\n TRACK 01 MODE1/2352\n  INDEX 01 00:00:00\n";
+    Put(@"PS1\Final Fantasy VII (USA)\Final Fantasy VII (USA) (Disc 1).cue", text: Cue("Final Fantasy VII (USA) (Disc 1).bin"));
+    Put(@"PS1\Final Fantasy VII (USA)\Final Fantasy VII (USA) (Disc 1).bin");
+    Put(@"PS1\Final Fantasy VII (USA)\Final Fantasy VII (USA) (Disc 2).cue", text: Cue("Final Fantasy VII (USA) (Disc 2).bin"));
+    Put(@"PS1\Final Fantasy VII (USA)\Final Fantasy VII (USA) (Disc 2).bin");
+    Put(@"PS1\Converted\Final Fantasy VII (USA) (Disc 1).chd", new byte[512]);
+    Put(@"Saturn\Guardian Heroes (USA).chd", new byte[512]);
+    Put(@"Saturn\Backup\Guardian Heroes (USA).chd", new byte[512]);
+    var gc = new byte[0x40];
+    gc[0x1C] = 0xC2; gc[0x1D] = 0x33; gc[0x1E] = 0x9F; gc[0x1F] = 0x3D;
+    Put(@"Misc\Metroid Prime (USA).iso", gc);
+    Put(@"Carts\Tetris (World).gb", new byte[1024]);
+    using (var z = ZipFile.Open(Path.Combine(lib, "Carts", "Mario (USA).zip"), ZipArchiveMode.Create))
+        z.CreateEntry("Mario (USA).nes");
+    WiiUSample.CopyTree(baseTitle, Path.Combine(lib, "Wii U", "Game"));
+    WiiUSample.CopyTree(updateTitle, Path.Combine(lib, "Wii U", "Update v32"));
+    var previousDir = AppSettings.SettingsDirectoryOverride;
+
+    Test("Library: a scan groups files into games with their system and status", () =>
+    {
+        var index = NoIntrovert.Core.Library.LibraryScanner.Scan([lib], null, null, CancellationToken.None);
+        var games = index.Games().ToDictionary(g => g.Title);
+        string Describe(string title) => games.TryGetValue(title, out var g) ? $"{g.System} · {g.Items.Count} item(s) · {g.Status}" : "missing";
+        var expected = new Dictionary<string, string>
+        {
+            ["Final Fantasy VII (USA)"] = "PlayStation · 3 item(s) · OriginalsRemain",
+            ["Guardian Heroes (USA)"] = "Saturn · 2 item(s) · Duplicate",
+            ["Metroid Prime (USA)"] = "GameCube · 1 item(s) · NeedsConverting",
+            ["Tetris (World)"] = "Game Boy · 1 item(s) · Ready",
+            ["Mario (USA)"] = "Unknown · 1 item(s) · Ready",
+            ["Test Game"] = "Wii U · 2 item(s) · NeedsConverting",
+        };
+        foreach (var (title, want) in expected)
+            if (Describe(title) != want) return $"{title}: {Describe(title)}, expected {want}";
+        if (games.Count != expected.Count) return $"{games.Count} games: {string.Join(", ", games.Keys)}";
+        var ff7 = games["Final Fantasy VII (USA)"];
+        return ff7.Discs == 2 ? null : $"Final Fantasy VII has {ff7.Discs} disc(s)";
+    });
+
+    Test("Library: a rescan reuses unchanged items and rereads changed ones", () =>
+    {
+        var first = NoIntrovert.Core.Library.LibraryScanner.Scan([lib], null, null, CancellationToken.None);
+        var tetris = Path.Combine(lib, "Carts", "Tetris (World).gb");
+        File.WriteAllBytes(tetris, new byte[2048]);
+        File.SetLastWriteTimeUtc(tetris, DateTime.UtcNow.AddMinutes(1));
+        var second = NoIntrovert.Core.Library.LibraryScanner.Scan([lib], first, null, CancellationToken.None);
+        var same = second.Items.Count(i => first.Items.Any(o => ReferenceEquals(o, i)));
+        var changed = second.Items.Single(i => i.Path.EndsWith("Tetris (World).gb"));
+        if (changed.Size != 2048) return "the changed file wasn't reread";
+        if (same != second.Items.Count - 1) return $"{same} of {second.Items.Count} items were reused, expected all but one";
+        var missing = NoIntrovert.Core.Library.LibraryScanner.Scan([lib, Path.Combine(lib, "gone")], second, null, CancellationToken.None);
+        return missing.MissingFolders.Count == 1 ? null : "a folder that isn't there wasn't reported";
+    });
+
+    Test("Library: the index is saved and loaded", () =>
+    {
+        var dir = Dir("library-index");
+        AppSettings.SettingsDirectoryOverride = dir;
+        try
+        {
+            var index = NoIntrovert.Core.Library.LibraryScanner.Scan([lib], null, null, CancellationToken.None);
+            index.Save();
+            var loaded = NoIntrovert.Core.Library.LibraryIndex.Load();
+            if (loaded.Items.Count != index.Items.Count) return $"loaded {loaded.Items.Count} of {index.Items.Count} items";
+            var a = string.Join("|", index.Games().Select(g => $"{g.Title}:{g.Status}"));
+            var b = string.Join("|", loaded.Games().Select(g => $"{g.Title}:{g.Status}"));
+            return a == b ? Note($"{new FileInfo(Path.Combine(dir, "library.json")).Length:N0} bytes for {index.Items.Count} items") : "the loaded index groups differently";
+        }
+        finally { AppSettings.SettingsDirectoryOverride = previousDir; }
+    });
+
+    Test("Scale: a 5,000-input library scans, and rescans faster", () =>
+    {
+        var sw = Stopwatch.StartNew();
+        var first = NoIntrovert.Core.Library.LibraryScanner.Scan([bigLibrary], null, null, CancellationToken.None);
+        var cold = sw.Elapsed;
+        sw.Restart();
+        var again = NoIntrovert.Core.Library.LibraryScanner.Scan([bigLibrary], first, null, CancellationToken.None);
+        var warm = sw.Elapsed;
+        sw.Restart();
+        var games = again.Games();
+        var grouping = sw.Elapsed;
+        if (again.Items.Count != bigCount) return $"{again.Items.Count} items, expected {bigCount}";
+        var report = $"{games.Count:N0} games; first scan {cold.TotalSeconds:F1}s, rescan {warm.TotalSeconds:F1}s, grouping {grouping.TotalSeconds:F2}s";
+        return cold < TimeSpan.FromSeconds(30) && warm < cold ? Note(report) : $"too slow: {report}";
     });
 }
 
@@ -1936,6 +2053,7 @@ sealed class CancelAtProgress(CancellationTokenSource cts, double at) : IJobRepo
 /// <summary>Settings tests never open a picker.</summary>
 sealed class NoDialogs : NoIntrovert.Services.IDialogs
 {
+    public Task OpenFolderAsync(string folder) => Task.CompletedTask;
     public Task<IReadOnlyList<string>> PickFilesAsync(string title, string filterName, IReadOnlyList<string> patterns) => throw new NotSupportedException();
     public Task<string?> PickFileAsync(string title, string filterName, IReadOnlyList<string> patterns) => throw new NotSupportedException();
     public Task<string?> PickFolderAsync(string title) => throw new NotSupportedException();

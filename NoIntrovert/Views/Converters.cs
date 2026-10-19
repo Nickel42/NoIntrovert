@@ -38,6 +38,16 @@ public static class Palette
 
     public static readonly IValueConverter PassBrush = new FuncValueConverter<bool, IBrush>(p => p ? Ok : Bad);
 
+    /// <summary>A Library game's status dot: orange to convert, blue with originals left, green converted, red duplicate, grey nothing to do.</summary>
+    public static readonly IValueConverter GameStatusBrush = new FuncValueConverter<Core.Library.GameStatus, IBrush>(s => s switch
+    {
+        Core.Library.GameStatus.NeedsConverting => Warn,
+        Core.Library.GameStatus.OriginalsRemain => Busy,
+        Core.Library.GameStatus.Converted => Ok,
+        Core.Library.GameStatus.Duplicate => Bad,
+        _ => Muted,
+    });
+
     /// <summary>SVG path data (a page's rail icon) as a geometry to draw.</summary>
     public static readonly IValueConverter Geometry = new FuncValueConverter<string, Avalonia.Media.Geometry?>(d =>
         string.IsNullOrEmpty(d) ? null : StreamGeometry.Parse(d));

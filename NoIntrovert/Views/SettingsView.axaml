@@ -27,6 +27,16 @@
                 </StackPanel>
             </Border>
 
+            <!-- Library -->
+            <Border Classes="card" Margin="0,0,12,12" DataContext="{Binding Library}" x:DataType="vm:LibrarySettingsViewModel">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="LIBRARY" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Classes="hint" Text="{Binding FoldersSummary}" TextWrapping="Wrap" />
+                    <CheckBox Content="Look through the library folders when the app starts" IsChecked="{Binding RescanOnStart}"
+                              ToolTip.Tip="Only files that changed since the last scan are read again." />
+                </StackPanel>
+            </Border>
+
             <!-- Output -->
             <Border Classes="card" Margin="0,0,12,12" DataContext="{Binding Output}" x:DataType="vm:OutputSettingsViewModel">
                 <StackPanel Spacing="4">

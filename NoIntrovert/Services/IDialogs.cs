@@ -8,4 +8,7 @@ public interface IDialogs
     Task<string?> PickFolderAsync(string title);
     Task<string?> SaveFileAsync(string title, string suggestedName, string filterName, string pattern);
     Task SetClipboardAsync(string text);
+
+    /// <summary>Opens the system file manager at <paramref name="folder"/>.</summary>
+    Task OpenFolderAsync(string folder);
 }
