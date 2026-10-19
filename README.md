@@ -92,10 +92,8 @@ licenses.
 Needs the .NET 10 SDK and libchdman checked out next to this folder
 (`../libchdman`), with its native library built into
 `artifacts/native/win-x64`, `win-arm64`, `osx` or `linux-x64` (see
-`Directory.Build.props`). On Linux, build libchdman with
-`-DCMAKE_SHARED_LINKER_FLAGS=-Wl,--version-script=<this repo>/native/libchdman.map`
-so `libchdman.so` exports only its C API, and copy it (`cp -L`) into
-`artifacts/native/linux-x64`.
+`Directory.Build.props`). On Linux, copy libchdman's `build/libchdman.so`
+(with `cp -L`, as it is a symlink) into `artifacts/native/linux-x64`.
 
 ```
 dotnet run --project NoIntrovert

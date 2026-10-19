@@ -1,9 +1,0 @@
-/*
- * Linux: passed to the linker when CI builds libchdman.so
- * (-DCMAKE_SHARED_LINKER_FLAGS=-Wl,--version-script=...), so the library
- * exports only its C API, like -exported_symbol does on macOS.
- */
-{
-  global: chdman_*;
-  local: *;
-};

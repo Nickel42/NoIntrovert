@@ -212,11 +212,8 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Build libchdman and run its tests
-        # The version script keeps libchdman.so's exports to the C API (chdman_*),
-        # as -exported_symbol does in libchdman's own macOS build.
         run: |
-          cmake -S libchdman -B libchdman/build -DCMAKE_BUILD_TYPE=Release \
-            "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,--version-script=$GITHUB_WORKSPACE/app/native/libchdman.map"
+          cmake -S libchdman -B libchdman/build -DCMAKE_BUILD_TYPE=Release
           cmake --build libchdman/build --parallel "$(nproc)"
           ctest --test-dir libchdman/build --output-on-failure
           mkdir -p libchdman/artifacts/native/linux-x64
