@@ -1,7 +1,7 @@
 # NoIntrovert
 
 A desktop CHD batch tool built with Avalonia, used as a test bench for
-[libchdman](../libchdman). Every CHD operation goes through the LibChdman .NET
+[libchdman](native/libchdman). Every CHD operation goes through the LibChdman .NET
 binding (`chdman.dll`); `chdman.exe` is only run when you ask the Library tests
 tab to compare against it.
 
@@ -64,10 +64,9 @@ It runs on X11 or XWayland and uses the libraries any desktop install has
 (ICU, fontconfig, libX11, libICE, libSM); on a minimal system such as a fresh
 WSL Ubuntu, install `libicu`, `libfontconfig1`, `libice6` and `libsm6` first.
 
-The workflow builds libchdman from source on each platform (and runs its
-tests on x64 Windows, macOS and Linux, plus the app's own quick self-test on Linux). libchdman is private, so the repository
-needs a `LIBCHDMAN_TOKEN` secret: a token with read access to
-`Nickel42/libchdman` contents.
+The workflow builds libchdman and libdolphinrvz from source on each
+platform (and runs their tests on x64 Windows, macOS and Linux, plus the app's
+own quick self-test on Linux). Everything it builds is in this repository.
 
 ## Archive engine
 
@@ -97,11 +96,14 @@ unpacked folder to add NoIntrovert to the app menu with its icon
 
 ## Build and run
 
-Needs the .NET 10 SDK and libchdman checked out next to this folder
-(`../libchdman`), with its native library built into
-`artifacts/native/win-x64`, `win-arm64`, `osx` or `linux-x64` (see
-`Directory.Build.props`). On Linux, copy libchdman's `build/libchdman.so`
-(with `cp -L`, as it is a symlink) into `artifacts/native/linux-x64`.
+Needs the .NET 10 SDK and the native libraries built:
+
+- libchdman (`native/libchdman`, see its README) with its native library in
+  `native/libchdman/artifacts/native/win-x64`, `win-arm64`, `osx` or
+  `linux-x64` (see `Directory.Build.props`). On Linux, copy its
+  `build/libchdman.so` (with `cp -L`, as it is a symlink) there.
+- the archive engine and libdolphinrvz into `native/out/<platform>` (see
+  "Archive engine" above and `native/libdolphinrvz/README.md`).
 
 ```
 dotnet run --project NoIntrovert
@@ -127,7 +129,7 @@ Settings live in `%AppData%\NoIntrovert\settings.json` (macOS and Linux:
 a scratch folder, converts each through the app's own code and libchdman, and
 checks the CHD's data SHA-1 against a CHD made from the original. It also
 checks verify, extract, cancel, overwrite and delete-originals behaviour, and
-compares output with `..\libchdman\build-x64\Release\chdman-upstream.exe` when
+compares output with `native\libchdman\build-x64\Release\chdman-upstream.exe` when
 that exists.
 
 ```

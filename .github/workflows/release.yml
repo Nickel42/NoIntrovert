@@ -4,8 +4,8 @@
 # workflow) to get the same downloads as workflow artifacts without making a
 # release.
 #
-# libchdman is a private repository: the LIBCHDMAN_TOKEN secret must hold a
-# token with read access to Nickel42/libchdman (Contents: read).
+# Everything is built from this repository: libchdman (native/libchdman),
+# libdolphinrvz (native/libdolphinrvz) and the archive engine (native/archive).
 
 name: Release
 
@@ -46,12 +46,6 @@ jobs:
         with:
           path: app
 
-      - uses: actions/checkout@v4
-        with:
-          repository: Nickel42/libchdman
-          token: ${{ secrets.LIBCHDMAN_TOKEN }}
-          path: libchdman
-
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -59,9 +53,9 @@ jobs:
       - name: Build libchdman (x64) and run its tests
         shell: pwsh
         run: |
-          cmake -S libchdman -B libchdman/build-x64 -G "Visual Studio 17 2022" -A x64
-          cmake --build libchdman/build-x64 --config Release --parallel
-          ctest --test-dir libchdman/build-x64 -C Release --output-on-failure
+          cmake -S app/native/libchdman -B app/native/libchdman/build-x64 -G "Visual Studio 17 2022" -A x64
+          cmake --build app/native/libchdman/build-x64 --config Release --parallel
+          ctest --test-dir app/native/libchdman/build-x64 -C Release --output-on-failure
 
       - name: Build libchdman (ARM64)
         shell: pwsh
@@ -72,17 +66,17 @@ jobs:
         env:
           CFLAGS: /DFLAC__NO_ASM
         run: |
-          cmake -S libchdman -B libchdman/build-arm64 -G "Visual Studio 17 2022" -A ARM64 `
+          cmake -S app/native/libchdman -B app/native/libchdman/build-arm64 -G "Visual Studio 17 2022" -A ARM64 `
             -DCHDMAN_BUILD_TESTS=OFF -DCHDMAN_BUILD_STATIC=OFF -DCHDMAN_BUILD_CLI=OFF
-          cmake --build libchdman/build-arm64 --config Release --parallel --target chdman_shared
+          cmake --build app/native/libchdman/build-arm64 --config Release --parallel --target chdman_shared
 
       - name: Stage native libraries
         shell: pwsh
         run: |
           foreach ($arch in 'x64', 'arm64') {
-            $dir = "libchdman/artifacts/native/win-$arch"
+            $dir = "app/native/libchdman/artifacts/native/win-$arch"
             New-Item -ItemType Directory -Force $dir | Out-Null
-            Copy-Item "libchdman/build-$arch/Release/chdman.dll" $dir
+            Copy-Item "app/native/libchdman/build-$arch/Release/chdman.dll" $dir
           }
 
       - name: Fetch 7-Zip and bit7z sources
@@ -104,13 +98,13 @@ jobs:
             dotnet publish app/NoIntrovert/NoIntrovert.csproj -c Release -r $rid --self-contained `
               -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
               -p:DebugType=none -p:Version=$env:VERSION `
-              "-p:LibChdmanRoot=$env:GITHUB_WORKSPACE/libchdman" -o $out
+              -o $out
             if (-not (Test-Path "$out/NoIntrovert.exe")) { throw "publish for $rid produced no NoIntrovert.exe" }
             foreach ($lib in '7z.dll', 'noi_archive.dll') {
               if (-not (Test-Path "$out/$lib")) { throw "publish for $rid is missing $lib" }
             }
-            Copy-Item app/README.md, app/LICENSE, app/packaging/THIRD_PARTY_ARCHIVES.md, libchdman/THIRD_PARTY_NOTICES.md $out
-            Copy-Item libchdman/LICENSE "$out/LICENSE-libchdman.txt"
+            Copy-Item app/README.md, app/LICENSE, app/packaging/THIRD_PARTY_ARCHIVES.md, app/native/libchdman/THIRD_PARTY_NOTICES.md $out
+            Copy-Item app/native/libchdman/LICENSE "$out/LICENSE-libchdman.txt"
             Copy-Item app/native/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
             Copy-Item app/native/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
             Compress-Archive -Path "$out/*" -DestinationPath "dist/NoIntrovert-$env:VERSION-$rid.zip" -Force
@@ -132,24 +126,18 @@ jobs:
         with:
           path: app
 
-      - uses: actions/checkout@v4
-        with:
-          repository: Nickel42/libchdman
-          token: ${{ secrets.LIBCHDMAN_TOKEN }}
-          path: libchdman
-
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
 
       - name: Build libchdman (universal) and run its tests
         run: |
-          cmake -S libchdman -B libchdman/build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
-          cmake --build libchdman/build --parallel
-          ctest --test-dir libchdman/build --output-on-failure
-          mkdir -p libchdman/artifacts/native/osx
-          cp -L libchdman/build/libchdman.dylib libchdman/artifacts/native/osx/libchdman.dylib
-          lipo -info libchdman/artifacts/native/osx/libchdman.dylib
+          cmake -S app/native/libchdman -B app/native/libchdman/build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
+          cmake --build app/native/libchdman/build --parallel
+          ctest --test-dir app/native/libchdman/build --output-on-failure
+          mkdir -p app/native/libchdman/artifacts/native/osx
+          cp -L app/native/libchdman/build/libchdman.dylib app/native/libchdman/artifacts/native/osx/libchdman.dylib
+          lipo -info app/native/libchdman/artifacts/native/osx/libchdman.dylib
 
       - name: Build the archive engine (universal)
         run: |
@@ -159,7 +147,7 @@ jobs:
       - name: Publish, bundle and zip
         run: |
           mkdir -p dist
-          cp libchdman/LICENSE LICENSE-libchdman.txt
+          cp app/native/libchdman/LICENSE LICENSE-libchdman.txt
           cp app/native/_deps/7zip-src/DOC/License.txt LICENSE-7-Zip.txt
           cp app/native/_deps/bit7z-src/LICENSE LICENSE-bit7z.txt
           for rid in osx-arm64 osx-x64; do
@@ -167,12 +155,12 @@ jobs:
             # only Mach-O files, whose signatures live inside them and survive any unzip tool.
             dotnet publish app/NoIntrovert/NoIntrovert.csproj -c Release -r "$rid" --self-contained \
               -p:UseAppHost=true -p:PublishSingleFile=true -p:DebugType=none -p:Version="$VERSION" \
-              "-p:LibChdmanRoot=$GITHUB_WORKSPACE/libchdman" -o "publish/$rid"
+              -o "publish/$rid"
             for lib in libchdman.dylib 7z.so libnoi_archive.dylib; do
               test -f "publish/$rid/$lib" || { echo "$lib missing from $rid publish"; exit 1; }
             done
             bash app/packaging/macos/make-app.sh "publish/$rid" "$GITHUB_WORKSPACE/dist/NoIntrovert-$VERSION-$rid.zip" "$VERSION" \
-              app/README.md app/LICENSE LICENSE-libchdman.txt libchdman/THIRD_PARTY_NOTICES.md \
+              app/README.md app/LICENSE LICENSE-libchdman.txt app/native/libchdman/THIRD_PARTY_NOTICES.md \
               LICENSE-7-Zip.txt LICENSE-bit7z.txt app/packaging/THIRD_PARTY_ARCHIVES.md
           done
 
@@ -205,23 +193,17 @@ jobs:
         with:
           path: app
 
-      - uses: actions/checkout@v4
-        with:
-          repository: Nickel42/libchdman
-          token: ${{ secrets.LIBCHDMAN_TOKEN }}
-          path: libchdman
-
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
 
       - name: Build libchdman and run its tests
         run: |
-          cmake -S libchdman -B libchdman/build -DCMAKE_BUILD_TYPE=Release
-          cmake --build libchdman/build --parallel "$(nproc)"
-          ctest --test-dir libchdman/build --output-on-failure
-          mkdir -p libchdman/artifacts/native/linux-x64
-          cp -L libchdman/build/libchdman.so libchdman/artifacts/native/linux-x64/libchdman.so
+          cmake -S app/native/libchdman -B app/native/libchdman/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build app/native/libchdman/build --parallel "$(nproc)"
+          ctest --test-dir app/native/libchdman/build --output-on-failure
+          mkdir -p app/native/libchdman/artifacts/native/linux-x64
+          cp -L app/native/libchdman/build/libchdman.so app/native/libchdman/artifacts/native/linux-x64/libchdman.so
 
       - name: Build the archive engine
         run: |
@@ -239,7 +221,7 @@ jobs:
             echo "  needs glibc $(objdump -T "$1" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)," \
               "libstdc++ $(objdump -T "$1" | grep -o 'GLIBCXX_[0-9.]*' | sort -uV | tail -1)"
           }
-          check libchdman/artifacts/native/linux-x64/libchdman.so chdman_
+          check app/native/libchdman/artifacts/native/linux-x64/libchdman.so chdman_
           check app/native/out/linux-x64/libnoi_archive.so noi_
           ldd app/native/out/linux-x64/7z.so
 
@@ -247,7 +229,7 @@ jobs:
         # test-roms isn't available here, so the tests generate stand-in discs.
         run: |
           dotnet run --project app/NoIntrovert.Tests/NoIntrovert.Tests.csproj -c Release \
-            "-p:LibChdmanRoot=$GITHUB_WORKSPACE/libchdman" -- --quick --synthetic
+            -- --quick --synthetic
 
       - name: Publish and tar
         run: |
@@ -256,13 +238,13 @@ jobs:
           out="publish/$name"
           dotnet publish app/NoIntrovert/NoIntrovert.csproj -c Release -r "$rid" --self-contained \
             -p:PublishSingleFile=true -p:DebugType=none -p:Version="$VERSION" \
-            "-p:LibChdmanRoot=$GITHUB_WORKSPACE/libchdman" -o "$out"
+            -o "$out"
           for f in NoIntrovert libchdman.so 7z.so libnoi_archive.so; do
             test -f "$out/$f" || { echo "$f missing from the $rid publish"; exit 1; }
           done
           test -x "$out/NoIntrovert"
-          cp app/README.md app/LICENSE app/packaging/THIRD_PARTY_ARCHIVES.md libchdman/THIRD_PARTY_NOTICES.md "$out/"
-          cp libchdman/LICENSE "$out/LICENSE-libchdman.txt"
+          cp app/README.md app/LICENSE app/packaging/THIRD_PARTY_ARCHIVES.md app/native/libchdman/THIRD_PARTY_NOTICES.md "$out/"
+          cp app/native/libchdman/LICENSE "$out/LICENSE-libchdman.txt"
           cp app/native/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
           cp app/native/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
           # App icon in the freedesktop hicolor layout, plus a menu entry and its installer.

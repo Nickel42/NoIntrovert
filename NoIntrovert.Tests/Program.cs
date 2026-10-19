@@ -20,7 +20,7 @@ using NoIntrovert.Tests;
 var quick = args.Contains("--quick");
 var keep = args.Contains("--keep");
 var roms = ArgValue("--roms") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "test-roms"));
-var upstream = ArgValue("--upstream") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "libchdman", "build-x64", "Release", "chdman-upstream.exe"));
+var upstream = ArgValue("--upstream") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "native", "libchdman", "build-x64", "Release", "chdman-upstream.exe"));
 var scratch = Path.Combine(Path.GetTempPath(), "NoIntrovert-tests", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
 Directory.CreateDirectory(scratch);
 var synthetic = args.Contains("--synthetic") || !Directory.Exists(roms);
