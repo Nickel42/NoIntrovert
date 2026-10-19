@@ -471,6 +471,9 @@ public sealed partial class DiagnosticsSettingsViewModel(AppSettings settings, I
 {
     public override string Title => "Diagnostics";
 
+    /// <summary>The loaded native libraries and their versions (set once at startup).</summary>
+    public string LibraryVersions { get; set; } = "";
+
     public string ChdmanExePath { get => S.Diagnostics.ChdmanExePath; set => Set(value, (s, v) => s.Diagnostics.ChdmanExePath = v); }
 
     [RelayCommand]

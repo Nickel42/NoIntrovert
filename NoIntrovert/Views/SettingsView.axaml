@@ -170,6 +170,9 @@
                     IsVisible="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).General.PowerUserMode}">
                 <StackPanel Spacing="4">
                     <TextBlock Text="DIAGNOSTICS" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Classes="hint" Text="{Binding LibraryVersions}" TextWrapping="Wrap" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap" Margin="0,0,0,6"
+                               Text="The Library tests page (in the rail) compares libchdman with chdman and round-trips discs." />
                     <TextBlock Text="chdman executable (for the Library tests' comparison)" TextWrapping="Wrap" />
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                         <TextBox Text="{Binding ChdmanExePath}" PlaceholderText="Path to chdman" />

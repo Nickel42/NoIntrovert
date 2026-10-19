@@ -63,6 +63,9 @@ public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJ
 
     private readonly IJobReport _whole = report;
 
+    /// <summary>The same worker, report and cancellation with different settings (one row's own target, say).</summary>
+    public JobContext WithSettings(AppSettings other) => new(Chdman, other, Log, Report, Token, RvzSource);
+
     private sealed class BandReport(IJobReport whole, double start, double span) : IJobReport
     {
         public void SetStage(string stage) => whole.SetStage(stage);

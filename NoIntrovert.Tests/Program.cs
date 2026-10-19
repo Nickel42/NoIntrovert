@@ -1332,6 +1332,113 @@ if (ArchiveEngine.IsAvailable(out _))
     });
 }
 
+if (ArchiveEngine.IsAvailable(out _))
+{
+    // A folder of mixed inputs for the Convert page's targets and planner.
+    var mixed = Dir("convert-mixed");
+    void MakeFile(string name, byte[]? bytes = null) => File.WriteAllBytes(Path.Combine(mixed, name), bytes ?? new byte[2048]);
+    File.WriteAllText(Path.Combine(mixed, "a.cue"), "FILE \"a.bin\" BINARY\n TRACK 01 MODE1/2352\n  INDEX 01 00:00:00\n");
+    MakeFile("a.bin");
+    MakeFile("x.chd");
+    MakeFile("game.rvz");
+    var gcHeader = new byte[0x40];
+    gcHeader[0x1C] = 0xC2; gcHeader[0x1D] = 0x33; gcHeader[0x1E] = 0x9F; gcHeader[0x1F] = 0x3D; // GameCube magic
+    MakeFile("gc.iso", gcHeader);
+    MakeFile("ps2.iso");
+    MakeFile("w.wbfs");
+    File.WriteAllText(Path.Combine(mixed, "notes.txt"), string.Concat(Enumerable.Repeat("notes ", 500)));
+    using (var z = ZipFile.Open(Path.Combine(mixed, "Game (USA).zip"), ZipArchiveMode.Create))
+        using (var w = new StreamWriter(z.CreateEntry("Game (USA).iso").Open())) w.Write("x");
+    using (var z = ZipFile.Open(Path.Combine(mixed, "NES.zip"), ZipArchiveMode.Create))
+        using (var w = new StreamWriter(z.CreateEntry("Mario.nes").Open())) w.Write(string.Concat(Enumerable.Repeat("mario ", 500)));
+    var packMe = Path.Combine(mixed, "Saves");
+    Directory.CreateDirectory(packMe);
+    File.WriteAllText(Path.Combine(packMe, "save.dat"), string.Concat(Enumerable.Repeat("save ", 500)));
+    FileSet SetOf(string path) => FormatRegistry.Default.Identify(path)
+        ?? new FileSet(path, [path], Directory.Exists(path) ? ConvertTargets.PackedFolder : ConvertTargets.OtherFile);
+
+    Test("Convert targets: each input offers the right targets", () =>
+    {
+        var settings = new AppSettings();
+        var cases = new (string Name, string Choices, string Default)[]
+        {
+            ("a.cue", "CHD, Leave as is", "CHD"),
+            ("x.chd", "Disc image, Leave as is", "Disc image"),
+            ("game.rvz", "ISO, CHD, Leave as is", "ISO"),
+            ("gc.iso", "RVZ, CHD, Leave as is", "RVZ"),
+            ("ps2.iso", "CHD, Leave as is", "CHD"),
+            ("w.wbfs", "Leave as is", "Leave as is"),
+            ("Game (USA).zip", "CHD, 7z, Unpack files, Leave as is", "CHD"),
+            ("NES.zip", "7z, Unpack files, Leave as is", "7z"),
+            ("notes.txt", "7z, zip, Leave as is", "7z"),
+            ("Saves", "7z, zip, Leave as is", "7z"),
+        };
+        foreach (var (name, choices, initial) in cases)
+        {
+            var o = ConvertTargets.For(SetOf(Path.Combine(mixed, name)), settings);
+            var got = string.Join(", ", o.Choices.Select(c => c.Label));
+            if (got != choices || o.Default.Label != initial) return $"{name}: {got} (starts on {o.Default.Label}), expected {choices} (starts on {initial})";
+        }
+        var title = ConvertTargets.For(SetOf(baseTitle), settings);
+        if (title.Default.Kind != TargetKind.Wua) return $"a Wii U title folder starts on {title.Default.Label}";
+        settings.Nintendo.Target = NintendoTarget.Chd;
+        if (ConvertTargets.For(SetOf(Path.Combine(mixed, "gc.iso")), settings).Default.Kind != TargetKind.Chd)
+            return "a GameCube disc ignored the CHD setting";
+        return null;
+    });
+
+    Test("Convert planner: rows become the right jobs", () =>
+    {
+        PlanInput Row(string path, TargetKind target) => new(path, target, 100);
+        var rows = new List<PlanInput>
+        {
+            Row(Path.Combine(mixed, "a.cue"), TargetKind.Chd),          // 0
+            Row(Path.Combine(mixed, "x.chd"), TargetKind.DiscImage),    // 1
+            Row(Path.Combine(mixed, "NES.zip"), TargetKind.SevenZip),   // 2: zip → 7z conversion
+            Row(Path.Combine(mixed, "notes.txt"), TargetKind.SevenZip), // 3: packed
+            Row(packMe, TargetKind.Zip),                                // 4: packed as zip
+            Row(baseTitle, TargetKind.Wua),                             // 5 ┐ one game
+            Row(updateTitle, TargetKind.Wua),                           // 6 ┘
+            Row(Path.Combine(mixed, "game.rvz"), TargetKind.Leave),     // 7
+        };
+        var plan = ConvertPlanner.Plan(rows, new AppSettings(), log);
+        if (plan.Error is { } error) return error;
+        var jobs = string.Join(" | ", plan.Jobs.Select(j => string.Join(",", j.Rows)));
+        if (jobs != "0 | 1 | 2 | 3 | 4 | 5,6") return $"jobs cover rows {jobs}";
+        if (!plan.Left.SequenceEqual([7])) return $"left alone: {string.Join(",", plan.Left)}";
+        if (plan.Jobs.Single(j => j.Rows.Count == 2).Cost != 200) return "the Wii U job's cost isn't the sum of its rows";
+
+        // Everything into one archive: the packed rows of one format become a single job.
+        var single = new AppSettings { Archives = { Grouping = ArchiveGrouping.Single, SingleName = "Bundle" } };
+        var packRows = new List<PlanInput> { Row(Path.Combine(mixed, "notes.txt"), TargetKind.SevenZip), Row(packMe, TargetKind.SevenZip) };
+        var bundled = ConvertPlanner.Plan(packRows, single, log);
+        if (bundled.Jobs.Count != 1 || bundled.Jobs[0].Rows.Count != 2) return $"single-archive packing made {bundled.Jobs.Count} job(s)";
+        single.Archives.SingleName = " ";
+        return ConvertPlanner.Plan(packRows, single, log).Error is null ? "a blank combined-archive name wasn't refused" : null;
+    });
+
+    Test("Convert planner: planned jobs run end to end", () =>
+    {
+        var outDir = Dir("convert-mixed-out");
+        var rows = new List<PlanInput>
+        {
+            new(Path.Combine(mixed, "NES.zip"), TargetKind.SevenZip),
+            new(packMe, TargetKind.Zip),
+            new(baseTitle, TargetKind.Wua),
+            new(updateTitle, TargetKind.Wua),
+        };
+        var plan = ConvertPlanner.Plan(rows, new AppSettings(), log);
+        foreach (var job in plan.Jobs)
+        {
+            var o = RunJob(job.Work, s => s.Output.Folder = outDir);
+            if (o.Status is not (JobStatus.Succeeded or JobStatus.Warning)) return $"{job.Name}: {o.Status}: {o.Summary}";
+        }
+        var made = Directory.GetFiles(outDir).Select(Path.GetFileName).Order().ToList();
+        var expected = new[] { "NES.7z", "Saves.zip", "Test Game [0005000010101C00].wua" };
+        return made.SequenceEqual(expected) ? null : $"made {string.Join(", ", made)}";
+    });
+}
+
 // ---- Wii U encrypted: NUS titles and WUD/WUX disc images (made-up keys) -----------
 
 var encKeys = EncryptedSample.MakeKeys(42);

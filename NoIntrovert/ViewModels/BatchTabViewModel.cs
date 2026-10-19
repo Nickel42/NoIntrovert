@@ -123,6 +123,12 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     /// <summary>Whether one input the registry found belongs in this tab: by default, by its format.</summary>
     protected virtual bool Takes(FileSet set) => InputFormats?.Contains(set.Format) ?? true;
 
+    /// <summary>Whether rows show a TARGET column (the Convert page).</summary>
+    public virtual bool ShowsTargets => false;
+
+    /// <summary>The row for one input; the Convert page gives each row its targets.</summary>
+    protected virtual JobItemViewModel CreateItem(string path) => new(path);
+
     /// <summary>What a folder added to the list becomes: by default the inputs the registry finds in it.</summary>
     protected virtual IEnumerable<string> ItemsForFolder(string folder)
     {
@@ -205,7 +211,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             foreach (var file in candidates)
             {
                 if (!existing.Add(file)) continue;
-                Items.Add(new JobItemViewModel(file));
+                Items.Add(CreateItem(file));
                 added++;
             }
         }
