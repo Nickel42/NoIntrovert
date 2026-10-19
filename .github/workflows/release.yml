@@ -1,4 +1,4 @@
-# Builds libchdman and NoIntrovert for Windows x64, Windows ARM64, macOS
+# Builds libchdman, libdolphinrvz and NoIntrovert for Windows x64, Windows ARM64, macOS
 # (Apple silicon and Intel) and Linux x64, and publishes them as a GitHub
 # release when a v* tag is pushed. Run it by hand (Actions → Release → Run
 # workflow) to get the same downloads as workflow artifacts without making a
@@ -89,6 +89,14 @@ jobs:
           call app\native\build-win.cmd x64 app\native\_deps\7zip-src app\native\_deps\bit7z-src || exit /b 1
           call app\native\build-win.cmd arm64 app\native\_deps\7zip-src app\native\_deps\bit7z-src || exit /b 1
 
+      - name: Build libdolphinrvz (x64 with its tests, and ARM64)
+        shell: cmd
+        # Into app\native\out\win-<arch>, next to the archive engine. The ARM64
+        # build is cross-compiled, so its tests only run on x64.
+        run: |
+          call app\native\libdolphinrvz\scripts\build-win.cmd x64 || exit /b 1
+          call app\native\libdolphinrvz\scripts\build-win.cmd arm64 || exit /b 1
+
       - name: Publish and zip
         shell: pwsh
         run: |
@@ -100,11 +108,14 @@ jobs:
               -p:DebugType=none -p:Version=$env:VERSION `
               -o $out
             if (-not (Test-Path "$out/NoIntrovert.exe")) { throw "publish for $rid produced no NoIntrovert.exe" }
-            foreach ($lib in '7z.dll', 'noi_archive.dll') {
+            foreach ($lib in '7z.dll', 'noi_archive.dll', 'dolphinrvz.dll') {
               if (-not (Test-Path "$out/$lib")) { throw "publish for $rid is missing $lib" }
             }
             Copy-Item app/README.md, app/LICENSE, app/packaging/THIRD_PARTY_ARCHIVES.md, app/native/libchdman/THIRD_PARTY_NOTICES.md $out
             Copy-Item app/native/libchdman/LICENSE "$out/LICENSE-libchdman.txt"
+            Copy-Item app/native/libdolphinrvz/LICENSE "$out/LICENSE-libdolphinrvz.txt"
+            Copy-Item app/native/libdolphinrvz/THIRD_PARTY_NOTICES.md "$out/THIRD_PARTY_NOTICES-libdolphinrvz.md"
+            Copy-Item app/native/libdolphinrvz/vendor/BUNDLED_LICENSES.txt "$out/LICENSES-libdolphinrvz-bundled.txt"
             Copy-Item app/native/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
             Copy-Item app/native/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
             Compress-Archive -Path "$out/*" -DestinationPath "dist/NoIntrovert-$env:VERSION-$rid.zip" -Force
@@ -130,6 +141,14 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Use the newest Xcode
+        # Dolphin's code (libdolphinrvz) needs AppleClang 21 or newer.
+        run: |
+          xcode="$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -1)"
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+          clang --version
+
       - name: Build libchdman (universal) and run its tests
         run: |
           cmake -S app/native/libchdman -B app/native/libchdman/build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
@@ -144,10 +163,16 @@ jobs:
           bash app/native/fetch-sources.sh
           bash app/native/build-mac.sh
 
+      - name: Build libdolphinrvz (universal) and run its tests
+        run: bash app/native/libdolphinrvz/scripts/build-mac.sh
+
       - name: Publish, bundle and zip
         run: |
           mkdir -p dist
           cp app/native/libchdman/LICENSE LICENSE-libchdman.txt
+          cp app/native/libdolphinrvz/LICENSE LICENSE-libdolphinrvz.txt
+          cp app/native/libdolphinrvz/THIRD_PARTY_NOTICES.md THIRD_PARTY_NOTICES-libdolphinrvz.md
+          cp app/native/libdolphinrvz/vendor/BUNDLED_LICENSES.txt LICENSES-libdolphinrvz-bundled.txt
           cp app/native/_deps/7zip-src/DOC/License.txt LICENSE-7-Zip.txt
           cp app/native/_deps/bit7z-src/LICENSE LICENSE-bit7z.txt
           for rid in osx-arm64 osx-x64; do
@@ -156,12 +181,13 @@ jobs:
             dotnet publish app/NoIntrovert/NoIntrovert.csproj -c Release -r "$rid" --self-contained \
               -p:UseAppHost=true -p:PublishSingleFile=true -p:DebugType=none -p:Version="$VERSION" \
               -o "publish/$rid"
-            for lib in libchdman.dylib 7z.so libnoi_archive.dylib; do
+            for lib in libchdman.dylib 7z.so libnoi_archive.dylib libdolphinrvz.dylib; do
               test -f "publish/$rid/$lib" || { echo "$lib missing from $rid publish"; exit 1; }
             done
             bash app/packaging/macos/make-app.sh "publish/$rid" "$GITHUB_WORKSPACE/dist/NoIntrovert-$VERSION-$rid.zip" "$VERSION" \
               app/README.md app/LICENSE LICENSE-libchdman.txt app/native/libchdman/THIRD_PARTY_NOTICES.md \
-              LICENSE-7-Zip.txt LICENSE-bit7z.txt app/packaging/THIRD_PARTY_ARCHIVES.md
+              LICENSE-7-Zip.txt LICENSE-bit7z.txt app/packaging/THIRD_PARTY_ARCHIVES.md \
+              LICENSE-libdolphinrvz.txt THIRD_PARTY_NOTICES-libdolphinrvz.md LICENSES-libdolphinrvz-bundled.txt
           done
 
       - name: Check the Apple silicon zip unpacks to a validly signed app
@@ -210,6 +236,14 @@ jobs:
           bash app/native/fetch-sources.sh
           bash app/native/build-linux.sh
 
+      - name: Build libdolphinrvz and run its tests
+        # Dolphin's code needs GCC 12+; Ubuntu 22.04's default is 11. libstdc++ is
+        # linked statically, so the .so still only needs glibc 2.35.
+        env:
+          CC: gcc-12
+          CXX: g++-12
+        run: bash app/native/libdolphinrvz/scripts/build-linux.sh
+
       - name: Check the native libraries' exports and dependencies
         run: |
           check() { # library, prefix of the only symbols it may export
@@ -223,6 +257,7 @@ jobs:
           }
           check app/native/libchdman/artifacts/native/linux-x64/libchdman.so chdman_
           check app/native/out/linux-x64/libnoi_archive.so noi_
+          check app/native/out/linux-x64/libdolphinrvz.so drvz_
           ldd app/native/out/linux-x64/7z.so
 
       - name: Self-test (quick, synthetic discs)
@@ -239,12 +274,15 @@ jobs:
           dotnet publish app/NoIntrovert/NoIntrovert.csproj -c Release -r "$rid" --self-contained \
             -p:PublishSingleFile=true -p:DebugType=none -p:Version="$VERSION" \
             -o "$out"
-          for f in NoIntrovert libchdman.so 7z.so libnoi_archive.so; do
+          for f in NoIntrovert libchdman.so 7z.so libnoi_archive.so libdolphinrvz.so; do
             test -f "$out/$f" || { echo "$f missing from the $rid publish"; exit 1; }
           done
           test -x "$out/NoIntrovert"
           cp app/README.md app/LICENSE app/packaging/THIRD_PARTY_ARCHIVES.md app/native/libchdman/THIRD_PARTY_NOTICES.md "$out/"
           cp app/native/libchdman/LICENSE "$out/LICENSE-libchdman.txt"
+          cp app/native/libdolphinrvz/LICENSE "$out/LICENSE-libdolphinrvz.txt"
+          cp app/native/libdolphinrvz/THIRD_PARTY_NOTICES.md "$out/THIRD_PARTY_NOTICES-libdolphinrvz.md"
+          cp app/native/libdolphinrvz/vendor/BUNDLED_LICENSES.txt "$out/LICENSES-libdolphinrvz-bundled.txt"
           cp app/native/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
           cp app/native/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
           # App icon in the freedesktop hicolor layout, plus a menu entry and its installer.
@@ -320,7 +358,7 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           cat > notes.md <<EOF
-          NoIntrovert $VERSION, built with libchdman.
+          NoIntrovert $VERSION, built with libchdman and libdolphinrvz (Dolphin's GameCube/Wii disc code: discs to RVZ, and RVZ/WIA/GCZ back to ISO).
 
           NoIntrovert is free software under the GNU GPL, version 3 (LICENSE in every download). Its complete source, including the native libraries, is this repository at tag $GITHUB_REF_NAME: https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_REF_NAME
 
