@@ -43,22 +43,26 @@ CDs are written as one session (as chdman does).
 
 ## Platforms and downloads
 
-Releases have four zips, built by `.github/workflows/release.yml` when a
-`v*` tag is pushed:
+Releases have four zips and a tar.gz, built by `.github/workflows/release.yml`
+when a `v*` tag is pushed:
 
-| Zip | For |
+| Download | For |
 |---|---|
 | `win-x64` | Windows 10/11, Intel or AMD (64-bit) |
 | `win-arm64` | Windows 11 on ARM |
 | `osx-arm64` | macOS 12+, Apple silicon |
 | `osx-x64` | macOS 12+, Intel |
+| `linux-x64` (tar.gz) | Linux x64 with glibc 2.35+ (Ubuntu 22.04, Debian 12, Fedora 36 or newer) |
 
 Windows builds are one self-contained `NoIntrovert.exe`. macOS builds are a
 self-contained `NoIntrovert.app`, signed ad hoc but not notarised: right-click
-→ Open the first time. On macOS, removed originals go to the Trash.
+→ Open the first time. On macOS, removed originals go to the Trash. The Linux
+build is a folder with the `NoIntrovert` executable and its `.so` libraries
+beside it; removed originals go to the desktop's Trash (the freedesktop.org
+one, `~/.local/share/Trash`, or the disk's own `.Trash-<uid>` for other drives).
 
 The workflow builds libchdman from source on each platform (and runs its
-tests on x64 Windows and macOS). libchdman is private, so the repository
+tests on x64 Windows, macOS and Linux, plus the app's own quick self-test on Linux). libchdman is private, so the repository
 needs a `LIBCHDMAN_TOKEN` secret: a token with read access to
 `Nickel42/libchdman` contents.
 
@@ -74,7 +78,8 @@ bash native/fetch-sources.sh
 native\build-win.cmd x64 native\_deps\7zip-src native\_deps\bit7z-src
 ```
 
-(`bash native/build-mac.sh` on a Mac.) The results go in `native/out/<platform>`,
+(`bash native/build-mac.sh` on a Mac, `bash native/build-linux.sh` on Linux,
+which needs gcc, make and CMake.) The results go in `native/out/<platform>`,
 which the app build copies next to the executable. `fetch-sources.sh` pins
 both downloads by SHA-256. See `packaging/THIRD_PARTY_ARCHIVES.md` for their
 licenses.
@@ -83,7 +88,11 @@ licenses.
 
 Needs the .NET 10 SDK and libchdman checked out next to this folder
 (`../libchdman`), with its native library built into
-`artifacts/native/win-x64`, `win-arm64` or `osx` (see `Directory.Build.props`).
+`artifacts/native/win-x64`, `win-arm64`, `osx` or `linux-x64` (see
+`Directory.Build.props`). On Linux, build libchdman with
+`-DCMAKE_SHARED_LINKER_FLAGS=-Wl,--version-script=<this repo>/native/libchdman.map`
+so `libchdman.so` exports only its C API, and copy it (`cp -L`) into
+`artifacts/native/linux-x64`.
 
 ```
 dotnet run --project NoIntrovert
@@ -98,9 +107,9 @@ dotnet publish NoIntrovert -c Release -r win-x64 --self-contained -p:PublishSing
 Paths given on the command line are added to the list, as if dropped on the
 window; `--tab convert|verify|extract|info|tests` picks the starting tab.
 
-Settings live in `%AppData%\NoIntrovert\settings.json` (macOS:
+Settings live in `%AppData%\NoIntrovert\settings.json` (macOS and Linux:
 `~/.config/NoIntrovert`); each session's log is written to
-`%LocalAppData%\NoIntrovert\logs` (macOS: `~/.local/share/NoIntrovert/logs`).
+`%LocalAppData%\NoIntrovert\logs` (macOS and Linux: `~/.local/share/NoIntrovert/logs`).
 
 ## Tests
 
@@ -117,7 +126,9 @@ dotnet run --project NoIntrovert.Tests -c Release -- --quick
 ```
 
 Leave out `--quick` to also round-trip the full discs in test-roms (several
-minutes). `--keep` keeps the scratch folder; `--roms` and `--upstream` point
+minutes). Without test-roms (or with `--synthetic`) the quick tests run on
+generated stand-in discs and the full-disc ones are skipped; CI runs it that way
+on Linux. `--keep` keeps the scratch folder; `--roms` and `--upstream` point
 at other locations.
 
 The ISZ, PBP, CloneCD and Alcohol samples are made by the test program's own

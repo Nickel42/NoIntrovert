@@ -4,7 +4,7 @@
 #         -DNOI_BIT7Z_DIR=<bit7z source> -DNOI_7ZIP_DIR=<7-Zip source>
 #   cmake --build native/build-x64 --config Release
 #
-# Produces noi_archive.dll / libnoi_archive.dylib. 7-Zip's own library
+# Produces noi_archive.dll / libnoi_archive.dylib / libnoi_archive.so. 7-Zip's own library
 # (7z.dll / 7z.so) is built separately from the same 7-Zip source and loaded
 # at run time.
 
@@ -62,4 +62,10 @@ target_compile_definitions(noi_archive PRIVATE BIT7Z_AUTO_FORMAT)
 
 if(APPLE)
   set_target_properties(noi_archive PROPERTIES INSTALL_NAME_DIR "@rpath")
+endif()
+if(UNIX AND NOT APPLE)
+  # Hidden visibility still leaves libstdc++'s template instantiations
+  # exported; the version script keeps the library to noi_* only.
+  target_link_options(noi_archive PRIVATE "LINKER:--version-script=${CMAKE_CURRENT_SOURCE_DIR}/noi_archive.map")
+  set_target_properties(noi_archive PROPERTIES LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/noi_archive.map")
 endif()
