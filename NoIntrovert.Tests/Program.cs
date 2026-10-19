@@ -30,6 +30,9 @@ if (synthetic)
     SyntheticRoms.Write(roms);
 }
 
+// Nothing here may touch the real settings.json in %AppData%\NoIntrovert.
+AppSettings.SettingsDirectoryOverride = Path.Combine(scratch, "settings");
+
 var log = new ConsoleLog();
 var failures = new List<string>();
 var passes = 0;
@@ -582,6 +585,54 @@ Test("Job queue: overall progress is weighted by size, and bands keep one bar pe
         return $"the bar went {string.Join(" → ", reported.Select(r => r.ToString("F3")))}";
     // 100 bytes done + 85% of 900 = 865 of 1000.
     return Math.Abs(done - 0.865) < 0.001 ? null : $"overall {done:P1} instead of 86.5%";
+});
+
+Test("Settings: writing back the current values saves nothing", () =>
+{
+    var dir = Dir("settings-roundtrip");
+    var file = Path.Combine(dir, "settings.json");
+    var previous = AppSettings.SettingsDirectoryOverride;
+    AppSettings.SettingsDirectoryOverride = dir;
+    try
+    {
+        // Non-default values throughout, including a compression string that isn't in the list.
+        var settings = new AppSettings
+        {
+            Compression = "cdzs,cdfl", HunkSize = 2048 * 8, IsoMode = IsoMode.Cd, ExtractFormat = ExtractFormat.Iso,
+            NintendoTarget = NintendoTarget.Chd, RvzCompression = LibDolphinRvz.RvzCompression.Lzma2, RvzCompressionLevel = 7,
+            RvzBlockSize = 0x80000, RvzScrub = true, OutputFolder = @"D:\out", Overwrite = true, ScanSubfolders = false,
+            ArchiveAction = ArchiveAction.Convert, ArchiveFormat = ArchiveFormat.Zip, ArchiveLevel = ArchiveLevel.Ultra,
+            ArchiveGrouping = ArchiveGrouping.Single, ArchiveConvertTarget = ConvertTarget.ToZip, ArchiveSingleName = "All",
+            WiiUKeysPath = @"D:\keys.txt", ParallelJobs = 3, ThreadsPerJob = 2, TempFolder = @"D:\tmp", VerboseLog = true,
+        };
+        var before = settings.ToJson();
+        var vm = new NoIntrovert.ViewModels.SettingsViewModel(settings, new NoDialogs());
+        if (File.Exists(file)) return "constructing the view model saved the settings";
+        if (settings.ToJson() != before) return $"constructing the view model changed them (compression is now \"{settings.Compression}\")";
+
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var bound = typeof(NoIntrovert.ViewModels.SettingsViewModel).GetProperties()
+            .Where(p => p.CanRead && p.GetSetMethod() is not null && p.GetIndexParameters().Length == 0).ToList();
+        if (bound.Count < 30) return $"only {bound.Count} settable properties found";
+        foreach (var p in bound) p.SetValue(vm, p.GetValue(vm));
+        if (File.Exists(file)) return "writing back the current values saved the settings";
+        if (changed.Count > 0) return $"writing back the current values raised PropertyChanged for {string.Join(", ", changed)}";
+        if (settings.ToJson() != before) return "writing back the current values changed them";
+
+        // A real change still saves, once, with its event.
+        vm.Overwrite = false;
+        if (!File.Exists(file)) return "changing Overwrite didn't save";
+        if (AppSettings.Load().Overwrite) return "the saved file still has Overwrite on";
+        if (!changed.SequenceEqual(["Overwrite"])) return $"changing Overwrite raised {string.Join(", ", changed)}";
+
+        // And the window's Save on close leaves an unchanged file alone.
+        var stamp = File.GetLastWriteTimeUtc(file).AddMinutes(-5);
+        File.SetLastWriteTimeUtc(file, stamp);
+        vm.Save();
+        return File.GetLastWriteTimeUtc(file) == stamp ? null : "an explicit Save of unchanged settings rewrote the file";
+    }
+    finally { AppSettings.SettingsDirectoryOverride = previous; }
 });
 
 Test("RAR inputs are refused", () =>
@@ -1528,4 +1579,14 @@ sealed class CancelAtProgress(CancellationTokenSource cts, double at) : IJobRepo
     {
         if (_stage.StartsWith("Compressing", StringComparison.Ordinal) && fraction >= at) cts.Cancel();
     }
+}
+
+/// <summary>Settings tests never open a picker.</summary>
+sealed class NoDialogs : NoIntrovert.Services.IDialogs
+{
+    public Task<IReadOnlyList<string>> PickFilesAsync(string title, string filterName, IReadOnlyList<string> patterns) => throw new NotSupportedException();
+    public Task<string?> PickFileAsync(string title, string filterName, IReadOnlyList<string> patterns) => throw new NotSupportedException();
+    public Task<string?> PickFolderAsync(string title) => throw new NotSupportedException();
+    public Task<string?> SaveFileAsync(string title, string suggestedName, string filterName, string pattern) => throw new NotSupportedException();
+    public Task SetClipboardAsync(string text) => throw new NotSupportedException();
 }
