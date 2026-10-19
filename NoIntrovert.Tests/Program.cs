@@ -582,6 +582,71 @@ else
         var left = Directory.GetFiles(outDir);
         return o.Status == JobStatus.Cancelled && left.Length == 0 ? null : $"{o.Status} {o.Summary}, {left.Length} file(s) left";
     });
+
+    // Extract jobs read the src.7z / src.zip written by the round-trip tests above.
+    var src7z = Path.Combine(scratch, "arc-7z", "src.7z");
+    var srcZip = Path.Combine(scratch, "arc-zip", "src.zip");
+
+    Test("Extract: a 7z into its own folder", () =>
+    {
+        var outDir = Dir("ext-own");
+        var o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.OutputFolder = outDir; s.ArchiveExtractToOwnFolder = true; });
+        if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+        var stray = Directory.GetDirectories(outDir).Where(d => Path.GetFileName(d).StartsWith(".noi-extract-")).ToList();
+        return stray.Count > 0 ? "staging folder left behind" : SameTree(archiveSrc, Path.Combine(outDir, "src", "archive-src")) ?? Note(o.Summary);
+    });
+
+    Test("Extract: a zip straight into the output folder", () =>
+    {
+        var outDir = Dir("ext-flat");
+        var o = RunJob(c => ArchiveJobs.Extract(c, srcZip), s => { s.OutputFolder = outDir; s.ArchiveExtractToOwnFolder = false; });
+        return o.Status == JobStatus.Succeeded ? SameTree(archiveSrc, Path.Combine(outDir, "archive-src")) : $"{o.Status}: {o.Summary}";
+    });
+
+    Test("Extract: an existing folder is skipped unless Overwrite is on", () =>
+    {
+        var outDir = Dir("ext-own");
+        var o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.OutputFolder = outDir; s.ArchiveExtractToOwnFolder = true; });
+        if (o.Status != JobStatus.Skipped) return $"expected Skipped, got {o.Status}";
+        o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.OutputFolder = outDir; s.ArchiveExtractToOwnFolder = true; s.Overwrite = true; });
+        return o.Status == JobStatus.Succeeded ? null : $"with Overwrite: {o.Status} {o.Summary}";
+    });
+
+    Test("Extract: existing files are kept, or replaced with Overwrite", () =>
+    {
+        var outDir = Dir("ext-conflict");
+        var existing = Path.Combine(outDir, "archive-src", "notes.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(existing)!);
+        File.WriteAllText(existing, "mine");
+        var o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.OutputFolder = outDir; s.ArchiveExtractToOwnFolder = false; });
+        if (o.Status != JobStatus.Warning || File.ReadAllText(existing) != "mine") return $"without Overwrite: {o.Status} {o.Summary}";
+        if (!File.Exists(Path.Combine(outDir, "archive-src", "disc.bin"))) return "files that didn't clash weren't extracted";
+        o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.OutputFolder = outDir; s.ArchiveExtractToOwnFolder = false; s.Overwrite = true; });
+        if (o.Status != JobStatus.Succeeded) return $"with Overwrite: {o.Status} {o.Summary}";
+        return SameTree(archiveSrc, Path.Combine(outDir, "archive-src"));
+    });
+
+    Test("Extract: remove the archive afterwards", () =>
+    {
+        var dir = Dir("ext-delete");
+        var archive = Path.Combine(dir, "copy.7z");
+        File.Copy(src7z, archive);
+        var o = RunJob(c => ArchiveJobs.Extract(c, archive), s => { s.ArchiveDeleteOriginals = true; s.UseRecycleBin = false; });
+        return o.Status == JobStatus.Succeeded && !File.Exists(archive) && Directory.Exists(Path.Combine(dir, "copy"))
+            ? null : $"{o.Status} {o.Summary}; archive still there: {File.Exists(archive)}";
+    });
+
+    Test("Extract: a damaged archive fails and leaves nothing behind", () =>
+    {
+        var dir = Dir("ext-damaged");
+        var damaged = Path.Combine(dir, "bad.7z");
+        File.Copy(Path.Combine(scratch, "arc-damaged", "bad.7z"), damaged);
+        var o = RunJob(c => ArchiveJobs.Extract(c, damaged), s => { s.ArchiveDeleteOriginals = true; s.UseRecycleBin = false; });
+        var leftovers = Directory.GetFileSystemEntries(dir).Select(Path.GetFileName).Where(n => n != "bad.7z").ToList();
+        return o.Status == JobStatus.Failed && File.Exists(damaged) && leftovers.Count == 0
+            ? Note(o.Summary.Split('\n')[0])
+            : $"{o.Status} {o.Summary}; archive kept: {File.Exists(damaged)}; left: {string.Join(", ", leftovers)}";
+    });
 }
 
 // ---- Library tests tab -------------------------------------------------------

@@ -36,6 +36,7 @@ public sealed class AppSettings
     public Archives.ConvertTarget ArchiveConvertTarget { get; set; } = Archives.ConvertTarget.Swap;
     public bool ArchiveTestAfter { get; set; } = true;
     public bool ArchiveDeleteOriginals { get; set; }
+    public bool ArchiveExtractToOwnFolder { get; set; } = true;
 
     // Performance
     public int ParallelJobs { get; set; } = 1;

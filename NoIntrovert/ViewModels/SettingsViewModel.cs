@@ -139,6 +139,7 @@ public partial class SettingsViewModel : ViewModelBase
     [
         new(Core.Archives.ArchiveAction.Compress, "Compress files and folders"),
         new(Core.Archives.ArchiveAction.Convert, "Convert archives (zip ↔ 7z)"),
+        new(Core.Archives.ArchiveAction.Extract, "Extract archives (zip, 7z, rar)"),
     ];
 
     public static IReadOnlyList<Choice<Core.Archives.ArchiveFormat>> ArchiveFormats { get; } =
@@ -179,11 +180,21 @@ public partial class SettingsViewModel : ViewModelBase
             Set(value.Value, (s, v) => s.ArchiveAction = v);
             OnPropertyChanged(nameof(IsArchiveCompress));
             OnPropertyChanged(nameof(IsArchiveConvert));
+            OnPropertyChanged(nameof(IsArchiveExtract));
+            OnPropertyChanged(nameof(IsArchiveWriting));
+            OnPropertyChanged(nameof(ArchiveDeleteLabel));
         }
     }
 
     public bool IsArchiveCompress => _s.ArchiveAction == Core.Archives.ArchiveAction.Compress;
     public bool IsArchiveConvert => _s.ArchiveAction == Core.Archives.ArchiveAction.Convert;
+    public bool IsArchiveExtract => _s.ArchiveAction == Core.Archives.ArchiveAction.Extract;
+
+    /// <summary>Compressing and converting write archives; extracting only reads them.</summary>
+    public bool IsArchiveWriting => !IsArchiveExtract;
+
+    public string ArchiveDeleteLabel => IsArchiveExtract ? "Remove each archive after it extracts" : "Remove the originals";
+    public bool ArchiveExtractToOwnFolder { get => _s.ArchiveExtractToOwnFolder; set => Set(value, (s, v) => s.ArchiveExtractToOwnFolder = v); }
 
     public Choice<Core.Archives.ArchiveFormat> SelectedArchiveFormat
     {

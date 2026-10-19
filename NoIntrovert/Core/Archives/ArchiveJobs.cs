@@ -2,7 +2,7 @@ using NoIntrovert.Core.Jobs;
 
 namespace NoIntrovert.Core.Archives;
 
-public enum ArchiveAction { Compress, Convert }
+public enum ArchiveAction { Compress, Convert, Extract }
 
 /// <summary>How the files and folders in the list become archives.</summary>
 public enum ArchiveGrouping
@@ -17,7 +17,7 @@ public enum ArchiveGrouping
 
 public enum ConvertTarget { Swap, ToSevenZip, ToZip }
 
-/// <summary>The Archive tab's jobs: compress files/folders, and convert between zip and 7z.</summary>
+/// <summary>The Archive tab's jobs: compress files/folders, convert between zip and 7z, and extract archives.</summary>
 public static class ArchiveJobs
 {
     public static readonly string[] ConvertibleExtensions = [".zip", ".7z", ".rar"];
@@ -145,6 +145,114 @@ public static class ArchiveJobs
         sw.Stop();
 
         return AfterWrite(c, engine, output, [archive], new FileInfo(archive).Length, sw.Elapsed);
+    }
+
+    /// <summary>
+    /// Unpacks an archive into a folder named after it (or straight into the
+    /// output folder). Everything lands in a hidden staging folder first and
+    /// is then moved into place, so existing files are only replaced with
+    /// Overwrite on, and a failed or cancelled extraction leaves nothing behind.
+    /// 7-Zip checks every file's CRC as it extracts, so a clean extraction is
+    /// also a full test of the archive.
+    /// </summary>
+    public static JobOutcome Extract(JobContext c, string archive)
+    {
+        var s = c.Settings;
+        var outputFolder = OutputPaths.FolderFor(s, archive);
+        var destination = s.ArchiveExtractToOwnFolder
+            ? Path.Combine(outputFolder, Path.GetFileNameWithoutExtension(archive))
+            : outputFolder;
+
+        if (s.ArchiveExtractToOwnFolder && Directory.Exists(destination) &&
+            Directory.EnumerateFileSystemEntries(destination).Any() && !s.Overwrite)
+        {
+            c.Log.Warn($"  {Path.GetFileName(destination)} already exists; skipped (turn on Overwrite to extract into it anyway).");
+            return JobOutcome.Skipped("Folder already exists");
+        }
+
+        // Staging next to the destination keeps the final move on one drive.
+        var staging = Path.Combine(outputFolder, $".noi-extract-{Guid.NewGuid().ToString("N")[..8]}");
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        c.Log.Info($"Extracting {Path.GetFileName(archive)} → {destination}");
+        try
+        {
+            using (var engine = new ArchiveEngine())
+            {
+                c.Report.SetStage("Extracting");
+                engine.Extract(archive, staging, c.Report.SetProgress, c.Token);
+            }
+
+            c.Report.SetStage("Moving into place");
+            Directory.CreateDirectory(destination);
+            var (moved, kept) = MoveEntries(staging, destination, s.Overwrite, c.Log);
+            sw.Stop();
+
+            var stats = new OperationStats(sw.Elapsed, new FileInfo(archive).Length, SizeOf(destination));
+            if (moved == 0 && kept == 0)
+                return JobOutcome.Skipped("Archive is empty");
+
+            if (kept > 0)
+            {
+                c.Log.Warn($"  {kept} item(s) already existed in {Path.GetFileName(destination)} and were left as they were (turn on Overwrite to replace them).");
+                return new JobOutcome(JobStatus.Warning, $"{moved} extracted, {kept} kept", stats);
+            }
+
+            if (s.ArchiveDeleteOriginals)
+            {
+                c.Report.SetStage("Removing the archive");
+                FileRemover.Remove(Formats.ArchiveExtractor.ArchiveVolumes(archive), s.UseRecycleBin, c.Log);
+            }
+
+            c.Log.Success($"{Path.GetFileName(archive)}: extracted {moved} item(s) in {sw.Elapsed:mm\\:ss\\.f}");
+            var where = s.ArchiveExtractToOwnFolder ? Path.GetFileName(destination) + Path.DirectorySeparatorChar : "output folder";
+            return new JobOutcome(JobStatus.Succeeded, $"{moved} item(s) → {where}", stats);
+        }
+        finally
+        {
+            try { if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>
+    /// Moves everything under <paramref name="from"/> into <paramref name="to"/>,
+    /// merging folders. An existing file is replaced only when
+    /// <paramref name="overwrite"/> is on; otherwise it is kept and counted.
+    /// </summary>
+    private static (int Moved, int Kept) MoveEntries(string from, string to, bool overwrite, ILog log)
+    {
+        int moved = 0, kept = 0;
+        foreach (var dir in Directory.EnumerateDirectories(from))
+        {
+            var target = Path.Combine(to, Path.GetFileName(dir));
+            if (!Directory.Exists(target) && !File.Exists(target))
+            {
+                Directory.Move(dir, target);
+                moved++;
+                continue;
+            }
+            if (File.Exists(target))
+            {
+                if (!overwrite) { kept++; continue; }
+                File.Delete(target);
+                Directory.Move(dir, target);
+                moved++;
+                continue;
+            }
+            var (m, k) = MoveEntries(dir, target, overwrite, log); // merge into the existing folder
+            moved += m;
+            kept += k;
+        }
+        foreach (var file in Directory.EnumerateFiles(from))
+        {
+            var target = Path.Combine(to, Path.GetFileName(file));
+            if (Directory.Exists(target)) { kept++; continue; }
+            if (File.Exists(target) && !overwrite) { kept++; continue; }
+            File.Move(file, target, overwrite: true);
+            moved++;
+        }
+        return (moved, kept);
     }
 
     /// <summary>Tests a new archive (always, when originals are to be removed), then removes them.</summary>

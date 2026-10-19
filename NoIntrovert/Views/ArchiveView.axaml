@@ -41,17 +41,29 @@
                                    Text="Each archive is unpacked into the temp folder and packed again, keeping its folder layout. rar archives can be read but not written." />
                     </StackPanel>
 
-                    <TextBlock Text="COMPRESSION" Classes="section" />
-                    <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.ArchiveLevels}"
-                              SelectedItem="{Binding Settings.SelectedArchiveLevel}" HorizontalAlignment="Stretch" />
-                    <CheckBox Content="Solid 7z archive (smaller, slower to open one file)" IsChecked="{Binding Settings.ArchiveSolid}"
-                              IsVisible="{Binding Settings.IsSevenZipFormat}" />
+                    <!-- Extract -->
+                    <StackPanel Spacing="4" IsVisible="{Binding Settings.IsArchiveExtract}">
+                        <TextBlock Text="WHERE FILES GO" Classes="section" />
+                        <CheckBox Content="Put each archive in its own folder" IsChecked="{Binding Settings.ArchiveExtractToOwnFolder}"
+                                  ToolTip.Tip="game.7z unpacks into a folder called game. Off, the files go straight into the output folder." />
+                        <TextBlock Classes="hint"
+                                   Text="Files that already exist are kept unless Overwrite is on. 7-Zip checks every file's CRC while extracting, so a clean extraction also tests the archive." />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4" IsVisible="{Binding Settings.IsArchiveWriting}">
+                        <TextBlock Text="COMPRESSION" Classes="section" />
+                        <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.ArchiveLevels}"
+                                  SelectedItem="{Binding Settings.SelectedArchiveLevel}" HorizontalAlignment="Stretch" />
+                        <CheckBox Content="Solid 7z archive (smaller, slower to open one file)" IsChecked="{Binding Settings.ArchiveSolid}"
+                                  IsVisible="{Binding Settings.IsSevenZipFormat}" />
+                    </StackPanel>
 
                     <TextBlock Text="AFTERWARDS" Classes="section" />
                     <CheckBox Content="Test each new archive" IsChecked="{Binding Settings.ArchiveTestAfter}"
+                              IsVisible="{Binding Settings.IsArchiveWriting}"
                               ToolTip.Tip="Decompress every file in the new archive and check its CRC, as 7-Zip's Test does." />
-                    <CheckBox Content="Remove the originals" IsChecked="{Binding Settings.ArchiveDeleteOriginals}"
-                              ToolTip.Tip="Only after the new archive tests OK. Compressing removes the files and folders that went in; converting removes the old archive." />
+                    <CheckBox Content="{Binding Settings.ArchiveDeleteLabel}" IsChecked="{Binding Settings.ArchiveDeleteOriginals}"
+                              ToolTip.Tip="Only after success: compressing removes the files and folders that went in once the new archive tests OK; converting removes the old archive; extracting removes the archive once every file is out." />
                     <CheckBox Content="{Binding Settings.RecycleBinLabel}" IsChecked="{Binding Settings.UseRecycleBin}"
                               IsVisible="{Binding Settings.CanUseRecycleBin}" IsEnabled="{Binding Settings.ArchiveDeleteOriginals}" Margin="22,0,0,0" />
                     <TextBlock Classes="hint" Text="Removing originals always tests first, even if Test is off."

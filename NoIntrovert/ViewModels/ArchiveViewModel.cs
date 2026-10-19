@@ -27,21 +27,27 @@ public partial class ArchiveViewModel : BatchTabViewModel
     }
 
     private bool Converting => Settings.IsArchiveConvert;
+    private bool Extracting => Settings.IsArchiveExtract;
+
+    /// <summary>Converting and extracting both work on existing archives rather than on any file.</summary>
+    private bool TakesArchives => Converting || Extracting;
 
     public override string Title => "Archive";
-    public override string StartLabel => Converting ? "Convert archives" : "Create archives";
-    public override string EmptyHint => Converting
+    public override string StartLabel => Extracting ? "Extract archives" : Converting ? "Convert archives" : "Create archives";
+    public override string EmptyHint => Extracting
+        ? "Drop .zip, .7z or .rar archives (or folders holding them) here to unpack them."
+        : Converting
         ? "Drop .zip, .7z or .rar archives (or folders holding them) here to convert them to the other format."
         : "Drop files and folders here to pack them into .7z or .zip archives.\nEach folder you add stays one row; the grouping option decides how many archives it makes.";
-    protected override string FilterName => Converting ? "Archives" : "All files";
-    protected override IReadOnlyList<string> Patterns => Converting ? ["*.zip", "*.7z", "*.rar"] : ["*.*"];
+    protected override string FilterName => TakesArchives ? "Archives" : "All files";
+    protected override IReadOnlyList<string> Patterns => TakesArchives ? ["*.zip", "*.7z", "*.rar"] : ["*.*"];
 
     protected override bool Accepts(string path) =>
-        Converting ? ArchiveJobs.IsConvertible(path) : File.Exists(path) || Directory.Exists(path);
+        TakesArchives ? ArchiveJobs.IsConvertible(path) : File.Exists(path) || Directory.Exists(path);
 
-    /// <summary>Compressing keeps a folder as one row; converting adds the archives found in it.</summary>
+    /// <summary>Compressing keeps a folder as one row; converting and extracting add the archives found in it.</summary>
     protected override IEnumerable<string> ItemsForFolder(string folder) =>
-        Converting ? base.ItemsForFolder(folder) : [folder];
+        TakesArchives ? base.ItemsForFolder(folder) : [folder];
 
     protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
     {
@@ -50,25 +56,38 @@ public partial class ArchiveViewModel : BatchTabViewModel
             Log.Error($"Archive: {problem}");
             return false;
         }
-        if (Converting && pending.Any(i => !ArchiveJobs.IsConvertible(i.Path)))
-            Log.Warn("Archive: rows that aren't .zip, .7z or .rar files are skipped when converting.");
-        if (!Converting && Settings.IsSingleArchive && string.IsNullOrWhiteSpace(Settings.ArchiveSingleName))
+        if (TakesArchives && pending.Any(i => !ArchiveJobs.IsConvertible(i.Path)))
+            Log.Warn($"Archive: rows that aren't .zip, .7z or .rar files are skipped when {(Extracting ? "extracting" : "converting")}.");
+        if (Settings.IsArchiveCompress && Settings.IsSingleArchive && string.IsNullOrWhiteSpace(Settings.ArchiveSingleName))
         {
             Log.Error("Archive: give the combined archive a name first.");
             return false;
         }
         if (Settings.ArchiveDeleteOriginals)
-            Log.Warn($"Archive: originals will be {(Settings.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently")} after each archive tests OK.");
+        {
+            var fate = Settings.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently";
+            Log.Warn(Extracting
+                ? $"Archive: each archive will be {fate} after it extracts cleanly."
+                : $"Archive: originals will be {fate} after each archive tests OK.");
+        }
         return true;
     }
 
     /// <summary>"Everything into one archive" makes the whole list a single job.</summary>
     protected override IReadOnlyList<IReadOnlyList<JobItemViewModel>> GroupItems(IReadOnlyList<JobItemViewModel> pending) =>
-        !Converting && Settings.IsSingleArchive ? [pending] : base.GroupItems(pending);
+        Settings.IsArchiveCompress && Settings.IsSingleArchive ? [pending] : base.GroupItems(pending);
 
     protected override JobOutcome WorkGroup(JobContext context, IReadOnlyList<JobItemViewModel> group)
     {
         var s = context.Settings;
+        if (s.ArchiveAction == ArchiveAction.Extract)
+        {
+            var item = group[0];
+            return ArchiveJobs.IsConvertible(item.Path)
+                ? ArchiveJobs.Extract(context, item.Path)
+                : JobOutcome.Skipped("Not a zip, 7z or rar archive");
+        }
+
         if (s.ArchiveAction == ArchiveAction.Convert)
         {
             var item = group[0];

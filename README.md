@@ -12,7 +12,7 @@ Workflow on every tab: **pick files → choose options → run the batch → rea
 | Convert | Any supported image → CHD, optional verify, optional removal of the originals (Recycle Bin by default, and only after the CHD verifies) |
 | Verify | Checks CHDs against their stored SHA-1; can fix a wrong header SHA-1 |
 | Extract | CHD → cue/bin (one bin per track or a single bin), gdi, iso (DVDs, and single-track data CDs) or raw img |
-| Archive | Files and folders → .7z or .zip (one archive per item, one per file/subfolder in a folder, or one for everything), and zip ↔ 7z conversion; tests each archive and can remove the originals |
+| Archive | Files and folders → .7z or .zip (one archive per item, one per file/subfolder in a folder, or one for everything), zip ↔ 7z conversion, and extracting zip/7z/rar (into a folder per archive or straight into the output folder); tests each archive and can remove the originals |
 | CHD Info | Header fields, metadata (copy, save an item to a file), hunk counts per codec |
 | Library tests | Round trip (create → verify → extract → compare with the original data) and comparison with a chdman.exe (byte-for-byte output, timings); CSV export |
 
