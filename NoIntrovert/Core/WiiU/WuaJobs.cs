@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
+using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.Jobs;
 
 namespace NoIntrovert.Core.WiiU;
@@ -18,7 +19,9 @@ public static class WuaJobs
     /// The archive is written to a temporary file, verified, and only then
     /// moved into place (replacing an input .wua of the same name if needed).
     /// </summary>
-    public static JobOutcome Build(JobContext c, ulong baseId, IReadOnlyList<string> sources)
+    /// <param name="outputFolder">Where the .wua goes; by default the output folder setting or the first source's folder.</param>
+    /// <param name="removeSources">Whether "remove originals" may remove <paramref name="sources"/> (not when they were unpacked from an archive).</param>
+    public static JobOutcome Build(JobContext c, ulong baseId, IReadOnlyList<string> sources, string? outputFolder = null, bool removeSources = true)
     {
         var s = c.Settings;
         var log = c.Log;
@@ -42,7 +45,8 @@ public static class WuaJobs
 
         var name = chosen.FirstOrDefault(t => t.Kind is WiiUTitleKind.Game or WiiUTitleKind.Demo && t.Name.Length > 0)?.Name
             ?? chosen.FirstOrDefault(t => t.Name.Length > 0)?.Name ?? "";
-        var outputFolder = OutputPaths.FolderFor(s, sources[0]);
+        outputFolder ??= OutputPaths.FolderFor(s, sources[0]);
+        Directory.CreateDirectory(outputFolder);
         var output = Path.Combine(outputFolder, WiiUTitles.WuaFileName(baseId, name));
         var replacesInput = sources.Any(p => Path.GetFullPath(p).Equals(Path.GetFullPath(output), StringComparison.OrdinalIgnoreCase));
         if (File.Exists(output) && !replacesInput && !s.Overwrite)
@@ -94,7 +98,7 @@ public static class WuaJobs
         var stats = new OperationStats(sw.Elapsed, chosen.Sum(t => TitleSize(t, keys)), outputBytes);
         log.Info($"  wrote {Path.GetFileName(output)}: {hashes.Count} files, {ChdJobs.Size(stats.InputBytes)} → {ChdJobs.Size(outputBytes)} ({stats.Ratio:P1}) in {sw.Elapsed:mm\\:ss\\.f}");
 
-        if (s.WiiUDeleteOriginals)
+        if (s.WiiUDeleteOriginals && removeSources)
         {
             c.Report.SetStage("Removing originals");
             var originals = sources.Where(p => !Path.GetFullPath(p).Equals(Path.GetFullPath(output), StringComparison.OrdinalIgnoreCase))
@@ -105,6 +109,56 @@ public static class WuaJobs
         log.Success($"{Path.GetFileName(output)}: done and verified");
         var parts = string.Join(" + ", chosen.Select(t => t.KindText).Distinct());
         return new JobOutcome(JobStatus.Succeeded, $"{Path.GetFileName(output)} · {parts}", stats);
+    }
+
+    /// <summary>
+    /// A zip, 7z or tar holding Wii U games (a .wux, a .wua, title or NUS
+    /// folders): unpacked into the temp folder, then one .wua per game, written
+    /// next to the archive. "Remove originals" removes the archive once every
+    /// game in it is built and verified.
+    /// </summary>
+    public static JobOutcome BuildFromArchive(JobContext c, string archive)
+    {
+        var s = c.Settings;
+        Directory.CreateDirectory(s.EffectiveTempFolder);
+        using var work = new WorkDirectory(s.EffectiveTempFolder);
+
+        c.Band(0, 0.3);
+        c.Report.SetStage("Unpacking archive");
+        c.Log.Info($"Unpacking {Path.GetFileName(archive)}...");
+        using (var engine = new Archives.ArchiveEngine())
+            engine.Extract(archive, work.Path, c.Report.SetProgress, c.Token);
+
+        var sources = FormatRegistry.Default.Scan(work.Path, recursive: true, maxDepth: 6)
+            .Where(f => KnownFormats.WiiUBuildable.Contains(f.Format))
+            .Select(f => f.Primary)
+            .ToList();
+        if (sources.Count == 0) return JobOutcome.Skipped("No Wii U game inside the archive");
+
+        var keys = sources.Any(p => WiiUEncrypted.IsNusFolder(p) || WiiUEncrypted.IsDiscImage(p))
+            ? WiiUKeys.Load(s.WiiUKeysPath) : WiiUKeys.Empty;
+        var games = sources.SelectMany(p => WiiUTitles.Read(p, keys)).Select(t => t.BaseId).Distinct().ToList();
+        var outputFolder = OutputPaths.FolderFor(s, archive);
+
+        var outcomes = new List<JobOutcome>();
+        for (var i = 0; i < games.Count; i++)
+        {
+            c.Band(0.3 + 0.7 * i / games.Count, 0.7 / games.Count);
+            outcomes.Add(Build(c, games[i], sources, outputFolder, removeSources: false));
+        }
+
+        var built = outcomes.Where(o => o.Status is JobStatus.Succeeded or JobStatus.Warning).ToList();
+        if (s.WiiUDeleteOriginals && built.Count == outcomes.Count)
+        {
+            c.Report.SetStage("Removing the archive");
+            FileRemover.Remove([archive], s.UseRecycleBin, c.Log);
+        }
+        if (outcomes.Count == 1) return outcomes[0];
+        var failed = outcomes.Count(o => o.Status == JobStatus.Failed);
+        var stats = built.Select(o => o.Stats).OfType<OperationStats>()
+            .Aggregate((OperationStats?)null, (a, b) => a is null ? b : new OperationStats(a.Elapsed + b.Elapsed, a.InputBytes + b.InputBytes, a.OutputBytes + b.OutputBytes));
+        return new JobOutcome(failed > 0 ? JobStatus.Failed : built.Count == outcomes.Count ? JobStatus.Succeeded : JobStatus.Warning,
+            $"{built.Count} of {outcomes.Count} games built" + (failed > 0 ? $", {failed} failed" : ""), stats);
     }
 
     /// <summary>What removing a source means: a split WUD is all of its parts.</summary>

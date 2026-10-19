@@ -1,3 +1,4 @@
+using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.Jobs;
 
 namespace NoIntrovert.Core.Archives;
@@ -53,11 +54,29 @@ public static class ArchiveJobs
         }
 
         var inputBytes = inputs.Sum(SizeOf);
-        c.Log.Info($"Compressing {Describe(inputs)} → {Path.GetFileName(output)} ({FormatName(s.ArchiveFormat)}, {s.ArchiveLevel})");
+
+        // Already-compressed files (CHD, RVZ, 7z, ...) don't get smaller: one on its own is
+        // left alone, and a set that's nearly all compressed is stored, not compressed again.
+        var level = s.ArchiveLevel;
+        var packedBytes = CompressedBytes(inputs);
+        if (inputs.Count == 1 && File.Exists(inputs[0]) && KnownFormats.IsAlreadyCompressed(inputs[0]))
+        {
+            var ext = Path.GetExtension(inputs[0]).TrimStart('.').ToUpperInvariant();
+            var hint = ext is "ZIP" or "7Z" ? " Use Convert to switch between zip and 7z." : "";
+            c.Log.Info($"  {Path.GetFileName(inputs[0])} is already compressed ({ext}); a {FormatName(s.ArchiveFormat)} wouldn't make it smaller, so it's skipped.{hint}");
+            return JobOutcome.Skipped($"Already compressed ({ext})");
+        }
+        if (level != ArchiveLevel.Store && inputBytes > 0 && packedBytes >= 0.9 * inputBytes)
+        {
+            level = ArchiveLevel.Store;
+            c.Log.Info($"  {packedBytes * 100 / inputBytes}% of {Describe(inputs)} is already compressed; storing it without compressing again.");
+        }
+
+        c.Log.Info($"Compressing {Describe(inputs)} → {Path.GetFileName(output)} ({FormatName(s.ArchiveFormat)}, {level})");
         var sw = System.Diagnostics.Stopwatch.StartNew();
         using var engine = new ArchiveEngine();
-        c.Report.SetStage("Compressing");
-        engine.Compress(s.ArchiveFormat, s.ArchiveLevel, s.ThreadsPerJob, s.ArchiveSolid, inputs, output,
+        c.Report.SetStage(level == ArchiveLevel.Store ? "Storing" : "Compressing");
+        engine.Compress(s.ArchiveFormat, level, s.ThreadsPerJob, s.ArchiveSolid, inputs, output,
             contentsOnly: false, c.Report.SetProgress, c.Token);
         sw.Stop();
 
@@ -307,6 +326,22 @@ public static class ArchiveJobs
         File.Exists(entry) && Path.GetExtension(entry).Equals(Extension(format), StringComparison.OrdinalIgnoreCase);
 
     public static string FormatName(ArchiveFormat format) => format == ArchiveFormat.Zip ? "zip" : "7z";
+
+    /// <summary>The bytes in <paramref name="inputs"/> (files, and files inside folders) that are already compressed.</summary>
+    public static long CompressedBytes(IEnumerable<string> inputs)
+    {
+        long total = 0;
+        foreach (var input in inputs)
+        {
+            var files = Directory.Exists(input) ? Directory.EnumerateFiles(input, "*", SearchOption.AllDirectories) : [input];
+            foreach (var f in files.Where(KnownFormats.IsAlreadyCompressed))
+            {
+                try { total += new FileInfo(f).Length; }
+                catch (IOException) { }
+            }
+        }
+        return total;
+    }
 
     public static long SizeOf(string path)
     {

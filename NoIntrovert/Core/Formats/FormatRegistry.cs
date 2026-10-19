@@ -17,9 +17,15 @@ public sealed class FormatInfo(string id, string name, params string[] extension
 
 /// <summary>
 /// One input as the scan found it: the path to work on and every file that
-/// belongs to it (a cue and its bins, a .001 and its parts).
+/// belongs to it (a cue and its bins, a .001 and its parts). For an archive,
+/// <paramref name="Inside"/> lists the formats of the files in it; null when
+/// it isn't an archive or its list couldn't be read.
 /// </summary>
-public sealed record FileSet(string Primary, IReadOnlyList<string> Members, FormatInfo Format);
+public sealed record FileSet(string Primary, IReadOnlyList<string> Members, FormatInfo Format, IReadOnlyList<FormatInfo>? Inside = null)
+{
+    /// <summary>Whether this is an archive known to hold one of <paramref name="formats"/>.</summary>
+    public bool Holds(IEnumerable<FormatInfo> formats) => Inside is { } inside && inside.Any(formats.Contains);
+}
 
 /// <summary>
 /// Knows one family of formats: how to recognise a path, and which of the
@@ -106,6 +112,16 @@ public sealed class FormatRegistry
         if (Directory.Exists(path))
             return _handlers.Select(h => h.RecognizeFolder(path)).FirstOrDefault(f => f is not null);
         return _handlers.Select(h => h.Recognize(path)).FirstOrDefault(f => f is not null);
+    }
+
+    /// <summary>One path as a scan would see it on its own (an archive looked into), or null.</summary>
+    public FileSet? Identify(string path)
+    {
+        var full = ScanSet.Normalize(path);
+        if (Directory.Exists(full))
+            return _handlers.Select(h => h.RecognizeFolder(full)).FirstOrDefault(f => f is not null) is { } folder
+                ? new FileSet(full, [full], folder) : null;
+        return Claim(new ScanSet([full])).FirstOrDefault(s => s.Primary.Equals(full, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>Lets every handler claim from <paramref name="set"/>, highest priority first, sorted by path.</summary>

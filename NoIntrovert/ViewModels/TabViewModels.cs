@@ -20,6 +20,9 @@ public partial class ConvertViewModel(SettingsViewModel settings, LogViewModel l
         "GameCube/Wii: iso · gcm · gcz · wia · rvz · tgc (to RVZ or CHD)";
     protected override string FilterName => "Disc images and archives";
     protected override IReadOnlyList<FormatInfo> InputFormats => KnownFormats.DiscInputs;
+
+    /// <summary>An archive only when it holds a disc image (or its list couldn't be read): a zip of cartridge ROMs isn't listed.</summary>
+    protected override bool Takes(FileSet set) => KnownFormats.TakesDisc(set);
     protected override JobOutcome Work(JobContext context, JobItemViewModel item) => ChdJobs.Convert(context, item.Path);
 
     protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
@@ -72,6 +75,7 @@ public partial class TestsViewModel : BatchTabViewModel
         "Compare: create with libchdman and a chdman executable, then compare the CHDs byte for byte.";
     protected override string FilterName => "Disc images and archives";
     protected override IReadOnlyList<FormatInfo> InputFormats => KnownFormats.DiscInputs;
+    protected override bool Takes(FileSet set) => KnownFormats.TakesDisc(set);
 
     public static IReadOnlyList<Choice<TestKind>> TestChoices { get; } =
     [
