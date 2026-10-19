@@ -834,15 +834,15 @@ Test("Wii U: folder scan finds titles and .wua files, not folders inside titles"
     return found.SequenceEqual(["DLC", "Game", "Update v32"]) ? null : string.Join(", ", found);
 });
 
-Test("Wii U: encrypted and disc formats are named, not guessed at", () =>
+Test("Wii U: inputs it can't use are named, not guessed at", () =>
 {
     var dir = Dir("wiiu-unsupported");
-    var nus = Directory.CreateDirectory(Path.Combine(dir, "nus")).FullName;
+    var nus = Directory.CreateDirectory(Path.Combine(dir, "nus-without-ticket")).FullName;
     File.WriteAllBytes(Path.Combine(nus, "title.tmd"), [0]);
-    File.WriteAllBytes(Path.Combine(dir, "game.wux"), [0]);
+    File.WriteAllBytes(Path.Combine(dir, "app.wuhb"), [0]);
     var a = NoIntrovert.Core.WiiU.WiiUTitles.UnsupportedReason(nus);
-    var b = NoIntrovert.Core.WiiU.WiiUTitles.UnsupportedReason(Path.Combine(dir, "game.wux"));
-    return a is not null && b is not null && a.Contains("NUS") && b.Contains("WUX") ? null : $"{a} / {b}";
+    var b = NoIntrovert.Core.WiiU.WiiUTitles.UnsupportedReason(Path.Combine(dir, "app.wuhb"));
+    return a is not null && b is not null && a.Contains("title.tik") && b.Contains("WUHB") ? null : $"{a} / {b}";
 });
 
 Test("Wii U: remove the originals once the .wua verifies", () =>
@@ -852,6 +852,112 @@ Test("Wii U: remove the originals once the .wua verifies", () =>
     var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010202D00, [game]), s => { s.WiiUDeleteOriginals = true; s.UseRecycleBin = false; });
     return o.Status == JobStatus.Succeeded && !Directory.Exists(game) && File.Exists(Path.Combine(dir, "Other Game [0005000010202D00].wua"))
         ? null : $"{o.Status} {o.Summary}; folder still there: {Directory.Exists(game)}";
+});
+
+// ---- Wii U encrypted: NUS titles and WUD/WUX disc images (made-up keys) -----------
+
+var encKeys = EncryptedSample.MakeKeys(42);
+var encDir = Dir("wiiu-enc");
+var encKeysTxt = Path.Combine(encDir, "keys.txt");
+EncryptedSample.WriteKeysTxt(encKeysTxt, encKeys.Disc, encKeys.Common);
+const ulong encBase = 0x0005000010303E00, encUpdate = 0x0005000E10303E00;
+var encTree = WiiUSample.MakeTitle(Path.Combine(encDir, "plain-game"), encBase, 0, "Encrypted Game", 21);
+var encUpdateTree = WiiUSample.MakeTitle(Path.Combine(encDir, "plain-update"), encUpdate, 16, "Encrypted Game", 22);
+var nusGame = EncryptedSample.MakeNus(encTree, Path.Combine(encDir, "nus-game"), encBase, 0, encKeys);
+var nusUpdate = EncryptedSample.MakeNus(encUpdateTree, Path.Combine(encDir, "nus-update"), encUpdate, 16, encKeys);
+var wudBytes = EncryptedSample.MakeWud(encTree, encBase, encKeys);
+var wudPath = Path.Combine(Dir("wiiu-wud"), "game.wud");
+File.WriteAllBytes(wudPath, wudBytes);
+
+string? EncryptedBuild(string label, IReadOnlyList<string> sources, Action<AppSettings>? configure, params (string Folder, string Tree)[] expect)
+{
+    var outDir = Dir("wiiu-enc-out-" + label);
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, encBase, sources),
+        s => { s.OutputFolder = outDir; s.WiiUKeysPath = encKeysTxt; configure?.Invoke(s); });
+    if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+    var wua = Directory.GetFiles(outDir, "*.wua").Single();
+    var unpacked = Path.Combine(outDir, "unpacked");
+    WiiUSample.Unpack(wua, unpacked);
+    foreach (var (folder, tree) in expect)
+        if (SameTree(tree, Path.Combine(unpacked, folder)) is { } p) return $"{folder}: {p}";
+    var folders = Directory.GetDirectories(unpacked).Select(Path.GetFileName).OrderBy(n => n).ToList();
+    if (!folders.SequenceEqual(expect.Select(e => e.Folder).OrderBy(n => n))) return $"title folders {string.Join(", ", folders)}";
+    return Note(o.Summary);
+}
+
+Test("Wii U keys.txt: comments, separators and bad lines", () =>
+{
+    var path = Path.Combine(encDir, "keys-format.txt");
+    File.WriteAllText(path, $"# comment\n{Convert.ToHexString(encKeys.Common).ToLowerInvariant()} # common\n\n" +
+        $"{string.Join("-", Convert.ToHexString(encKeys.Disc).Chunk(8).Select(c => new string(c)))} ; disc\nnot-a-key\n");
+    var k = NoIntrovert.Core.WiiU.WiiUKeys.Load(path);
+    return k.Keys.Count == 2 && k.Problems.Count == 1 ? null : $"{k.Keys.Count} keys, {k.Problems.Count} problems";
+});
+
+Test("Wii U NUS: decrypts to the original files", () =>
+    EncryptedBuild("nus", [nusGame], null, ("0005000010303e00_v0", encTree)));
+
+Test("Wii U NUS: game + update become one .wua", () =>
+    EncryptedBuild("nus-update", [nusGame, nusUpdate], null, ("0005000010303e00_v0", encTree), ("0005000e10303e00_v16", encUpdateTree)));
+
+Test("Wii U WUD: decrypts the game partition", () =>
+    EncryptedBuild("wud", [wudPath], null, ("0005000010303e00_v0", encTree)));
+
+Test("Wii U WUX: decompresses and decrypts", () =>
+{
+    var wux = Path.Combine(Dir("wiiu-wux"), "game.wux");
+    File.WriteAllBytes(wux, EncryptedSample.ToWux(wudBytes));
+    var smaller = new FileInfo(wux).Length < wudBytes.Length;
+    return smaller ? EncryptedBuild("wux", [wux], null, ("0005000010303e00_v0", encTree)) : "WUX isn't smaller than the WUD";
+});
+
+Test("Wii U WUD: a dump split into parts", () =>
+{
+    var dir = Dir("wiiu-split");
+    var half = wudBytes.Length / 2 / EncryptedSample.Sector * EncryptedSample.Sector;
+    File.WriteAllBytes(Path.Combine(dir, "game_part1.wud"), wudBytes[..half]);
+    File.WriteAllBytes(Path.Combine(dir, "game_part2.wud"), wudBytes[half..]);
+    var found = NoIntrovert.Core.WiiU.WiiUTitles.FindSources(dir, true).Select(Path.GetFileName).ToList();
+    if (!found.SequenceEqual(["game_part1.wud"])) return $"scan found {string.Join(", ", found)}";
+    return EncryptedBuild("split", [Path.Combine(dir, "game_part1.wud")], null, ("0005000010303e00_v0", encTree));
+});
+
+Test("Wii U WUD: the disc key can come from game.key", () =>
+{
+    var dir = Dir("wiiu-keyfile");
+    File.Copy(wudPath, Path.Combine(dir, "game.wud"));
+    File.WriteAllBytes(Path.Combine(dir, "game.key"), encKeys.Disc);
+    var onlyCommon = Path.Combine(dir, "keys.txt");
+    EncryptedSample.WriteKeysTxt(onlyCommon, encKeys.Common);
+    return EncryptedBuild("keyfile", [Path.Combine(dir, "game.wud")], s => s.WiiUKeysPath = onlyCommon, ("0005000010303e00_v0", encTree));
+});
+
+Test("Wii U: missing keys are reported, not guessed", () =>
+{
+    var wrong = Path.Combine(encDir, "wrong-keys.txt");
+    EncryptedSample.WriteKeysTxt(wrong, new byte[16], Enumerable.Repeat((byte)0x5A, 16).ToArray());
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, encBase, [nusGame]), s => { s.OutputFolder = Dir("wiiu-wrongkeys"); s.WiiUKeysPath = wrong; });
+    return o.Status == JobStatus.Failed && o.Summary.Contains("keys.txt") ? Note(o.Summary) : $"{o.Status}: {o.Summary}";
+});
+
+Test("Wii U NUS: a damaged hashed block is caught", () =>
+{
+    var bad = Path.Combine(encDir, "nus-damaged");
+    WiiUSample.CopyTree(nusGame, bad);
+    var app = Path.Combine(bad, "00000002.app");
+    var bytes = File.ReadAllBytes(app);
+    bytes[0x400 + 100] ^= 0x01;
+    File.WriteAllBytes(app, bytes);
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, encBase, [bad]), s => { s.OutputFolder = Dir("wiiu-damaged"); s.WiiUKeysPath = encKeysTxt; });
+    return o.Status == JobStatus.Failed && o.Summary.Contains("hash") && Directory.GetFiles(Path.Combine(scratch, "wiiu-damaged")).Length == 0
+        ? Note(o.Summary) : $"{o.Status}: {o.Summary}";
+});
+
+Test("Wii U NUS: a personalised ticket is refused", () =>
+{
+    var personal = EncryptedSample.MakeNus(encTree, Path.Combine(encDir, "nus-personal"), encBase, 0, encKeys, deviceId: 0x12345678);
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, encBase, [personal]), s => { s.OutputFolder = Dir("wiiu-personal"); s.WiiUKeysPath = encKeysTxt; });
+    return o.Status == JobStatus.Failed && o.Summary.Contains("personalised") ? null : $"{o.Status}: {o.Summary}";
 });
 
 // ---- GameCube / Wii (libdolphinrvz) ---------------------------------------------

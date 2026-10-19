@@ -24,7 +24,9 @@ public static class WuaJobs
         var log = c.Log;
 
         // Every title from every source, then the newest of each title ID.
-        var all = sources.SelectMany(WiiUTitles.Read).Where(t => t.BaseId == baseId).ToList();
+        var keys = sources.Any(p => WiiUEncrypted.IsNusFolder(p) || WiiUEncrypted.IsDiscImage(p))
+            ? WiiUKeys.Load(s.WiiUKeysPath) : WiiUKeys.Empty;
+        var all = sources.SelectMany(p => WiiUTitles.Read(p, keys)).Where(t => t.BaseId == baseId).ToList();
         if (all.Count == 0) return JobOutcome.Skipped("No titles for this game");
         var chosen = all.GroupBy(t => t.TitleId)
             .Select(g =>
@@ -50,7 +52,7 @@ public static class WuaJobs
         }
 
         log.Info($"Building {Path.GetFileName(output)}: {string.Join(", ", chosen.Select(t => $"{t.KindText} v{t.Version}"))}");
-        foreach (var t in chosen) log.Debug($"  {t.ArchiveFolder} ← {t.SourcePath}{(t.FromWua ? $" ({t.WuaFolder})" : "")}");
+        foreach (var t in chosen) log.Debug($"  {t.ArchiveFolder} ← {t.SourcePath}{(t.FromWua ? $" ({t.WuaFolder})" : t.IsEncrypted ? $" ({t.Source}, decrypted)" : "")}");
 
         var temp = output + $".{Guid.NewGuid().ToString("N")[..8]}.tmp";
         var sw = Stopwatch.StartNew();
@@ -58,7 +60,7 @@ public static class WuaJobs
         long inputBytes = 0;
         try
         {
-            var total = Math.Max(1, chosen.Sum(TitleSize));
+            var total = Math.Max(1, chosen.Sum(t => TitleSize(t, keys)));
             long done = 0;
             c.Report.SetStage("Packing");
             using (var writer = new ZArchiveWriter(temp))
@@ -69,6 +71,7 @@ public static class WuaJobs
                     writer.AddDirectory(title.ArchiveFolder);
                     void Progress(long n) { done += n; c.Report.SetProgress(0.85 * done / total); }
                     if (title.FromWua) CopyFromWua(writer, title, hashes, Progress, c.Token);
+                    else if (title.IsEncrypted) CopyFromEncrypted(writer, title, keys, hashes, Progress, c, c.Token);
                     else CopyFromFolder(writer, title, hashes, Progress, c.Token);
                 }
                 inputBytes = (long)writer.InputBytes;
@@ -88,19 +91,32 @@ public static class WuaJobs
         }
 
         var outputBytes = new FileInfo(output).Length;
-        var stats = new OperationStats(sw.Elapsed, chosen.Sum(TitleSize), outputBytes);
+        var stats = new OperationStats(sw.Elapsed, chosen.Sum(t => TitleSize(t, keys)), outputBytes);
         log.Info($"  wrote {Path.GetFileName(output)}: {hashes.Count} files, {ChdJobs.Size(stats.InputBytes)} → {ChdJobs.Size(outputBytes)} ({stats.Ratio:P1}) in {sw.Elapsed:mm\\:ss\\.f}");
 
         if (s.WiiUDeleteOriginals)
         {
             c.Report.SetStage("Removing originals");
-            var originals = sources.Where(p => !Path.GetFullPath(p).Equals(Path.GetFullPath(output), StringComparison.OrdinalIgnoreCase));
+            var originals = sources.Where(p => !Path.GetFullPath(p).Equals(Path.GetFullPath(output), StringComparison.OrdinalIgnoreCase))
+                .SelectMany(OriginalFiles);
             FileRemover.Remove(originals, s.UseRecycleBin, log);
         }
 
         log.Success($"{Path.GetFileName(output)}: done and verified");
         var parts = string.Join(" + ", chosen.Select(t => t.KindText).Distinct());
         return new JobOutcome(JobStatus.Succeeded, $"{Path.GetFileName(output)} · {parts}", stats);
+    }
+
+    /// <summary>What removing a source means: a split WUD is all of its parts.</summary>
+    private static IEnumerable<string> OriginalFiles(string source)
+    {
+        var m = WiiUEncrypted.SplitPart().Match(Path.GetFileName(source));
+        if (!m.Success || !File.Exists(source)) return [source];
+        var dir = Path.GetDirectoryName(source)!;
+        var parts = new List<string>();
+        for (var i = 1; File.Exists(Path.Combine(dir, $"{m.Groups[1].Value}_part{i}.wud")); i++)
+            parts.Add(Path.Combine(dir, $"{m.Groups[1].Value}_part{i}.wud"));
+        return parts;
     }
 
     private static void CopyFromFolder(ZArchiveWriter writer, WiiUTitle title, Dictionary<string, byte[]> hashes,
@@ -173,8 +189,55 @@ public static class WuaJobs
         progress?.Invoke(1);
     }
 
-    private static long TitleSize(WiiUTitle title)
+    /// <summary>
+    /// Decrypts an NUS title or a disc's game partition straight into the
+    /// archive. Hashed clusters are checked block by block as they're read;
+    /// an NUS title's raw contents are first checked against its TMD.
+    /// </summary>
+    private static void CopyFromEncrypted(ZArchiveWriter writer, WiiUTitle title, WiiUKeys keys, Dictionary<string, byte[]> hashes,
+        Action<long> progress, JobContext c, CancellationToken token)
     {
+        using var opened = WiiUTitles.OpenEncrypted(title.SourcePath, title.Source, keys);
+        if (opened.Contents is { } contents)
+        {
+            c.Report.SetStage($"Checking {title.KindText} contents");
+            var n = opened.Volume.VerifyRawClusters(contents, null, token);
+            c.Log.Debug($"  {title.ArchiveFolder}: {n} raw content(s) match the TMD");
+            c.Report.SetStage("Packing");
+        }
+        var links = 0;
+        foreach (var entry in opened.Volume.Entries)
+        {
+            token.ThrowIfCancellationRequested();
+            var path = title.ArchiveFolder + "/" + entry.Path;
+            if (entry.IsDirectory)
+            {
+                writer.AddDirectory(path);
+                continue;
+            }
+            if (entry.IsLink)
+            {
+                links++;
+                continue;
+            }
+            using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            writer.AddFile(path, sink =>
+            {
+                using var tee = new TeeStream(sink, sha);
+                opened.Volume.Copy(entry, tee, progress, token);
+            });
+            hashes[path] = sha.GetHashAndReset();
+        }
+        if (links > 0) c.Log.Warn($"  {title.ArchiveFolder}: skipped {links} linked file entr{(links == 1 ? "y" : "ies")} (they point at data elsewhere on the disc)");
+    }
+
+    private static long TitleSize(WiiUTitle title, WiiUKeys keys)
+    {
+        if (title.IsEncrypted)
+        {
+            using var opened = WiiUTitles.OpenEncrypted(title.SourcePath, title.Source, keys);
+            return opened.Volume.Entries.Where(e => !e.IsDirectory && !e.IsLink).Sum(e => e.Size);
+        }
         if (!title.FromWua) return Archives.ArchiveJobs.SizeOf(title.SourcePath);
         using var reader = ZArchiveReader.Open(title.SourcePath);
         var folder = reader.Find(title.WuaFolder!);

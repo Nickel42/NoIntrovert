@@ -15,14 +15,14 @@ public partial class WiiUViewModel(SettingsViewModel settings, LogViewModel log,
     public override string Title => "Wii U";
     public override string StartLabel => "Build .wua files";
     public override string EmptyHint =>
-        "Drop Wii U title folders (with code, content and meta inside) or .wua files here, or a folder that holds them.\n" +
+        "Drop Wii U games here: extracted title folders (code, content, meta), NUS folders (title.tmd, title.tik, .app),\n" +
+        "WUD/WUX disc images or .wua files, or a folder that holds them.\n" +
         "Everything that belongs to the same game (base, update, DLC) goes into one .wua.";
     protected override string FilterName => "Wii U archives";
     protected override IReadOnlyList<string> Patterns { get; } = ["*.wua", "*.wud", "*.wux", "*.wuhb"];
 
     protected override bool Accepts(string path) =>
-        WiiUTitles.IsWua(path) || WiiUTitles.UnsupportedReason(path) is not null ||
-        (Directory.Exists(path) && WiiUTitles.IsTitleFolder(path));
+        WiiUTitles.IsSource(path) || WiiUTitles.UnsupportedReason(path) is not null;
 
     protected override IEnumerable<string> ItemsForFolder(string folder) =>
         WiiUTitles.FindSources(folder, Settings.ScanSubfolders);
@@ -36,6 +36,13 @@ public partial class WiiUViewModel(SettingsViewModel settings, LogViewModel log,
     {
         _baseIds.Clear();
         _problems.Clear();
+        var keys = WiiUKeys.Empty;
+        if (pending.Any(i => WiiUEncrypted.IsNusFolder(i.Path) || WiiUEncrypted.IsDiscImage(i.Path)))
+        {
+            keys = WiiUKeys.Load(Settings.Snapshot().WiiUKeysPath);
+            Log.Info($"Wii U: {keys.Describe()}");
+            foreach (var problem in keys.Problems) Log.Warn($"Wii U: {problem}");
+        }
         var groups = new List<IReadOnlyList<JobItemViewModel>>();
         var byGame = new Dictionary<ulong, List<JobItemViewModel>>();
         foreach (var item in pending)
@@ -48,14 +55,15 @@ public partial class WiiUViewModel(SettingsViewModel settings, LogViewModel log,
             }
             try
             {
-                var titles = WiiUTitles.Read(item.Path);
+                var titles = WiiUTitles.Read(item.Path, keys);
                 foreach (var baseId in titles.Select(t => t.BaseId).Distinct().Skip(1))
                     Log.Warn($"Wii U: {item.Name} holds more than one game; only the first ({titles[0].BaseId:X16}) is built from it.");
                 var id = titles[0].BaseId;
                 if (!byGame.TryGetValue(id, out var list)) byGame[id] = list = [];
                 list.Add(item);
             }
-            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException
+                                           or KeyNotFoundException or NotSupportedException)
             {
                 _problems[item.Path] = "!" + ex.Message;
                 groups.Add([item]);

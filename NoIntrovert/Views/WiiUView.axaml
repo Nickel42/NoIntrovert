@@ -16,13 +16,23 @@
 
                     <TextBlock Text="WHAT IT READS" Classes="section" />
                     <TextBlock Classes="hint"
-                               Text="• Extracted title folders (code, content and meta inside)&#10;• .wua files, to merge in an update or DLC, or to repack" />
+                               Text="• Extracted title folders (code, content and meta inside)&#10;• NUS / installable titles (title.tmd, title.tik, .app files)&#10;• WUD and WUX disc images, including split game_part1.wud dumps&#10;• .wua files, to merge in an update or DLC, or to repack" />
+
+                    <TextBlock Text="KEYS" Classes="section" />
                     <TextBlock Classes="hint"
-                               Text="Encrypted NUS folders and WUD/WUX disc images aren't supported yet; they're listed and skipped." />
+                               Text="Encrypted titles and disc images need your own keys.txt (the same file Cemu uses: the Wii U common key and your discs' keys). NoIntrovert doesn't include any keys." />
+                    <TextBlock Classes="hint" Text="{Binding Settings.WiiUKeysSummary}" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button Classes="tool" Content="Choose keys.txt…" Command="{Binding Settings.BrowseWiiUKeysCommand}" />
+                        <Button Classes="tool" Content="Find automatically" Command="{Binding Settings.FindWiiUKeysAutomaticallyCommand}" />
+                        <Button Classes="tool" Content="Refresh" Command="{Binding Settings.RefreshWiiUKeysCommand}" />
+                    </StackPanel>
+                    <TextBlock Classes="hint"
+                               Text="A disc key can also sit next to its image as game.key (16 bytes)." />
 
                     <TextBlock Text="CHECKS" Classes="section" />
                     <TextBlock Classes="hint"
-                               Text="Every new .wua is reopened, its SHA-256 checked, and every file decompressed and compared with its source before it replaces anything." />
+                               Text="Encrypted data is checked as it's decrypted (every hashed block, and NUS contents against their TMD). Every new .wua is then reopened, its SHA-256 checked, and every file decompressed and compared with its source before it replaces anything." />
 
                     <TextBlock Text="AFTERWARDS" Classes="section" />
                     <CheckBox Content="Remove the originals once the .wua verifies" IsChecked="{Binding Settings.WiiUDeleteOriginals}"

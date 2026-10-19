@@ -106,17 +106,29 @@ licenses.
 
 The Wii U tab builds Cemu's `.wua` format: a [ZArchive](https://github.com/Exzap/ZArchive)
 (zstd in 64 KiB blocks, random access) holding each title in a
-`<16-hex title ID>_v<version>` folder. It reads extracted title folders
-(`code`, `content`, `meta`) and existing `.wua` files, and writes one `.wua`
-per game with the base game, its newest update and its DLC, so it can also
-merge an update into a `.wua` or repack one. The ZArchive writer and reader
-are NoIntrovert's own C# (`NoIntrovert/Core/WiiU/ZArchive.cs`), checked in
-CI against Exzap's reference `zarchive` tool in both directions. Every new
-`.wua` is reopened, its SHA-256 checked and every file compared with its
-source before it replaces anything.
+`<16-hex title ID>_v<version>` folder. It writes one `.wua` per game with the
+base game, its newest update and its DLC, from any mix of:
 
-Not yet: encrypted NUS folders and WUD/WUX disc images (they need the Wii U
-keys, which NoIntrovert will read from your own `keys.txt` and never ships).
+- extracted title folders (`code`, `content`, `meta`)
+- NUS / installable titles (`title.tmd`, `title.tik`, `.app`)
+- WUD and WUX disc images, including split `game_part1.wud` dumps
+- existing `.wua` files (to merge in an update or DLC, or to repack)
+
+Encrypted titles and discs need your own `keys.txt`, in Cemu's format (one
+32-digit hex key per line, `#` comments). NoIntrovert ships no keys. It
+looks in its own settings folder and Cemu's, or uses a file you choose; a
+disc key can also sit next to its image as `game.key`. Every key is tried
+and the one that decrypts a valid header is used, so the order doesn't
+matter. Personalised (console-bound) tickets aren't supported.
+
+Data is checked as it's decrypted (every hashed block against its H0 hash,
+NUS raw contents against their TMD hash), and every new `.wua` is reopened,
+its SHA-256 checked and every file compared with its source before it
+replaces anything. The ZArchive writer and reader are NoIntrovert's own C#
+(`NoIntrovert/Core/WiiU/`), checked in CI against Exzap's reference
+`zarchive` tool in both directions. The encrypted-format tests use synthetic
+images with made-up keys, so try a real dump of your own before relying on
+it.
 
 ## App icon
 

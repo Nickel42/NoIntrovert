@@ -6,11 +6,14 @@ namespace NoIntrovert.Core.WiiU;
 
 public enum WiiUTitleKind { Game, Update, Dlc, Demo, Other }
 
+/// <summary>Where a title's files come from.</summary>
+public enum WiiUSource { Folder, Wua, Nus, Disc }
+
 /// <summary>
 /// One Wii U title (a base game, an update or a DLC), found either as an
 /// extracted folder (code/content/meta) or as a title folder inside a .wua.
 /// </summary>
-public sealed record WiiUTitle(ulong TitleId, uint Version, string Name, string SourcePath, string? WuaFolder)
+public sealed record WiiUTitle(ulong TitleId, uint Version, string Name, string SourcePath, string? WuaFolder, WiiUSource Source = WiiUSource.Folder)
 {
     /// <summary>The base game's title ID: updates and DLC share its low 32 bits.</summary>
     public ulong BaseId => 0x0005000000000000UL | (TitleId & 0xFFFFFFFFUL);
@@ -27,7 +30,8 @@ public sealed record WiiUTitle(ulong TitleId, uint Version, string Name, string 
     /// <summary>The folder a .wua keeps this title in (Cemu's naming: 16 hex digits, _v, decimal version).</summary>
     public string ArchiveFolder => $"{TitleId:x16}_v{Version.ToString(CultureInfo.InvariantCulture)}";
 
-    public bool FromWua => WuaFolder is not null;
+    public bool FromWua => Source == WiiUSource.Wua;
+    public bool IsEncrypted => Source is WiiUSource.Nus or WiiUSource.Disc;
 
     public string KindText => Kind switch
     {
@@ -57,11 +61,9 @@ public static partial class WiiUTitles
     /// </summary>
     public static string? UnsupportedReason(string path)
     {
-        if (Directory.Exists(path) && File.Exists(Path.Combine(path, "title.tmd")))
-            return "Encrypted NUS/installable title (title.tmd); decrypting these isn't supported yet";
+        if (Directory.Exists(path) && File.Exists(Path.Combine(path, "title.tmd")) && !File.Exists(Path.Combine(path, "title.tik")))
+            return "NUS title without title.tik; its ticket is needed to decrypt it";
         var ext = Path.GetExtension(path).ToLowerInvariant();
-        if (File.Exists(path) && ext is ".wud" or ".wux")
-            return $"{ext[1..].ToUpperInvariant()} disc image; decrypting these isn't supported yet";
         if (File.Exists(path) && ext == ".wuhb")
             return "WUHB homebrew bundle; Cemu runs these directly, there is nothing to convert";
         return null;
@@ -74,7 +76,7 @@ public static partial class WiiUTitles
     public static List<string> FindSources(string folder, bool recursive, int maxDepth = 4)
     {
         var found = new List<string>();
-        if (IsTitleFolder(folder) || UnsupportedReason(folder) is not null)
+        if (IsTitleFolder(folder) || WiiUEncrypted.IsNusFolder(folder) || UnsupportedReason(folder) is not null)
         {
             found.Add(folder);
             return found;
@@ -95,20 +97,50 @@ public static partial class WiiUTitles
         {
             return;
         }
-        found.AddRange(files.Where(f => IsWua(f) || UnsupportedReason(f) is not null));
+        found.AddRange(files.Where(f => IsWua(f) || WiiUEncrypted.IsDiscImage(f) || UnsupportedReason(f) is not null));
         foreach (var dir in dirs)
         {
-            if (IsTitleFolder(dir) || UnsupportedReason(dir) is not null) found.Add(dir);
+            if (IsTitleFolder(dir) || WiiUEncrypted.IsNusFolder(dir) || UnsupportedReason(dir) is not null) found.Add(dir);
             else if (depth > 1) Scan(dir, depth - 1, found);
         }
     }
 
-    /// <summary>The titles in one source: a title folder (one title) or a .wua (any number).</summary>
-    public static List<WiiUTitle> Read(string path)
+    /// <summary>A source this tab can read: title folder, .wua, NUS folder or disc image.</summary>
+    public static bool IsSource(string path) =>
+        IsWua(path) || WiiUEncrypted.IsNusFolder(path) || WiiUEncrypted.IsDiscImage(path) ||
+        (Directory.Exists(path) && IsTitleFolder(path));
+
+    /// <summary>
+    /// The titles in one source: a title folder or NUS folder (one title), a
+    /// disc image (its game), or a .wua (any number). Encrypted sources need
+    /// <paramref name="keys"/>.
+    /// </summary>
+    public static List<WiiUTitle> Read(string path, WiiUKeys? keys = null)
     {
+        if (WiiUEncrypted.IsNusFolder(path)) return [FromEncrypted(path, WiiUSource.Nus, keys ?? WiiUKeys.Empty)];
+        if (WiiUEncrypted.IsDiscImage(path)) return [FromEncrypted(path, WiiUSource.Disc, keys ?? WiiUKeys.Empty)];
         if (Directory.Exists(path)) return [FromFolder(path)];
         if (IsWua(path)) return FromWua(path);
-        throw new InvalidDataException($"{Path.GetFileName(path)} is neither a Wii U title folder nor a .wua archive.");
+        throw new InvalidDataException($"{Path.GetFileName(path)} is not a Wii U title folder, NUS title, disc image or .wua archive.");
+    }
+
+    /// <summary>Opens an encrypted title just far enough to learn its ID, version and name.</summary>
+    internal static WiiUTitle FromEncrypted(string path, WiiUSource source, WiiUKeys keys)
+    {
+        using var title = OpenEncrypted(path, source, keys);
+        var meta = TryLoad(title.Volume, "meta/meta.xml");
+        var name = (Value(meta, "longname_en") ?? Value(meta, "shortname_en") ?? "").ReplaceLineEndings(" ").Trim();
+        return new WiiUTitle(title.TitleId, title.Version, name, path, null, source);
+    }
+
+    internal static EncryptedTitle OpenEncrypted(string path, WiiUSource source, WiiUKeys keys) =>
+        source == WiiUSource.Nus ? WiiUEncrypted.OpenNus(path, keys) : WiiUEncrypted.OpenDisc(path, keys);
+
+    private static XElement? TryLoad(FstVolume volume, string path)
+    {
+        if (volume.Find(path) is not { IsDirectory: false } entry || entry.Size > 1 << 20) return null;
+        try { return XDocument.Parse(System.Text.Encoding.UTF8.GetString(volume.ReadAll(entry))).Root; }
+        catch (System.Xml.XmlException) { return null; }
     }
 
     public static WiiUTitle FromFolder(string folder)
@@ -133,7 +165,7 @@ public static partial class WiiUTitles
             // The folder name is what Cemu goes by; trust it over the XML if they differ.
             var id = ulong.Parse(m.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
             var version = uint.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture);
-            titles.Add(new WiiUTitle(id, version, described?.Name ?? "", path, folder.Name));
+            titles.Add(new WiiUTitle(id, version, described?.Name ?? "", path, folder.Name, WiiUSource.Wua));
         }
         if (titles.Count == 0)
             throw new InvalidDataException($"{Path.GetFileName(path)} holds no Wii U title folders (expected <titleid>_v<version>).");

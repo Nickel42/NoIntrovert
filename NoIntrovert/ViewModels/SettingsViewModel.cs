@@ -305,6 +305,37 @@ public partial class SettingsViewModel : ViewModelBase
     public bool ArchiveDeleteOriginals { get => _s.ArchiveDeleteOriginals; set => Set(value, (s, v) => s.ArchiveDeleteOriginals = v); }
     public bool WiiUDeleteOriginals { get => _s.WiiUDeleteOriginals; set => Set(value, (s, v) => s.WiiUDeleteOriginals = v); }
 
+    public string WiiUKeysPath
+    {
+        get => _s.WiiUKeysPath;
+        set { Set(value, (s, v) => s.WiiUKeysPath = v); OnPropertyChanged(nameof(WiiUKeysSummary)); }
+    }
+
+    /// <summary>Which keys.txt the Wii U tab will use, and how many keys it holds.</summary>
+    public string WiiUKeysSummary
+    {
+        get
+        {
+            var keys = Core.WiiU.WiiUKeys.Load(_s.WiiUKeysPath);
+            return keys.Files.Count == 0
+                ? (string.IsNullOrWhiteSpace(_s.WiiUKeysPath) ? "No keys.txt found in NoIntrovert's or Cemu's folder." : $"{_s.WiiUKeysPath} doesn't exist.")
+                : $"{keys.Keys.Count} key(s) in {string.Join(", ", keys.Files)}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task BrowseWiiUKeys()
+    {
+        var file = await _dialogs.PickFileAsync("Choose your keys.txt", "Key files", ["keys.txt", "*.txt"]);
+        if (file is not null) WiiUKeysPath = file;
+    }
+
+    [RelayCommand]
+    private void FindWiiUKeysAutomatically() => WiiUKeysPath = "";
+
+    [RelayCommand]
+    private void RefreshWiiUKeys() => OnPropertyChanged(nameof(WiiUKeysSummary));
+
     public double WindowWidth { get => _s.WindowWidth; set => _s.WindowWidth = value; }
     public double WindowHeight { get => _s.WindowHeight; set => _s.WindowHeight = value; }
 

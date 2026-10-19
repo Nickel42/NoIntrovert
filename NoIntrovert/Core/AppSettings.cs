@@ -47,6 +47,7 @@ public sealed class AppSettings
 
     // Wii U (.wua)
     public bool WiiUDeleteOriginals { get; set; }
+    public string WiiUKeysPath { get; set; } = ""; // empty = look in the usual places
 
     // Performance
     public int ParallelJobs { get; set; } = 1;
