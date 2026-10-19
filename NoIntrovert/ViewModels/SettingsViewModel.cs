@@ -139,7 +139,7 @@ public partial class SettingsViewModel : ViewModelBase
     [
         new(Core.Archives.ArchiveAction.Compress, "Compress files and folders"),
         new(Core.Archives.ArchiveAction.Convert, "Convert archives (zip ↔ 7z)"),
-        new(Core.Archives.ArchiveAction.Extract, "Extract archives (zip, 7z, rar)"),
+        new(Core.Archives.ArchiveAction.Extract, "Extract archives (zip, 7z)"),
     ];
 
     public static IReadOnlyList<Choice<Core.Archives.ArchiveFormat>> ArchiveFormats { get; } =

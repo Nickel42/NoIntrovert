@@ -8,7 +8,7 @@ namespace NoIntrovert.ViewModels;
 
 /// <summary>
 /// The Archive tab: compress files and folders into 7z or zip, or convert
-/// zip/7z (and rar) archives into the other format, with 7-Zip's engine.
+/// zip/7z archives into the other format, with 7-Zip's engine.
 /// </summary>
 public partial class ArchiveViewModel : BatchTabViewModel
 {
@@ -35,12 +35,12 @@ public partial class ArchiveViewModel : BatchTabViewModel
     public override string Title => "Archive";
     public override string StartLabel => Extracting ? "Extract archives" : Converting ? "Convert archives" : "Create archives";
     public override string EmptyHint => Extracting
-        ? "Drop .zip, .7z or .rar archives (or folders holding them) here to unpack them."
+        ? "Drop .zip or .7z archives (or folders holding them) here to unpack them."
         : Converting
-        ? "Drop .zip, .7z or .rar archives (or folders holding them) here to convert them to the other format."
+        ? "Drop .zip or .7z archives (or folders holding them) here to convert them to the other format."
         : "Drop files and folders here to pack them into .7z or .zip archives.\nEach folder you add stays one row; the grouping option decides how many archives it makes.";
     protected override string FilterName => TakesArchives ? "Archives" : "All files";
-    protected override IReadOnlyList<string> Patterns => TakesArchives ? ["*.zip", "*.7z", "*.rar"] : ["*.*"];
+    protected override IReadOnlyList<string> Patterns => TakesArchives ? ["*.zip", "*.7z"] : ["*.*"];
 
     protected override bool Accepts(string path) =>
         TakesArchives ? ArchiveJobs.IsConvertible(path) : File.Exists(path) || Directory.Exists(path);
@@ -57,7 +57,7 @@ public partial class ArchiveViewModel : BatchTabViewModel
             return false;
         }
         if (TakesArchives && pending.Any(i => !ArchiveJobs.IsConvertible(i.Path)))
-            Log.Warn($"Archive: rows that aren't .zip, .7z or .rar files are skipped when {(Extracting ? "extracting" : "converting")}.");
+            Log.Warn($"Archive: rows that aren't .zip or .7z files are skipped when {(Extracting ? "extracting" : "converting")}.");
         if (Settings.IsArchiveCompress && Settings.IsSingleArchive && string.IsNullOrWhiteSpace(Settings.ArchiveSingleName))
         {
             Log.Error("Archive: give the combined archive a name first.");
@@ -85,7 +85,7 @@ public partial class ArchiveViewModel : BatchTabViewModel
             var item = group[0];
             return ArchiveJobs.IsConvertible(item.Path)
                 ? ArchiveJobs.Extract(context, item.Path)
-                : JobOutcome.Skipped("Not a zip, 7z or rar archive");
+                : JobOutcome.Skipped("Not a zip or 7z archive");
         }
 
         if (s.ArchiveAction == ArchiveAction.Convert)
@@ -93,7 +93,7 @@ public partial class ArchiveViewModel : BatchTabViewModel
             var item = group[0];
             return ArchiveJobs.IsConvertible(item.Path)
                 ? ArchiveJobs.Convert(context, item.Path)
-                : JobOutcome.Skipped("Not a zip, 7z or rar archive");
+                : JobOutcome.Skipped("Not a zip or 7z archive");
         }
 
         if (s.ArchiveGrouping == ArchiveGrouping.Single)

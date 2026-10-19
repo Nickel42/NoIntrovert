@@ -350,8 +350,35 @@ Test("Folder scan picks descriptors, not the files they use", () =>
     File.WriteAllText(Path.Combine(dir, "a.cue"),
         "FILE \"a (Track 1).bin\" BINARY\n TRACK 01 MODE2/2352\n  INDEX 01 00:00:00\nFILE \"a (Track 2).bin\" BINARY\n TRACK 02 AUDIO\n  INDEX 01 00:00:00\n");
     var picked = DiscFiles.SelectPrimaries(Directory.EnumerateFiles(dir)).Select(Path.GetFileName).ToList();
-    var expected = new[] { "a.cue", "b.ccd", "c.mds", "d.iso.001", "e.cso", "f.zip", "g.part1.rar" };
+    var expected = new[] { "a.cue", "b.ccd", "c.mds", "d.iso.001", "e.cso", "f.zip" };
     return picked.SequenceEqual(expected) ? null : $"picked {string.Join(", ", picked)}";
+});
+
+Test("RAR inputs are refused", () =>
+{
+    foreach (var name in new[] { "g.rar", "g.part1.rar", "g.r00", "G.RAR" })
+    {
+        if (!ArchiveExtractor.IsRar(name)) return $"{name} not seen as RAR";
+        if (DiscFiles.IsSupported(name)) return $"Convert accepts {name}";
+        if (ArchiveJobs.ConvertibleExtensions.Contains(Path.GetExtension(name).ToLowerInvariant()))
+            return $"Archive tab accepts {name}";
+    }
+    if (ArchiveExtractor.IsRar("d.iso.001") || ArchiveExtractor.IsRar("f.zip")) return "non-RAR seen as RAR";
+    // By name, and by content (a RAR renamed to .zip).
+    foreach (var name in new[] { "g.rar", "h.zip" })
+    {
+        var rar = Path.Combine(Dir("rar"), name);
+        File.WriteAllBytes(rar, [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00]);
+        try
+        {
+            ArchiveExtractor.Extract(rar, Dir("rar-out"), null, CancellationToken.None);
+            return $"{name} was extracted";
+        }
+        catch (NotSupportedException ex) when (ex.Message.Contains("RAR"))
+        {
+        }
+    }
+    return null;
 });
 
 Test("Existing CHD is skipped unless Overwrite is on", () =>

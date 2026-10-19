@@ -16,7 +16,7 @@ public partial class ConvertViewModel(SettingsViewModel settings, LogViewModel l
     public override string StartLabel => "Convert to CHD";
     public override string EmptyHint =>
         "Drop disc images or folders here, or use Add files / Add folder.\n" +
-        "cue/bin · gdi · toc · nrg · iso · ccd/img · mds/mdf · cso · zso · isz · pbp · ecm · zip · 7z · rar · .001 split files";
+        "cue/bin · gdi · toc · nrg · iso · ccd/img · mds/mdf · cso · zso · isz · pbp · ecm · zip · 7z · .001 split files";
     protected override string FilterName => "Disc images and archives";
     protected override IReadOnlyList<string> Patterns { get; } =
         DiscFiles.Descriptors.Concat(DiscFiles.Images).Concat(ArchiveExtractor.Extensions).Append(".001").Select(e => "*" + e).ToList();

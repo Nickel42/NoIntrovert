@@ -92,6 +92,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         var existing = new HashSet<string>(Items.Select(i => i.Path), StringComparer.OrdinalIgnoreCase);
         var added = 0;
         var ignored = 0;
+        var rar = 0;
         foreach (var path in paths)
         {
             IEnumerable<string> candidates;
@@ -113,7 +114,8 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             }
             else
             {
-                ignored++;
+                if (Core.Formats.ArchiveExtractor.IsRar(path)) rar++;
+                else ignored++;
                 continue;
             }
 
@@ -126,6 +128,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         }
         if (added > 0) Log.Info($"{Title}: added {added} file(s)");
         if (ignored > 0) Log.Warn($"{Title}: ignored {ignored} item(s) this tab can't use");
+        if (rar > 0) Log.Warn($"{Title}: ignored {rar} RAR file(s). {Core.Formats.ArchiveExtractor.RarNotSupported}");
     }
 
     [RelayCommand]

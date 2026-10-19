@@ -38,7 +38,7 @@
                         <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.ConvertTargets}"
                                   SelectedItem="{Binding Settings.SelectedConvertTarget}" HorizontalAlignment="Stretch" />
                         <TextBlock Classes="hint"
-                                   Text="Each archive is unpacked into the temp folder and packed again, keeping its folder layout. rar archives can be read but not written." />
+                                   Text="Each archive is unpacked into the temp folder and packed again, keeping its folder layout." />
                     </StackPanel>
 
                     <!-- Extract -->

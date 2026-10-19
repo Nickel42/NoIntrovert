@@ -17,7 +17,7 @@ mkdir -p "$out"
 # 7z.so: 7-Zip's full format library, one build per architecture, then merged.
 bundle="$src7z/CPP/7zip/Bundles/Format7zF"
 for arch in arm64 x64; do
-    (cd "$bundle" && make -j"$jobs" -f "../../cmpl_mac_$arch.mak")
+    (cd "$bundle" && make -j"$jobs" -f "../../cmpl_mac_$arch.mak" DISABLE_RAR=1)
 done
 lipo -create "$bundle/b/m_arm64/7z.so" "$bundle/b/m_x64/7z.so" -output "$out/7z.so"
 

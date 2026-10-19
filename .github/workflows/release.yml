@@ -109,7 +109,7 @@ jobs:
             foreach ($lib in '7z.dll', 'noi_archive.dll') {
               if (-not (Test-Path "$out/$lib")) { throw "publish for $rid is missing $lib" }
             }
-            Copy-Item app/README.md, app/packaging/THIRD_PARTY_ARCHIVES.md, libchdman/THIRD_PARTY_NOTICES.md $out
+            Copy-Item app/README.md, app/LICENSE, app/packaging/THIRD_PARTY_ARCHIVES.md, libchdman/THIRD_PARTY_NOTICES.md $out
             Copy-Item libchdman/LICENSE "$out/LICENSE-libchdman.txt"
             Copy-Item app/native/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
             Copy-Item app/native/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
@@ -172,7 +172,7 @@ jobs:
               test -f "publish/$rid/$lib" || { echo "$lib missing from $rid publish"; exit 1; }
             done
             bash app/packaging/macos/make-app.sh "publish/$rid" "$GITHUB_WORKSPACE/dist/NoIntrovert-$VERSION-$rid.zip" "$VERSION" \
-              app/README.md LICENSE-libchdman.txt libchdman/THIRD_PARTY_NOTICES.md \
+              app/README.md app/LICENSE LICENSE-libchdman.txt libchdman/THIRD_PARTY_NOTICES.md \
               LICENSE-7-Zip.txt LICENSE-bit7z.txt app/packaging/THIRD_PARTY_ARCHIVES.md
           done
 
@@ -261,7 +261,7 @@ jobs:
             test -f "$out/$f" || { echo "$f missing from the $rid publish"; exit 1; }
           done
           test -x "$out/NoIntrovert"
-          cp app/README.md app/packaging/THIRD_PARTY_ARCHIVES.md libchdman/THIRD_PARTY_NOTICES.md "$out/"
+          cp app/README.md app/LICENSE app/packaging/THIRD_PARTY_ARCHIVES.md libchdman/THIRD_PARTY_NOTICES.md "$out/"
           cp libchdman/LICENSE "$out/LICENSE-libchdman.txt"
           cp app/native/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
           cp app/native/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
@@ -339,6 +339,8 @@ jobs:
         run: |
           cat > notes.md <<EOF
           NoIntrovert $VERSION, built with libchdman.
+
+          NoIntrovert is free software under the GNU GPL, version 3 (LICENSE in every download). Its complete source, including the native libraries, is this repository at tag $GITHUB_REF_NAME: https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_REF_NAME
 
           | Download | For |
           |---|---|

@@ -20,7 +20,7 @@ public enum ConvertTarget { Swap, ToSevenZip, ToZip }
 /// <summary>The Archive tab's jobs: compress files/folders, convert between zip and 7z, and extract archives.</summary>
 public static class ArchiveJobs
 {
-    public static readonly string[] ConvertibleExtensions = [".zip", ".7z", ".rar"];
+    public static readonly string[] ConvertibleExtensions = [".zip", ".7z"];
 
     public static string Extension(ArchiveFormat format) => format == ArchiveFormat.Zip ? ".zip" : ".7z";
 
@@ -101,7 +101,7 @@ public static class ArchiveJobs
         return new JobOutcome(status, summary, stats);
     }
 
-    /// <summary>Rewrites a zip as 7z or a 7z as zip (or a rar as either), through a temporary folder.</summary>
+    /// <summary>Rewrites a zip as 7z or a 7z as zip, through a temporary folder.</summary>
     public static JobOutcome Convert(JobContext c, string archive)
     {
         var s = c.Settings;
@@ -200,7 +200,7 @@ public static class ArchiveJobs
             if (s.ArchiveDeleteOriginals)
             {
                 c.Report.SetStage("Removing the archive");
-                FileRemover.Remove(Formats.ArchiveExtractor.ArchiveVolumes(archive), s.UseRecycleBin, c.Log);
+                FileRemover.Remove([archive], s.UseRecycleBin, c.Log);
             }
 
             c.Log.Success($"{Path.GetFileName(archive)}: extracted {moved} item(s) in {sw.Elapsed:mm\\:ss\\.f}");

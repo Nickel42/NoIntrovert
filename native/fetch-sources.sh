@@ -39,5 +39,17 @@ fetch "$BIT7Z_URL" "$deps/dl-bit7z/bit7z-${BIT7Z_VERSION}.tar.gz" "$BIT7Z_SHA256
 rm -rf "$deps/7zip-src" "$deps/bit7z-src"
 mkdir -p "$deps/7zip-src" "$deps/bit7z-src"
 tar -xJf "$deps/dl-7zip/7z2604-src.tar.xz" -C "$deps/7zip-src"
+
+# No RAR. 7-Zip's RAR decoder is under the unRAR license restriction, which is
+# not compatible with NoIntrovert's GPL. The gcc makefiles take DISABLE_RAR=1
+# (build-linux.sh, build-mac.sh); 7-Zip's nmake files have no such switch, so
+# the RAR handler, codec and crypto objects are dropped from Arc.mak here.
+arc_mak="$deps/7zip-src/CPP/7zip/Bundles/Format7zF/Arc.mak"
+sed -E -i.orig -e '/^RAR_OBJS = /d' -e '/^  \$O.Rar[A-Za-z0-9]*\.obj /d' "$arc_mak"
+rm -f "$arc_mak.orig"
+if grep -q 'Rar' "$arc_mak"; then
+    echo "error: RAR objects are still listed in $arc_mak" >&2
+    exit 1
+fi
 tar -xzf "$deps/dl-bit7z/bit7z-${BIT7Z_VERSION}.tar.gz" -C "$deps/bit7z-src" --strip-components=1
 echo "7-Zip $SEVENZIP_VERSION and bit7z $BIT7Z_VERSION ready in $deps"

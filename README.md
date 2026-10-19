@@ -12,7 +12,7 @@ Workflow on every tab: **pick files → choose options → run the batch → rea
 | Convert | Any supported image → CHD, optional verify, optional removal of the originals (Recycle Bin by default, and only after the CHD verifies) |
 | Verify | Checks CHDs against their stored SHA-1; can fix a wrong header SHA-1 |
 | Extract | CHD → cue/bin (one bin per track or a single bin), gdi, iso (DVDs, and single-track data CDs) or raw img |
-| Archive | Files and folders → .7z or .zip (one archive per item, one per file/subfolder in a folder, or one for everything), zip ↔ 7z conversion, and extracting zip/7z/rar (into a folder per archive or straight into the output folder); tests each archive and can remove the originals |
+| Archive | Files and folders → .7z or .zip (one archive per item, one per file/subfolder in a folder, or one for everything), zip ↔ 7z conversion, and extracting zip/7z (into a folder per archive or straight into the output folder); tests each archive and can remove the originals |
 | CHD Info | Header fields, metadata (copy, save an item to a file), hunk counts per codec |
 | Library tests | Round trip (create → verify → extract → compare with the original data) and comparison with a chdman.exe (byte-for-byte output, timings); CSV export |
 
@@ -30,7 +30,7 @@ Converted first, in the temp folder:
 | PBP (PS1 EBOOT, single or multi-disc) | Each disc rebuilt as bin + cue; multi-disc sets give one CHD per disc |
 | CloneCD `.ccd/.img/.sub` | Cue written that points at the `.img` (no copy) |
 | Alcohol `.mds/.mdf` | DVDs used as-is; CDs get a cue, and subchannel data (2448-byte sectors) is stripped first |
-| zip, 7z, rar (incl. multi-volume), tar, tar.gz | Unpacked, then every disc inside is converted |
+| zip, 7z, tar, tar.gz | Unpacked, then every disc inside is converted |
 | Split files `name.ext.001, .002, …` | Joined, then converted |
 | Loose `.bin` with no cue | One-track cue written from the first sector's mode |
 
@@ -72,7 +72,7 @@ needs a `LIBCHDMAN_TOKEN` secret: a token with read access to
 ## Archive engine
 
 The Archive tab uses 7-Zip's own library (`7z.dll` / `7z.so`, built from
-7-Zip 26.04's source) through [bit7z](https://github.com/rikyoz/bit7z) 4.1.0,
+7-Zip 26.04's source, without RAR support) through [bit7z](https://github.com/rikyoz/bit7z) 4.1.0,
 wrapped in a small C library, `native/archive` (noi_archive), that the C# code
 calls. To build it locally:
 
@@ -144,3 +144,15 @@ The ISZ, PBP, CloneCD and Alcohol samples are made by the test program's own
 writers, which follow the same layouts the decoders read, so those tests check
 the conversion logic but not compatibility with files from the original tools.
 Try real files from those tools on the Convert tab to confirm.
+
+## License
+
+NoIntrovert is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License, version 3 or (at your option) any
+later version, as published by the Free Software Foundation. See `LICENSE`.
+
+The bundled libraries keep their own licenses (all GPL-compatible): libchdman
+is BSD-3-Clause, 7-Zip (built without RAR) LGPL-2.1+, bit7z MPL-2.0. See
+`packaging/THIRD_PARTY_ARCHIVES.md` and libchdman's `THIRD_PARTY_NOTICES.md`.
+RAR archives aren't supported, because 7-Zip's RAR decoder is under the unRAR
+license restriction, which the GPL doesn't allow.
