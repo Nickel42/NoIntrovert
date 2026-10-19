@@ -1,0 +1,587 @@
+# Third-party notices
+
+libchdman bundles the source code listed below. Everything shipped in the
+library binaries is under BSD-3-Clause, MIT, Zlib or public-domain terms;
+no GPL/LGPL code is compiled in. Each section gives the component, where it
+came from, the license that applies, and the full license text.
+
+All vendored sources were taken from the MAME repository
+(https://github.com/mamedev/mame) at tag `mame0289`
+(commit `f34f02505e32c1993c6a782b6814232cbfc74e36`). Local modifications are
+listed in `vendor/PATCHES.md`.
+
+| Component | Version | Files | License |
+|---|---|---|---|
+| MAME utility library and OSD subset | 0.289 | `vendor/mame/src/lib/util/*`, `vendor/mame/src/osd/*` | BSD-3-Clause (per-file `license:` headers) |
+| MAME `md5.cpp` / `md5.h` | 0.289 | `vendor/mame/src/lib/util/md5.*` | Public domain |
+| MAME `chdman.cpp` (reference only; logic adapted into `src/chdman_core.cpp`) | 0.289 | `vendor/mame/src/tools/chdman.cpp` | BSD-3-Clause |
+| zlib | 1.3.2 | `vendor/mame/3rdparty/zlib` | Zlib |
+| LZMA SDK | 23.01 | `vendor/mame/3rdparty/lzma/C` | Public domain |
+| Zstandard | 1.5.5 | `vendor/mame/3rdparty/zstd/lib` | BSD-3-Clause (zstd is dual BSD/GPLv2; it is used here under its BSD license) |
+| libFLAC | 1.4.3 | `vendor/mame/3rdparty/flac` | BSD-3-Clause (Xiph.Org) |
+| utf8proc | 2.9.0 | `vendor/mame/3rdparty/utf8proc` | MIT, plus the Unicode data license for `utf8proc_data.c` |
+
+Notes on the license audit:
+
+- Every MAME source file copied here was checked. 81 files carry
+  `license:BSD-3-Clause` and 2 (`md5.cpp`, `md5.h`) carry
+  `license:Public domain`. `vendor/mame/COPYING` is MAME's own statement that
+  "MAME as a whole" is GPL while individual files may be under other terms; libchdman uses
+  only the individually BSD-licensed files, so the GPL terms that apply to MAME as a whole don't apply here.
+- Only libFLAC (the library) is included. FLAC's command-line tools and
+  plugins, which are GPL, are not vendored. Neither are the COPYING.GPL,
+  COPYING.LGPL and COPYING.FDL texts.
+- `vendor/mame/3rdparty/flac/src/libFLAC/deduplication/*.c` have no license
+  header of their own; they are code fragments `#include`d by BSD-licensed
+  libFLAC sources (`bitreader.c`, `lpc.c`) and are covered by the same license.
+- Zstandard's GPLv2 option is not exercised; its `COPYING` (GPLv2 text)
+  file was not vendored.
+- MAME's `src/osd/modules/lib/osdlib_*.cpp` and the socket/pty file modules
+  are replaced by `vendor/osd_shim.cpp` (BSD-3-Clause, libchdman).
+
+---
+
+## MAME (BSD-3-Clause)
+
+Copyright holders named in the vendored files' headers: Aaron Giles, Colin
+Plumb (MD5, public domain), Couriersud, Mietek Bak, Miodrag Milanovic, Nathan
+Woods, Olivier Galibert, R. Belmont, Vas Crabb.
+
+```
+Copyright (c) the MAME project contributors listed above
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+MAME's own licensing statement (`vendor/mame/COPYING`):
+
+```
+MAME is a registered trademark of Gregory Ember.  Other trademarks are
+property of their respective owners.
+
+MAME as a whole is made available under the terms of the GNU General
+Public License.  Individual source files may be made available under
+less restrictive licenses, as noted in their respective header
+comments.
+
+Full license texts may be found in docs/legal in source and binary
+distributions.
+
+
+MAME
+Copyright (c) 1997-2026 MAMEdev and contributors
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License version 2, as provided
+in docs/legal/GPL-2.0.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+
+This software is based in part on the work of the Independent JPEG Group.
+
+
+The contents of the hash directory are dedicated to the public domain
+as described in docs/legal/CC0.
+
+No Copyright
+
+The person who associated a work with this deed has dedicated the work
+to the public domain by waiving all of his or her rights to the work
+worldwide under copyright law, including all related and neighboring
+rights, to the extent allowed by law.
+
+You can copy, modify, distribute and perform the work, even for
+commercial purposes, all without asking permission.  See Other
+Information below.
+
+Other Information
+
+  * In no way are the patent or trademark rights of any person affected
+    by CC0, nor are the rights that other persons may have in the work
+    or in how the work is used, such as publicity or privacy rights.
+
+  * Unless expressly stated otherwise, the person who associated a work
+    with this deed makes no warranties about the work, and disclaims
+    liability for all uses of the work, to the fullest extent permitted
+    by applicable law.
+
+  * When using or citing the work, you should not imply endorsement by
+    the author or the affirmer.
+
+
+AES-256-CBC
+Copyright (c) 2024 Hallo Weeks
+
+Asio C++ Library
+Copyright (c) 2003-2024 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+
+Permission is hereby granted, free of charge, to any person or
+organization obtaining a copy of the software and accompanying
+documentation covered by this license (the "Software") to use,
+reproduce, display, distribute, execute, and transmit the Software, and
+to prepare derivative works of the Software, and to permit third-parties
+to whom the Software is furnished to do so, all subject to the
+following:
+
+The copyright notices in the Software and this entire statement,
+including the above license grant, this restriction and the following
+disclaimer, must be included in all copies of the Software, in whole or
+in part, and all derivative works of the Software, unless such copies or
+derivative works are solely in the form of machine-executable object
+code generated by a source language processor.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE AND
+NON-INFRINGEMENT.  IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR ANYONE
+DISTRIBUTING THE SOFTWARE BE LIABLE FOR ANY DAMAGES OR OTHER LIABILITY,
+WHETHER IN CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+Berkeley SoftFloat - software implementation of binary floating-point that
+conforms to the IEEE Standard for Floating-Point Arithmetic
+Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018 The Regents of
+the University of California
+
+FLAC - Free Lossless Audio Codec
+Copyright (C) 2000-2009  Josh Coalson
+Copyright (C) 2011-2023  Xiph.Org Foundation
+
+The msinttypes r29 
+Copyright (c) 2006-2013 Alexander Chemeris 
+
+Zstandard software
+Copyright (c) Meta Platforms, Inc. and affiliates.  All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+bgfx, bimg and bx
+Copyright (c) 2010-2019 Branimir Karadzic
+
+linenoise.c -- guerrilla line editing library
+Copyright (c) 2010, Salvatore Sanfilippo <antirez at gmail dot com>
+Copyright (c) 2010, Pieter Noordhuis <pcnoordhuis at gmail dot com>
+Copyright (c) 2011, Steve Bennett <steveb at workware dot net dot au>
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+Expat
+Copyright (c) 1998-2000 Thai Open Source Software Center Ltd and
+Clark Cooper
+Copyright (c) 2001-2025 Expat maintainers
+
+Lua - a powerful, fast, lightweight, embeddable scripting language
+Copyright (c) 1994-2024 Lua.org, PUC-Rio
+
+LuaFileSystem - File System Library for Lua
+Copyright (c) 2003-2015 Kepler Project
+
+LuaSQLite 3 - a Lua 5.1 to 5.3 wrapper for the SQLite3 library
+Copyright (c) 2002-2016 Tiago Dionizio, Doug Currie
+
+lua-linenoise
+Copyright (c) 2011-2015 Rob Hoelz <rob@hoelz.ro>
+
+lua_zlib - Lua 5.1 interface to zlib
+Copyright (c) 2009 Brian Maher
+
+OpenGL Mathematics (GLM)
+Copyright (c) 2005 -2016 G-Truc Creation
+
+PortAudio Portable Real-Time Audio Library
+Copyright (c) 1999-2006 Ross Bencina and Phil Burk
+
+PortMidi Portable Real-Time MIDI Library
+Copyright (c) 1999-2000 Ross Bencina and Phil Burk
+Copyright (c) 2001-2009 Roger B. Dannenberg
+
+pugixml - a C++ XML processing library
+Copyright (c) 2006-2019 Arseny Kapoulkine
+
+RapidJSON - A fast JSON parser/generator for C++ with both SAX/DOM style API
+Copyright (c) 2015 THL A29 Limited, a Tencent company, and Milo Yip.
+
+Sol - a C++ library binding to Lua
+Copyright (c) 2013-2020 Rapptz, ThePhD and contributors
+
+tap-windows.h
+Copyright (C) 2002-2014 OpenVPN Technologies, Inc.
+
+utf8proc
+Copyright (c) 2014-2021 Steven G. Johnson, Jiahao Chen, Tony Kelman,
+Jonas Fonseca, and other contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+LZMA SDK
+
+LZMA SDK is written and placed in the public domain by Igor Pavlov.
+
+Some code in LZMA SDK is based on public domain code from another
+developers:
+  1) PPMd var.H (2001): Dmitry Shkarin
+  2) SHA-256: Wei Dai (Crypto++ library)
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute the original LZMA SDK code, either in source code form or as
+a compiled binary, for any purpose, commercial or non-commercial, and by
+any means.
+
+LZMA SDK code is compatible with open source licenses, for example, you
+can include it to GNU GPL or GNU LGPL code.
+
+
+AsmJit - a lightweight library for machine code generation.
+Copyright (c) 2008-2021 The AsmJit Authors
+
+Nano SVG - Simple stupid SVG parser
+Copyright (c) 2013-14 Mikko Mononen memon@inside.org
+
+Simple DirectMedia Layer
+Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
+
+WDL - fft.cpp
+Copyright (c) 2006 and later Cockos Incorporated
+Copyright (c) 1999 D. J. Bernstein
+
+zlib data compression library
+Copyright (C) 1995-2026 Jean-loup Gailly and Mark Adler
+
+This software is provided 'as-is', without any express or implied
+warranty.  In no event will the authors be held liable for any damages
+arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+
+    1. The origin of this software must not be misrepresented; you must
+       not claim that you wrote the original software.  If you use this
+       software in a product, an acknowledgment in the product
+       documentation would be appreciated but is not required.
+
+    2. Altered source versions must be plainly marked as such, and must
+       not be misrepresented as being the original software.
+
+    3. This notice may not be removed or altered from any source
+       distribution.
+
+
+SQLite
+
+2001 September 15
+
+The author disclaims copyright to this source code.  In place of a legal
+notice, here is a blessing:
+
+    May you do good and not evil.
+    May you find forgiveness for yourself and forgive others.
+    May you share freely, never taking more than you give.
+```
+
+## zlib (Zlib)
+
+```
+Copyright notice:
+
+ (C) 1995-2026 Jean-loup Gailly and Mark Adler
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+
+  Jean-loup Gailly        Mark Adler
+  jloup@gzip.org          madler@alumni.caltech.edu
+```
+
+## LZMA SDK (public domain)
+
+```
+LZMA SDK is written and placed in the public domain by Igor Pavlov.
+
+Some code in LZMA SDK is based on public domain code from another developers:
+  1) PPMd var.H (2001): Dmitry Shkarin
+  2) SHA-256: Wei Dai (Crypto++ library)
+
+Anyone is free to copy, modify, publish, use, compile, sell, or distribute the 
+original LZMA SDK code, either in source code form or as a compiled binary, for 
+any purpose, commercial or non-commercial, and by any means.
+
+LZMA SDK code is compatible with open source licenses, for example, you can 
+include it to GNU GPL or GNU LGPL code.
+```
+
+## Zstandard (BSD-3-Clause)
+
+```
+BSD License
+
+For Zstandard software
+
+Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+ * Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+ * Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+ * Neither the name Facebook, nor Meta, nor the names of its contributors may
+   be used to endorse or promote products derived from this software without
+   specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+## libFLAC (BSD-3-Clause, Xiph.Org)
+
+```
+Copyright (C) 2000-2009  Josh Coalson
+Copyright (C) 2011-2023  Xiph.Org Foundation
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+- Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+
+- Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+
+- Neither the name of the Xiph.Org Foundation nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+## utf8proc (MIT and Unicode data license)
+
+## utf8proc license ##
+
+**utf8proc** is a software package originally developed
+by Jan Behrens and the rest of the Public Software Group, who
+deserve nearly all of the credit for this library, that is now maintained by the Julia-language developers.  Like the original utf8proc,
+whose copyright and license statements are reproduced below, all new
+work on the utf8proc library is licensed under the [MIT "expat"
+license](http://opensource.org/licenses/MIT):
+
+*Copyright &copy; 2014-2021 by Steven G. Johnson, Jiahao Chen, Tony Kelman, Jonas Fonseca, and other contributors listed in the git history.*
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+## Original utf8proc license ##
+
+*Copyright (c) 2009, 2013 Public Software Group e. V., Berlin, Germany*
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+## Unicode data license ##
+
+This software contains data (`utf8proc_data.c`) derived from processing
+the Unicode data files. The following license applies to that data:
+
+**COPYRIGHT AND PERMISSION NOTICE**
+
+*Copyright (c) 1991-2007 Unicode, Inc. All rights reserved. Distributed
+under the Terms of Use in http://www.unicode.org/copyright.html.*
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of the Unicode data files and any associated documentation (the "Data
+Files") or Unicode software and any associated documentation (the
+"Software") to deal in the Data Files or Software without restriction,
+including without limitation the rights to use, copy, modify, merge,
+publish, distribute, and/or sell copies of the Data Files or Software, and
+to permit persons to whom the Data Files or Software are furnished to do
+so, provided that (a) the above copyright notice(s) and this permission
+notice appear with all copies of the Data Files or Software, (b) both the
+above copyright notice(s) and this permission notice appear in associated
+documentation, and (c) there is clear notice in each modified Data File or
+in the Software as well as in the documentation associated with the Data
+File(s) or Software that the data or software has been modified.
+
+THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+THIRD PARTY RIGHTS. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS
+INCLUDED IN THIS NOTICE BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR
+CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THE DATA FILES OR SOFTWARE.
+
+Except as contained in this notice, the name of a copyright holder shall
+not be used in advertising or otherwise to promote the sale, use or other
+dealings in these Data Files or Software without prior written
+authorization of the copyright holder.
+
+Unicode and the Unicode logo are trademarks of Unicode, Inc., and may be
+registered in some jurisdictions. All other trademarks and registered
+trademarks mentioned herein are the property of their respective owners.
+
