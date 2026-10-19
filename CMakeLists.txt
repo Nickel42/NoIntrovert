@@ -102,6 +102,11 @@ if(CHDMAN_BUILD_SHARED)
       BUILD_WITH_INSTALL_NAME_DIR ON)
     # export only the C API, whatever the vendored headers ask for
     target_link_options(chdman_shared PRIVATE "LINKER:-exported_symbol,_chdman_*")
+  elseif(UNIX)
+    # same on ELF platforms: hidden visibility still leaves libstdc++'s
+    # template instantiations exported, so a version script keeps only chdman_*
+    target_link_options(chdman_shared PRIVATE "LINKER:--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/chdman.map")
+    set_target_properties(chdman_shared PROPERTIES LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/chdman.map")
   endif()
   # same names as the installed package (find_package(chdman))
   add_library(chdman::chdman_shared ALIAS chdman_shared)

@@ -2,7 +2,8 @@
 
 MAME 0.289's CHD (Compressed Hunks of Data) tooling, the code behind
 `chdman`, packaged as a library with a stable C ABI for Windows 11
-(MSVC, x64 and ARM64) and macOS (universal arm64 + x86_64). It is built
+(MSVC, x64 and ARM64), macOS (universal arm64 + x86_64) and Linux (x64,
+GCC). It is built
 from the upstream MAME sources at tag `mame0289`, not from a decompilation.
 
 - `include/chdman.h`: C ABI with opaque handles, status codes plus a message
@@ -129,6 +130,31 @@ Which one to link on Windows:
   Unlike the macOS archive, it can't hide the bundled zlib, zstd, FLAC and
   LZMA symbols: if your app links its own copy of one of those, you'll get
   LNK2005 duplicate symbols, so use the DLL instead.
+
+### Linux (x64, GCC)
+
+Needs GCC 11 or newer (tested with GCC 11 on Ubuntu 22.04 and GCC 15 on
+Ubuntu 26.04), CMake and make or Ninja (`build-essential cmake` on Ubuntu).
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+```
+
+```bash
+cmake --build build --parallel
+```
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+Outputs: `build/libchdman.so` (soname `libchdman.so.1`), `build/libchdman.a`
+and `build/chdman-cli`. The shared library exports only the 60 `chdman_*`
+functions (a linker version script, `cmake/chdman.map`, hides the rest) and
+needs the glibc and libstdc++ of the system it was built on or newer, so build
+on the oldest distribution you support. Link the static archive with
+`-lstdc++ -lpthread` (the CMake target does this); like the Windows static
+library, it doesn't hide the bundled zlib, zstd, FLAC and LZMA symbols.
 
 ### CMake options
 
