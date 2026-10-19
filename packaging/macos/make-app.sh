@@ -17,6 +17,7 @@ app="$stage/NoIntrovert.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp -R "$publish"/. "$app/Contents/MacOS/"
 sed "s/@VERSION@/$version/g" "$here/Info.plist" > "$app/Contents/Info.plist"
+cp "$here/NoIntrovert.icns" "$app/Contents/Resources/NoIntrovert.icns"
 chmod +x "$app/Contents/MacOS/NoIntrovert"
 
 # Debug symbols aren't needed in a release download.

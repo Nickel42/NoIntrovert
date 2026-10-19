@@ -8,6 +8,8 @@
     <string>NoIntrovert</string>
     <key>CFBundleIdentifier</key>
     <string>com.nickel42.nointrovert</string>
+    <key>CFBundleIconFile</key>
+    <string>NoIntrovert</string>
     <key>CFBundleExecutable</key>
     <string>NoIntrovert</string>
     <key>CFBundlePackageType</key>

@@ -182,6 +182,10 @@ jobs:
           # The app has no command-line mode; checking the bundle's binaries is the most CI can do without a display.
           file smoke/NoIntrovert.app/Contents/MacOS/*
           codesign --verify --deep --strict --verbose=2 smoke/NoIntrovert.app
+          # The app icon: Finder and the Dock read CFBundleIconFile from Contents/Resources.
+          plutil -lint smoke/NoIntrovert.app/Contents/Info.plist
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' smoke/NoIntrovert.app/Contents/Info.plist)" = "NoIntrovert"
+          file smoke/NoIntrovert.app/Contents/Resources/NoIntrovert.icns | grep -q 'Mac OS X icon'
 
       - uses: actions/upload-artifact@v4
         with:

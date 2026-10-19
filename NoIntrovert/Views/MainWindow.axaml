@@ -5,7 +5,7 @@
         xmlns:v="using:NoIntrovert.Views"
         x:Class="NoIntrovert.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/Assets/nointrovert.ico"
         Title="NoIntrovert — libchdman test bench"
         MinWidth="900" MinHeight="600"
         Background="{DynamicResource AppBackground}"
@@ -17,9 +17,8 @@
         <Border Grid.Row="0" Background="{DynamicResource HeaderBackground}" Padding="18,10">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <Border Width="30" Height="30" CornerRadius="15" Background="{DynamicResource SystemAccentColor}">
-                        <Ellipse Width="10" Height="10" Fill="{DynamicResource HeaderBackground}" />
-                    </Border>
+                    <Image Source="/Assets/nointrovert-64.png" Width="36" Height="36"
+                           RenderOptions.BitmapInterpolationMode="None" />
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="NoIntrovert" FontSize="18" FontWeight="Bold" />
                         <TextBlock Text="CHD batch tool · libchdman test bench" Classes="hint" />
