@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using LibChdman;
+using LibDolphinRvz;
 
 namespace NoIntrovert.Core.Jobs;
 
@@ -36,6 +37,21 @@ public static class BatchRunner
     private static void WorkerLoop(int index, ConcurrentQueue<BatchJob> queue, AppSettings settings, ILog log, CancellationToken token)
     {
         using var chdman = new Chdman(settings.ThreadsPerJob);
+        // Only made if a job needs it, so CHD-only batches never load libdolphinrvz.
+        var rvz = new Lazy<DolphinRvz>(() => new DolphinRvz(settings.ThreadsPerJob));
+        try
+        {
+            RunJobs(index, queue, settings, log, token, chdman, rvz);
+        }
+        finally
+        {
+            if (rvz.IsValueCreated) rvz.Value.Dispose();
+        }
+    }
+
+    private static void RunJobs(int index, ConcurrentQueue<BatchJob> queue, AppSettings settings, ILog log, CancellationToken token,
+        Chdman chdman, Lazy<DolphinRvz> rvz)
+    {
         var multi = settings.ParallelJobs > 1;
 
         while (!token.IsCancellationRequested && queue.TryDequeue(out var job))
@@ -51,18 +67,23 @@ public static class BatchRunner
                 }
             };
             chdman.Progress = null;
+            if (rvz.IsValueCreated) rvz.Value.Progress = null;
 
             job.OnStart(JobStatus.Running);
             JobOutcome outcome;
             try
             {
-                outcome = job.Work(new JobContext(chdman, settings, jobLog, job.Report, token));
+                outcome = job.Work(new JobContext(chdman, settings, jobLog, job.Report, token, rvz));
             }
             catch (OperationCanceledException)
             {
                 outcome = new JobOutcome(JobStatus.Cancelled, "Cancelled");
             }
             catch (ChdmanException ex) when (ex.Status == ChdmanStatus.Cancelled)
+            {
+                outcome = new JobOutcome(JobStatus.Cancelled, "Cancelled");
+            }
+            catch (DolphinRvzException ex) when (ex.Status == DrvzStatus.Cancelled)
             {
                 outcome = new JobOutcome(JobStatus.Cancelled, "Cancelled");
             }

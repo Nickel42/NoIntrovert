@@ -1,4 +1,5 @@
 using LibChdman;
+using LibDolphinRvz;
 
 namespace NoIntrovert.Core.Jobs;
 
@@ -18,10 +19,36 @@ public sealed record JobOutcome(JobStatus Status, string Summary, OperationStats
     public static JobOutcome Failed(string why) => new(JobStatus.Failed, why);
 }
 
-/// <summary>What a job gets to work with: its own libchdman context, the settings snapshot and the log.</summary>
-public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJobReport report, CancellationToken token)
+/// <summary>
+/// What a job gets to work with: its worker's libchdman context (and
+/// libdolphinrvz context, made the first time a job needs it), the settings
+/// snapshot and the log.
+/// </summary>
+public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJobReport report, CancellationToken token,
+    Lazy<DolphinRvz>? rvz = null)
 {
     public Chdman Chdman { get; } = chdman;
+
+    /// <summary>The worker's libdolphinrvz context, shared by its jobs (one runs at a time).</summary>
+    internal Lazy<DolphinRvz> RvzSource { get; } = rvz ?? new Lazy<DolphinRvz>(() => new DolphinRvz(settings.ThreadsPerJob));
+
+    public DolphinRvz Rvz
+    {
+        get
+        {
+            var r = RvzSource.Value;
+            r.Log = (level, message) =>
+            {
+                switch (level)
+                {
+                    case DrvzLogLevel.Error: Log.Error("libdolphinrvz: " + message); break;
+                    case DrvzLogLevel.Warning: Log.Warn("libdolphinrvz: " + message); break;
+                    default: if (Settings.VerboseLog) Log.Debug("libdolphinrvz: " + message.TrimEnd()); break;
+                }
+            };
+            return r;
+        }
+    }
     public AppSettings Settings { get; } = settings;
     public ILog Log { get; } = log;
     public IJobReport Report { get; } = report;
@@ -35,6 +62,24 @@ public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJ
         var verbose = Settings.LogProgress;
         var lastLogged = -1;
         Chdman.Progress = new InlineProgress<ChdmanProgress>(p =>
+        {
+            Report.SetProgress(p.Fraction);
+            if (!verbose) return;
+            var tenth = (int)(p.Fraction * 10);
+            if (tenth == lastLogged) return;
+            lastLogged = tenth;
+            Log.Debug($"progress {p.Phase} {p.Fraction:P0} ratio {p.Ratio:P1}");
+        });
+    }
+
+    /// <summary>Routes libdolphinrvz's progress callbacks to the job's progress bar for one operation.</summary>
+    public void TrackRvz(string stage)
+    {
+        Report.SetStage(stage);
+        Report.SetProgress(0);
+        var verbose = Settings.LogProgress;
+        var lastLogged = -1;
+        Rvz.Progress = new InlineProgress<DrvzProgress>(p =>
         {
             Report.SetProgress(p.Fraction);
             if (!verbose) return;
@@ -69,6 +114,9 @@ public static class OutputPaths
     public static string Describe(Exception ex) => ex switch
     {
         ChdmanException ce => $"{ce.Message} ({ce.Status})",
+        DolphinRvzException de => $"{de.Message} ({de.Status})",
+        DllNotFoundException when ex.Message.Contains("dolphinrvz") =>
+            "libdolphinrvz isn't next to the app, so GameCube/Wii images can't be handled. Build native/libdolphinrvz.",
         _ => ex.Message,
     };
 }

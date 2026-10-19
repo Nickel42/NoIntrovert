@@ -8,8 +8,9 @@
     <!-- The .exe's own icon; Windows only (macOS uses packaging/macos/NoIntrovert.icns). -->
     <ApplicationIcon Condition="'$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('win'))">Assets/nointrovert.ico</ApplicationIcon>
     <AssemblyTitle>NoIntrovert</AssemblyTitle>
-    <Product>NoIntrovert - libchdman test bench</Product>
-    <Version>0.1.0</Version>
+    <Product>NoIntrovert - libchdman and libdolphinrvz test bench</Product>
+    <!-- Release builds get the version from the git tag (release.yml passes -p:Version). -->
+    <Version>0.5.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -32,6 +33,7 @@
 
   <ItemGroup>
     <ProjectReference Include="$(LibChdmanRoot)/bindings/csharp/LibChdman/LibChdman.csproj" />
+    <ProjectReference Include="$(DolphinRvzRoot)/bindings/csharp/LibDolphinRvz/LibDolphinRvz.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -57,6 +59,25 @@
     <None Include="$(NoiArchiveLibDir)/libnoi_archive.so" Condition="Exists('$(NoiArchiveLibDir)/libnoi_archive.so')" Link="libnoi_archive.so"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
   </ItemGroup>
+
+  <!-- libdolphinrvz's native library, beside the executable like the archive engine. -->
+  <ItemGroup>
+    <None Include="$(DolphinRvzLibDir)/dolphinrvz.dll" Condition="Exists('$(DolphinRvzLibDir)/dolphinrvz.dll')" Link="dolphinrvz.dll"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
+    <None Include="$(DolphinRvzLibDir)/libdolphinrvz.dylib" Condition="Exists('$(DolphinRvzLibDir)/libdolphinrvz.dylib')" Link="libdolphinrvz.dylib"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
+    <None Include="$(DolphinRvzLibDir)/libdolphinrvz.so" Condition="Exists('$(DolphinRvzLibDir)/libdolphinrvz.so')" Link="libdolphinrvz.so"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
+  </ItemGroup>
+
+  <Target Name="WarnMissingDolphinRvzNative" BeforeTargets="Build"
+          Condition="!Exists('$(DolphinRvzLibDir)/dolphinrvz.dll') And !Exists('$(DolphinRvzLibDir)/libdolphinrvz.dylib') And !Exists('$(DolphinRvzLibDir)/libdolphinrvz.so')">
+    <Warning Text="No libdolphinrvz in $(DolphinRvzLibDir); GameCube/Wii conversion won't work. Build it with native/libdolphinrvz/scripts/build-win.cmd, build-mac.sh or build-linux.sh." />
+  </Target>
+  <Target Name="RequireDolphinRvzNativeForPublish" BeforeTargets="PrepareForPublish"
+          Condition="'$(RuntimeIdentifier)' != '' And !Exists('$(DolphinRvzLibDir)/dolphinrvz.dll') And !Exists('$(DolphinRvzLibDir)/libdolphinrvz.dylib') And !Exists('$(DolphinRvzLibDir)/libdolphinrvz.so')">
+    <Error Text="Can't publish for $(RuntimeIdentifier): libdolphinrvz is missing from $(DolphinRvzLibDir)." />
+  </Target>
 
   <!--
     libchdman's ChdmanNativeCopy.targets copies chdman.dll / libchdman.dylib;

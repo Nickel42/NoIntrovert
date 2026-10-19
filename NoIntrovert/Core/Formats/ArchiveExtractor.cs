@@ -5,13 +5,12 @@ using SharpCompress.Readers;
 namespace NoIntrovert.Core.Formats;
 
 /// <summary>
-/// Unpacks zip, 7z, rar (including multi-volume .partN.rar / .r00 sets),
-/// tar and gz archives into a work folder, and joins plain split files
-/// (game.bin.001, .002, ...) back into one.
+/// Unpacks zip, 7z, tar and gz archives into a work folder, and joins plain
+/// split files (game.bin.001, .002, ...) back into one. RAR is refused.
 /// </summary>
 internal static class ArchiveExtractor
 {
-    public static readonly string[] Extensions = [".zip", ".7z", ".rar", ".tar", ".gz", ".tgz"];
+    public static readonly string[] Extensions = [".zip", ".7z", ".tar", ".gz", ".tgz"];
 
     public static bool IsArchive(string path) =>
         Extensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
@@ -34,45 +33,32 @@ internal static class ArchiveExtractor
         return parts;
     }
 
-    /// <summary>The volumes of a multi-part rar, for deleting originals.</summary>
-    public static IEnumerable<string> ArchiveVolumes(string archivePath)
+    /// <summary>
+    /// RAR archives (and their .rNN / .partN.rar volumes) aren't supported: 7-Zip's
+    /// RAR decoder is under the unRAR license, which NoIntrovert's GPL doesn't allow.
+    /// </summary>
+    public static bool IsRar(string path)
     {
-        yield return archivePath;
-        var dir = Path.GetDirectoryName(archivePath)!;
-        var name = Path.GetFileName(archivePath);
-        if (!name.EndsWith(".rar", StringComparison.OrdinalIgnoreCase)) yield break;
-
-        var partIndex = name.LastIndexOf(".part", StringComparison.OrdinalIgnoreCase);
-        if (partIndex > 0)
-        {
-            var stem = name[..partIndex];
-            foreach (var p in Directory.EnumerateFiles(dir, stem + ".part*.rar"))
-                if (!p.Equals(archivePath, StringComparison.OrdinalIgnoreCase)) yield return p;
-        }
-        else
-        {
-            var stem = Path.Combine(dir, Path.GetFileNameWithoutExtension(name));
-            for (var i = 0; i < 1000; i++)
-            {
-                var p = $"{stem}.r{i:00}";
-                if (!File.Exists(p)) break;
-                yield return p;
-            }
-        }
+        var ext = Path.GetExtension(path);
+        return ext.Equals(".rar", StringComparison.OrdinalIgnoreCase)
+            || (ext.Length == 4 && char.ToLowerInvariant(ext[1]) == 'r' && char.IsDigit(ext[2]) && char.IsDigit(ext[3]));
     }
 
-    /// <summary>Skips rar volumes other than the first, which open the whole set.</summary>
+    public const string RarNotSupported =
+        "RAR archives aren't supported (the RAR decoder's license isn't compatible with NoIntrovert's GPL). Repack it as 7z or zip.";
+
+    /// <summary>By content, so a RAR renamed to .zip is refused too: "Rar!\x1A\x07".</summary>
+    private static bool HasRarSignature(string path)
+    {
+        Span<byte> head = stackalloc byte[6];
+        using var f = File.OpenRead(path);
+        return f.Read(head) == 6 && head.SequenceEqual("Rar!\x1A\x07"u8);
+    }
+
+    /// <summary>Later parts of a split file (.002, .003, ...), which the .001 brings in.</summary>
     public static bool IsSecondaryVolume(string path)
     {
-        var name = Path.GetFileName(path);
-        var ext = Path.GetExtension(name);
-        if (ext.Length == 4 && ext[1] == 'r' && char.IsDigit(ext[2]) && char.IsDigit(ext[3])) return true;
-        var partIndex = name.LastIndexOf(".part", StringComparison.OrdinalIgnoreCase);
-        if (partIndex > 0 && name.EndsWith(".rar", StringComparison.OrdinalIgnoreCase))
-        {
-            var digits = name[(partIndex + 5)..^4];
-            return int.TryParse(digits, out var n) && n > 1;
-        }
+        var ext = Path.GetExtension(path);
         return ext.Length == 4 && char.IsDigit(ext[1]) && char.IsDigit(ext[2]) && char.IsDigit(ext[3]) && ext != ".001";
     }
 
@@ -80,16 +66,13 @@ internal static class ArchiveExtractor
     {
         var root = Path.GetFullPath(destination) + Path.DirectorySeparatorChar;
         var buffer = new byte[1 << 20];
-        var volumes = ArchiveVolumes(archivePath).ToList();
+        if (IsRar(archivePath) || HasRarSignature(archivePath)) throw new NotSupportedException(RarNotSupported);
 
-        // 7z needs random access, and multi-volume rar sets need every volume, so
-        // those open as archives. Everything else streams through a forward-only
-        // reader, which also handles tar.gz.
-        if (volumes.Count > 1 || Path.GetExtension(archivePath).Equals(".7z", StringComparison.OrdinalIgnoreCase))
+        // 7z needs random access, so it opens as an archive. Everything else streams
+        // through a forward-only reader, which also handles tar.gz.
+        if (Path.GetExtension(archivePath).Equals(".7z", StringComparison.OrdinalIgnoreCase))
         {
-            using var archive = volumes.Count > 1
-                ? ArchiveFactory.OpenArchive(volumes.Skip(1).OrderBy(v => v, StringComparer.OrdinalIgnoreCase).Prepend(volumes[0]).Select(v => new FileInfo(v)).ToList())
-                : ArchiveFactory.OpenArchive(archivePath);
+            using var archive = ArchiveFactory.OpenArchive(archivePath);
             var total = Math.Max(1, archive.Entries.Where(e => !e.IsDirectory).Sum(e => e.Size));
             long done = 0;
             void Count(int n) { done += n; progress?.Report((double)done / total); }

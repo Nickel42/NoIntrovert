@@ -11,7 +11,8 @@ namespace NoIntrovert.Core.Formats;
 internal static partial class DiscFiles
 {
     public static readonly string[] Descriptors = [".cue", ".gdi", ".toc", ".ccd", ".mds"];
-    public static readonly string[] Images = [".iso", ".cso", ".zso", ".isz", ".pbp", ".ecm", ".bin", ".img", ".nrg"];
+    public static readonly string[] Images = [.. new[] { ".iso", ".cso", ".zso", ".isz", ".pbp", ".ecm", ".bin", ".img", ".nrg" }
+        .Concat(NintendoDisc.Containers)];
 
     public static bool IsSupported(string path)
     {
@@ -51,9 +52,6 @@ internal static partial class DiscFiles
                 case ".001":
                     files = ArchiveExtractor.SplitParts(path);
                     break;
-                case ".rar":
-                    files = ArchiveExtractor.ArchiveVolumes(path).ToList();
-                    break;
             }
         }
         catch (Exception ex) when (ex is IOException or FormatException or InvalidDataException)
@@ -71,8 +69,8 @@ internal static partial class DiscFiles
 
     /// <summary>
     /// Picks the files to convert from a set (a folder scan or an unpacked
-    /// archive): descriptors win over the images they reference, a .001 over
-    /// its later parts, and the first rar volume over the rest.
+    /// archive): descriptors win over the images they reference, and a .001
+    /// over its later parts.
     /// </summary>
     public static List<string> SelectPrimaries(IEnumerable<string> candidates)
     {
@@ -80,14 +78,14 @@ internal static partial class DiscFiles
         var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in all)
         {
-            // Later rar volumes are never primaries, and must not claim the first one.
+            // Later split parts are never primaries.
             if (ArchiveExtractor.IsSecondaryVolume(file))
             {
                 claimed.Add(file);
                 continue;
             }
             var ext = Path.GetExtension(file);
-            if (Descriptors.Contains(ext, StringComparer.OrdinalIgnoreCase) || ext is ".001" || ext.Equals(".rar", StringComparison.OrdinalIgnoreCase))
+            if (Descriptors.Contains(ext, StringComparer.OrdinalIgnoreCase) || ext is ".001")
                 foreach (var member in SetFiles(file).Skip(1))
                     claimed.Add(member);
         }

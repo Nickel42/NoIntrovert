@@ -487,3 +487,4 @@ $RECYCLE.BIN/
 native/_deps/
 native/build*/
 native/out/
+native/libdolphinrvz/build*/

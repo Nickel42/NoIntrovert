@@ -19,7 +19,7 @@ mkdir -p "$out"
 # 7z.so: 7-Zip's full format library, with its plain gcc makefile (portable C,
 # no assembler needed), into Format7zF/b/g.
 bundle="$src7z/CPP/7zip/Bundles/Format7zF"
-(cd "$bundle" && make -j"$jobs" -f ../../cmpl_gcc.mak)
+(cd "$bundle" && make -j"$jobs" -f ../../cmpl_gcc.mak DISABLE_RAR=1)
 cp "$bundle/b/g/7z.so" "$out/"
 
 # libnoi_archive.so: our C interface over bit7z.

@@ -10,7 +10,7 @@
         <ScrollViewer Grid.Column="1">
             <Border Classes="card">
                 <StackPanel Spacing="4">
-                    <TextBlock Text="CONVERT TO CHD" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Text="CONVERT" Classes="section" Margin="0,0,0,4" />
                     <TextBlock Classes="hint"
                                Text="Archives, split files, ECM, CSO/ZSO, ISZ, PBP, CloneCD and Alcohol images are unpacked or rebuilt in the temp folder first, then compressed with libchdman." />
 
@@ -30,10 +30,32 @@
                               SelectedItem="{Binding Settings.SelectedIsoMode}" HorizontalAlignment="Stretch" />
                     <TextBlock Classes="hint" Text="PSP and PS2 images belong on DVD; CSO/ZSO are always treated as DVD in Auto." />
 
+                    <TextBlock Text="GAMECUBE / WII" Classes="section" />
+                    <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.NintendoTargets}"
+                              SelectedItem="{Binding Settings.SelectedNintendoTarget}" HorizontalAlignment="Stretch" />
+                    <StackPanel Spacing="4" IsVisible="{Binding Settings.IsRvzTarget}">
+                        <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.RvzCompressions}"
+                                  SelectedItem="{Binding Settings.SelectedRvzCompression}" HorizontalAlignment="Stretch" />
+                        <Grid ColumnDefinitions="*,110" RowDefinitions="Auto,Auto" RowSpacing="6" Margin="0,4,0,0">
+                            <TextBlock Text="Level" VerticalAlignment="Center" IsEnabled="{Binding Settings.HasRvzLevel}" />
+                            <NumericUpDown Grid.Column="1" Value="{Binding Settings.RvzCompressionLevel}"
+                                           Minimum="{Binding Settings.RvzLevelMinimum}" Maximum="{Binding Settings.RvzLevelMaximum}"
+                                           Increment="1" FormatString="0" IsEnabled="{Binding Settings.HasRvzLevel}" />
+                            <TextBlock Grid.Row="1" Text="Block size" VerticalAlignment="Center" />
+                            <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{x:Static vm:SettingsViewModel.RvzBlockSizes}"
+                                      SelectedItem="{Binding Settings.SelectedRvzBlockSize}" HorizontalAlignment="Stretch" />
+                        </Grid>
+                        <CheckBox Content="Scrub unused data" IsChecked="{Binding Settings.RvzScrub}"
+                                  ToolTip.Tip="Zeroes the disc's padding first. RVZ already stores padding compactly, so this saves little, and the result no longer matches Redump checksums." />
+                    </StackPanel>
+                    <TextBlock Classes="hint"
+                               Text="GameCube/Wii discs (iso, gcm, gcz, wia, rvz, tgc) go through Dolphin's own code (libdolphinrvz). RVZ round-trips to the exact original disc. WBFS and CISO can't be converted." />
+
                     <TextBlock Text="AFTER CONVERTING" Classes="section" />
-                    <CheckBox Content="Verify each CHD" IsChecked="{Binding Settings.VerifyAfterCreate}" />
+                    <CheckBox Content="Verify each CHD or RVZ" IsChecked="{Binding Settings.VerifyAfterCreate}"
+                              ToolTip.Tip="CHDs are checked against their stored SHA-1; RVZs are decoded again and compared with the source disc." />
                     <CheckBox Content="Remove the original files" IsChecked="{Binding Settings.DeleteOriginals}"
-                              ToolTip.Tip="Only after the new CHD verifies. Includes the bins, tracks, archive volumes and split parts that belong to it." />
+                              ToolTip.Tip="Only after the new CHD or RVZ verifies. Includes the bins, tracks, archive volumes and split parts that belong to it." />
                     <CheckBox Content="{Binding Settings.RecycleBinLabel}" IsChecked="{Binding Settings.UseRecycleBin}" IsVisible="{Binding Settings.CanUseRecycleBin}"
                               IsEnabled="{Binding Settings.DeleteOriginals}" Margin="22,0,0,0" />
                     <TextBlock Classes="hint" Text="Removing originals always verifies first, even if Verify is off."

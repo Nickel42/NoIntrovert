@@ -20,7 +20,7 @@ using NoIntrovert.Tests;
 var quick = args.Contains("--quick");
 var keep = args.Contains("--keep");
 var roms = ArgValue("--roms") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "test-roms"));
-var upstream = ArgValue("--upstream") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "libchdman", "build-x64", "Release", "chdman-upstream.exe"));
+var upstream = ArgValue("--upstream") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "native", "libchdman", "build-x64", "Release", "chdman-upstream.exe"));
 var scratch = Path.Combine(Path.GetTempPath(), "NoIntrovert-tests", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
 Directory.CreateDirectory(scratch);
 var synthetic = args.Contains("--synthetic") || !Directory.Exists(roms);
@@ -350,8 +350,35 @@ Test("Folder scan picks descriptors, not the files they use", () =>
     File.WriteAllText(Path.Combine(dir, "a.cue"),
         "FILE \"a (Track 1).bin\" BINARY\n TRACK 01 MODE2/2352\n  INDEX 01 00:00:00\nFILE \"a (Track 2).bin\" BINARY\n TRACK 02 AUDIO\n  INDEX 01 00:00:00\n");
     var picked = DiscFiles.SelectPrimaries(Directory.EnumerateFiles(dir)).Select(Path.GetFileName).ToList();
-    var expected = new[] { "a.cue", "b.ccd", "c.mds", "d.iso.001", "e.cso", "f.zip", "g.part1.rar" };
+    var expected = new[] { "a.cue", "b.ccd", "c.mds", "d.iso.001", "e.cso", "f.zip" };
     return picked.SequenceEqual(expected) ? null : $"picked {string.Join(", ", picked)}";
+});
+
+Test("RAR inputs are refused", () =>
+{
+    foreach (var name in new[] { "g.rar", "g.part1.rar", "g.r00", "G.RAR" })
+    {
+        if (!ArchiveExtractor.IsRar(name)) return $"{name} not seen as RAR";
+        if (DiscFiles.IsSupported(name)) return $"Convert accepts {name}";
+        if (ArchiveJobs.ConvertibleExtensions.Contains(Path.GetExtension(name).ToLowerInvariant()))
+            return $"Archive tab accepts {name}";
+    }
+    if (ArchiveExtractor.IsRar("d.iso.001") || ArchiveExtractor.IsRar("f.zip")) return "non-RAR seen as RAR";
+    // By name, and by content (a RAR renamed to .zip).
+    foreach (var name in new[] { "g.rar", "h.zip" })
+    {
+        var rar = Path.Combine(Dir("rar"), name);
+        File.WriteAllBytes(rar, [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00]);
+        try
+        {
+            ArchiveExtractor.Extract(rar, Dir("rar-out"), null, CancellationToken.None);
+            return $"{name} was extracted";
+        }
+        catch (NotSupportedException ex) when (ex.Message.Contains("RAR"))
+        {
+        }
+    }
+    return null;
 });
 
 Test("Existing CHD is skipped unless Overwrite is on", () =>
@@ -682,6 +709,106 @@ else
         return o.Status == JobStatus.Failed && File.Exists(damaged) && leftovers.Count == 0
             ? Note(o.Summary.Split('\n')[0])
             : $"{o.Status} {o.Summary}; archive kept: {File.Exists(damaged)}; left: {string.Join(", ", leftovers)}";
+    });
+}
+
+// ---- GameCube / Wii (libdolphinrvz) ---------------------------------------------
+
+var rvzProblem = (string?)null;
+try { rvzProblem = LibDolphinRvz.DolphinRvz.AbiVersion == 1 ? null : "unexpected libdolphinrvz ABI"; }
+catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException) { rvzProblem = ex.Message; }
+Test("libdolphinrvz loads", () => rvzProblem);
+if (rvzProblem is null)
+{
+    var gcIso = Path.Combine(Dir("gc"), "Test Game (USA).iso");
+    NintendoDiscs.WriteGameCube(gcIso);
+
+    Test("libdolphinrvz structs match the C layout", () =>
+        LibDolphinRvz.DolphinRvz.StructSizes == LibDolphinRvz.DolphinRvz.ExpectedStructSizes
+            ? null : $"managed {LibDolphinRvz.DolphinRvz.StructSizes}, C {LibDolphinRvz.DolphinRvz.ExpectedStructSizes}");
+
+    Test("Probe a GameCube ISO", () =>
+    {
+        using var rvz = new LibDolphinRvz.DolphinRvz();
+        var info = rvz.Probe(gcIso);
+        return info.Platform == LibDolphinRvz.DiscPlatform.GameCube && info.GameId == "GNIE01" && info.CanConvert
+            ? null : $"{info}";
+    });
+
+    Test("GameCube ISO → RVZ (verified), and back to the same ISO", () =>
+    {
+        var outDir = Dir("gc-rvz");
+        var o = RunJob(c => ChdJobs.Convert(c, gcIso), s => s.OutputFolder = outDir);
+        var rvzPath = Path.Combine(outDir, "Test Game (USA).rvz");
+        if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+        if (!File.Exists(rvzPath)) return "no .rvz written";
+        if (new FileInfo(rvzPath).Length >= new FileInfo(gcIso).Length / 4) return "the RVZ is barely smaller than the ISO";
+        var back = Dir("gc-rvz-back");
+        var e = RunJob(c => RvzJobs.Extract(c, rvzPath), s => s.OutputFolder = back);
+        if (e.Status != JobStatus.Succeeded) return $"extract: {e.Status}: {e.Summary}";
+        return SameFile(gcIso, Path.Combine(back, "Test Game (USA).iso")) ?? Note($"{o.Summary}");
+    });
+
+    Test("GameCube RVZ → CHD stores the same disc as a CHD made from the ISO", () =>
+    {
+        var dir = Dir("gc-rvz-chd");
+        var rvzPath = Path.Combine(dir, "game.rvz");
+        using (var rvz = new LibDolphinRvz.DolphinRvz())
+            rvz.Convert(gcIso, rvzPath, new LibDolphinRvz.ConvertSettings());
+        var o = RunJob(c => ChdJobs.Convert(c, rvzPath), s => { s.OutputFolder = dir; s.NintendoTarget = NintendoTarget.Chd; });
+        if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+        var expected = CreateChd(new PreparedDisc("ref", DiscKind.Dvd, gcIso, "ref"), Path.Combine(dir, "ref.chd"));
+        var actual = RawSha1(Path.Combine(dir, "game.chd"));
+        return actual == expected ? null : $"CHD data SHA-1 {actual}, expected {expected}";
+    });
+
+    Test("A GameCube ISO inside a zip becomes an RVZ", () =>
+    {
+        var dir = Dir("gc-zip");
+        var zip = Path.Combine(dir, "Zipped Game.zip");
+        using (var z = ZipFile.Open(zip, ZipArchiveMode.Create))
+            z.CreateEntryFromFile(gcIso, "game.iso", CompressionLevel.Fastest);
+        var o = RunJob(c => ChdJobs.Convert(c, zip), s => s.OutputFolder = dir);
+        return o.Status == JobStatus.Succeeded && File.Exists(Path.Combine(dir, "Zipped Game.rvz")) ? null : $"{o.Status}: {o.Summary}";
+    });
+
+    Test("An RVZ on the Convert tab is skipped (already RVZ)", () =>
+    {
+        var dir = Dir("gc-rvz-skip");
+        var rvzPath = Path.Combine(dir, "game.rvz");
+        using (var rvz = new LibDolphinRvz.DolphinRvz())
+            rvz.Convert(gcIso, rvzPath, new LibDolphinRvz.ConvertSettings());
+        var o = RunJob(c => ChdJobs.Convert(c, rvzPath), s => s.OutputFolder = dir);
+        return o.Status == JobStatus.Skipped ? null : $"{o.Status}: {o.Summary}";
+    });
+
+    Test("Remove the original ISO after its RVZ verifies", () =>
+    {
+        var dir = Dir("gc-rvz-delete");
+        var iso = Path.Combine(dir, "game.iso");
+        File.Copy(gcIso, iso);
+        var o = RunJob(c => ChdJobs.Convert(c, iso), s => { s.DeleteOriginals = true; s.UseRecycleBin = false; s.VerifyAfterCreate = false; });
+        if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+        return !File.Exists(iso) && File.Exists(Path.Combine(dir, "game.rvz")) ? null : "the ISO is still there, or no RVZ";
+    });
+
+    Test("Cancelling an RVZ conversion leaves no RVZ", () =>
+    {
+        var dir = Dir("gc-rvz-cancel");
+        using var cts = new CancellationTokenSource();
+        var report = new CancelAtProgress(cts, 0.05);
+        var o = RunJob(c => ChdJobs.Convert(c, gcIso), s => { s.OutputFolder = dir; s.ThreadsPerJob = 1; s.RvzBlockSize = 0x8000; }, cts.Token, report);
+        if (o.Status != JobStatus.Cancelled) return $"expected Cancelled, got {o.Status}: {o.Summary}";
+        return Directory.EnumerateFiles(dir).Any() ? $"left {string.Join(", ", Directory.EnumerateFiles(dir).Select(Path.GetFileName))}" : null;
+    });
+
+    Test("WBFS is refused with a reason", () =>
+    {
+        var dir = Dir("gc-wbfs");
+        var wbfs = Path.Combine(dir, "game.wbfs");
+        File.WriteAllBytes(wbfs, NintendoDiscs.FakeWbfsHeader());
+        var o = RunJob(c => ChdJobs.Convert(c, wbfs), s => s.OutputFolder = dir);
+        return o.Status == JobStatus.Failed ? Note(o.Summary) : $"expected Failed, got {o.Status}: {o.Summary}";
     });
 }
 

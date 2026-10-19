@@ -7,8 +7,12 @@ public enum DiscKind { Cd, Dvd, HardDisk }
 
 public enum IsoMode { Auto, Dvd, Cd }
 
-/// <summary>A disc ready for libchdman: what to call the CHD, which create call to use, and its input file.</summary>
-public sealed record PreparedDisc(string OutputName, DiscKind Kind, string InputPath, string Note);
+/// <summary>
+/// A disc ready for converting: what to call the output, which create call to
+/// use, and its input file. IsNintendo marks a GameCube/Wii disc (plain or in
+/// one of Dolphin's containers), which goes through libdolphinrvz.
+/// </summary>
+public sealed record PreparedDisc(string OutputName, DiscKind Kind, string InputPath, string Note, bool IsNintendo = false);
 
 /// <summary>The discs prepared from one input file, and the scratch folder holding any rebuilt files.</summary>
 internal sealed class PreparedInput(WorkDirectory work) : IDisposable
@@ -75,6 +79,14 @@ internal sealed class InputPreparer(string tempRoot, IsoMode isoMode, ILog log)
 
             case ".iso":
                 AddIso(prepared, path, name, "iso", cdIsAuto: true);
+                return;
+
+            case ".gcm":
+                prepared.Discs.Add(new PreparedDisc(name, DiscKind.Dvd, path, "GameCube/Wii gcm", IsNintendo: true));
+                return;
+
+            case ".gcz" or ".wia" or ".rvz" or ".tgc" or ".wbfs" or ".ciso":
+                prepared.Discs.Add(new PreparedDisc(name, DiscKind.Dvd, path, $"GameCube/Wii {ext[1..]}", IsNintendo: true));
                 return;
 
             case ".cso" or ".zso":
@@ -179,6 +191,12 @@ internal sealed class InputPreparer(string tempRoot, IsoMode isoMode, ILog log)
 
     private void AddIso(PreparedInput prepared, string iso, string name, string note, bool cdIsAuto)
     {
+        if (NintendoDisc.IsPlainDisc(iso))
+        {
+            log.Debug($"  {Path.GetFileName(iso)}: GameCube/Wii disc");
+            prepared.Discs.Add(new PreparedDisc(name, DiscKind.Dvd, iso, $"{note}: GameCube/Wii", IsNintendo: true));
+            return;
+        }
         DiscKind kind;
         var why = isoMode == IsoMode.Auto ? "" : " (set in options)";
         switch (isoMode)

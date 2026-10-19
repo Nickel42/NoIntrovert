@@ -2,8 +2,8 @@
   <!--
     Where libchdman lives and which native build of it to ship.
 
-    LibChdmanRoot defaults to a checkout next to this repo (../libchdman);
-    CI passes -p:LibChdmanRoot=... instead. The native library is taken from
+    LibChdmanRoot defaults to native/libchdman in this repository (pass
+    -p:LibChdmanRoot=... to use another checkout). The native library is taken from
     $(LibChdmanRoot)/artifacts/native/<dir>, where <dir> follows the
     RuntimeIdentifier being built or published:
 
@@ -16,7 +16,7 @@
     Pass -p:ChdmanLibDir=<dir> to point at any other build.
   -->
   <PropertyGroup>
-    <LibChdmanRoot Condition="'$(LibChdmanRoot)' == ''">$(MSBuildThisFileDirectory)../libchdman</LibChdmanRoot>
+    <LibChdmanRoot Condition="'$(LibChdmanRoot)' == ''">$(MSBuildThisFileDirectory)native/libchdman</LibChdmanRoot>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(ChdmanNativeDir)' == ''">
@@ -48,5 +48,18 @@
   -->
   <PropertyGroup>
     <NoiArchiveLibDir Condition="'$(NoiArchiveLibDir)' == ''">$(MSBuildThisFileDirectory)native/out/$(ChdmanNativeDir)</NoiArchiveLibDir>
+  </PropertyGroup>
+
+  <!--
+    libdolphinrvz (Dolphin's GameCube/Wii disc code, native/libdolphinrvz),
+    built into native/out/<dir> next to the archive engine:
+      win-*      -> dolphinrvz.dll
+      osx        -> libdolphinrvz.dylib (universal)
+      linux-x64  -> libdolphinrvz.so
+    Pass -p:DolphinRvzLibDir=<dir> to use another build.
+  -->
+  <PropertyGroup>
+    <DolphinRvzRoot>$(MSBuildThisFileDirectory)native/libdolphinrvz</DolphinRvzRoot>
+    <DolphinRvzLibDir Condition="'$(DolphinRvzLibDir)' == ''">$(MSBuildThisFileDirectory)native/out/$(ChdmanNativeDir)</DolphinRvzLibDir>
   </PropertyGroup>
 </Project>
