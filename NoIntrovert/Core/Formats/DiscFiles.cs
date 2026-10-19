@@ -11,7 +11,8 @@ namespace NoIntrovert.Core.Formats;
 internal static partial class DiscFiles
 {
     public static readonly string[] Descriptors = [".cue", ".gdi", ".toc", ".ccd", ".mds"];
-    public static readonly string[] Images = [".iso", ".cso", ".zso", ".isz", ".pbp", ".ecm", ".bin", ".img", ".nrg"];
+    public static readonly string[] Images = [.. new[] { ".iso", ".cso", ".zso", ".isz", ".pbp", ".ecm", ".bin", ".img", ".nrg" }
+        .Concat(NintendoDisc.Containers)];
 
     public static bool IsSupported(string path)
     {

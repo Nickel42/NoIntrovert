@@ -49,4 +49,17 @@
   <PropertyGroup>
     <NoiArchiveLibDir Condition="'$(NoiArchiveLibDir)' == ''">$(MSBuildThisFileDirectory)native/out/$(ChdmanNativeDir)</NoiArchiveLibDir>
   </PropertyGroup>
+
+  <!--
+    libdolphinrvz (Dolphin's GameCube/Wii disc code, native/libdolphinrvz),
+    built into native/out/<dir> next to the archive engine:
+      win-*      -> dolphinrvz.dll
+      osx        -> libdolphinrvz.dylib (universal)
+      linux-x64  -> libdolphinrvz.so
+    Pass -p:DolphinRvzLibDir=<dir> to use another build.
+  -->
+  <PropertyGroup>
+    <DolphinRvzRoot>$(MSBuildThisFileDirectory)native/libdolphinrvz</DolphinRvzRoot>
+    <DolphinRvzLibDir Condition="'$(DolphinRvzLibDir)' == ''">$(MSBuildThisFileDirectory)native/out/$(ChdmanNativeDir)</DolphinRvzLibDir>
+  </PropertyGroup>
 </Project>

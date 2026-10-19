@@ -27,6 +27,14 @@ public partial class MainViewModel : ViewModelBase
             LibraryVersion = "libchdman not loaded";
             Log.Error($"chdman.dll could not be loaded: {ex.Message}. Build libchdman and rebuild this app.");
         }
+        try
+        {
+            Log.Info($"Loaded {LibDolphinRvz.DolphinRvz.Version} · ABI {LibDolphinRvz.DolphinRvz.AbiVersion}");
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
+        {
+            Log.Warn($"libdolphinrvz could not be loaded ({ex.Message}); GameCube/Wii images can't be converted.");
+        }
 
         WorkPaths.SweepStale(settings.EffectiveTempFolder);
     }

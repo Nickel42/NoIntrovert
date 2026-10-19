@@ -10,8 +10,8 @@
         <ScrollViewer Grid.Column="1">
             <Border Classes="card">
                 <StackPanel Spacing="4">
-                    <TextBlock Text="EXTRACT CHDS" Classes="section" Margin="0,0,0,4" />
-                    <TextBlock Classes="hint" Text="Turns CHDs back into disc images." />
+                    <TextBlock Text="EXTRACT" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Classes="hint" Text="Turns CHDs back into disc images, and GameCube/Wii RVZ, WIA and GCZ images back into ISO." />
 
                     <TextBlock Text="FORMAT" Classes="section" />
                     <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.ExtractFormats}"

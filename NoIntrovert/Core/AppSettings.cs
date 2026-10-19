@@ -19,6 +19,13 @@ public sealed class AppSettings
     public bool DeleteOriginals { get; set; }
     public bool UseRecycleBin { get; set; } = true;
 
+    // GameCube / Wii (libdolphinrvz); defaults are Dolphin's
+    public Jobs.NintendoTarget NintendoTarget { get; set; } = Jobs.NintendoTarget.Rvz;
+    public LibDolphinRvz.RvzCompression RvzCompression { get; set; } = LibDolphinRvz.RvzCompression.Zstd;
+    public int RvzCompressionLevel { get; set; } = 5;
+    public uint RvzBlockSize { get; set; } = 0x20000;
+    public bool RvzScrub { get; set; }
+
     // Extraction
     public ExtractFormat ExtractFormat { get; set; } = ExtractFormat.Auto;
     public bool SplitBin { get; set; } = true;

@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using LibDolphinRvz;
 using NoIntrovert.Core;
+using NoIntrovert.Core.Jobs;
 using NoIntrovert.Services;
 
 namespace NoIntrovert.ViewModels;
@@ -112,6 +114,79 @@ public partial class SettingsViewModel : ViewModelBase
         get => HunkSizes.FirstOrDefault(h => h.Value == _s.HunkSize) ?? HunkSizes[0];
         set => Set(value.Value, (s, v) => s.HunkSize = v);
     }
+
+    // GameCube / Wii
+
+    public static IReadOnlyList<Choice<NintendoTarget>> NintendoTargets { get; } =
+    [
+        new(NintendoTarget.Rvz, "RVZ (Dolphin's format, smallest)"),
+        new(NintendoTarget.Chd, "CHD (as a DVD)"),
+    ];
+
+    public static IReadOnlyList<Choice<RvzCompression>> RvzCompressions { get; } =
+    [
+        new(RvzCompression.Zstd, "Zstandard (Dolphin's default)"),
+        new(RvzCompression.Lzma2, "LZMA2 (smaller, much slower)"),
+        new(RvzCompression.Lzma, "LZMA"),
+        new(RvzCompression.Bzip2, "bzip2"),
+        new(RvzCompression.None, "No compression"),
+    ];
+
+    public static IReadOnlyList<Choice<uint>> RvzBlockSizes { get; } =
+    [
+        new(0x8000u, "32 KiB"),
+        new(0x10000u, "64 KiB"),
+        new(0x20000u, "128 KiB (Dolphin's default)"),
+        new(0x40000u, "256 KiB"),
+        new(0x80000u, "512 KiB"),
+        new(0x100000u, "1 MiB"),
+        new(0x200000u, "2 MiB"),
+    ];
+
+    public Choice<NintendoTarget> SelectedNintendoTarget
+    {
+        get => NintendoTargets.FirstOrDefault(t => t.Value == _s.NintendoTarget) ?? NintendoTargets[0];
+        set
+        {
+            Set(value.Value, (s, v) => s.NintendoTarget = v);
+            OnPropertyChanged(nameof(IsRvzTarget));
+        }
+    }
+
+    public bool IsRvzTarget => _s.NintendoTarget == NintendoTarget.Rvz;
+
+    public Choice<RvzCompression> SelectedRvzCompression
+    {
+        get => RvzCompressions.FirstOrDefault(c => c.Value == _s.RvzCompression) ?? RvzCompressions[0];
+        set
+        {
+            Set(value.Value, (s, v) => s.RvzCompression = v);
+            // Keep the level inside the new method's range (Dolphin's dialog uses the same ranges).
+            _s.RvzCompressionLevel = Math.Clamp(_s.RvzCompressionLevel, (int)RvzLevelMinimum, (int)RvzLevelMaximum);
+            _s.Save();
+            OnPropertyChanged(nameof(RvzCompressionLevel));
+            OnPropertyChanged(nameof(RvzLevelMaximum));
+            OnPropertyChanged(nameof(HasRvzLevel));
+        }
+    }
+
+    public bool HasRvzLevel => _s.RvzCompression != RvzCompression.None;
+    public decimal RvzLevelMinimum => 1;
+    public decimal RvzLevelMaximum => _s.RvzCompression == RvzCompression.Zstd ? 22 : 9;
+
+    public decimal RvzCompressionLevel
+    {
+        get => _s.RvzCompressionLevel;
+        set => Set((int)value, (s, v) => s.RvzCompressionLevel = Math.Clamp(v, 1, (int)RvzLevelMaximum));
+    }
+
+    public Choice<uint> SelectedRvzBlockSize
+    {
+        get => RvzBlockSizes.FirstOrDefault(b => b.Value == _s.RvzBlockSize) ?? RvzBlockSizes[2];
+        set => Set(value.Value, (s, v) => s.RvzBlockSize = v);
+    }
+
+    public bool RvzScrub { get => _s.RvzScrub; set => Set(value, (s, v) => s.RvzScrub = v); }
 
     public string OutputFolder { get => _s.OutputFolder; set => Set(value, (s, v) => s.OutputFolder = v); }
     public bool UseSourceFolder { get => string.IsNullOrWhiteSpace(_s.OutputFolder); }

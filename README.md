@@ -1,7 +1,7 @@
 # NoIntrovert
 
-A desktop CHD batch tool built with Avalonia, used as a test bench for
-[libchdman](native/libchdman). Every CHD operation goes through the LibChdman .NET
+A desktop CHD and RVZ batch tool built with Avalonia, used as a test bench for
+[libchdman](native/libchdman) and [libdolphinrvz](native/libdolphinrvz). Every CHD operation goes through the LibChdman .NET
 binding (`chdman.dll`); `chdman.exe` is only run when you ask the Library tests
 tab to compare against it.
 
@@ -9,9 +9,9 @@ Workflow on every tab: **pick files → choose options → run the batch → rea
 
 | Tab | What it does |
 |---|---|
-| Convert | Any supported image → CHD, optional verify, optional removal of the originals (Recycle Bin by default, and only after the CHD verifies) |
+| Convert | Any supported image → CHD (GameCube/Wii discs → RVZ, or CHD if you choose), optional verify, optional removal of the originals (Recycle Bin by default, and only after the CHD verifies) |
 | Verify | Checks CHDs against their stored SHA-1; can fix a wrong header SHA-1 |
-| Extract | CHD → cue/bin (one bin per track or a single bin), gdi, iso (DVDs, and single-track data CDs) or raw img |
+| Extract | CHD → cue/bin (one bin per track or a single bin), gdi, iso (DVDs, and single-track data CDs) or raw img; RVZ/WIA/GCZ → iso |
 | Archive | Files and folders → .7z or .zip (one archive per item, one per file/subfolder in a folder, or one for everything), zip ↔ 7z conversion, and extracting zip/7z (into a folder per archive or straight into the output folder); tests each archive and can remove the originals |
 | CHD Info | Header fields, metadata (copy, save an item to a file), hunk counts per codec |
 | Library tests | Round trip (create → verify → extract → compare with the original data) and comparison with a chdman.exe (byte-for-byte output, timings); CSV export |
@@ -33,6 +33,22 @@ Converted first, in the temp folder:
 | zip, 7z, tar, tar.gz | Unpacked, then every disc inside is converted |
 | Split files `name.ext.001, .002, …` | Joined, then converted |
 | Loose `.bin` with no cue | One-track cue written from the first sector's mode |
+
+### GameCube and Wii
+
+GameCube and Wii discs (iso and gcm, recognised by their disc header; gcz,
+wia, rvz and tgc) go through libdolphinrvz, which is Dolphin's own disc code
+(the same as `DolphinTool convert`). By default they become **RVZ**, Dolphin's
+format: Zstandard level 5 with 128 KiB blocks, as in Dolphin's convert dialog,
+and adjustable on the Convert tab. Wii partitions are stored decrypted, and
+Nintendo's junk padding as seeds, so an RVZ is far smaller than the ISO and
+still decodes to the exact original disc. Verifying an RVZ decodes it again
+and compares its SHA-1 with the source. Choose CHD instead to store them as
+DVD CHDs (a gcz/wia/rvz is decoded to ISO first).
+
+WBFS and CISO images can't be converted: like Dolphin, libdolphinrvz only
+converts images whose container records the disc's exact size. NKit images
+convert, but stay NKit.
 
 ISOs in Auto mode are treated as DVDs when they hold a UDF file system, are
 PSP UMD images, or are larger than an 80-minute CD; otherwise as CDs.

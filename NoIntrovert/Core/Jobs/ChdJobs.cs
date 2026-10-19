@@ -9,7 +9,8 @@ public static class ChdJobs
     /// <summary>
     /// Converts one input to one or more CHDs: prepare (unpack/decode/rebuild
     /// a cue), create with libchdman, verify, then optionally remove the
-    /// originals once every disc from this input verified.
+    /// originals once every disc from this input verified. GameCube and Wii
+    /// discs become RVZ instead (libdolphinrvz), unless the CHD target is set.
     /// </summary>
     public static JobOutcome Convert(JobContext c, string source)
     {
@@ -34,8 +35,21 @@ public static class ChdJobs
         {
             var disc = prepared.Discs[i];
             var discLabel = prepared.Discs.Count > 1 ? $" (disc {i + 1} of {prepared.Discs.Count})" : "";
-            var output = Path.Combine(outputFolder, disc.OutputName + ".chd");
             log.Debug($"  input {disc.InputPath} [{disc.Note}] → {disc.Kind}");
+
+            if (disc.IsNintendo && s.NintendoTarget == NintendoTarget.Rvz)
+            {
+                var (result, rvzOutput, rvzStats) = RvzJobs.ConvertDisc(c, disc, outputFolder, discLabel, mustVerify);
+                switch (result)
+                {
+                    case RvzJobs.DiscResult.Skipped: skipped++; break;
+                    case RvzJobs.DiscResult.VerifyFailed: verifyFailed = true; created.Add((rvzOutput, rvzStats!)); break;
+                    default: created.Add((rvzOutput, rvzStats!)); break;
+                }
+                continue;
+            }
+
+            var output = Path.Combine(outputFolder, disc.OutputName + ".chd");
 
             if (File.Exists(output) && !s.Overwrite)
             {
@@ -43,6 +57,10 @@ public static class ChdJobs
                 skipped++;
                 continue;
             }
+
+            // A GameCube/Wii disc in GCZ/WIA/RVZ/TGC is decoded to ISO first; libchdman stores it as a DVD.
+            if (disc.IsNintendo)
+                disc = RvzJobs.DecodeForChd(c, disc, prepared.Work.Path, discLabel);
 
             c.TrackChdman($"Compressing{discLabel}");
             var stats = ChdService.Create(c.Chdman, disc, output, c.OutputSettings(), c.Token);
@@ -79,7 +97,7 @@ public static class ChdJobs
         var stats0 = Combine(created)!;
         var summary = created.Count == 1
             ? $"{Path.GetFileName(created[0].Path)} · {stats0.Ratio:P0}"
-            : $"{created.Count} CHDs · {stats0.Ratio:P0}";
+            : $"{created.Count} files · {stats0.Ratio:P0}";
         log.Success($"{name}: done{(mustVerify ? " and verified" : "")}");
         return new JobOutcome(skipped > 0 ? JobStatus.Warning : JobStatus.Succeeded, summary, stats0);
     }
