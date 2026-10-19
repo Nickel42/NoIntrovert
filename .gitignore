@@ -432,6 +432,8 @@ test-results/
 
 # Icon must end with two \r
 Icon
+# ...but on case-insensitive file systems that also matches this folder.
+!packaging/icon/
 
 
 # Thumbnails

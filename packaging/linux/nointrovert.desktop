@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=NoIntrovert
+GenericName=CHD batch tool
+Comment=Convert, verify and extract CHD disc images, and make or unpack 7z and zip archives
+Exec=NoIntrovert %F
+Icon=nointrovert
+Terminal=false
+StartupNotify=true
+Categories=Utility;Archiving;
+Keywords=chd;chdman;cue;bin;iso;gdi;7z;zip;emulation;

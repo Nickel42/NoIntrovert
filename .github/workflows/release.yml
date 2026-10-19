@@ -265,6 +265,13 @@ jobs:
           cp libchdman/LICENSE "$out/LICENSE-libchdman.txt"
           cp app/native/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
           cp app/native/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
+          # App icon in the freedesktop hicolor layout, plus a menu entry and its installer.
+          for size in 16 32 48 64 128 256 512; do
+            mkdir -p "$out/icons/hicolor/${size}x${size}/apps"
+            cp "app/packaging/icon/png/nointrovert-$size.png" "$out/icons/hicolor/${size}x${size}/apps/nointrovert.png"
+          done
+          cp app/packaging/linux/nointrovert.desktop app/packaging/linux/install-desktop-entry.sh "$out/"
+          chmod +x "$out/install-desktop-entry.sh"
           ls -l "$out"
           mkdir -p dist
           tar -C publish -czf "dist/$name.tar.gz" "$name"
@@ -273,14 +280,29 @@ jobs:
         # The app has no command-line mode: start it on Xvfb, check it is still
         # running after a while, and keep a screenshot of its window.
         run: |
-          sudo apt-get update -q && sudo apt-get install -y -q xvfb x11-apps imagemagick
+          sudo apt-get update -q && sudo apt-get install -y -q xvfb x11-apps x11-utils imagemagick desktop-file-utils
           mkdir smoke && tar -xzf "dist/NoIntrovert-$VERSION-linux-x64.tar.gz" -C smoke
+          pkg="smoke/NoIntrovert-$VERSION-linux-x64"
+
+          # The menu entry is valid, and the installer puts it and the icons in place.
+          desktop-file-validate "$pkg/nointrovert.desktop"
+          HOME="$PWD/smoke/home" XDG_DATA_HOME= "$pkg/install-desktop-entry.sh"
+          desktop-file-validate smoke/home/.local/share/applications/nointrovert.desktop
+          grep -q "^Exec=\"$PWD/$pkg/NoIntrovert\" %F" smoke/home/.local/share/applications/nointrovert.desktop
+          for size in 16 32 48 64 128 256 512; do
+            file "smoke/home/.local/share/icons/hicolor/${size}x${size}/apps/nointrovert.png" | grep -q "${size} x ${size}"
+          done
           Xvfb :99 -screen 0 1280x800x24 & xvfb=$!
           export DISPLAY=:99
           sleep 2
           "smoke/NoIntrovert-$VERSION-linux-x64/NoIntrovert" > smoke/app.log 2>&1 & app=$!
           sleep 20
           if ! kill -0 "$app" 2>/dev/null; then echo "The app exited:"; cat smoke/app.log; exit 1; fi
+          # The window carries the app icon (what taskbars and Alt-Tab show on X11).
+          win=$(xwininfo -root -tree | grep -m1 'NoIntrovert' | awk '{print $1}')
+          test -n "$win" || { echo "No NoIntrovert window found"; xwininfo -root -tree; exit 1; }
+          xprop -id "$win" _NET_WM_ICON | head -c 120; echo
+          xprop -id "$win" _NET_WM_ICON | grep -q 'CARDINAL' || { echo "The window has no _NET_WM_ICON"; exit 1; }
           xwd -root -silent | convert xwd:- smoke/linux-x64.png
           kill "$app" "$xvfb" || true
           cat smoke/app.log
