@@ -73,37 +73,11 @@ public static partial class WiiUTitles
     /// The paths in <paramref name="folder"/> worth listing: title folders and
     /// .wua files, looking a few levels down but not inside a title.
     /// </summary>
-    public static List<string> FindSources(string folder, bool recursive, int maxDepth = 4)
-    {
-        var found = new List<string>();
-        if (IsTitleFolder(folder) || WiiUEncrypted.IsNusFolder(folder) || UnsupportedReason(folder) is not null)
-        {
-            found.Add(folder);
-            return found;
-        }
-        Scan(folder, recursive ? maxDepth : 1, found);
-        return found;
-    }
-
-    private static void Scan(string folder, int depth, List<string> found)
-    {
-        IEnumerable<string> files, dirs;
-        try
-        {
-            files = Directory.EnumerateFiles(folder).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
-            dirs = Directory.EnumerateDirectories(folder).OrderBy(d => d, StringComparer.OrdinalIgnoreCase).ToList();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return;
-        }
-        found.AddRange(files.Where(f => IsWua(f) || WiiUEncrypted.IsDiscImage(f) || UnsupportedReason(f) is not null));
-        foreach (var dir in dirs)
-        {
-            if (IsTitleFolder(dir) || WiiUEncrypted.IsNusFolder(dir) || UnsupportedReason(dir) is not null) found.Add(dir);
-            else if (depth > 1) Scan(dir, depth - 1, found);
-        }
-    }
+    public static List<string> FindSources(string folder, bool recursive, int maxDepth = 4) =>
+        Formats.FormatRegistry.Default.Scan(folder, recursive, maxDepth)
+            .Where(s => Formats.KnownFormats.WiiUInputs.Contains(s.Format))
+            .Select(s => s.Primary)
+            .ToList();
 
     /// <summary>A source this tab can read: title folder, .wua, NUS folder or disc image.</summary>
     public static bool IsSource(string path) =>

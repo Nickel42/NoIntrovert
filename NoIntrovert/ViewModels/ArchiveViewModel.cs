@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using NoIntrovert.Core;
 using NoIntrovert.Core.Archives;
+using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.Jobs;
 using NoIntrovert.Services;
 
@@ -40,14 +41,11 @@ public partial class ArchiveViewModel : BatchTabViewModel
         ? "Drop .zip or .7z archives (or folders holding them) here to convert them to the other format."
         : "Drop files and folders here to pack them into .7z or .zip archives.\nEach folder you add stays one row; the grouping option decides how many archives it makes.";
     protected override string FilterName => TakesArchives ? "Archives" : "All files";
-    protected override IReadOnlyList<string> Patterns => TakesArchives ? ["*.zip", "*.7z"] : ["*.*"];
-
-    protected override bool Accepts(string path) =>
-        TakesArchives ? ArchiveJobs.IsConvertible(path) : File.Exists(path) || Directory.Exists(path);
-
-    /// <summary>Compressing keeps a folder as one row; converting and extracting add the archives found in it.</summary>
-    protected override IEnumerable<string> ItemsForFolder(string folder) =>
-        TakesArchives ? base.ItemsForFolder(folder) : [folder];
+    /// <summary>
+    /// Converting and extracting take zip and 7z files (found inside added
+    /// folders); compressing takes anything, and a folder stays one row.
+    /// </summary>
+    protected override IReadOnlyList<FormatInfo>? InputFormats => TakesArchives ? KnownFormats.ConvertibleArchives : null;
 
     protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
     {
