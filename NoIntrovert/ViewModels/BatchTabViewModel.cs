@@ -54,14 +54,17 @@ public abstract partial class BatchTabViewModel : ViewModelBase
 
     /// <summary>Whether a file belongs in this tab's list.</summary>
     protected virtual bool Accepts(string path) =>
-        InputFormats is not { } formats || (FormatRegistry.Default.Detect(path) is { } format && formats.Contains(format));
+        InputFormats is null || (FormatRegistry.Default.Identify(path) is { } set && Takes(set));
+
+    /// <summary>Whether one input the registry found belongs in this tab: by default, by its format.</summary>
+    protected virtual bool Takes(FileSet set) => InputFormats?.Contains(set.Format) ?? true;
 
     /// <summary>What a folder added to the list becomes: by default the inputs the registry finds in it.</summary>
     protected virtual IEnumerable<string> ItemsForFolder(string folder)
     {
         if (InputFormats is not { } formats) return [folder];
         return FormatRegistry.Default.Scan(folder, Settings.ScanSubfolders, ScanDepth)
-            .Where(s => formats.Contains(s.Format))
+            .Where(Takes)
             .Select(s => s.Primary)
             .ToList();
     }

@@ -22,18 +22,26 @@ public partial class WiiUViewModel(SettingsViewModel settings, LogViewModel log,
     protected override string FilterName => "Wii U archives";
     protected override IReadOnlyList<FormatInfo> InputFormats => KnownFormats.WiiUInputs;
 
+    /// <summary>Wii U inputs, and archives holding one (a zipped .wux, .wua or title folder).</summary>
+    protected override bool Takes(FileSet set) => KnownFormats.TakesWiiU(set);
+
+    protected override IReadOnlyList<string> Patterns { get; } =
+        [.. KnownFormats.Patterns(KnownFormats.WiiUInputs), .. KnownFormats.Patterns(KnownFormats.Archives)];
+
     /// <summary>Titles sit a few levels down at most; deeper folders are never looked through.</summary>
     protected override int ScanDepth => 4;
 
     // Filled by GroupItems on the UI thread before a run; read by the workers.
     private readonly Dictionary<string, ulong> _baseIds = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _problems = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _archives = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>One job per game: every row whose titles share a base title ID.</summary>
     protected override IReadOnlyList<IReadOnlyList<JobItemViewModel>> GroupItems(IReadOnlyList<JobItemViewModel> pending)
     {
         _baseIds.Clear();
         _problems.Clear();
+        _archives.Clear();
         var keys = WiiUKeys.Empty;
         if (pending.Any(i => WiiUEncrypted.IsNusFolder(i.Path) || WiiUEncrypted.IsDiscImage(i.Path)))
         {
@@ -45,6 +53,13 @@ public partial class WiiUViewModel(SettingsViewModel settings, LogViewModel log,
         var byGame = new Dictionary<ulong, List<JobItemViewModel>>();
         foreach (var item in pending)
         {
+            // An archive is unpacked by its own job, so it builds on its own (its titles can't be read before).
+            if (KnownFormats.Archives.Any(f => f.HasExtension(item.Path)))
+            {
+                _archives.Add(item.Path);
+                groups.Add([item]);
+                continue;
+            }
             if (WiiUTitles.UnsupportedReason(item.Path) is { } reason)
             {
                 _problems[item.Path] = reason;
@@ -79,6 +94,7 @@ public partial class WiiUViewModel(SettingsViewModel settings, LogViewModel log,
     protected override JobOutcome WorkGroup(JobContext context, IReadOnlyList<JobItemViewModel> group)
     {
         var lead = group[0].Path;
+        if (_archives.Contains(lead)) return WuaJobs.BuildFromArchive(context, lead);
         if (_problems.TryGetValue(lead, out var problem))
             return problem.StartsWith('!') ? JobOutcome.Failed(problem[1..]) : JobOutcome.Skipped(problem);
         return WuaJobs.Build(context, _baseIds[lead], group.Select(i => i.Path).ToList());

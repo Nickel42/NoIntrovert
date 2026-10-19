@@ -19,7 +19,7 @@ using NoIntrovert.Tests;
 
 var quick = args.Contains("--quick");
 var keep = args.Contains("--keep");
-var roms = ArgValue("--roms") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "test-roms"));
+var roms = ArgValue("--roms") ?? Environment.GetEnvironmentVariable("NOINTROVERT_TEST_ROMS") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "test-roms"));
 var upstream = ArgValue("--upstream") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "native", "libchdman", "build-x64", "Release", "chdman-upstream.exe"));
 var scratch = Path.Combine(Path.GetTempPath(), "NoIntrovert-tests", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
 Directory.CreateDirectory(scratch);
@@ -443,7 +443,6 @@ Test("Format registry: tabs keep their file-picker patterns", () =>
         ("Verify", ["*.chd"], [KnownFormats.Chd]),
         ("Extract", extract, KnownFormats.Extractable),
         ("Archive", ["*.zip", "*.7z"], KnownFormats.ConvertibleArchives),
-        ("Wii U", ["*.wua", "*.wud", "*.wux", "*.wuhb"], KnownFormats.WiiUInputs),
     };
     foreach (var (tab, old, formats) in checks)
     {
@@ -1124,6 +1123,99 @@ Test("Wii U: remove the originals once the .wua verifies", () =>
     return o.Status == JobStatus.Succeeded && !Directory.Exists(game) && File.Exists(Path.Combine(dir, "Other Game [0005000010202D00].wua"))
         ? null : $"{o.Status} {o.Summary}; folder still there: {Directory.Exists(game)}";
 });
+
+if (ArchiveEngine.IsAvailable(out _))
+{
+    Test("Archives: the registry sees what's inside without unpacking", () =>
+    {
+        var dir = Dir("peek");
+        string Zip(string name, params string[] entries)
+        {
+            var path = Path.Combine(dir, name);
+            using var z = ZipFile.Open(path, ZipArchiveMode.Create);
+            foreach (var e in entries)
+                using (var w = new StreamWriter(z.CreateEntry(e).Open())) w.Write("x");
+            return path;
+        }
+        var iso = Zip("Game (USA).zip", "Game (USA).iso", "readme.txt");
+        var title = Zip("Wii U Game.zip", "Game/code/app.xml", "Game/meta/meta.xml", "Game/content/data.bin");
+        var nes = Zip("NES.zip", "Mario.nes");
+        var broken = Path.Combine(dir, "broken.zip");
+        File.WriteAllBytes(broken, [.. Enumerable.Range(0, 4096).Select(i => (byte)(i * 7))]);
+        var wuxDir = Path.Combine(scratch, "peek-src");
+        Directory.CreateDirectory(wuxDir);
+        File.WriteAllBytes(Path.Combine(wuxDir, "Game.wux"), new byte[4096]);
+        var wux7z = Path.Combine(dir, "Game.7z");
+        using (var engine = new ArchiveEngine())
+            engine.Compress(ArchiveFormat.SevenZip, ArchiveLevel.Fast, 0, true, [Path.Combine(wuxDir, "Game.wux")], wux7z, false, null, CancellationToken.None);
+
+        var cases = new (string Path, string Inside, bool Disc, bool WiiU)[]
+        {
+            (iso, "iso", true, false),
+            (title, "bin, wiiu-folder", false, true), // its .bin doesn't make it a disc image
+            (nes, "", false, false),
+            (wux7z, "wiiu-disc", false, true),
+            (broken, "(unreadable)", true, false),   // Convert keeps it; the job reports the problem
+        };
+        foreach (var (path, inside, disc, wiiu) in cases)
+        {
+            var set = FormatRegistry.Default.Identify(path);
+            if (set is null) return $"{Path.GetFileName(path)} wasn't recognised";
+            var got = set.Inside is null ? "(unreadable)" : string.Join(", ", set.Inside.Select(f => f.Id));
+            if (got != inside) return $"{Path.GetFileName(path)} holds {got}, expected {inside}";
+            if (KnownFormats.TakesDisc(set) != disc) return $"Convert {(disc ? "refused" : "took")} {Path.GetFileName(path)}";
+            if (KnownFormats.TakesWiiU(set) != wiiu) return $"the Wii U tab {(wiiu ? "refused" : "took")} {Path.GetFileName(path)}";
+        }
+        var convertScan = FormatRegistry.Default.Scan(dir, false).Where(KnownFormats.TakesDisc).Select(s => Path.GetFileName(s.Primary));
+        var listed = string.Join(", ", convertScan);
+        return listed == "broken.zip, Game (USA).zip" ? null : $"a Convert scan lists {listed}";
+    });
+
+    Test("Wii U: a zipped title folder becomes a .wua next to the zip", () =>
+    {
+        var dir = Dir("wiiu-zip");
+        var zip = Path.Combine(dir, "Test Game.zip");
+        ZipFile.CreateFromDirectory(baseTitle, zip, CompressionLevel.Fastest, includeBaseDirectory: true);
+        var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.BuildFromArchive(c, zip), s => { s.WiiUDeleteOriginals = true; s.UseRecycleBin = false; });
+        if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+        var wua = Path.Combine(dir, "Test Game [0005000010101C00].wua");
+        if (!File.Exists(wua)) return $"no .wua next to the zip: {string.Join(", ", Directory.GetFiles(dir).Select(Path.GetFileName))}";
+        if (File.Exists(zip)) return "the zip wasn't removed after the .wua verified";
+        var unpacked = Path.Combine(dir, "unpacked");
+        WiiUSample.Unpack(wua, unpacked);
+        var expected = Path.Combine(dir, "expected");
+        WiiUSample.CopyTree(baseTitle, Path.Combine(expected, "0005000010101c00_v0"));
+        return SameTree(expected, unpacked) ?? Note(o.Summary);
+    });
+
+    Test("Archive: already-compressed files are skipped alone and stored in a set", () =>
+    {
+        var dir = Dir("arc-precompressed");
+        var set = Path.Combine(dir, "CHDs");
+        Directory.CreateDirectory(set);
+        // Zero-filled, so 7z *could* shrink them: storing proves the level was switched, not that the data was random.
+        File.WriteAllBytes(Path.Combine(set, "Game.chd"), new byte[4 << 20]);
+        File.WriteAllBytes(Path.Combine(set, "Other.rvz"), new byte[4 << 20]);
+        File.WriteAllText(Path.Combine(set, "notes.txt"), "small");
+        var plain = Path.Combine(dir, "Plain");
+        Directory.CreateDirectory(plain);
+        File.WriteAllBytes(Path.Combine(plain, "Game.bin"), new byte[4 << 20]);
+
+        var alone = RunJob(c => ArchiveJobs.CompressOne(c, [Path.Combine(set, "Game.chd")], "Game", dir));
+        if (alone.Status != JobStatus.Skipped) return $"a lone CHD was {alone.Status}: {alone.Summary}";
+        if (File.Exists(Path.Combine(dir, "Game.7z"))) return "a lone CHD was packed anyway";
+
+        var stored = RunJob(c => ArchiveJobs.CompressOne(c, [set], "CHDs", dir), s => s.ArchiveTestAfter = true);
+        if (stored.Status != JobStatus.Succeeded) return $"the CHD folder: {stored.Status}: {stored.Summary}";
+        var storedRatio = (double)new FileInfo(Path.Combine(dir, "CHDs.7z")).Length / ArchiveJobs.SizeOf(set);
+        if (storedRatio < 0.95) return $"the CHD folder was compressed to {storedRatio:P1} instead of stored";
+
+        var packed = RunJob(c => ArchiveJobs.CompressOne(c, [plain], "Plain", dir));
+        if (packed.Status != JobStatus.Succeeded) return $"the plain folder: {packed.Status}: {packed.Summary}";
+        var packedRatio = (double)new FileInfo(Path.Combine(dir, "Plain.7z")).Length / ArchiveJobs.SizeOf(plain);
+        return packedRatio < 0.05 ? Note($"stored {storedRatio:P0}, compressed {packedRatio:P2}") : $"the plain folder only shrank to {packedRatio:P1}";
+    });
+}
 
 // ---- Wii U encrypted: NUS titles and WUD/WUX disc images (made-up keys) -----------
 

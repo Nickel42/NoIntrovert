@@ -33,6 +33,43 @@ public static class KnownFormats
 
     public static readonly IReadOnlyList<FormatInfo> WiiUInputs = [Wua, WiiUDisc, WiiUFolder, Nus, WiiUUnsupported];
 
+    /// <summary>What the Wii U tab can build from once unpacked from an archive.</summary>
+    public static readonly IReadOnlyList<FormatInfo> WiiUBuildable = [Wua, WiiUDisc, WiiUFolder, Nus];
+
+    /// <summary>
+    /// A disc input for Convert. An archive counts when it holds one, or when
+    /// its list couldn't be read (the job then says what's wrong), but not
+    /// when it holds a Wii U title, whose files can look like disc images.
+    /// </summary>
+    public static bool TakesDisc(FileSet set) =>
+        DiscInputs.Contains(set.Format) && (!Archives.Contains(set.Format) || set.Inside is null
+            || (set.Holds(DiscInputs) && !set.Holds([WiiUFolder, Nus])));
+
+    /// <summary>A Wii U input, or a zip/7z/tar holding a Wii U game.</summary>
+    public static bool TakesWiiU(FileSet set) =>
+        WiiUInputs.Contains(set.Format) || (Archives.Contains(set.Format) && set.Holds(WiiUBuildable));
+
+    /// <summary>Every format recognised from a file name alone (what an archive's list can show).</summary>
+    private static readonly IReadOnlyList<FormatInfo> ByNameFormats = [.. Descriptors, .. Images, Chd, .. Archives, Wua, WiiUDisc, WiiUUnsupported];
+
+    /// <summary>The format a file name says, without looking at the file (it may be inside an archive).</summary>
+    public static FormatInfo? ByName(string fileName) =>
+        ArchiveExtractor.IsFirstSplitPart(fileName) ? SplitFile : ByNameFormats.FirstOrDefault(f => f.HasExtension(fileName));
+
+    /// <summary>
+    /// Files that are already compressed (or encrypted), so packing them into
+    /// 7z or zip again would cost time and save next to nothing.
+    /// </summary>
+    public static readonly IReadOnlyList<string> AlreadyCompressed =
+    [
+        ".chd", ".rvz", ".wia", ".gcz", ".cso", ".zso", ".jso", ".dax", ".isz", ".pbp", ".wua", ".wux",
+        ".7z", ".zip", ".rar", ".gz", ".tgz", ".xz", ".txz", ".bz2", ".zst", ".lz4", ".lzma", ".cab",
+        ".jpg", ".jpeg", ".png", ".webp", ".mp3", ".ogg", ".opus", ".flac", ".mp4", ".mkv", ".webm",
+    ];
+
+    public static bool IsAlreadyCompressed(string path) =>
+        AlreadyCompressed.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
+
     /// <summary>File-picker patterns ("*.cue", ...) for <paramref name="formats"/>, in their order.</summary>
     public static List<string> Patterns(IEnumerable<FormatInfo> formats) =>
         formats.SelectMany(f => f.Extensions).Distinct(StringComparer.OrdinalIgnoreCase).Select(e => "*" + e).ToList();
@@ -105,8 +142,12 @@ public sealed class ImageHandler() : ExtensionHandler("disc-image", 100, KnownFo
 
 public sealed class ChdHandler() : ExtensionHandler("chd", 100, [KnownFormats.Chd]);
 
-/// <summary>zip, 7z, tar and gz. RAR is never recognised.</summary>
-public sealed class ArchiveHandler() : ExtensionHandler("archive", 50, KnownFormats.Archives);
+/// <summary>zip, 7z, tar and gz, each looked into for what it holds. RAR is never recognised.</summary>
+public sealed class ArchiveHandler() : ExtensionHandler("archive", 50, KnownFormats.Archives)
+{
+    public override IEnumerable<FileSet> Claim(ScanSet set) =>
+        base.Claim(set).Select(s => s with { Inside = ArchivePeek.Inside(s.Primary) }).ToList();
+}
 
 /// <summary>
 /// Wii U titles: extracted and NUS folders (claimed whole, never looked
