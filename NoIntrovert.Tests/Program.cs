@@ -1481,14 +1481,15 @@ if (ArchiveEngine.IsAvailable(out _))
 
 Test("Library: titles drop disc markers, generic names use their folder", () =>
 {
+    string P(params string[] parts) => Path.Combine([Path.GetTempPath(), "Lib", .. parts]);
     var cases = new (string Path, string Title, string Disc)[]
     {
-        (@"C:\Lib\PS1\Final Fantasy VII (USA) (Disc 2).cue", "Final Fantasy VII (USA)", "Disc 2"),
-        (@"C:\Lib\PS1\Metal Gear Solid (USA) (Disc 1 of 2).chd", "Metal Gear Solid (USA)", "Disc 1"),
-        (@"C:\Lib\Saturn\Panzer Dragoon Saga - Disc 3.cue", "Panzer Dragoon Saga", "Disc 3"),
-        (@"C:\Lib\DC\Jet Grind Radio (USA)\disc.gdi", "Jet Grind Radio (USA)", ""),
-        (@"C:\Lib\PSP\Corpse Party.iso", "Corpse Party", ""),
-        (@"C:\Lib\Mixed\Game (USA).iso.gz", "Game (USA)", ""),
+        (P("PS1", "Final Fantasy VII (USA) (Disc 2).cue"), "Final Fantasy VII (USA)", "Disc 2"),
+        (P("PS1", "Metal Gear Solid (USA) (Disc 1 of 2).chd"), "Metal Gear Solid (USA)", "Disc 1"),
+        (P("Saturn", "Panzer Dragoon Saga - Disc 3.cue"), "Panzer Dragoon Saga", "Disc 3"),
+        (P("DC", "Jet Grind Radio (USA)", "disc.gdi"), "Jet Grind Radio (USA)", ""),
+        (P("PSP", "Corpse Party.iso"), "Corpse Party", ""),
+        (P("Mixed", "Game (USA).iso.gz"), "Game (USA)", ""),
     };
     foreach (var (path, title, disc) in cases)
     {
@@ -1502,22 +1503,22 @@ Test("Library: titles drop disc markers, generic names use their folder", () =>
     var lib = Dir("library");
     void Put(string rel, byte[]? bytes = null, string? text = null)
     {
-        var p = Path.Combine(lib, rel);
+        var p = Path.Combine([lib, .. rel.Split('/')]);
         Directory.CreateDirectory(Path.GetDirectoryName(p)!);
         if (text is not null) File.WriteAllText(p, text); else File.WriteAllBytes(p, bytes ?? new byte[2352]);
     }
     string Cue(string bin) => $"FILE \"{bin}\" BINARY\n TRACK 01 MODE1/2352\n  INDEX 01 00:00:00\n";
-    Put(@"PS1\Final Fantasy VII (USA)\Final Fantasy VII (USA) (Disc 1).cue", text: Cue("Final Fantasy VII (USA) (Disc 1).bin"));
-    Put(@"PS1\Final Fantasy VII (USA)\Final Fantasy VII (USA) (Disc 1).bin");
-    Put(@"PS1\Final Fantasy VII (USA)\Final Fantasy VII (USA) (Disc 2).cue", text: Cue("Final Fantasy VII (USA) (Disc 2).bin"));
-    Put(@"PS1\Final Fantasy VII (USA)\Final Fantasy VII (USA) (Disc 2).bin");
-    Put(@"PS1\Converted\Final Fantasy VII (USA) (Disc 1).chd", new byte[512]);
-    Put(@"Saturn\Guardian Heroes (USA).chd", new byte[512]);
-    Put(@"Saturn\Backup\Guardian Heroes (USA).chd", new byte[512]);
+    Put("PS1/Final Fantasy VII (USA)/Final Fantasy VII (USA) (Disc 1).cue", text: Cue("Final Fantasy VII (USA) (Disc 1).bin"));
+    Put("PS1/Final Fantasy VII (USA)/Final Fantasy VII (USA) (Disc 1).bin");
+    Put("PS1/Final Fantasy VII (USA)/Final Fantasy VII (USA) (Disc 2).cue", text: Cue("Final Fantasy VII (USA) (Disc 2).bin"));
+    Put("PS1/Final Fantasy VII (USA)/Final Fantasy VII (USA) (Disc 2).bin");
+    Put("PS1/Converted/Final Fantasy VII (USA) (Disc 1).chd", new byte[512]);
+    Put("Saturn/Guardian Heroes (USA).chd", new byte[512]);
+    Put("Saturn/Backup/Guardian Heroes (USA).chd", new byte[512]);
     var gc = new byte[0x40];
     gc[0x1C] = 0xC2; gc[0x1D] = 0x33; gc[0x1E] = 0x9F; gc[0x1F] = 0x3D;
-    Put(@"Misc\Metroid Prime (USA).iso", gc);
-    Put(@"Carts\Tetris (World).gb", new byte[1024]);
+    Put("Misc/Metroid Prime (USA).iso", gc);
+    Put("Carts/Tetris (World).gb", new byte[1024]);
     using (var z = ZipFile.Open(Path.Combine(lib, "Carts", "Mario (USA).zip"), ZipArchiveMode.Create))
         z.CreateEntry("Mario (USA).nes");
     WiiUSample.CopyTree(baseTitle, Path.Combine(lib, "Wii U", "Game"));
