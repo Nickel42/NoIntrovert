@@ -13,7 +13,7 @@ namespace NoIntrovert.ViewModels;
 /// </summary>
 public partial class ArchiveViewModel : BatchTabViewModel
 {
-    public ArchiveViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs) : base(settings, log, dialogs)
+    public ArchiveViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue) : base(settings, log, dialogs, queue)
     {
         settings.PropertyChanged += OnSettingChanged;
     }

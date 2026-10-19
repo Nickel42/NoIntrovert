@@ -10,8 +10,8 @@ namespace NoIntrovert.ViewModels;
 /// The Wii U tab: turns extracted title folders and existing .wua files into
 /// one .wua per game (base game + newest update + DLC), the format Cemu reads.
 /// </summary>
-public partial class WiiUViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs)
-    : BatchTabViewModel(settings, log, dialogs)
+public partial class WiiUViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
+    : BatchTabViewModel(settings, log, dialogs, queue)
 {
     public override string Title => "Wii U";
     public override string StartLabel => "Build .wua files";

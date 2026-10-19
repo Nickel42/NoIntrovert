@@ -34,6 +34,13 @@ public partial class MainWindow : Window, IDialogs
         };
     }
 
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        if (Vm is { } vm && OperatingSystem.IsWindows() && TryGetPlatformHandle() is { } handle)
+            vm.Queue.Indicator = TaskbarProgress.For(handle.Handle);
+    }
+
     protected override async void OnClosing(WindowClosingEventArgs e)
     {
         base.OnClosing(e);
@@ -48,12 +55,7 @@ public partial class MainWindow : Window, IDialogs
             "Closing now cancels it; libchdman deletes the CHD it was writing. Close anyway?", "Close", "Keep running");
         if (await dialog.ShowDialog<bool>(this))
         {
-            vm.Convert.CancelCommand.Execute(null);
-            vm.Verify.CancelCommand.Execute(null);
-            vm.Extract.CancelCommand.Execute(null);
-            vm.Archive.CancelCommand.Execute(null);
-            vm.WiiU.CancelCommand.Execute(null);
-            vm.Tests.CancelCommand.Execute(null);
+            vm.Queue.Queue.CancelAll();
             _closeConfirmed = true;
             Close();
         }

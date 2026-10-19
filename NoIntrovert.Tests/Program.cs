@@ -475,6 +475,115 @@ Test("Format registry: Convert finds what it did before in test-roms", () =>
     return Note($"{now.Count} inputs, same as before");
 });
 
+Test("Job queue: one concurrency budget across every group", () =>
+{
+    var settings = new AppSettings();
+    var queue = new JobQueue(() => 2);
+    var running = 0;
+    var peak = 0;
+    var ran = 0;
+    BatchJob Sleepy(string name) => new(name, new NullReport(), _ =>
+    {
+        var now = Interlocked.Increment(ref running);
+        int seen;
+        while ((seen = Volatile.Read(ref peak)) < now && Interlocked.CompareExchange(ref peak, now, seen) != seen) { }
+        Thread.Sleep(60);
+        Interlocked.Decrement(ref running);
+        Interlocked.Increment(ref ran);
+        return new JobOutcome(JobStatus.Succeeded, "ok");
+    }, _ => { }, _ => { });
+    var a = queue.Submit("Convert", [Sleepy("a1"), Sleepy("a2"), Sleepy("a3")], settings, log);
+    var b = queue.Submit("Verify", [Sleepy("b1"), Sleepy("b2"), Sleepy("b3")], settings, log);
+    if (!Task.WhenAll(a.Completion, b.Completion).Wait(TimeSpan.FromSeconds(20))) return "the groups never finished";
+    if (ran != 6) return $"{ran} of 6 jobs ran";
+    if (peak > 2) return $"{peak} jobs ran at once with a budget of 2";
+    if (peak < 2) return "never used both workers";
+    return queue.IsBusy ? "queue still busy after everything finished" : null;
+});
+
+Test("Job queue: a step waits for the one before it, and is skipped if that failed", () =>
+{
+    var settings = new AppSettings();
+    var queue = new JobQueue(() => 3);
+    var order = new System.Collections.Concurrent.ConcurrentQueue<string>();
+    JobOutcome? skipped = null;
+    BatchJob Step(string name, JobStatus result, IReadOnlyList<BatchJob>? after = null, Action<JobOutcome>? done = null) =>
+        new(name, new NullReport(), _ =>
+        {
+            Thread.Sleep(name == "convert" ? 150 : 10);
+            order.Enqueue(name);
+            return new JobOutcome(result, name);
+        }, _ => { }, o => done?.Invoke(o), After: after);
+    var convert = Step("convert", JobStatus.Succeeded);
+    var remove = Step("remove originals", JobStatus.Succeeded, [convert]);
+    var bad = Step("bad convert", JobStatus.Failed);
+    var never = Step("never", JobStatus.Succeeded, [bad], o => skipped = o);
+    var g = queue.Submit("Convert", [remove, convert, bad, never], settings, log);
+    if (!g.Completion.Wait(TimeSpan.FromSeconds(20))) return "never finished";
+    var ran = order.ToList();
+    if (ran.IndexOf("remove originals") < ran.IndexOf("convert")) return $"ran in the order {string.Join(", ", ran)}";
+    if (ran.Contains("never")) return "a step ran after the one it depends on failed";
+    return skipped?.Status == JobStatus.Skipped ? null : $"the dependent step ended as {skipped?.Status}";
+});
+
+Test("Job queue: cancelling stops the running job and drops the queued ones", () =>
+{
+    var settings = new AppSettings();
+    var queue = new JobQueue(() => 1);
+    var started = new ManualResetEventSlim();
+    var outcomes = new System.Collections.Concurrent.ConcurrentDictionary<string, JobStatus>();
+    BatchJob Long(string name) => new(name, new NullReport(), c =>
+    {
+        started.Set();
+        c.Token.WaitHandle.WaitOne();
+        c.Token.ThrowIfCancellationRequested();
+        return new JobOutcome(JobStatus.Succeeded, "should not finish");
+    }, _ => { }, o => outcomes[name] = o.Status);
+    var g = queue.Submit("Convert", [Long("one"), Long("two"), Long("three")], settings, log);
+    if (!started.Wait(TimeSpan.FromSeconds(10))) return "the first job never started";
+    g.Cancel();
+    if (!g.Completion.Wait(TimeSpan.FromSeconds(10))) return "cancel didn't finish the group";
+    var all = string.Join(", ", outcomes.OrderBy(o => o.Key).Select(o => $"{o.Key} {o.Value}"));
+    return outcomes.Count == 3 && outcomes.Values.All(s => s == JobStatus.Cancelled) ? null : all;
+});
+
+Test("Job queue: overall progress is weighted by size, and bands keep one bar per job", () =>
+{
+    var settings = new AppSettings();
+    var queue = new JobQueue(() => 2);
+    var release = new ManualResetEventSlim();
+    var halfway = new ManualResetEventSlim();
+    var reported = new List<double>();
+    var bigReport = new RecordingReport(reported);
+    var small = new BatchJob("small", new NullReport(), _ => new JobOutcome(JobStatus.Succeeded, "ok"), _ => { }, _ => { }, CostBytes: 100);
+    var big = new BatchJob("big", bigReport, c =>
+    {
+        // Two steps, each filling its own part of the bar: compress 0..75%, verify 75..100%.
+        c.Band(0, 0.75);
+        c.Report.SetProgress(0.5);
+        c.Report.SetProgress(1);
+        c.Band(0.75, 0.25);
+        c.Report.SetProgress(0);
+        c.Report.SetProgress(0.4); // 0.75 + 0.1 = 0.85 of the job
+        halfway.Set();
+        release.Wait(c.Token);
+        return new JobOutcome(JobStatus.Succeeded, "ok");
+    }, _ => { }, _ => { }, CostBytes: 900);
+    var g = queue.Submit("Convert", [small, big], settings, log);
+    if (!halfway.Wait(TimeSpan.FromSeconds(10))) return "the big job never got halfway";
+    var smallJob = g.Jobs.First(j => j.Name == "small");
+    var deadline = DateTime.UtcNow.AddSeconds(5);
+    while (smallJob.State != QueuedState.Finished && DateTime.UtcNow < deadline) Thread.Sleep(10);
+    var done = g.Jobs.Sum(j => j.DoneBytes) / g.Jobs.Sum(j => (double)j.Cost);
+    release.Set();
+    if (!g.Completion.Wait(TimeSpan.FromSeconds(10))) return "never finished";
+    var expectedSeries = new[] { 0.375, 0.75, 0.75, 0.85 };
+    if (!reported.Select(r => Math.Round(r, 3)).SequenceEqual(expectedSeries))
+        return $"the bar went {string.Join(" → ", reported.Select(r => r.ToString("F3")))}";
+    // 100 bytes done + 85% of 900 = 865 of 1000.
+    return Math.Abs(done - 0.865) < 0.001 ? null : $"overall {done:P1} instead of 86.5%";
+});
+
 Test("RAR inputs are refused", () =>
 {
     foreach (var name in new[] { "g.rar", "g.part1.rar", "g.r00", "G.RAR" })
@@ -1307,7 +1416,9 @@ JobOutcome RunJob(JobWork work, Action<AppSettings>? configure = null, Cancellat
     configure?.Invoke(settings);
     JobOutcome? result = null;
     var job = new BatchJob("test", report ?? new NullReport(), work, _ => { }, o => result = o);
-    BatchRunner.RunAsync([job], settings, log, token).GetAwaiter().GetResult();
+    var group = new JobQueue(() => 1).Submit("test", [job], settings, log);
+    using (token.Register(group.Cancel))
+        group.Completion.GetAwaiter().GetResult();
     return result ?? new JobOutcome(JobStatus.Failed, "no result");
 }
 
@@ -1394,6 +1505,12 @@ sealed class ConsoleLog : ILog
         if (level is LogLevel.Warning or LogLevel.Error)
             Console.WriteLine($"      [{level}] {message}");
     }
+}
+
+sealed class RecordingReport(List<double> values) : IJobReport
+{
+    public void SetStage(string stage) { }
+    public void SetProgress(double fraction) { lock (values) values.Add(fraction); }
 }
 
 sealed class NullReport : IJobReport

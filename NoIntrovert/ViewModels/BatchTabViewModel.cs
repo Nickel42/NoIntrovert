@@ -15,15 +15,21 @@ namespace NoIntrovert.ViewModels;
 /// </summary>
 public abstract partial class BatchTabViewModel : ViewModelBase
 {
-    private CancellationTokenSource? _cts;
+    private JobGroup? _group;
+    private readonly DispatcherTimer _progressTimer;
 
-    protected BatchTabViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs)
+    protected BatchTabViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
     {
         Settings = settings;
         Log = log;
         Dialogs = dialogs;
+        Queue = queue;
         Items.CollectionChanged += (_, _) => RefreshSummary();
+        _progressTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(400), DispatcherPriority.Background, (_, _) => RefreshProgress());
     }
+
+    /// <summary>The app's shared queue: this tab's runs go in it alongside every other tab's.</summary>
+    public JobQueue Queue { get; }
 
     public SettingsViewModel Settings { get; }
     public LogViewModel Log { get; }
@@ -178,38 +184,39 @@ public abstract partial class BatchTabViewModel : ViewModelBase
 
         var snapshot = Settings.Snapshot();
         foreach (var item in pending) item.Reset();
-        _cts = new CancellationTokenSource();
         IsRunning = true;
         OverallProgress = 0;
-        RunStatus = $"Working on {pending.Count} item(s)…";
-        Log.Info($"{Title}: starting {pending.Count} item(s) with {snapshot.ParallelJobs} parallel job(s)");
+        var busy = Queue.IsBusy;
+        RunStatus = busy ? $"Queued {pending.Count} item(s) behind the jobs already running…" : $"Working on {pending.Count} item(s)…";
+        Log.Info($"{Title}: starting {pending.Count} item(s) with {snapshot.ParallelJobs} parallel job(s)" + (busy ? ", after the jobs already in the queue" : ""));
         var started = DateTime.Now;
-        var finished = 0;
 
         var jobs = GroupItems(pending).Select(group => new BatchJob(
-            group[0].Name,
+            group.Count == 1 ? group[0].Name : $"{group[0].Name} (+{group.Count - 1})",
             group[0],
             ctx => WorkGroup(ctx, group),
             _ => Dispatcher.UIThread.Post(() => { foreach (var item in group) item.Started(); }),
             outcome => Dispatcher.UIThread.Post(() =>
             {
                 foreach (var item in group) item.Finished(outcome);
-                finished += group.Count;
-                OverallProgress = 100.0 * finished / pending.Count;
                 RefreshSummary();
-            }))).ToList();
+            }),
+            CostBytes: group.Sum(i => i.SizeBytes))).ToList();
 
         try
         {
-            await BatchRunner.RunAsync(jobs, snapshot, Log, _cts.Token);
+            _group = Queue.Submit(Title, jobs, snapshot, Log);
+            _progressTimer.Start();
+            await _group.Completion;
             // Let the queued finish callbacks land before summing up.
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
         }
         finally
         {
+            _progressTimer.Stop();
+            RefreshProgress();
             IsRunning = false;
-            _cts.Dispose();
-            _cts = null;
+            _group = null;
         }
 
         var took = DateTime.Now - started;
@@ -231,9 +238,17 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(CanCancel))]
     private void Cancel()
     {
-        _cts?.Cancel();
+        _group?.Cancel();
         RunStatus = "Cancelling…";
         Log.Warn($"{Title}: cancelling; partial outputs are deleted");
+    }
+
+    /// <summary>This run's share of the queue, weighted by size like the overall bar.</summary>
+    private void RefreshProgress()
+    {
+        if (_group is not { } g || g.Jobs.Count == 0) return;
+        var total = g.Jobs.Sum(j => (double)j.Cost);
+        OverallProgress = 100 * g.Jobs.Sum(j => j.DoneBytes) / total;
     }
 
     private void RefreshSummary()

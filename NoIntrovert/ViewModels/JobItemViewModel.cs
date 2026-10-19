@@ -55,8 +55,12 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
                 : Core.Formats.DiscFiles.SetFiles(Path).Where(File.Exists).Sum(f => new FileInfo(f).Length);
         }
         catch (IOException) { }
+        SizeBytes = size;
         SizeText = ChdJobs.Size(size);
     }
+
+    /// <summary>The input's size on disk, which weights this row in the overall progress.</summary>
+    public long SizeBytes { get; }
 
     public bool IsFolder { get; }
 

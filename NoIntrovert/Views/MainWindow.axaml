@@ -11,7 +11,7 @@
         Background="{DynamicResource AppBackground}"
         DragDrop.AllowDrop="True">
 
-    <Grid RowDefinitions="Auto,*,Auto,230">
+    <Grid RowDefinitions="Auto,*,Auto,230,Auto,Auto">
 
         <!-- Header -->
         <Border Grid.Row="0" Background="{DynamicResource HeaderBackground}" Padding="18,10">
@@ -82,6 +82,54 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+            </Grid>
+        </Border>
+
+        <!-- Queue drawer: every job from every tab -->
+        <Border Grid.Row="4" Classes="card" Margin="12,0,12,8" Padding="0" IsVisible="{Binding Queue.IsOpen}">
+            <Grid RowDefinitions="Auto,*">
+                <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,6">
+                    <TextBlock Text="Queue" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="Every job from every tab, in the order it was added." Classes="hint"
+                               VerticalAlignment="Center" Margin="10,0,0,0" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                        <Button Classes="tool" Content="Clear finished" Command="{Binding Queue.ClearFinishedCommand}" />
+                        <Button Classes="tool" Content="Cancel all" Command="{Binding Queue.CancelAllCommand}" IsEnabled="{Binding Queue.IsBusy}" />
+                    </StackPanel>
+                </Grid>
+                <ScrollViewer Grid.Row="1" MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Queue.Rows}" Margin="12,0,12,8">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:QueueRowViewModel">
+                                <Grid ColumnDefinitions="2*,90,1.5*,180,44,84" Margin="0,3">
+                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding Name}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding GroupTitle}" Classes="hint" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <Ellipse Width="8" Height="8" Fill="{Binding Status, Converter={x:Static v:Palette.StatusBrush}}" />
+                                        <TextBlock Text="{Binding Stage}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Stage}" />
+                                    </StackPanel>
+                                    <ProgressBar Grid.Column="3" Value="{Binding Percent}" Minimum="0" Maximum="100" Height="6" MinWidth="0" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="4" Text="{Binding PercentText}" HorizontalAlignment="Right" VerticalAlignment="Center" Classes="hint" />
+                                    <Button Grid.Column="5" Classes="tool" Content="Cancel" Margin="8,0,0,0" HorizontalAlignment="Right" Command="{Binding CancelCommand}"
+                                            IsVisible="{Binding CanCancel}" ToolTip.Tip="Cancel this job; a queued job never starts." />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Status bar: overall progress of the shared queue, weighted by size -->
+        <Border Grid.Row="5" Background="{DynamicResource HeaderBackground}" Padding="18,6">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+                <TextBlock Text="Queue" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Queue.StatusText}" VerticalAlignment="Center" Margin="12,0,16,0" />
+                <ProgressBar Grid.Column="2" Value="{Binding Queue.OverallPercent}" Minimum="0" Maximum="100" Height="8" MinWidth="0"
+                             VerticalAlignment="Center" IsVisible="{Binding Queue.HasRows}" />
+                <TextBlock Grid.Column="3" Text="{Binding Queue.OverallPercent, StringFormat={}{0:F0}%}" VerticalAlignment="Center"
+                           Margin="10,0" IsVisible="{Binding Queue.HasRows}" />
+                <Button Grid.Column="4" Classes="tool" Content="{Binding Queue.ToggleText}" Command="{Binding Queue.ToggleCommand}" />
             </Grid>
         </Border>
     </Grid>
