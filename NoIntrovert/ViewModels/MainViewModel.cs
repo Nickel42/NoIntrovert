@@ -10,8 +10,8 @@ public partial class MainViewModel : ViewModelBase
     public MainViewModel(AppSettings settings, IDialogs dialogs)
     {
         Settings = new SettingsViewModel(settings, dialogs);
-        Log = new LogViewModel(dialogs, settings.VerboseLog);
-        var queue = new JobQueue(() => (int)Settings.ParallelJobs);
+        Log = new LogViewModel(dialogs, settings.General.VerboseLog);
+        var queue = new JobQueue(() => (int)Settings.Performance.ParallelJobs);
         Queue = new QueueViewModel(queue);
         Convert = new ConvertViewModel(Settings, Log, dialogs, queue);
         Verify = new VerifyViewModel(Settings, Log, dialogs, queue);
@@ -20,6 +20,8 @@ public partial class MainViewModel : ViewModelBase
         WiiU = new WiiUViewModel(Settings, Log, dialogs, queue);
         Info = new InfoViewModel(Log, dialogs);
         Tests = new TestsViewModel(Settings, Log, dialogs, queue);
+        foreach (var tab in new BatchTabViewModel[] { Convert, Verify, Extract, Archive, WiiU, Tests })
+            tab.OpenSettingsRequested = () => SelectedTab = SettingsTab;
 
         try
         {
@@ -40,7 +42,7 @@ public partial class MainViewModel : ViewModelBase
             Log.Warn($"libdolphinrvz could not be loaded ({ex.Message}); GameCube/Wii images can't be converted.");
         }
 
-        WorkPaths.SweepStale(settings.EffectiveTempFolder);
+        WorkPaths.SweepStale(settings.Performance.EffectiveTempFolder);
     }
 
     public SettingsViewModel Settings { get; }
@@ -62,7 +64,8 @@ public partial class MainViewModel : ViewModelBase
 
     public bool IsAnyRunning => Queue.Queue.IsBusy;
 
-    private static readonly string[] TabNames = ["convert", "verify", "extract", "archive", "wiiu", "info", "tests"];
+    private static readonly string[] TabNames = ["convert", "verify", "extract", "archive", "wiiu", "info", "tests", "settings"];
+    private static int SettingsTab => Array.IndexOf(TabNames, "settings");
 
     /// <summary>
     /// Handles the command line: file and folder paths are added to the

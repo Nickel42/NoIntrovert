@@ -267,7 +267,7 @@ ConvertTest("PBP (PS1 EBOOT)", () =>
     return Path.Combine(dir, "synth.pbp");
 }, synthRef);
 
-ConvertTest("ISO (DVD)", isoSlice, isoRef, s => s.IsoMode = IsoMode.Dvd);
+ConvertTest("ISO (DVD)", isoSlice, isoRef, s => s.Chd.IsoMode = IsoMode.Dvd);
 
 ConvertTest("CSO", () =>
 {
@@ -288,7 +288,7 @@ ConvertTest("ISZ", () =>
     var dir = Dir("in-isz");
     Encoders.WriteIsz(isoSlice, Path.Combine(dir, "slice.isz"));
     return Path.Combine(dir, "slice.isz");
-}, isoRef, s => s.IsoMode = IsoMode.Dvd);
+}, isoRef, s => s.Chd.IsoMode = IsoMode.Dvd);
 
 ConvertTest("zip holding cue + bin", () =>
 {
@@ -325,7 +325,7 @@ ConvertTest("split .iso.001/.002/.003", () =>
     File.WriteAllBytes(Path.Combine(dir, "slice.iso.002"), bytes[third..(2 * third)]);
     File.WriteAllBytes(Path.Combine(dir, "slice.iso.003"), bytes[(2 * third)..]);
     return Path.Combine(dir, "slice.iso.001");
-}, isoRef, s => s.IsoMode = IsoMode.Dvd);
+}, isoRef, s => s.Chd.IsoMode = IsoMode.Dvd);
 
 ConvertTest("loose .bin with no cue", () =>
 {
@@ -597,41 +597,156 @@ Test("Settings: writing back the current values saves nothing", () =>
         // Non-default values throughout, including a compression string that isn't in the list.
         var settings = new AppSettings
         {
-            Compression = "cdzs,cdfl", HunkSize = 2048 * 8, IsoMode = IsoMode.Cd, ExtractFormat = ExtractFormat.Iso,
-            NintendoTarget = NintendoTarget.Chd, RvzCompression = LibDolphinRvz.RvzCompression.Lzma2, RvzCompressionLevel = 7,
-            RvzBlockSize = 0x80000, RvzScrub = true, OutputFolder = @"D:\out", Overwrite = true, ScanSubfolders = false,
-            ArchiveAction = ArchiveAction.Convert, ArchiveFormat = ArchiveFormat.Zip, ArchiveLevel = ArchiveLevel.Ultra,
-            ArchiveGrouping = ArchiveGrouping.Single, ArchiveConvertTarget = ConvertTarget.ToZip, ArchiveSingleName = "All",
-            WiiUKeysPath = @"D:\keys.txt", ParallelJobs = 3, ThreadsPerJob = 2, TempFolder = @"D:\tmp", VerboseLog = true,
+            General = { PowerUserMode = true, VerboseLog = true },
+            Output = { Folder = @"D:\out", Overwrite = true, ScanSubfolders = false, RemoveArchiveOriginals = true },
+            Performance = { ParallelJobs = 3, ThreadsPerJob = 2, TempFolder = @"D:\tmp" },
+            Chd = { Compression = "cdzs,cdfl", HunkSize = 2048 * 8, IsoMode = IsoMode.Cd, ExtractFormat = ExtractFormat.Iso },
+            Nintendo = { Target = NintendoTarget.Chd, Compression = LibDolphinRvz.RvzCompression.Lzma2, CompressionLevel = 7, BlockSize = 0x80000, Scrub = true },
+            Archives = { Action = ArchiveAction.Convert, Format = ArchiveFormat.Zip, Level = ArchiveLevel.Ultra, Grouping = ArchiveGrouping.Single, ConvertTarget = ConvertTarget.ToZip, SingleName = "All" },
+            Keys = { WiiUKeysPath = @"D:\keys.txt" },
         };
         var before = settings.ToJson();
         var vm = new NoIntrovert.ViewModels.SettingsViewModel(settings, new NoDialogs());
         if (File.Exists(file)) return "constructing the view model saved the settings";
-        if (settings.ToJson() != before) return $"constructing the view model changed them (compression is now \"{settings.Compression}\")";
+        if (settings.ToJson() != before) return $"constructing the view model changed them (compression is now \"{settings.Chd.Compression}\")";
 
         var changed = new List<string?>();
-        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
-        var bound = typeof(NoIntrovert.ViewModels.SettingsViewModel).GetProperties()
-            .Where(p => p.CanRead && p.GetSetMethod() is not null && p.GetIndexParameters().Length == 0).ToList();
-        if (bound.Count < 30) return $"only {bound.Count} settable properties found";
-        foreach (var p in bound) p.SetValue(vm, p.GetValue(vm));
+        var bound = 0;
+        foreach (var section in vm.Sections)
+        {
+            section.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+            foreach (var p in section.GetType().GetProperties()
+                         .Where(p => p.CanRead && p.GetSetMethod() is not null && p.GetIndexParameters().Length == 0))
+            {
+                p.SetValue(section, p.GetValue(section));
+                bound++;
+            }
+        }
+        if (bound < 30) return $"only {bound} settable properties found";
         if (File.Exists(file)) return "writing back the current values saved the settings";
         if (changed.Count > 0) return $"writing back the current values raised PropertyChanged for {string.Join(", ", changed)}";
         if (settings.ToJson() != before) return "writing back the current values changed them";
 
         // A real change still saves, once, with its event.
-        vm.Overwrite = false;
+        vm.Output.Overwrite = false;
         if (!File.Exists(file)) return "changing Overwrite didn't save";
-        if (AppSettings.Load().Overwrite) return "the saved file still has Overwrite on";
+        if (AppSettings.Load().Output.Overwrite) return "the saved file still has Overwrite on";
         if (!changed.SequenceEqual(["Overwrite"])) return $"changing Overwrite raised {string.Join(", ", changed)}";
 
         // And the window's Save on close leaves an unchanged file alone.
         var stamp = File.GetLastWriteTimeUtc(file).AddMinutes(-5);
         File.SetLastWriteTimeUtc(file, stamp);
         vm.Save();
-        return File.GetLastWriteTimeUtc(file) == stamp ? null : "an explicit Save of unchanged settings rewrote the file";
+        return File.GetLastWriteTimeUtc(file) == stamp ? Note($"{bound} settings checked") : "an explicit Save of unchanged settings rewrote the file";
     }
     finally { AppSettings.SettingsDirectoryOverride = previous; }
+});
+
+Test("Settings: a schema-1 file is converted once, keeping a copy", () =>
+{
+    var dir = Dir("settings-v1");
+    var file = Path.Combine(dir, "settings.json");
+    // The layout every release up to 0.6 wrote, with some values changed from their defaults.
+    const string v1 = """
+    {
+      "OutputFolder": "D:\\CHD",
+      "Overwrite": true,
+      "ScanSubfolders": false,
+      "Compression": "cdzs,cdzl,cdfl",
+      "HunkSize": 0,
+      "IsoMode": "Dvd",
+      "VerifyAfterCreate": true,
+      "DeleteOriginals": true,
+      "UseRecycleBin": false,
+      "NintendoTarget": "Chd",
+      "RvzCompression": "Lzma2",
+      "RvzCompressionLevel": 9,
+      "RvzBlockSize": 131072,
+      "RvzScrub": false,
+      "ExtractFormat": "Auto",
+      "SplitBin": false,
+      "FixHeaderSha1": false,
+      "ArchiveAction": "Extract",
+      "ArchiveFormat": "Zip",
+      "ArchiveLevel": "Maximum",
+      "ArchiveSolid": true,
+      "ArchiveGrouping": "PerItem",
+      "ArchiveSingleName": "Archive",
+      "ArchiveConvertTarget": "Swap",
+      "ArchiveTestAfter": true,
+      "ArchiveDeleteOriginals": true,
+      "ArchiveExtractToOwnFolder": false,
+      "WiiUDeleteOriginals": true,
+      "WiiUKeysPath": "E:\\Cemu\\keys.txt",
+      "ParallelJobs": 2,
+      "ThreadsPerJob": 4,
+      "TempFolder": "F:\\tmp",
+      "ChdmanExePath": "",
+      "VerboseLog": true,
+      "LogProgress": false,
+      "WindowWidth": 1400,
+      "WindowHeight": 900
+    }
+    """;
+    File.WriteAllText(file, v1);
+    var previous = AppSettings.SettingsDirectoryOverride;
+    AppSettings.SettingsDirectoryOverride = dir;
+    try
+    {
+        var s = AppSettings.Load();
+        var checks = new (string What, bool Ok)[]
+        {
+            ("output folder", s.Output.Folder == @"D:\CHD"), ("overwrite", s.Output.Overwrite), ("subfolders", !s.Output.ScanSubfolders),
+            ("remove originals", s.Output.RemoveOriginals), ("archive remove", s.Output.RemoveArchiveOriginals),
+            ("Wii U remove", s.Output.RemoveWiiUOriginals), ("recycle bin", !s.Output.UseRecycleBin),
+            ("compression", s.Chd.Compression == "cdzs,cdzl,cdfl"), ("ISO mode", s.Chd.IsoMode == IsoMode.Dvd), ("split bin", !s.Chd.SplitBin),
+            ("Nintendo target", s.Nintendo.Target == NintendoTarget.Chd), ("RVZ compression", s.Nintendo.Compression == LibDolphinRvz.RvzCompression.Lzma2),
+            ("RVZ level", s.Nintendo.CompressionLevel == 9), ("archive action", s.Archives.Action == ArchiveAction.Extract),
+            ("archive format", s.Archives.Format == ArchiveFormat.Zip), ("archive level", s.Archives.Level == ArchiveLevel.Maximum),
+            ("own folder", !s.Archives.ExtractToOwnFolder), ("keys", s.Keys.WiiUKeysPath == @"E:\Cemu\keys.txt"),
+            ("parallel jobs", s.Performance.ParallelJobs == 2), ("threads", s.Performance.ThreadsPerJob == 4),
+            ("temp folder", s.Performance.TempFolder == @"F:\tmp"), ("verbose log", s.General.VerboseLog),
+            ("window", s.General.WindowWidth == 1400 && s.General.WindowHeight == 900), ("power-user mode off", !s.General.PowerUserMode),
+        };
+        if (checks.FirstOrDefault(c => !c.Ok) is { What: { } wrong }) return $"{wrong} wasn't carried over";
+
+        var backup = Path.Combine(dir, "settings.v1.json");
+        if (!File.Exists(backup) || File.ReadAllText(backup) != v1) return "the original file wasn't kept as settings.v1.json";
+        var converted = File.ReadAllText(file);
+        if (!converted.Contains("\"SchemaVersion\": 2")) return "settings.json wasn't rewritten in the new layout";
+
+        // Loading again is a plain load: nothing converted or rewritten.
+        var stamp = File.GetLastWriteTimeUtc(file).AddMinutes(-5);
+        File.SetLastWriteTimeUtc(file, stamp);
+        var again = AppSettings.Load();
+        if (again.ToJson() != s.ToJson()) return "the second load read different values";
+        return File.GetLastWriteTimeUtc(file) == stamp ? null : "the second load rewrote the file";
+    }
+    finally { AppSettings.SettingsDirectoryOverride = previous; }
+});
+
+Test("Settings: every schema-1 setting has a home", () =>
+{
+    var defaults = AppSettings.FromV1(new SettingsV1()).ToJson();
+    if (defaults != new AppSettings().ToJson()) return "schema-1 defaults don't convert to the new defaults";
+    var lost = new List<string>();
+    foreach (var p in typeof(SettingsV1).GetProperties())
+    {
+        var v1 = new SettingsV1();
+        object changed = p.PropertyType switch
+        {
+            var t when t == typeof(bool) => !(bool)p.GetValue(v1)!,
+            var t when t == typeof(string) => "changed",
+            var t when t == typeof(int) => (int)p.GetValue(v1)! + 3,
+            var t when t == typeof(uint) => (uint)p.GetValue(v1)! + 3,
+            var t when t == typeof(double) => (double)p.GetValue(v1)! + 3,
+            var t when t.IsEnum => Enum.GetValues(t).Cast<object>().First(v => !v.Equals(p.GetValue(v1))),
+            _ => throw new InvalidOperationException($"no test value for {p.PropertyType.Name}"),
+        };
+        p.SetValue(v1, changed);
+        if (AppSettings.FromV1(v1).ToJson() == defaults) lost.Add(p.Name);
+    }
+    return lost.Count == 0 ? Note($"{typeof(SettingsV1).GetProperties().Length} settings mapped") : $"not carried over: {string.Join(", ", lost)}";
 });
 
 Test("RAR inputs are refused", () =>
@@ -668,9 +783,9 @@ Test("Existing CHD is skipped unless Overwrite is on", () =>
     File.Copy(synthCue, Path.Combine(dir, "synth.cue"));
     File.Copy(synthBin, Path.Combine(dir, "synth.bin"));
     File.WriteAllText(Path.Combine(outDir, "synth.chd"), "placeholder");
-    var o = RunJob(c => ChdJobs.Convert(c, Path.Combine(dir, "synth.cue")), s => s.OutputFolder = outDir);
+    var o = RunJob(c => ChdJobs.Convert(c, Path.Combine(dir, "synth.cue")), s => s.Output.Folder = outDir);
     if (o.Status != JobStatus.Skipped) return $"expected Skipped, got {o.Status}";
-    o = RunJob(c => ChdJobs.Convert(c, Path.Combine(dir, "synth.cue")), s => { s.OutputFolder = outDir; s.Overwrite = true; });
+    o = RunJob(c => ChdJobs.Convert(c, Path.Combine(dir, "synth.cue")), s => { s.Output.Folder = outDir; s.Output.Overwrite = true; });
     return o.Status == JobStatus.Succeeded && RawSha1(Path.Combine(outDir, "synth.chd")) == synthRef ? null : $"overwrite gave {o.Status}: {o.Summary}";
 });
 
@@ -680,7 +795,7 @@ Test("Remove originals after a verified conversion", () =>
     var cue = Path.Combine(dir, "synth.cue");
     File.Copy(synthCue, cue);
     File.Copy(synthBin, Path.Combine(dir, "synth.bin"));
-    var o = RunJob(c => ChdJobs.Convert(c, cue), s => { s.DeleteOriginals = true; s.UseRecycleBin = false; s.VerifyAfterCreate = false; });
+    var o = RunJob(c => ChdJobs.Convert(c, cue), s => { s.Output.RemoveOriginals = true; s.Output.UseRecycleBin = false; s.Chd.VerifyAfterCreate = false; });
     if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
     var left = Directory.GetFiles(dir).Select(Path.GetFileName).ToList();
     return left.SequenceEqual(["synth.chd"]) ? null : $"folder holds {string.Join(", ", left)}";
@@ -735,7 +850,7 @@ Test("Extract cue/bin (one bin per track) gives back the disc", () =>
 {
     var outDir = Dir("extract-split");
     var o = RunJob(c => ChdJobs.Extract(c, Path.Combine(scratch, "ref", "synth.chd")),
-        s => { s.OutputFolder = outDir; s.ExtractFormat = ExtractFormat.CueBin; s.SplitBin = true; });
+        s => { s.Output.Folder = outDir; s.Chd.ExtractFormat = ExtractFormat.CueBin; s.Chd.SplitBin = true; });
     if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
     var bins = DiscFiles.CueReferences(Path.Combine(outDir, "synth.cue")).Select(n => Path.Combine(outDir, n)).ToList();
     if (bins.Count != 2) return $"{bins.Count} bins written";
@@ -752,7 +867,7 @@ Test("Extract a Mode 1 CD to ISO", () =>
     File.WriteAllText(Path.Combine(dir, "m1.cue"), "FILE \"m1.bin\" BINARY\r\n  TRACK 01 MODE1/2352\r\n    INDEX 01 00:00:00\r\n");
     CreateChd(new PreparedDisc("m1", DiscKind.Cd, Path.Combine(dir, "m1.cue"), ""), Path.Combine(dir, "m1.chd"));
     var outDir = Dir("cd-iso-out");
-    var r = RunJob(c => ChdJobs.Extract(c, Path.Combine(dir, "m1.chd")), s => { s.OutputFolder = outDir; s.ExtractFormat = ExtractFormat.Iso; });
+    var r = RunJob(c => ChdJobs.Extract(c, Path.Combine(dir, "m1.chd")), s => { s.Output.Folder = outDir; s.Chd.ExtractFormat = ExtractFormat.Iso; });
     if (r.Status != JobStatus.Succeeded) return $"{r.Status}: {r.Summary}";
     var expected = Path.Combine(dir, "expected.iso");
     using (var o = File.Create(expected))
@@ -767,14 +882,14 @@ Test("Extract a Mode 1 CD to ISO", () =>
 Test("ISO extraction refuses a disc with audio", () =>
 {
     var o = RunJob(c => ChdJobs.Extract(c, Path.Combine(scratch, "ref", "synth.chd")),
-        s => { s.OutputFolder = Dir("extract-iso-refuse"); s.ExtractFormat = ExtractFormat.Iso; });
+        s => { s.Output.Folder = Dir("extract-iso-refuse"); s.Chd.ExtractFormat = ExtractFormat.Iso; });
     return o.Status == JobStatus.Failed ? Note(o.Summary) : $"expected Failed, got {o.Status}";
 });
 
 Test("Extract a DVD CHD to ISO", () =>
 {
     var outDir = Dir("extract-dvd");
-    var o = RunJob(c => ChdJobs.Extract(c, Path.Combine(scratch, "ref", "slice.chd")), s => s.OutputFolder = outDir);
+    var o = RunJob(c => ChdJobs.Extract(c, Path.Combine(scratch, "ref", "slice.chd")), s => s.Output.Folder = outDir);
     return o.Status == JobStatus.Succeeded ? SameFile(isoSlice, Path.Combine(outDir, "slice.iso")) : $"{o.Status}: {o.Summary}";
 });
 
@@ -794,7 +909,7 @@ Test("Cancelling stops a conversion and leaves no CHD", () =>
     var outDir = Dir("cancel");
     using var cts = new CancellationTokenSource();
     var report = new CancelAtProgress(cts, 0.2);
-    var o = RunJob(c => ChdJobs.Convert(c, isoSlice), s => { s.OutputFolder = outDir; s.IsoMode = IsoMode.Dvd; s.VerifyAfterCreate = false; }, cts.Token, report);
+    var o = RunJob(c => ChdJobs.Convert(c, isoSlice), s => { s.Output.Folder = outDir; s.Chd.IsoMode = IsoMode.Dvd; s.Chd.VerifyAfterCreate = false; }, cts.Token, report);
     var left = Directory.GetFiles(outDir);
     return o.Status == JobStatus.Cancelled && left.Length == 0 ? null : $"{o.Status}, {left.Length} file(s) left";
 });
@@ -851,10 +966,10 @@ else
         var dir = Dir("arc-convert");
         using (var engine = new ArchiveEngine())
             engine.Compress(ArchiveFormat.Zip, ArchiveLevel.Fast, 0, false, [archiveSrc], Path.Combine(dir, "set.zip"), true, null, CancellationToken.None);
-        var o = RunJob(c => ArchiveJobs.Convert(c, Path.Combine(dir, "set.zip")), s => s.ArchiveConvertTarget = ConvertTarget.Swap);
+        var o = RunJob(c => ArchiveJobs.Convert(c, Path.Combine(dir, "set.zip")), s => s.Archives.ConvertTarget = ConvertTarget.Swap);
         if (o.Status != JobStatus.Succeeded || !File.Exists(Path.Combine(dir, "set.7z"))) return $"zip→7z: {o.Status} {o.Summary}";
         File.Delete(Path.Combine(dir, "set.zip"));
-        o = RunJob(c => ArchiveJobs.Convert(c, Path.Combine(dir, "set.7z")), s => s.ArchiveConvertTarget = ConvertTarget.Swap);
+        o = RunJob(c => ArchiveJobs.Convert(c, Path.Combine(dir, "set.7z")), s => s.Archives.ConvertTarget = ConvertTarget.Swap);
         if (o.Status != JobStatus.Succeeded || !File.Exists(Path.Combine(dir, "set.zip"))) return $"7z→zip: {o.Status} {o.Summary}";
         using (var engine = new ArchiveEngine())
             engine.Extract(Path.Combine(dir, "set.zip"), Path.Combine(dir, "out"), null, CancellationToken.None);
@@ -863,14 +978,14 @@ else
 
     Test("Archive: converting to the format it already has is skipped", () =>
     {
-        var o = RunJob(c => ArchiveJobs.Convert(c, Path.Combine(scratch, "arc-convert", "set.zip")), s => s.ArchiveConvertTarget = ConvertTarget.ToZip);
+        var o = RunJob(c => ArchiveJobs.Convert(c, Path.Combine(scratch, "arc-convert", "set.zip")), s => s.Archives.ConvertTarget = ConvertTarget.ToZip);
         return o.Status == JobStatus.Skipped ? null : $"{o.Status}: {o.Summary}";
     });
 
     Test("Archive: one archive per file or subfolder in a folder", () =>
     {
         var outDir = Dir("arc-entries");
-        var o = RunJob(c => ArchiveJobs.CompressEntries(c, archiveSrc, outDir), s => s.ArchiveFormat = ArchiveFormat.SevenZip);
+        var o = RunJob(c => ArchiveJobs.CompressEntries(c, archiveSrc, outDir), s => s.Archives.Format = ArchiveFormat.SevenZip);
         var made = Directory.GetFiles(outDir).Select(Path.GetFileName).OrderBy(n => n, StringComparer.Ordinal).ToList();
         var expected = new[] { "Sub Folder.7z", "data.7z", "disc.7z", "empty.7z", "notes.7z" }.OrderBy(n => n, StringComparer.Ordinal);
         return o.Status == JobStatus.Succeeded && made.SequenceEqual(expected) ? Note(o.Summary) : $"{o.Status} {o.Summary}: {string.Join(", ", made)}";
@@ -898,7 +1013,7 @@ else
         var folder = Path.Combine(dir, "Game Folder");
         Directory.CreateDirectory(folder);
         File.Copy(synthBin, Path.Combine(folder, "game.bin"));
-        var o = RunJob(c => ArchiveJobs.CompressOne(c, [folder], "Game Folder", dir), s => { s.ArchiveDeleteOriginals = true; s.UseRecycleBin = false; s.ArchiveTestAfter = false; });
+        var o = RunJob(c => ArchiveJobs.CompressOne(c, [folder], "Game Folder", dir), s => { s.Output.RemoveArchiveOriginals = true; s.Output.UseRecycleBin = false; s.Archives.TestAfter = false; });
         return o.Status == JobStatus.Succeeded && !Directory.Exists(folder) && File.Exists(Path.Combine(dir, "Game Folder.7z"))
             ? null : $"{o.Status} {o.Summary}; folder still there: {Directory.Exists(folder)}";
     });
@@ -921,7 +1036,7 @@ else
         using var cts = new CancellationTokenSource();
         var report = new CancelAtProgress(cts, 0.1);
         var o = RunJob(c => ArchiveJobs.CompressOne(c, [isoSlice], "slice", outDir),
-            s => { s.ArchiveLevel = ArchiveLevel.Ultra; s.ThreadsPerJob = 1; }, cts.Token, report);
+            s => { s.Archives.Level = ArchiveLevel.Ultra; s.Performance.ThreadsPerJob = 1; }, cts.Token, report);
         var left = Directory.GetFiles(outDir);
         return o.Status == JobStatus.Cancelled && left.Length == 0 ? null : $"{o.Status} {o.Summary}, {left.Length} file(s) left";
     });
@@ -933,7 +1048,7 @@ else
     Test("Extract: a 7z into its own folder", () =>
     {
         var outDir = Dir("ext-own");
-        var o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.OutputFolder = outDir; s.ArchiveExtractToOwnFolder = true; });
+        var o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.Output.Folder = outDir; s.Archives.ExtractToOwnFolder = true; });
         if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
         var stray = Directory.GetDirectories(outDir).Where(d => Path.GetFileName(d).StartsWith(".noi-extract-")).ToList();
         return stray.Count > 0 ? "staging folder left behind" : SameTree(archiveSrc, Path.Combine(outDir, "src", "archive-src")) ?? Note(o.Summary);
@@ -942,16 +1057,16 @@ else
     Test("Extract: a zip straight into the output folder", () =>
     {
         var outDir = Dir("ext-flat");
-        var o = RunJob(c => ArchiveJobs.Extract(c, srcZip), s => { s.OutputFolder = outDir; s.ArchiveExtractToOwnFolder = false; });
+        var o = RunJob(c => ArchiveJobs.Extract(c, srcZip), s => { s.Output.Folder = outDir; s.Archives.ExtractToOwnFolder = false; });
         return o.Status == JobStatus.Succeeded ? SameTree(archiveSrc, Path.Combine(outDir, "archive-src")) : $"{o.Status}: {o.Summary}";
     });
 
     Test("Extract: an existing folder is skipped unless Overwrite is on", () =>
     {
         var outDir = Dir("ext-own");
-        var o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.OutputFolder = outDir; s.ArchiveExtractToOwnFolder = true; });
+        var o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.Output.Folder = outDir; s.Archives.ExtractToOwnFolder = true; });
         if (o.Status != JobStatus.Skipped) return $"expected Skipped, got {o.Status}";
-        o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.OutputFolder = outDir; s.ArchiveExtractToOwnFolder = true; s.Overwrite = true; });
+        o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.Output.Folder = outDir; s.Archives.ExtractToOwnFolder = true; s.Output.Overwrite = true; });
         return o.Status == JobStatus.Succeeded ? null : $"with Overwrite: {o.Status} {o.Summary}";
     });
 
@@ -961,10 +1076,10 @@ else
         var existing = Path.Combine(outDir, "archive-src", "notes.txt");
         Directory.CreateDirectory(Path.GetDirectoryName(existing)!);
         File.WriteAllText(existing, "mine");
-        var o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.OutputFolder = outDir; s.ArchiveExtractToOwnFolder = false; });
+        var o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.Output.Folder = outDir; s.Archives.ExtractToOwnFolder = false; });
         if (o.Status != JobStatus.Warning || File.ReadAllText(existing) != "mine") return $"without Overwrite: {o.Status} {o.Summary}";
         if (!File.Exists(Path.Combine(outDir, "archive-src", "disc.bin"))) return "files that didn't clash weren't extracted";
-        o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.OutputFolder = outDir; s.ArchiveExtractToOwnFolder = false; s.Overwrite = true; });
+        o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.Output.Folder = outDir; s.Archives.ExtractToOwnFolder = false; s.Output.Overwrite = true; });
         if (o.Status != JobStatus.Succeeded) return $"with Overwrite: {o.Status} {o.Summary}";
         return SameTree(archiveSrc, Path.Combine(outDir, "archive-src"));
     });
@@ -974,7 +1089,7 @@ else
         var dir = Dir("ext-delete");
         var archive = Path.Combine(dir, "copy.7z");
         File.Copy(src7z, archive);
-        var o = RunJob(c => ArchiveJobs.Extract(c, archive), s => { s.ArchiveDeleteOriginals = true; s.UseRecycleBin = false; });
+        var o = RunJob(c => ArchiveJobs.Extract(c, archive), s => { s.Output.RemoveArchiveOriginals = true; s.Output.UseRecycleBin = false; });
         return o.Status == JobStatus.Succeeded && !File.Exists(archive) && Directory.Exists(Path.Combine(dir, "copy"))
             ? null : $"{o.Status} {o.Summary}; archive still there: {File.Exists(archive)}";
     });
@@ -984,7 +1099,7 @@ else
         var dir = Dir("ext-damaged");
         var damaged = Path.Combine(dir, "bad.7z");
         File.Copy(Path.Combine(scratch, "arc-damaged", "bad.7z"), damaged);
-        var o = RunJob(c => ArchiveJobs.Extract(c, damaged), s => { s.ArchiveDeleteOriginals = true; s.UseRecycleBin = false; });
+        var o = RunJob(c => ArchiveJobs.Extract(c, damaged), s => { s.Output.RemoveArchiveOriginals = true; s.Output.UseRecycleBin = false; });
         var leftovers = Directory.GetFileSystemEntries(dir).Select(Path.GetFileName).Where(n => n != "bad.7z").ToList();
         return o.Status == JobStatus.Failed && File.Exists(damaged) && leftovers.Count == 0
             ? Note(o.Summary.Split('\n')[0])
@@ -1062,7 +1177,7 @@ Test("Wii U: base + update + DLC folders become one .wua", () =>
 {
     var outDir = Dir("wiiu-out");
     var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [baseTitle, updateTitle, dlcTitle]),
-        s => s.OutputFolder = outDir);
+        s => s.Output.Folder = outDir);
     if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
     var wua = Path.Combine(outDir, "Test Game [0005000010101C00].wua");
     if (!File.Exists(wua)) return $"missing {wua}: {string.Join(", ", Directory.GetFiles(outDir).Select(Path.GetFileName))}";
@@ -1081,7 +1196,7 @@ Test("Wii U: a newer update is merged into an existing .wua", () =>
     var wua = Path.Combine(dir, "Test Game [0005000010101C00].wua");
     File.Copy(Path.Combine(scratch, "wiiu-out", "Test Game [0005000010101C00].wua"), wua);
     var newer = WiiUSample.MakeTitle(Path.Combine(dir, "Update v48"), 0x0005000E10101C00, 48, "Test Game", 4);
-    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [wua, newer]), s => s.OutputFolder = dir);
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [wua, newer]), s => s.Output.Folder = dir);
     if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
     var titles = NoIntrovert.Core.WiiU.WiiUTitles.FromWua(wua).Select(t => t.ArchiveFolder).OrderBy(n => n).ToList();
     var want = new[] { "0005000010101c00_v0", "0005000c10101c00_v16", "0005000e10101c00_v48" };
@@ -1094,7 +1209,7 @@ Test("Wii U: a newer update is merged into an existing .wua", () =>
 
 Test("Wii U: an existing .wua is skipped unless Overwrite is on", () =>
 {
-    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [baseTitle]), s => s.OutputFolder = Path.Combine(scratch, "wiiu-out"));
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [baseTitle]), s => s.Output.Folder = Path.Combine(scratch, "wiiu-out"));
     return o.Status == JobStatus.Skipped ? null : $"{o.Status}: {o.Summary}";
 });
 
@@ -1119,7 +1234,7 @@ Test("Wii U: remove the originals once the .wua verifies", () =>
 {
     var dir = Dir("wiiu-delete");
     var game = WiiUSample.MakeTitle(Path.Combine(dir, "Game"), 0x0005000010202D00, 0, "Other Game", 5);
-    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010202D00, [game]), s => { s.WiiUDeleteOriginals = true; s.UseRecycleBin = false; });
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010202D00, [game]), s => { s.Output.RemoveWiiUOriginals = true; s.Output.UseRecycleBin = false; });
     return o.Status == JobStatus.Succeeded && !Directory.Exists(game) && File.Exists(Path.Combine(dir, "Other Game [0005000010202D00].wua"))
         ? null : $"{o.Status} {o.Summary}; folder still there: {Directory.Exists(game)}";
 });
@@ -1176,7 +1291,7 @@ if (ArchiveEngine.IsAvailable(out _))
         var dir = Dir("wiiu-zip");
         var zip = Path.Combine(dir, "Test Game.zip");
         ZipFile.CreateFromDirectory(baseTitle, zip, CompressionLevel.Fastest, includeBaseDirectory: true);
-        var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.BuildFromArchive(c, zip), s => { s.WiiUDeleteOriginals = true; s.UseRecycleBin = false; });
+        var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.BuildFromArchive(c, zip), s => { s.Output.RemoveWiiUOriginals = true; s.Output.UseRecycleBin = false; });
         if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
         var wua = Path.Combine(dir, "Test Game [0005000010101C00].wua");
         if (!File.Exists(wua)) return $"no .wua next to the zip: {string.Join(", ", Directory.GetFiles(dir).Select(Path.GetFileName))}";
@@ -1205,7 +1320,7 @@ if (ArchiveEngine.IsAvailable(out _))
         if (alone.Status != JobStatus.Skipped) return $"a lone CHD was {alone.Status}: {alone.Summary}";
         if (File.Exists(Path.Combine(dir, "Game.7z"))) return "a lone CHD was packed anyway";
 
-        var stored = RunJob(c => ArchiveJobs.CompressOne(c, [set], "CHDs", dir), s => s.ArchiveTestAfter = true);
+        var stored = RunJob(c => ArchiveJobs.CompressOne(c, [set], "CHDs", dir), s => s.Archives.TestAfter = true);
         if (stored.Status != JobStatus.Succeeded) return $"the CHD folder: {stored.Status}: {stored.Summary}";
         var storedRatio = (double)new FileInfo(Path.Combine(dir, "CHDs.7z")).Length / ArchiveJobs.SizeOf(set);
         if (storedRatio < 0.95) return $"the CHD folder was compressed to {storedRatio:P1} instead of stored";
@@ -1236,7 +1351,7 @@ string? EncryptedBuild(string label, IReadOnlyList<string> sources, Action<AppSe
 {
     var outDir = Dir("wiiu-enc-out-" + label);
     var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, encBase, sources),
-        s => { s.OutputFolder = outDir; s.WiiUKeysPath = encKeysTxt; configure?.Invoke(s); });
+        s => { s.Output.Folder = outDir; s.Keys.WiiUKeysPath = encKeysTxt; configure?.Invoke(s); });
     if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
     var wua = Directory.GetFiles(outDir, "*.wua").Single();
     var unpacked = Path.Combine(outDir, "unpacked");
@@ -1292,14 +1407,14 @@ Test("Wii U WUD: the disc key can come from game.key", () =>
     File.WriteAllBytes(Path.Combine(dir, "game.key"), encKeys.Disc);
     var onlyCommon = Path.Combine(dir, "keys.txt");
     EncryptedSample.WriteKeysTxt(onlyCommon, encKeys.Common);
-    return EncryptedBuild("keyfile", [Path.Combine(dir, "game.wud")], s => s.WiiUKeysPath = onlyCommon, ("0005000010303e00_v0", encTree));
+    return EncryptedBuild("keyfile", [Path.Combine(dir, "game.wud")], s => s.Keys.WiiUKeysPath = onlyCommon, ("0005000010303e00_v0", encTree));
 });
 
 Test("Wii U: missing keys are reported, not guessed", () =>
 {
     var wrong = Path.Combine(encDir, "wrong-keys.txt");
     EncryptedSample.WriteKeysTxt(wrong, new byte[16], Enumerable.Repeat((byte)0x5A, 16).ToArray());
-    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, encBase, [nusGame]), s => { s.OutputFolder = Dir("wiiu-wrongkeys"); s.WiiUKeysPath = wrong; });
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, encBase, [nusGame]), s => { s.Output.Folder = Dir("wiiu-wrongkeys"); s.Keys.WiiUKeysPath = wrong; });
     return o.Status == JobStatus.Failed && o.Summary.Contains("keys.txt") ? Note(o.Summary) : $"{o.Status}: {o.Summary}";
 });
 
@@ -1311,7 +1426,7 @@ Test("Wii U NUS: a damaged hashed block is caught", () =>
     var bytes = File.ReadAllBytes(app);
     bytes[0x400 + 100] ^= 0x01;
     File.WriteAllBytes(app, bytes);
-    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, encBase, [bad]), s => { s.OutputFolder = Dir("wiiu-damaged"); s.WiiUKeysPath = encKeysTxt; });
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, encBase, [bad]), s => { s.Output.Folder = Dir("wiiu-damaged"); s.Keys.WiiUKeysPath = encKeysTxt; });
     return o.Status == JobStatus.Failed && o.Summary.Contains("hash") && Directory.GetFiles(Path.Combine(scratch, "wiiu-damaged")).Length == 0
         ? Note(o.Summary) : $"{o.Status}: {o.Summary}";
 });
@@ -1319,7 +1434,7 @@ Test("Wii U NUS: a damaged hashed block is caught", () =>
 Test("Wii U NUS: a personalised ticket is refused", () =>
 {
     var personal = EncryptedSample.MakeNus(encTree, Path.Combine(encDir, "nus-personal"), encBase, 0, encKeys, deviceId: 0x12345678);
-    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, encBase, [personal]), s => { s.OutputFolder = Dir("wiiu-personal"); s.WiiUKeysPath = encKeysTxt; });
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, encBase, [personal]), s => { s.Output.Folder = Dir("wiiu-personal"); s.Keys.WiiUKeysPath = encKeysTxt; });
     return o.Status == JobStatus.Failed && o.Summary.Contains("personalised") ? null : $"{o.Status}: {o.Summary}";
 });
 
@@ -1349,13 +1464,13 @@ if (rvzProblem is null)
     Test("GameCube ISO → RVZ (verified), and back to the same ISO", () =>
     {
         var outDir = Dir("gc-rvz");
-        var o = RunJob(c => ChdJobs.Convert(c, gcIso), s => s.OutputFolder = outDir);
+        var o = RunJob(c => ChdJobs.Convert(c, gcIso), s => s.Output.Folder = outDir);
         var rvzPath = Path.Combine(outDir, "Test Game (USA).rvz");
         if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
         if (!File.Exists(rvzPath)) return "no .rvz written";
         if (new FileInfo(rvzPath).Length >= new FileInfo(gcIso).Length / 4) return "the RVZ is barely smaller than the ISO";
         var back = Dir("gc-rvz-back");
-        var e = RunJob(c => RvzJobs.Extract(c, rvzPath), s => s.OutputFolder = back);
+        var e = RunJob(c => RvzJobs.Extract(c, rvzPath), s => s.Output.Folder = back);
         if (e.Status != JobStatus.Succeeded) return $"extract: {e.Status}: {e.Summary}";
         return SameFile(gcIso, Path.Combine(back, "Test Game (USA).iso")) ?? Note($"{o.Summary}");
     });
@@ -1366,7 +1481,7 @@ if (rvzProblem is null)
         var rvzPath = Path.Combine(dir, "game.rvz");
         using (var rvz = new LibDolphinRvz.DolphinRvz())
             rvz.Convert(gcIso, rvzPath, new LibDolphinRvz.ConvertSettings());
-        var o = RunJob(c => ChdJobs.Convert(c, rvzPath), s => { s.OutputFolder = dir; s.NintendoTarget = NintendoTarget.Chd; });
+        var o = RunJob(c => ChdJobs.Convert(c, rvzPath), s => { s.Output.Folder = dir; s.Nintendo.Target = NintendoTarget.Chd; });
         if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
         var expected = CreateChd(new PreparedDisc("ref", DiscKind.Dvd, gcIso, "ref"), Path.Combine(dir, "ref.chd"));
         var actual = RawSha1(Path.Combine(dir, "game.chd"));
@@ -1379,7 +1494,7 @@ if (rvzProblem is null)
         var zip = Path.Combine(dir, "Zipped Game.zip");
         using (var z = ZipFile.Open(zip, ZipArchiveMode.Create))
             z.CreateEntryFromFile(gcIso, "game.iso", CompressionLevel.Fastest);
-        var o = RunJob(c => ChdJobs.Convert(c, zip), s => s.OutputFolder = dir);
+        var o = RunJob(c => ChdJobs.Convert(c, zip), s => s.Output.Folder = dir);
         return o.Status == JobStatus.Succeeded && File.Exists(Path.Combine(dir, "Zipped Game.rvz")) ? null : $"{o.Status}: {o.Summary}";
     });
 
@@ -1389,7 +1504,7 @@ if (rvzProblem is null)
         var rvzPath = Path.Combine(dir, "game.rvz");
         using (var rvz = new LibDolphinRvz.DolphinRvz())
             rvz.Convert(gcIso, rvzPath, new LibDolphinRvz.ConvertSettings());
-        var o = RunJob(c => ChdJobs.Convert(c, rvzPath), s => s.OutputFolder = dir);
+        var o = RunJob(c => ChdJobs.Convert(c, rvzPath), s => s.Output.Folder = dir);
         return o.Status == JobStatus.Skipped ? null : $"{o.Status}: {o.Summary}";
     });
 
@@ -1398,7 +1513,7 @@ if (rvzProblem is null)
         var dir = Dir("gc-rvz-delete");
         var iso = Path.Combine(dir, "game.iso");
         File.Copy(gcIso, iso);
-        var o = RunJob(c => ChdJobs.Convert(c, iso), s => { s.DeleteOriginals = true; s.UseRecycleBin = false; s.VerifyAfterCreate = false; });
+        var o = RunJob(c => ChdJobs.Convert(c, iso), s => { s.Output.RemoveOriginals = true; s.Output.UseRecycleBin = false; s.Chd.VerifyAfterCreate = false; });
         if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
         return !File.Exists(iso) && File.Exists(Path.Combine(dir, "game.rvz")) ? null : "the ISO is still there, or no RVZ";
     });
@@ -1408,7 +1523,7 @@ if (rvzProblem is null)
         var dir = Dir("gc-rvz-cancel");
         using var cts = new CancellationTokenSource();
         var report = new CancelAtProgress(cts, 0.05);
-        var o = RunJob(c => ChdJobs.Convert(c, gcIso), s => { s.OutputFolder = dir; s.ThreadsPerJob = 1; s.RvzBlockSize = 0x8000; }, cts.Token, report);
+        var o = RunJob(c => ChdJobs.Convert(c, gcIso), s => { s.Output.Folder = dir; s.Performance.ThreadsPerJob = 1; s.Nintendo.BlockSize = 0x8000; }, cts.Token, report);
         if (o.Status != JobStatus.Cancelled) return $"expected Cancelled, got {o.Status}: {o.Summary}";
         return Directory.EnumerateFiles(dir).Any() ? $"left {string.Join(", ", Directory.EnumerateFiles(dir).Select(Path.GetFileName))}" : null;
     });
@@ -1418,7 +1533,7 @@ if (rvzProblem is null)
         var dir = Dir("gc-wbfs");
         var wbfs = Path.Combine(dir, "game.wbfs");
         File.WriteAllBytes(wbfs, NintendoDiscs.FakeWbfsHeader());
-        var o = RunJob(c => ChdJobs.Convert(c, wbfs), s => s.OutputFolder = dir);
+        var o = RunJob(c => ChdJobs.Convert(c, wbfs), s => s.Output.Folder = dir);
         return o.Status == JobStatus.Failed ? Note(o.Summary) : $"expected Failed, got {o.Status}: {o.Summary}";
     });
 }
@@ -1431,7 +1546,7 @@ if (File.Exists(upstream))
         Test($"Compare with upstream chdman ({label})", () =>
         {
             var records = new List<TestRecord>();
-            var o = RunJob(c => TestJobs.Run(c, path, TestKind.CompareWithChdman, records.Add), s => { s.ChdmanExePath = upstream; s.IsoMode = mode; });
+            var o = RunJob(c => TestJobs.Run(c, path, TestKind.CompareWithChdman, records.Add), s => { s.Diagnostics.ChdmanExePath = upstream; s.Chd.IsoMode = mode; });
             return o.Status == JobStatus.Succeeded ? Note(records[0].Notes) : $"{o.Summary}: {string.Join("; ", records.Select(r => r.Notes))}";
         });
 }
@@ -1465,7 +1580,7 @@ if (!quick)
         Test($"Round trip, full disc: {label}", () =>
         {
             var records = new List<TestRecord>();
-            var o = RunJob(c => TestJobs.Run(c, path, TestKind.RoundTrip, records.Add), s => s.ParallelJobs = 1);
+            var o = RunJob(c => TestJobs.Run(c, path, TestKind.RoundTrip, records.Add), s => s.Performance.ParallelJobs = 1);
             return o.Status == JobStatus.Succeeded ? Note(records[0].Notes + $"; {records[0].LibMbps:F0} MB/s") : string.Join("; ", records.Select(r => r.Notes));
         });
     }
@@ -1474,7 +1589,7 @@ if (!quick)
         Test("Compare with upstream chdman, full disc (Saturn 25 tracks)", () =>
         {
             var records = new List<TestRecord>();
-            var o = RunJob(c => TestJobs.Run(c, discs[2].Path, TestKind.CompareWithChdman, records.Add), s => s.ChdmanExePath = upstream);
+            var o = RunJob(c => TestJobs.Run(c, discs[2].Path, TestKind.CompareWithChdman, records.Add), s => s.Diagnostics.ChdmanExePath = upstream);
             return o.Status == JobStatus.Succeeded ? Note(records[0].Notes) : string.Join("; ", records.Select(r => r.Notes));
         });
 }
@@ -1542,7 +1657,7 @@ void ConvertTest(string name, object input, string? expectedRawSha1, Action<AppS
             _ => throw new ArgumentException("bad input"),
         };
         var outDir = Dir("out-" + Guid.NewGuid().ToString("N")[..6]);
-        var outcome = RunJob(c => ChdJobs.Convert(c, source), s => { s.OutputFolder = outDir; configure?.Invoke(s); });
+        var outcome = RunJob(c => ChdJobs.Convert(c, source), s => { s.Output.Folder = outDir; configure?.Invoke(s); });
         if (outcome.Status != JobStatus.Succeeded) return $"{outcome.Status}: {outcome.Summary}";
         var chds = Directory.GetFiles(outDir, "*.chd");
         if (chds.Length != 1) return $"{chds.Length} CHDs written";
@@ -1555,7 +1670,7 @@ void ConvertTest(string name, object input, string? expectedRawSha1, Action<AppS
 
 JobOutcome RunJob(JobWork work, Action<AppSettings>? configure = null, CancellationToken token = default, IJobReport? report = null)
 {
-    var settings = new AppSettings { TempFolder = Path.Combine(scratch, "_temp"), VerifyAfterCreate = true, ParallelJobs = 1 };
+    var settings = new AppSettings { Performance = { TempFolder = Path.Combine(scratch, "_temp"), ParallelJobs = 1 }, Chd = { VerifyAfterCreate = true } };
     configure?.Invoke(settings);
     JobOutcome? result = null;
     var job = new BatchJob("test", report ?? new NullReport(), work, _ => { }, o => result = o);
@@ -1603,7 +1718,7 @@ int WriteWuaSample(string dir)
     var game = WiiUSample.MakeTitle(Path.Combine(titles, "Game"), 0x0005000010101C00, 0, "Sample Game", 11);
     var update = WiiUSample.MakeTitle(Path.Combine(titles, "Update"), 0x0005000E10101C00, 64, "Sample Game", 12);
     var dlc = WiiUSample.MakeTitle(Path.Combine(titles, "DLC"), 0x0005000C10101C00, 32, "Sample Game", 13);
-    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [game, update, dlc]), s => s.OutputFolder = dir);
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [game, update, dlc]), s => s.Output.Folder = dir);
     if (o.Status != JobStatus.Succeeded) { Console.WriteLine($"FAIL  sample .wua: {o.Status} {o.Summary}"); return 1; }
     File.Move(Path.Combine(dir, "Sample Game [0005000010101C00].wua"), Path.Combine(dir, "sample.wua"), true);
     var expected = Path.Combine(dir, "expected");

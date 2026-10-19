@@ -23,9 +23,9 @@ public static class TestJobs
     public static JobOutcome Run(JobContext c, string source, TestKind kind, Action<TestRecord> record)
     {
         var s = c.Settings;
-        Directory.CreateDirectory(s.EffectiveTempFolder);
+        Directory.CreateDirectory(s.Performance.EffectiveTempFolder);
         c.Report.SetStage("Preparing");
-        var preparer = new InputPreparer(s.EffectiveTempFolder, s.IsoMode, c.Log);
+        var preparer = new InputPreparer(s.Performance.EffectiveTempFolder, s.Chd.IsoMode, c.Log);
         using var prepared = preparer.Prepare(source,
             new InlineProgress<(string Stage, double Fraction)>(p => { c.Report.SetStage(p.Stage); c.Report.SetProgress(p.Fraction); }), c.Token);
 
@@ -48,7 +48,7 @@ public static class TestJobs
 
     private static TestRecord Compare(JobContext c, string source, PreparedDisc disc, string work)
     {
-        var exe = c.Settings.ChdmanExePath;
+        var exe = c.Settings.Diagnostics.ChdmanExePath;
         if (string.IsNullOrWhiteSpace(exe) || !File.Exists(exe))
             throw new FileNotFoundException("Set the path to chdman on the Library tests tab to run comparisons.");
 

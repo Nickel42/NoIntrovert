@@ -45,7 +45,7 @@ public partial class WiiUViewModel(SettingsViewModel settings, LogViewModel log,
         var keys = WiiUKeys.Empty;
         if (pending.Any(i => WiiUEncrypted.IsNusFolder(i.Path) || WiiUEncrypted.IsDiscImage(i.Path)))
         {
-            keys = WiiUKeys.Load(Settings.Snapshot().WiiUKeysPath);
+            keys = WiiUKeys.Load(Settings.Snapshot().Keys.WiiUKeysPath);
             Log.Info($"Wii U: {keys.Describe()}");
             foreach (var problem in keys.Problems) Log.Warn($"Wii U: {problem}");
         }
@@ -104,9 +104,9 @@ public partial class WiiUViewModel(SettingsViewModel settings, LogViewModel log,
 
     protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
     {
-        if (Settings.WiiUDeleteOriginals)
+        if (Settings.Output.RemoveWiiUOriginals)
         {
-            var fate = Settings.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently";
+            var fate = Settings.Output.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently";
             Log.Warn($"Wii U: the folders and .wua files that go into each new .wua will be {fate} once it verifies.");
         }
         return true;

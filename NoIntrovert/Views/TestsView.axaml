@@ -67,27 +67,23 @@
 
                     <StackPanel IsVisible="{Binding NeedsChdman}" Spacing="4">
                         <TextBlock Text="CHDMAN TO COMPARE WITH" Classes="section" />
-                        <TextBox Text="{Binding Settings.ChdmanExePath}" PlaceholderText="Path to chdman" />
-                        <Button Classes="tool" Content="Browse…" Command="{Binding Settings.BrowseChdmanExeCommand}" />
+                        <TextBox Text="{Binding Settings.Diagnostics.ChdmanExePath}" PlaceholderText="Path to chdman" />
+                        <Button Classes="tool" Content="Browse…" Command="{Binding Settings.Diagnostics.BrowseChdmanExeCommand}" />
                         <TextBlock Classes="hint" Text="{Binding ChdmanVersion}" />
                         <TextBlock Classes="hint"
                                    Text="Both use the compression, hunk size and thread settings below, so their CHDs should be byte-identical." />
                     </StackPanel>
 
                     <TextBlock Text="COMPRESSION" Classes="section" />
-                    <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.CompressionChoices}"
-                              SelectedItem="{Binding Settings.SelectedCompression}" HorizontalAlignment="Stretch" />
-                    <TextBox Text="{Binding Settings.CustomCompression}" PlaceholderText="e.g. cdzs,cdzl,cdfl"
-                             IsVisible="{Binding Settings.IsCustomCompression}" />
-                    <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.IsoModes}"
-                              SelectedItem="{Binding Settings.SelectedIsoMode}" HorizontalAlignment="Stretch" Margin="0,4,0,0" />
+                    <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.CompressionChoices}"
+                              SelectedItem="{Binding Settings.Chd.SelectedCompression}" HorizontalAlignment="Stretch" />
+                    <TextBox Text="{Binding Settings.Chd.CustomCompression}" PlaceholderText="e.g. cdzs,cdzl,cdfl"
+                             IsVisible="{Binding Settings.Chd.IsCustomCompression}" />
+                    <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.IsoModes}"
+                              SelectedItem="{Binding Settings.Chd.SelectedIsoMode}" HorizontalAlignment="Stretch" Margin="0,4,0,0" />
 
                     <Separator Margin="0,10" />
-                    <ContentControl Content="{Binding Settings}">
-                        <ContentControl.ContentTemplate>
-                            <DataTemplate x:DataType="vm:SettingsViewModel"><v:SharedOptions /></DataTemplate>
-                        </ContentControl.ContentTemplate>
-                    </ContentControl>
+                    <v:RunOptions />
                 </StackPanel>
             </Border>
         </ScrollViewer>

@@ -19,11 +19,11 @@ public static class RvzJobs
     public static ConvertSettings SettingsFor(AppSettings s, RvzFormat format = RvzFormat.Rvz) => new()
     {
         Format = format,
-        Compression = s.RvzCompression,
-        CompressionLevel = s.RvzCompression is RvzCompression.None or RvzCompression.Purge ? 0 : s.RvzCompressionLevel,
-        BlockSize = format == RvzFormat.Iso ? 0 : s.RvzBlockSize,
-        Scrub = format == RvzFormat.Rvz && s.RvzScrub,
-        Overwrite = s.Overwrite,
+        Compression = s.Nintendo.Compression,
+        CompressionLevel = s.Nintendo.Compression is RvzCompression.None or RvzCompression.Purge ? 0 : s.Nintendo.CompressionLevel,
+        BlockSize = format == RvzFormat.Iso ? 0 : s.Nintendo.BlockSize,
+        Scrub = format == RvzFormat.Rvz && s.Nintendo.Scrub,
+        Overwrite = s.Output.Overwrite,
     };
 
     /// <summary>One prepared GameCube/Wii disc → .rvz in <paramref name="outputFolder"/>, then optionally verified.</summary>
@@ -45,7 +45,7 @@ public static class RvzJobs
         if (!info.CanConvert)
             throw new DolphinRvzException(DrvzStatus.Unsupported,
                 $"{info.Container} images can't be converted: the container doesn't record the disc's exact size. Convert it to ISO with the tool that made it first.");
-        if (File.Exists(output) && !s.Overwrite)
+        if (File.Exists(output) && !s.Output.Overwrite)
         {
             log.Warn($"  {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
             return (DiscResult.Skipped, output, null);
@@ -112,14 +112,14 @@ public static class RvzJobs
         var name = Path.GetFileName(path);
         var folder = OutputPaths.FolderFor(c.Settings, path);
         var output = Path.Combine(folder, Path.GetFileNameWithoutExtension(path) + ".iso");
-        if (File.Exists(output) && !c.Settings.Overwrite)
+        if (File.Exists(output) && !c.Settings.Output.Overwrite)
         {
             c.Log.Warn($"{name}: {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
             return JobOutcome.Skipped("Output already exists");
         }
         var sw = Stopwatch.StartNew();
         c.TrackRvz("Decoding to ISO");
-        c.Rvz.Convert(path, output, new ConvertSettings { Format = RvzFormat.Iso, Overwrite = c.Settings.Overwrite }, c.Token);
+        c.Rvz.Convert(path, output, new ConvertSettings { Format = RvzFormat.Iso, Overwrite = c.Settings.Output.Overwrite }, c.Token);
         var stats = new OperationStats(sw.Elapsed, new FileInfo(path).Length, new FileInfo(output).Length);
         c.Log.Success($"{name}: wrote {Path.GetFileName(output)} ({ChdJobs.Size(stats.OutputBytes)}) in {stats.Elapsed:mm\\:ss\\.f}");
         return new JobOutcome(JobStatus.Succeeded, Path.GetFileName(output), stats);

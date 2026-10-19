@@ -18,21 +18,21 @@ public static class ChdJobs
         var log = c.Log;
         var name = Path.GetFileName(source);
         var outputFolder = OutputPaths.FolderFor(s, source);
-        Directory.CreateDirectory(s.EffectiveTempFolder);
+        Directory.CreateDirectory(s.Performance.EffectiveTempFolder);
 
         log.Info($"Converting {name}");
         // One bar for the whole job: preparing, then each disc's compress and verify steps.
         var prepShare = Path.GetExtension(source).ToLowerInvariant() is ".cue" or ".gdi" or ".toc" or ".nrg" or ".iso" or ".bin" or ".img" or ".gcm" ? 0.02 : 0.15;
         c.Band(0, prepShare);
         c.Report.SetStage("Preparing");
-        var preparer = new InputPreparer(s.EffectiveTempFolder, s.IsoMode, log);
+        var preparer = new InputPreparer(s.Performance.EffectiveTempFolder, s.Chd.IsoMode, log);
         using var prepared = preparer.Prepare(source,
             new InlineProgress<(string Stage, double Fraction)>(p => { c.Report.SetStage(p.Stage); c.Report.SetProgress(p.Fraction); }), c.Token);
 
         var created = new List<(string Path, OperationStats Stats)>();
         var skipped = 0;
         var verifyFailed = false;
-        var mustVerify = s.VerifyAfterCreate || s.DeleteOriginals;
+        var mustVerify = s.Chd.VerifyAfterCreate || s.Output.RemoveOriginals;
 
         for (var i = 0; i < prepared.Discs.Count; i++)
         {
@@ -43,7 +43,7 @@ public static class ChdJobs
             var compressShare = mustVerify ? discShare * 0.75 : discShare;
             log.Debug($"  input {disc.InputPath} [{disc.Note}] → {disc.Kind}");
 
-            if (disc.IsNintendo && s.NintendoTarget == NintendoTarget.Rvz)
+            if (disc.IsNintendo && s.Nintendo.Target == NintendoTarget.Rvz)
             {
                 var (result, rvzOutput, rvzStats) = RvzJobs.ConvertDisc(c, disc, outputFolder, discLabel, mustVerify, discStart, discShare);
                 switch (result)
@@ -57,7 +57,7 @@ public static class ChdJobs
 
             var output = Path.Combine(outputFolder, disc.OutputName + ".chd");
 
-            if (File.Exists(output) && !s.Overwrite)
+            if (File.Exists(output) && !s.Output.Overwrite)
             {
                 log.Warn($"  {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
                 skipped++;
@@ -102,10 +102,10 @@ public static class ChdJobs
         if (created.Count == 0)
             return JobOutcome.Skipped(skipped > 0 ? "Output already exists" : "Nothing to convert");
 
-        if (s.DeleteOriginals && skipped == 0)
+        if (s.Output.RemoveOriginals && skipped == 0)
         {
             c.Report.SetStage("Removing originals");
-            FileRemover.Remove(DiscFiles.SetFiles(source), s.UseRecycleBin, log);
+            FileRemover.Remove(DiscFiles.SetFiles(source), s.Output.UseRecycleBin, log);
         }
 
         var stats0 = Combine(created)!;
@@ -119,8 +119,8 @@ public static class ChdJobs
     public static JobOutcome Verify(JobContext c, string chdPath)
     {
         var name = Path.GetFileName(chdPath);
-        c.TrackChdman(c.Settings.FixHeaderSha1 ? "Verifying and fixing" : "Verifying");
-        var (result, stats) = ChdService.Verify(c.Chdman, chdPath, c.Settings.FixHeaderSha1, c.Token);
+        c.TrackChdman(c.Settings.Chd.FixHeaderSha1 ? "Verifying and fixing" : "Verifying");
+        var (result, stats) = ChdService.Verify(c.Chdman, chdPath, c.Settings.Chd.FixHeaderSha1, c.Token);
         switch (result.Outcome)
         {
             case ChdVerifyOutcome.Ok:
@@ -144,8 +144,8 @@ public static class ChdJobs
         var name = Path.GetFileName(chdPath);
         var folder = OutputPaths.FolderFor(c.Settings, chdPath);
         c.TrackChdman("Extracting");
-        var (files, stats) = ChdService.Extract(c.Chdman, chdPath, folder, c.Settings.ExtractFormat, c.Settings.SplitBin,
-            c.Settings.Overwrite, c.Log, c.Token);
+        var (files, stats) = ChdService.Extract(c.Chdman, chdPath, folder, c.Settings.Chd.ExtractFormat, c.Settings.Chd.SplitBin,
+            c.Settings.Output.Overwrite, c.Log, c.Token);
         c.Log.Success($"{name}: wrote {files.Count} file(s) ({Size(stats.OutputBytes)}) in {stats.Elapsed:mm\\:ss\\.f}");
         var first = Path.GetFileName(files[0]);
         return new JobOutcome(JobStatus.Succeeded, files.Count == 1 ? first : $"{first} + {files.Count - 1} file(s)", stats);

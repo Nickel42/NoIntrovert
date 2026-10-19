@@ -1,7 +1,7 @@
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LibDolphinRvz;
 using NoIntrovert.Core;
+using NoIntrovert.Core.Archives;
 using NoIntrovert.Core.Jobs;
 using NoIntrovert.Services;
 
@@ -13,33 +13,58 @@ public sealed record Choice<T>(T Value, string Label)
 }
 
 /// <summary>
-/// The options shown on the tabs, bound two-way and saved as they change.
-/// Only real changes are saved: the window's two-way bindings write their
-/// current values back when it opens, and that mustn't rewrite the file.
-/// Batches run on a snapshot (<see cref="Snapshot"/>), so edits during a
-/// run apply to the next one.
+/// The app's settings, one view model per section (General, Output,
+/// Performance, CHD, GameCube/Wii, Archives, Keys, Diagnostics), each bound
+/// two-way and saved as it changes. Batches run on a snapshot
+/// (<see cref="Snapshot"/>), so edits during a run apply to the next one.
 /// </summary>
 public partial class SettingsViewModel : ViewModelBase
 {
     private readonly AppSettings _s;
-    private readonly IDialogs _dialogs;
 
     public SettingsViewModel(AppSettings settings, IDialogs dialogs)
     {
         _s = settings;
-        _dialogs = dialogs;
-        // The custom text goes in first, so picking "Custom…" keeps the saved string instead of blanking it.
-        var saved = _s.Compression;
-        var choice = CompressionChoices.FirstOrDefault(c => c.Value == saved) ?? CompressionChoices[^1];
-        if (choice.Value != saved) CustomCompression = saved;
-        SelectedCompression = choice;
+        General = new GeneralSettingsViewModel(settings);
+        Output = new OutputSettingsViewModel(settings, dialogs);
+        Performance = new PerformanceSettingsViewModel(settings, dialogs);
+        Chd = new ChdSettingsViewModel(settings);
+        Nintendo = new NintendoSettingsViewModel(settings);
+        Archives = new ArchiveSettingsViewModel(settings);
+        Keys = new KeySettingsViewModel(settings, dialogs);
+        Diagnostics = new DiagnosticsSettingsViewModel(settings, dialogs);
     }
+
+    public GeneralSettingsViewModel General { get; }
+    public OutputSettingsViewModel Output { get; }
+    public PerformanceSettingsViewModel Performance { get; }
+    public ChdSettingsViewModel Chd { get; }
+    public NintendoSettingsViewModel Nintendo { get; }
+    public ArchiveSettingsViewModel Archives { get; }
+    public KeySettingsViewModel Keys { get; }
+    public DiagnosticsSettingsViewModel Diagnostics { get; }
+
+    /// <summary>Every section, in the order the Settings page shows them.</summary>
+    public IReadOnlyList<SettingsSectionViewModel> Sections => [General, Output, Performance, Chd, Nintendo, Archives, Keys, Diagnostics];
 
     public AppSettings Snapshot() => _s.Clone();
     public void Save() => _s.Save();
+}
+
+/// <summary>
+/// One section of the settings. Only real changes are saved: the window's
+/// two-way bindings write their current values back when it opens, and that
+/// mustn't rewrite the file.
+/// </summary>
+public abstract class SettingsSectionViewModel(AppSettings settings) : ViewModelBase
+{
+    protected AppSettings S { get; } = settings;
+
+    /// <summary>The section's name on the Settings page.</summary>
+    public abstract string Title { get; }
 
     /// <summary>Applies a change and saves it; returns false (no save, no event) when nothing changed.</summary>
-    private bool Set<T>(T value, Action<AppSettings, T> apply, [System.Runtime.CompilerServices.CallerMemberName] string? name = null)
+    protected bool Set<T>(T value, Action<AppSettings, T> apply, [System.Runtime.CompilerServices.CallerMemberName] string? name = null)
     {
         if (!Change(s => apply(s, value))) return false;
         OnPropertyChanged(name);
@@ -47,14 +72,103 @@ public partial class SettingsViewModel : ViewModelBase
     }
 
     /// <summary>Runs <paramref name="apply"/> and saves only if the settings' JSON is different afterwards.</summary>
-    private bool Change(Action<AppSettings> apply)
+    protected bool Change(Action<AppSettings> apply)
     {
-        var before = _s.ToJson();
-        apply(_s);
-        if (_s.ToJson() == before) return false;
-        _s.Save();
+        var before = S.ToJson();
+        apply(S);
+        if (S.ToJson() == before) return false;
+        S.Save();
         return true;
     }
+}
+
+public sealed class GeneralSettingsViewModel(AppSettings settings) : SettingsSectionViewModel(settings)
+{
+    public override string Title => "General";
+
+    /// <summary>Shows Expert options, libchdman's own messages and the Library tests tab.</summary>
+    public bool PowerUserMode { get => S.General.PowerUserMode; set => Set(value, (s, v) => s.General.PowerUserMode = v); }
+
+    public bool VerboseLog { get => S.General.VerboseLog; set => Set(value, (s, v) => s.General.VerboseLog = v); }
+    public bool LogProgress { get => S.General.LogProgress; set => Set(value, (s, v) => s.General.LogProgress = v); }
+
+    // Remembered on close (the window saves once), not on every resize.
+    public double WindowWidth { get => S.General.WindowWidth; set => S.General.WindowWidth = value; }
+    public double WindowHeight { get => S.General.WindowHeight; set => S.General.WindowHeight = value; }
+}
+
+public sealed partial class OutputSettingsViewModel(AppSettings settings, IDialogs dialogs) : SettingsSectionViewModel(settings)
+{
+    public override string Title => "Output";
+
+    public string Folder
+    {
+        get => S.Output.Folder;
+        set { if (Set(value, (s, v) => s.Output.Folder = v)) { OnPropertyChanged(nameof(UseSourceFolder)); OnPropertyChanged(nameof(FolderText)); } }
+    }
+
+    public bool UseSourceFolder => string.IsNullOrWhiteSpace(S.Output.Folder);
+    public string FolderText => UseSourceFolder ? "Next to each source file" : S.Output.Folder;
+
+    public bool Overwrite { get => S.Output.Overwrite; set => Set(value, (s, v) => s.Output.Overwrite = v); }
+    public bool ScanSubfolders { get => S.Output.ScanSubfolders; set => Set(value, (s, v) => s.Output.ScanSubfolders = v); }
+    public bool RemoveOriginals { get => S.Output.RemoveOriginals; set => Set(value, (s, v) => s.Output.RemoveOriginals = v); }
+    public bool RemoveArchiveOriginals { get => S.Output.RemoveArchiveOriginals; set => Set(value, (s, v) => s.Output.RemoveArchiveOriginals = v); }
+    public bool RemoveWiiUOriginals { get => S.Output.RemoveWiiUOriginals; set => Set(value, (s, v) => s.Output.RemoveWiiUOriginals = v); }
+    public bool UseRecycleBin { get => S.Output.UseRecycleBin; set => Set(value, (s, v) => s.Output.UseRecycleBin = v); }
+    public string RecycleBinLabel => $"Removed files go to the {FileRemover.BinName} (not deleted permanently)";
+    public bool CanUseRecycleBin => FileRemover.CanUseBin;
+
+    [RelayCommand]
+    private async Task BrowseFolder()
+    {
+        var folder = await dialogs.PickFolderAsync("Choose where results go");
+        if (folder is not null) Folder = folder;
+    }
+
+    [RelayCommand]
+    private void UseSourceFolders() => Folder = "";
+}
+
+public sealed partial class PerformanceSettingsViewModel(AppSettings settings, IDialogs dialogs) : SettingsSectionViewModel(settings)
+{
+    public override string Title => "Performance";
+
+    public decimal ParallelJobs { get => S.Performance.ParallelJobs; set => Set((int)value, (s, v) => s.Performance.ParallelJobs = Math.Max(1, v)); }
+    public decimal ThreadsPerJob { get => S.Performance.ThreadsPerJob; set => Set((int)value, (s, v) => s.Performance.ThreadsPerJob = Math.Max(0, v)); }
+    public int MaxThreads => Environment.ProcessorCount;
+
+    public string TempFolder
+    {
+        get => S.Performance.TempFolder;
+        set { if (Set(value, (s, v) => s.Performance.TempFolder = v)) OnPropertyChanged(nameof(TempFolderHint)); }
+    }
+
+    public string TempFolderHint => S.Performance.EffectiveTempFolder;
+
+    [RelayCommand]
+    private async Task BrowseTempFolder()
+    {
+        var folder = await dialogs.PickFolderAsync("Choose a folder for temporary files");
+        if (folder is not null) TempFolder = folder;
+    }
+
+    [RelayCommand]
+    private void UseDefaultTempFolder() => TempFolder = "";
+}
+
+public sealed class ChdSettingsViewModel : SettingsSectionViewModel
+{
+    public ChdSettingsViewModel(AppSettings settings) : base(settings)
+    {
+        // The custom text goes in first, so picking "Custom…" keeps the saved string instead of blanking it.
+        var saved = S.Chd.Compression;
+        var choice = CompressionChoices.FirstOrDefault(c => c.Value == saved) ?? CompressionChoices[^1];
+        if (choice.Value != saved) _customCompression = saved;
+        _selectedCompression = choice;
+    }
+
+    public override string Title => "CHD";
 
     public static IReadOnlyList<Choice<string>> CompressionChoices { get; } =
     [
@@ -95,49 +209,66 @@ public partial class SettingsViewModel : ViewModelBase
         new(2048u * 32, "65,536"),
     ];
 
-    [ObservableProperty] public partial Choice<string> SelectedCompression { get; set; }
-    [ObservableProperty] public partial string CustomCompression { get; set; } = "";
-    public bool IsCustomCompression => SelectedCompression?.Value == "custom"; // null while the constructor runs
+    private Choice<string> _selectedCompression;
+    private string _customCompression = "";
 
-    partial void OnSelectedCompressionChanged(Choice<string> value)
+    public Choice<string> SelectedCompression
     {
-        OnPropertyChanged(nameof(IsCustomCompression));
-        Change(s => s.Compression = value.Value == "custom" ? CustomCompression.Trim() : value.Value);
+        get => _selectedCompression;
+        set
+        {
+            if (!SetProperty(ref _selectedCompression, value)) return;
+            OnPropertyChanged(nameof(IsCustomCompression));
+            Change(s => s.Chd.Compression = value.Value == "custom" ? _customCompression.Trim() : value.Value);
+        }
     }
 
-    partial void OnCustomCompressionChanged(string value)
+    public string CustomCompression
     {
-        if (!IsCustomCompression) return;
-        Change(s => s.Compression = value.Trim());
+        get => _customCompression;
+        set
+        {
+            if (!SetProperty(ref _customCompression, value) || !IsCustomCompression) return;
+            Change(s => s.Chd.Compression = value.Trim());
+        }
     }
+
+    public bool IsCustomCompression => _selectedCompression.Value == "custom";
 
     public Choice<IsoMode> SelectedIsoMode
     {
-        get => IsoModes.First(m => m.Value == _s.IsoMode);
-        set => Set(value.Value, (s, v) => s.IsoMode = v);
+        get => IsoModes.First(m => m.Value == S.Chd.IsoMode);
+        set => Set(value.Value, (s, v) => s.Chd.IsoMode = v);
     }
 
     public Choice<ExtractFormat> SelectedExtractFormat
     {
-        get => ExtractFormats.First(m => m.Value == _s.ExtractFormat);
-        set => Set(value.Value, (s, v) => s.ExtractFormat = v);
+        get => ExtractFormats.First(m => m.Value == S.Chd.ExtractFormat);
+        set => Set(value.Value, (s, v) => s.Chd.ExtractFormat = v);
     }
 
     public Choice<uint> SelectedHunkSize
     {
-        get => HunkSizes.FirstOrDefault(h => h.Value == _s.HunkSize) ?? HunkSizes[0];
-        set => Set(value.Value, (s, v) => s.HunkSize = v);
+        get => HunkSizes.FirstOrDefault(h => h.Value == S.Chd.HunkSize) ?? HunkSizes[0];
+        set => Set(value.Value, (s, v) => s.Chd.HunkSize = v);
     }
 
-    // GameCube / Wii
+    public bool VerifyAfterCreate { get => S.Chd.VerifyAfterCreate; set => Set(value, (s, v) => s.Chd.VerifyAfterCreate = v); }
+    public bool SplitBin { get => S.Chd.SplitBin; set => Set(value, (s, v) => s.Chd.SplitBin = v); }
+    public bool FixHeaderSha1 { get => S.Chd.FixHeaderSha1; set => Set(value, (s, v) => s.Chd.FixHeaderSha1 = v); }
+}
 
-    public static IReadOnlyList<Choice<NintendoTarget>> NintendoTargets { get; } =
+public sealed class NintendoSettingsViewModel(AppSettings settings) : SettingsSectionViewModel(settings)
+{
+    public override string Title => "GameCube / Wii";
+
+    public static IReadOnlyList<Choice<NintendoTarget>> Targets { get; } =
     [
         new(NintendoTarget.Rvz, "RVZ (Dolphin's format, smallest)"),
         new(NintendoTarget.Chd, "CHD (as a DVD)"),
     ];
 
-    public static IReadOnlyList<Choice<RvzCompression>> RvzCompressions { get; } =
+    public static IReadOnlyList<Choice<RvzCompression>> Compressions { get; } =
     [
         new(RvzCompression.Zstd, "Zstandard (Dolphin's default)"),
         new(RvzCompression.Lzma2, "LZMA2 (smaller, much slower)"),
@@ -146,7 +277,7 @@ public partial class SettingsViewModel : ViewModelBase
         new(RvzCompression.None, "No compression"),
     ];
 
-    public static IReadOnlyList<Choice<uint>> RvzBlockSizes { get; } =
+    public static IReadOnlyList<Choice<uint>> BlockSizes { get; } =
     [
         new(0x8000u, "32 KiB"),
         new(0x10000u, "64 KiB"),
@@ -157,173 +288,157 @@ public partial class SettingsViewModel : ViewModelBase
         new(0x200000u, "2 MiB"),
     ];
 
-    public Choice<NintendoTarget> SelectedNintendoTarget
+    public Choice<NintendoTarget> SelectedTarget
     {
-        get => NintendoTargets.FirstOrDefault(t => t.Value == _s.NintendoTarget) ?? NintendoTargets[0];
-        set
-        {
-            if (Set(value.Value, (s, v) => s.NintendoTarget = v)) OnPropertyChanged(nameof(IsRvzTarget));
-        }
+        get => Targets.FirstOrDefault(t => t.Value == S.Nintendo.Target) ?? Targets[0];
+        set { if (Set(value.Value, (s, v) => s.Nintendo.Target = v)) OnPropertyChanged(nameof(IsRvzTarget)); }
     }
 
-    public bool IsRvzTarget => _s.NintendoTarget == NintendoTarget.Rvz;
+    public bool IsRvzTarget => S.Nintendo.Target == NintendoTarget.Rvz;
 
-    public Choice<RvzCompression> SelectedRvzCompression
+    public Choice<RvzCompression> SelectedCompression
     {
-        get => RvzCompressions.FirstOrDefault(c => c.Value == _s.RvzCompression) ?? RvzCompressions[0];
+        get => Compressions.FirstOrDefault(c => c.Value == S.Nintendo.Compression) ?? Compressions[0];
         set
         {
             // Keep the level inside the new method's range (Dolphin's dialog uses the same ranges).
             if (!Set(value.Value, (s, v) =>
                 {
-                    s.RvzCompression = v;
-                    s.RvzCompressionLevel = Math.Clamp(s.RvzCompressionLevel, (int)RvzLevelMinimum, (int)RvzLevelMaximum);
+                    s.Nintendo.Compression = v;
+                    s.Nintendo.CompressionLevel = Math.Clamp(s.Nintendo.CompressionLevel, (int)LevelMinimum, (int)LevelMaximum);
                 })) return;
-            OnPropertyChanged(nameof(RvzCompressionLevel));
-            OnPropertyChanged(nameof(RvzLevelMaximum));
-            OnPropertyChanged(nameof(HasRvzLevel));
+            OnPropertyChanged(nameof(CompressionLevel));
+            OnPropertyChanged(nameof(LevelMaximum));
+            OnPropertyChanged(nameof(HasLevel));
         }
     }
 
-    public bool HasRvzLevel => _s.RvzCompression != RvzCompression.None;
-    public decimal RvzLevelMinimum => 1;
-    public decimal RvzLevelMaximum => _s.RvzCompression == RvzCompression.Zstd ? 22 : 9;
+    public bool HasLevel => S.Nintendo.Compression != RvzCompression.None;
+    public decimal LevelMinimum => 1;
+    public decimal LevelMaximum => S.Nintendo.Compression == RvzCompression.Zstd ? 22 : 9;
 
-    public decimal RvzCompressionLevel
+    public decimal CompressionLevel
     {
-        get => _s.RvzCompressionLevel;
-        set => Set((int)value, (s, v) => s.RvzCompressionLevel = Math.Clamp(v, 1, (int)RvzLevelMaximum));
+        get => S.Nintendo.CompressionLevel;
+        set => Set((int)value, (s, v) => s.Nintendo.CompressionLevel = Math.Clamp(v, 1, (int)LevelMaximum));
     }
 
-    public Choice<uint> SelectedRvzBlockSize
+    public Choice<uint> SelectedBlockSize
     {
-        get => RvzBlockSizes.FirstOrDefault(b => b.Value == _s.RvzBlockSize) ?? RvzBlockSizes[2];
-        set => Set(value.Value, (s, v) => s.RvzBlockSize = v);
+        get => BlockSizes.FirstOrDefault(b => b.Value == S.Nintendo.BlockSize) ?? BlockSizes[2];
+        set => Set(value.Value, (s, v) => s.Nintendo.BlockSize = v);
     }
 
-    public bool RvzScrub { get => _s.RvzScrub; set => Set(value, (s, v) => s.RvzScrub = v); }
+    public bool Scrub { get => S.Nintendo.Scrub; set => Set(value, (s, v) => s.Nintendo.Scrub = v); }
+}
 
-    public string OutputFolder { get => _s.OutputFolder; set => Set(value, (s, v) => s.OutputFolder = v); }
-    public bool UseSourceFolder { get => string.IsNullOrWhiteSpace(_s.OutputFolder); }
-    public bool Overwrite { get => _s.Overwrite; set => Set(value, (s, v) => s.Overwrite = v); }
-    public bool ScanSubfolders { get => _s.ScanSubfolders; set => Set(value, (s, v) => s.ScanSubfolders = v); }
-    public bool VerifyAfterCreate { get => _s.VerifyAfterCreate; set => Set(value, (s, v) => s.VerifyAfterCreate = v); }
-    public bool DeleteOriginals { get => _s.DeleteOriginals; set => Set(value, (s, v) => s.DeleteOriginals = v); }
-    public bool UseRecycleBin { get => _s.UseRecycleBin; set => Set(value, (s, v) => s.UseRecycleBin = v); }
-    public string RecycleBinLabel => $"…to the {Core.Jobs.FileRemover.BinName} (not permanently)";
-    public bool CanUseRecycleBin => Core.Jobs.FileRemover.CanUseBin;
-    public bool SplitBin { get => _s.SplitBin; set => Set(value, (s, v) => s.SplitBin = v); }
-    public bool FixHeaderSha1 { get => _s.FixHeaderSha1; set => Set(value, (s, v) => s.FixHeaderSha1 = v); }
-    public decimal ParallelJobs { get => _s.ParallelJobs; set => Set((int)value, (s, v) => s.ParallelJobs = Math.Max(1, v)); }
-    public decimal ThreadsPerJob { get => _s.ThreadsPerJob; set => Set((int)value, (s, v) => s.ThreadsPerJob = Math.Max(0, v)); }
-    public int MaxThreads => Environment.ProcessorCount;
-    public string TempFolder { get => _s.TempFolder; set => Set(value, (s, v) => s.TempFolder = v); }
-    public string TempFolderHint => _s.EffectiveTempFolder;
-    public string ChdmanExePath { get => _s.ChdmanExePath; set => Set(value, (s, v) => s.ChdmanExePath = v); }
-    public bool VerboseLog { get => _s.VerboseLog; set => Set(value, (s, v) => s.VerboseLog = v); }
-    public bool LogProgress { get => _s.LogProgress; set => Set(value, (s, v) => s.LogProgress = v); }
+public sealed class ArchiveSettingsViewModel(AppSettings settings) : SettingsSectionViewModel(settings)
+{
+    public override string Title => "Archives";
 
-    // Archive tab
-
-    public static IReadOnlyList<Choice<Core.Archives.ArchiveAction>> ArchiveActions { get; } =
+    public static IReadOnlyList<Choice<ArchiveAction>> Actions { get; } =
     [
-        new(Core.Archives.ArchiveAction.Compress, "Compress files and folders"),
-        new(Core.Archives.ArchiveAction.Convert, "Convert archives (zip ↔ 7z)"),
-        new(Core.Archives.ArchiveAction.Extract, "Extract archives (zip, 7z)"),
+        new(ArchiveAction.Compress, "Compress files and folders"),
+        new(ArchiveAction.Convert, "Convert archives (zip ↔ 7z)"),
+        new(ArchiveAction.Extract, "Extract archives (zip, 7z)"),
     ];
 
-    public static IReadOnlyList<Choice<Core.Archives.ArchiveFormat>> ArchiveFormats { get; } =
+    public static IReadOnlyList<Choice<ArchiveFormat>> Formats { get; } =
     [
-        new(Core.Archives.ArchiveFormat.SevenZip, "7z (LZMA2, smallest)"),
-        new(Core.Archives.ArchiveFormat.Zip, "zip (Deflate, opens anywhere)"),
+        new(ArchiveFormat.SevenZip, "7z (LZMA2, smallest)"),
+        new(ArchiveFormat.Zip, "zip (Deflate, opens anywhere)"),
     ];
 
-    public static IReadOnlyList<Choice<Core.Archives.ArchiveLevel>> ArchiveLevels { get; } =
+    public static IReadOnlyList<Choice<ArchiveLevel>> Levels { get; } =
     [
-        new(Core.Archives.ArchiveLevel.Store, "Store (no compression)"),
-        new(Core.Archives.ArchiveLevel.Fastest, "Fastest"),
-        new(Core.Archives.ArchiveLevel.Fast, "Fast"),
-        new(Core.Archives.ArchiveLevel.Normal, "Normal"),
-        new(Core.Archives.ArchiveLevel.Maximum, "Maximum"),
-        new(Core.Archives.ArchiveLevel.Ultra, "Ultra (slowest)"),
+        new(ArchiveLevel.Store, "Store (no compression)"),
+        new(ArchiveLevel.Fastest, "Fastest"),
+        new(ArchiveLevel.Fast, "Fast"),
+        new(ArchiveLevel.Normal, "Normal"),
+        new(ArchiveLevel.Maximum, "Maximum"),
+        new(ArchiveLevel.Ultra, "Ultra (slowest)"),
     ];
 
-    public static IReadOnlyList<Choice<Core.Archives.ArchiveGrouping>> ArchiveGroupings { get; } =
+    public static IReadOnlyList<Choice<ArchiveGrouping>> Groupings { get; } =
     [
-        new(Core.Archives.ArchiveGrouping.PerItem, "One archive per file or folder in the list"),
-        new(Core.Archives.ArchiveGrouping.PerEntryInFolders, "One archive per file/subfolder inside each folder"),
-        new(Core.Archives.ArchiveGrouping.Single, "Everything into one archive"),
+        new(ArchiveGrouping.PerItem, "One archive per file or folder in the list"),
+        new(ArchiveGrouping.PerEntryInFolders, "One archive per file/subfolder inside each folder"),
+        new(ArchiveGrouping.Single, "Everything into one archive"),
     ];
 
-    public static IReadOnlyList<Choice<Core.Archives.ConvertTarget>> ConvertTargets { get; } =
+    public static IReadOnlyList<Choice<ConvertTarget>> ConvertTargets { get; } =
     [
-        new(Core.Archives.ConvertTarget.Swap, "Swap: zip → 7z, 7z → zip"),
-        new(Core.Archives.ConvertTarget.ToSevenZip, "Everything to 7z"),
-        new(Core.Archives.ConvertTarget.ToZip, "Everything to zip"),
+        new(ConvertTarget.Swap, "Swap: zip → 7z, 7z → zip"),
+        new(ConvertTarget.ToSevenZip, "Everything to 7z"),
+        new(ConvertTarget.ToZip, "Everything to zip"),
     ];
 
-    public Choice<Core.Archives.ArchiveAction> SelectedArchiveAction
+    public Choice<ArchiveAction> SelectedAction
     {
-        get => ArchiveActions.First(a => a.Value == _s.ArchiveAction);
+        get => Actions.First(a => a.Value == S.Archives.Action);
         set
         {
-            if (!Set(value.Value, (s, v) => s.ArchiveAction = v)) return;
-            OnPropertyChanged(nameof(IsArchiveCompress));
-            OnPropertyChanged(nameof(IsArchiveConvert));
-            OnPropertyChanged(nameof(IsArchiveExtract));
-            OnPropertyChanged(nameof(IsArchiveWriting));
-            OnPropertyChanged(nameof(ArchiveDeleteLabel));
+            if (!Set(value.Value, (s, v) => s.Archives.Action = v)) return;
+            OnPropertyChanged(nameof(IsCompress));
+            OnPropertyChanged(nameof(IsConvert));
+            OnPropertyChanged(nameof(IsExtract));
+            OnPropertyChanged(nameof(IsWriting));
+            OnPropertyChanged(nameof(RemoveLabel));
         }
     }
 
-    public bool IsArchiveCompress => _s.ArchiveAction == Core.Archives.ArchiveAction.Compress;
-    public bool IsArchiveConvert => _s.ArchiveAction == Core.Archives.ArchiveAction.Convert;
-    public bool IsArchiveExtract => _s.ArchiveAction == Core.Archives.ArchiveAction.Extract;
+    public bool IsCompress => S.Archives.Action == ArchiveAction.Compress;
+    public bool IsConvert => S.Archives.Action == ArchiveAction.Convert;
+    public bool IsExtract => S.Archives.Action == ArchiveAction.Extract;
 
     /// <summary>Compressing and converting write archives; extracting only reads them.</summary>
-    public bool IsArchiveWriting => !IsArchiveExtract;
+    public bool IsWriting => !IsExtract;
 
-    public string ArchiveDeleteLabel => IsArchiveExtract ? "Remove each archive after it extracts" : "Remove the originals";
-    public bool ArchiveExtractToOwnFolder { get => _s.ArchiveExtractToOwnFolder; set => Set(value, (s, v) => s.ArchiveExtractToOwnFolder = v); }
+    public string RemoveLabel => IsExtract ? "Remove each archive after it extracts" : "Remove the originals";
 
-    public Choice<Core.Archives.ArchiveFormat> SelectedArchiveFormat
+    public bool ExtractToOwnFolder { get => S.Archives.ExtractToOwnFolder; set => Set(value, (s, v) => s.Archives.ExtractToOwnFolder = v); }
+
+    public Choice<ArchiveFormat> SelectedFormat
     {
-        get => ArchiveFormats.First(f => f.Value == _s.ArchiveFormat);
-        set { if (Set(value.Value, (s, v) => s.ArchiveFormat = v)) OnPropertyChanged(nameof(IsSevenZipFormat)); }
+        get => Formats.First(f => f.Value == S.Archives.Format);
+        set { if (Set(value.Value, (s, v) => s.Archives.Format = v)) OnPropertyChanged(nameof(IsSevenZip)); }
     }
 
-    public bool IsSevenZipFormat => _s.ArchiveFormat == Core.Archives.ArchiveFormat.SevenZip;
+    public bool IsSevenZip => S.Archives.Format == ArchiveFormat.SevenZip;
 
-    public Choice<Core.Archives.ArchiveLevel> SelectedArchiveLevel
+    public Choice<ArchiveLevel> SelectedLevel
     {
-        get => ArchiveLevels.First(l => l.Value == _s.ArchiveLevel);
-        set => Set(value.Value, (s, v) => s.ArchiveLevel = v);
+        get => Levels.First(l => l.Value == S.Archives.Level);
+        set => Set(value.Value, (s, v) => s.Archives.Level = v);
     }
 
-    public Choice<Core.Archives.ArchiveGrouping> SelectedArchiveGrouping
+    public Choice<ArchiveGrouping> SelectedGrouping
     {
-        get => ArchiveGroupings.First(g => g.Value == _s.ArchiveGrouping);
-        set { if (Set(value.Value, (s, v) => s.ArchiveGrouping = v)) OnPropertyChanged(nameof(IsSingleArchive)); }
+        get => Groupings.First(g => g.Value == S.Archives.Grouping);
+        set { if (Set(value.Value, (s, v) => s.Archives.Grouping = v)) OnPropertyChanged(nameof(IsSingle)); }
     }
 
-    public bool IsSingleArchive => _s.ArchiveGrouping == Core.Archives.ArchiveGrouping.Single;
+    public bool IsSingle => S.Archives.Grouping == ArchiveGrouping.Single;
 
-    public Choice<Core.Archives.ConvertTarget> SelectedConvertTarget
+    public Choice<ConvertTarget> SelectedConvertTarget
     {
-        get => ConvertTargets.First(t => t.Value == _s.ArchiveConvertTarget);
-        set => Set(value.Value, (s, v) => s.ArchiveConvertTarget = v);
+        get => ConvertTargets.First(t => t.Value == S.Archives.ConvertTarget);
+        set => Set(value.Value, (s, v) => s.Archives.ConvertTarget = v);
     }
 
-    public bool ArchiveSolid { get => _s.ArchiveSolid; set => Set(value, (s, v) => s.ArchiveSolid = v); }
-    public string ArchiveSingleName { get => _s.ArchiveSingleName; set => Set(value, (s, v) => s.ArchiveSingleName = v); }
-    public bool ArchiveTestAfter { get => _s.ArchiveTestAfter; set => Set(value, (s, v) => s.ArchiveTestAfter = v); }
-    public bool ArchiveDeleteOriginals { get => _s.ArchiveDeleteOriginals; set => Set(value, (s, v) => s.ArchiveDeleteOriginals = v); }
-    public bool WiiUDeleteOriginals { get => _s.WiiUDeleteOriginals; set => Set(value, (s, v) => s.WiiUDeleteOriginals = v); }
+    public bool Solid { get => S.Archives.Solid; set => Set(value, (s, v) => s.Archives.Solid = v); }
+    public string SingleName { get => S.Archives.SingleName; set => Set(value, (s, v) => s.Archives.SingleName = v); }
+    public bool TestAfter { get => S.Archives.TestAfter; set => Set(value, (s, v) => s.Archives.TestAfter = v); }
+}
+
+public sealed partial class KeySettingsViewModel(AppSettings settings, IDialogs dialogs) : SettingsSectionViewModel(settings)
+{
+    public override string Title => "Keys";
 
     public string WiiUKeysPath
     {
-        get => _s.WiiUKeysPath;
-        set { if (Set(value, (s, v) => s.WiiUKeysPath = v)) OnPropertyChanged(nameof(WiiUKeysSummary)); }
+        get => S.Keys.WiiUKeysPath;
+        set { if (Set(value, (s, v) => s.Keys.WiiUKeysPath = v)) OnPropertyChanged(nameof(WiiUKeysSummary)); }
     }
 
     /// <summary>Which keys.txt the Wii U tab will use, and how many keys it holds.</summary>
@@ -331,9 +446,9 @@ public partial class SettingsViewModel : ViewModelBase
     {
         get
         {
-            var keys = Core.WiiU.WiiUKeys.Load(_s.WiiUKeysPath);
+            var keys = Core.WiiU.WiiUKeys.Load(S.Keys.WiiUKeysPath);
             return keys.Files.Count == 0
-                ? (string.IsNullOrWhiteSpace(_s.WiiUKeysPath) ? "No keys.txt found in NoIntrovert's or Cemu's folder." : $"{_s.WiiUKeysPath} doesn't exist.")
+                ? (string.IsNullOrWhiteSpace(S.Keys.WiiUKeysPath) ? "No keys.txt found in NoIntrovert's or Cemu's folder." : $"{S.Keys.WiiUKeysPath} doesn't exist.")
                 : $"{keys.Keys.Count} key(s) in {string.Join(", ", keys.Files)}";
         }
     }
@@ -341,7 +456,7 @@ public partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private async Task BrowseWiiUKeys()
     {
-        var file = await _dialogs.PickFileAsync("Choose your keys.txt", "Key files", ["keys.txt", "*.txt"]);
+        var file = await dialogs.PickFileAsync("Choose your keys.txt", "Key files", ["keys.txt", "*.txt"]);
         if (file is not null) WiiUKeysPath = file;
     }
 
@@ -350,39 +465,18 @@ public partial class SettingsViewModel : ViewModelBase
 
     [RelayCommand]
     private void RefreshWiiUKeys() => OnPropertyChanged(nameof(WiiUKeysSummary));
+}
 
-    public double WindowWidth { get => _s.WindowWidth; set => _s.WindowWidth = value; }
-    public double WindowHeight { get => _s.WindowHeight; set => _s.WindowHeight = value; }
+public sealed partial class DiagnosticsSettingsViewModel(AppSettings settings, IDialogs dialogs) : SettingsSectionViewModel(settings)
+{
+    public override string Title => "Diagnostics";
 
-    [RelayCommand]
-    private async Task BrowseOutputFolder()
-    {
-        var folder = await _dialogs.PickFolderAsync("Choose where results go");
-        if (folder is null) return;
-        OutputFolder = folder;
-        OnPropertyChanged(nameof(UseSourceFolder));
-    }
-
-    [RelayCommand]
-    private void UseSourceFolders()
-    {
-        OutputFolder = "";
-        OnPropertyChanged(nameof(UseSourceFolder));
-    }
-
-    [RelayCommand]
-    private async Task BrowseTempFolder()
-    {
-        var folder = await _dialogs.PickFolderAsync("Choose a folder for temporary files");
-        if (folder is null) return;
-        TempFolder = folder;
-        OnPropertyChanged(nameof(TempFolderHint));
-    }
+    public string ChdmanExePath { get => S.Diagnostics.ChdmanExePath; set => Set(value, (s, v) => s.Diagnostics.ChdmanExePath = v); }
 
     [RelayCommand]
     private async Task BrowseChdmanExe()
     {
-        var file = await _dialogs.PickFileAsync("Find chdman", "chdman", OperatingSystem.IsWindows() ? ["chdman*.exe", "*.exe"] : ["chdman*"]);
+        var file = await dialogs.PickFileAsync("Find chdman", "chdman", OperatingSystem.IsWindows() ? ["chdman*.exe", "*.exe"] : ["chdman*"]);
         if (file is not null) ChdmanExePath = file;
     }
 }

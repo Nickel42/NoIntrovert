@@ -41,7 +41,8 @@
             <TabItem Header="Archive"><ContentControl Content="{Binding Archive}" /></TabItem>
             <TabItem Header="Wii U"><ContentControl Content="{Binding WiiU}" /></TabItem>
             <TabItem Header="CHD Info"><ContentControl Content="{Binding Info}" /></TabItem>
-            <TabItem Header="Library tests"><ContentControl Content="{Binding Tests}" /></TabItem>
+            <TabItem Header="Library tests" IsVisible="{Binding Settings.General.PowerUserMode}"><ContentControl Content="{Binding Tests}" /></TabItem>
+            <TabItem Header="Settings"><ContentControl Content="{Binding Settings}" /></TabItem>
         </TabControl>
 
         <GridSplitter Grid.Row="2" Height="6" Background="Transparent" ResizeDirection="Rows" />
@@ -53,9 +54,9 @@
                     <TextBlock Text="Log" FontWeight="SemiBold" VerticalAlignment="Center" />
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
                         <CheckBox Content="Show debug" IsChecked="{Binding Log.ShowDebug}" />
-                        <CheckBox Content="libchdman messages" IsChecked="{Binding Settings.VerboseLog}"
+                        <CheckBox Content="libchdman messages" IsChecked="{Binding Settings.General.VerboseLog}" IsVisible="{Binding Settings.General.PowerUserMode}"
                                   ToolTip.Tip="Log every message libchdman sends (shown as debug lines)." />
-                        <CheckBox Content="Progress" IsChecked="{Binding Settings.LogProgress}"
+                        <CheckBox Content="Progress" IsChecked="{Binding Settings.General.LogProgress}" IsVisible="{Binding Settings.General.PowerUserMode}"
                                   ToolTip.Tip="Log libchdman progress reports every 10% (debug lines)." />
                         <Button Classes="tool" Content="Copy" Command="{Binding Log.CopyCommand}" />
                         <Button Classes="tool" Content="Save…" Command="{Binding Log.SaveCommand}" />

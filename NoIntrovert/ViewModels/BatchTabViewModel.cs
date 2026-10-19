@@ -25,7 +25,71 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         Dialogs = dialogs;
         Queue = queue;
         Items.CollectionChanged += (_, _) => RefreshSummary();
+        settings.Output.PropertyChanged += (_, _) => RefreshRunOptions();
         _progressTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(400), DispatcherPriority.Background, (_, _) => RefreshProgress());
+    }
+
+    // ---- This run: the Output defaults from Settings, optionally overridden for this tab's runs ----
+
+    private string? _runFolder;
+    private bool? _runOverwrite;
+
+    /// <summary>Asks the window to show the Settings page (set by the main view model).</summary>
+    public Action? OpenSettingsRequested { get; set; }
+
+    public string RunFolderText => _runFolder ?? Settings.Output.FolderText;
+    public bool HasRunOverrides => _runFolder is not null || _runOverwrite is not null;
+
+    public string RunOptionsNote => HasRunOverrides
+        ? "Changed for this tab's runs only; the defaults in Settings are untouched."
+        : "The defaults from Settings.";
+
+    /// <summary>Overwrite for this tab's runs: the Settings default until it's changed here.</summary>
+    public bool RunOverwrite
+    {
+        get => _runOverwrite ?? Settings.Output.Overwrite;
+        set
+        {
+            _runOverwrite = value == Settings.Output.Overwrite ? null : value;
+            RefreshRunOptions();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChooseRunFolder()
+    {
+        var folder = await Dialogs.PickFolderAsync($"Where {Title} results go (this tab only)");
+        if (folder is null) return;
+        _runFolder = folder;
+        RefreshRunOptions();
+    }
+
+    [RelayCommand]
+    private void ResetRunOptions()
+    {
+        _runFolder = null;
+        _runOverwrite = null;
+        RefreshRunOptions();
+    }
+
+    [RelayCommand]
+    private void OpenSettings() => OpenSettingsRequested?.Invoke();
+
+    private void RefreshRunOptions()
+    {
+        OnPropertyChanged(nameof(RunFolderText));
+        OnPropertyChanged(nameof(RunOverwrite));
+        OnPropertyChanged(nameof(HasRunOverrides));
+        OnPropertyChanged(nameof(RunOptionsNote));
+    }
+
+    /// <summary>The settings a run uses: the saved ones, with this tab's overrides on top.</summary>
+    protected AppSettings RunSettings()
+    {
+        var snapshot = Settings.Snapshot();
+        if (_runFolder is not null) snapshot.Output.Folder = _runFolder;
+        if (_runOverwrite is { } overwrite) snapshot.Output.Overwrite = overwrite;
+        return snapshot;
     }
 
     /// <summary>The app's shared queue: this tab's runs go in it alongside every other tab's.</summary>
@@ -63,7 +127,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     protected virtual IEnumerable<string> ItemsForFolder(string folder)
     {
         if (InputFormats is not { } formats) return [folder];
-        return FormatRegistry.Default.Scan(folder, Settings.ScanSubfolders, ScanDepth)
+        return FormatRegistry.Default.Scan(folder, Settings.Output.ScanSubfolders, ScanDepth)
             .Where(Takes)
             .Select(s => s.Primary)
             .ToList();
@@ -185,13 +249,15 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         }
         if (!BeforeStart(pending)) return;
 
-        var snapshot = Settings.Snapshot();
+        var snapshot = RunSettings();
+        if (HasRunOverrides)
+            Log.Info($"{Title}: for this run, saving to {(string.IsNullOrWhiteSpace(snapshot.Output.Folder) ? "each source's folder" : snapshot.Output.Folder)}, overwrite {(snapshot.Output.Overwrite ? "on" : "off")}");
         foreach (var item in pending) item.Reset();
         IsRunning = true;
         OverallProgress = 0;
         var busy = Queue.IsBusy;
         RunStatus = busy ? $"Queued {pending.Count} item(s) behind the jobs already running…" : $"Working on {pending.Count} item(s)…";
-        Log.Info($"{Title}: starting {pending.Count} item(s) with {snapshot.ParallelJobs} parallel job(s)" + (busy ? ", after the jobs already in the queue" : ""));
+        Log.Info($"{Title}: starting {pending.Count} item(s) with {snapshot.Performance.ParallelJobs} parallel job(s)" + (busy ? ", after the jobs already in the queue" : ""));
         var started = DateTime.Now;
 
         var jobs = GroupItems(pending).Select(group => new BatchJob(

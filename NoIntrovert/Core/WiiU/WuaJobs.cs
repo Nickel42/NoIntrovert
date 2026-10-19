@@ -28,7 +28,7 @@ public static class WuaJobs
 
         // Every title from every source, then the newest of each title ID.
         var keys = sources.Any(p => WiiUEncrypted.IsNusFolder(p) || WiiUEncrypted.IsDiscImage(p))
-            ? WiiUKeys.Load(s.WiiUKeysPath) : WiiUKeys.Empty;
+            ? WiiUKeys.Load(s.Keys.WiiUKeysPath) : WiiUKeys.Empty;
         var all = sources.SelectMany(p => WiiUTitles.Read(p, keys)).Where(t => t.BaseId == baseId).ToList();
         if (all.Count == 0) return JobOutcome.Skipped("No titles for this game");
         var chosen = all.GroupBy(t => t.TitleId)
@@ -49,7 +49,7 @@ public static class WuaJobs
         Directory.CreateDirectory(outputFolder);
         var output = Path.Combine(outputFolder, WiiUTitles.WuaFileName(baseId, name));
         var replacesInput = sources.Any(p => Path.GetFullPath(p).Equals(Path.GetFullPath(output), StringComparison.OrdinalIgnoreCase));
-        if (File.Exists(output) && !replacesInput && !s.Overwrite)
+        if (File.Exists(output) && !replacesInput && !s.Output.Overwrite)
         {
             log.Warn($"  {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
             return JobOutcome.Skipped("Archive already exists");
@@ -98,12 +98,12 @@ public static class WuaJobs
         var stats = new OperationStats(sw.Elapsed, chosen.Sum(t => TitleSize(t, keys)), outputBytes);
         log.Info($"  wrote {Path.GetFileName(output)}: {hashes.Count} files, {ChdJobs.Size(stats.InputBytes)} → {ChdJobs.Size(outputBytes)} ({stats.Ratio:P1}) in {sw.Elapsed:mm\\:ss\\.f}");
 
-        if (s.WiiUDeleteOriginals && removeSources)
+        if (s.Output.RemoveWiiUOriginals && removeSources)
         {
             c.Report.SetStage("Removing originals");
             var originals = sources.Where(p => !Path.GetFullPath(p).Equals(Path.GetFullPath(output), StringComparison.OrdinalIgnoreCase))
                 .SelectMany(OriginalFiles);
-            FileRemover.Remove(originals, s.UseRecycleBin, log);
+            FileRemover.Remove(originals, s.Output.UseRecycleBin, log);
         }
 
         log.Success($"{Path.GetFileName(output)}: done and verified");
@@ -120,8 +120,8 @@ public static class WuaJobs
     public static JobOutcome BuildFromArchive(JobContext c, string archive)
     {
         var s = c.Settings;
-        Directory.CreateDirectory(s.EffectiveTempFolder);
-        using var work = new WorkDirectory(s.EffectiveTempFolder);
+        Directory.CreateDirectory(s.Performance.EffectiveTempFolder);
+        using var work = new WorkDirectory(s.Performance.EffectiveTempFolder);
 
         c.Band(0, 0.3);
         c.Report.SetStage("Unpacking archive");
@@ -136,7 +136,7 @@ public static class WuaJobs
         if (sources.Count == 0) return JobOutcome.Skipped("No Wii U game inside the archive");
 
         var keys = sources.Any(p => WiiUEncrypted.IsNusFolder(p) || WiiUEncrypted.IsDiscImage(p))
-            ? WiiUKeys.Load(s.WiiUKeysPath) : WiiUKeys.Empty;
+            ? WiiUKeys.Load(s.Keys.WiiUKeysPath) : WiiUKeys.Empty;
         var games = sources.SelectMany(p => WiiUTitles.Read(p, keys)).Select(t => t.BaseId).Distinct().ToList();
         var outputFolder = OutputPaths.FolderFor(s, archive);
 
@@ -148,10 +148,10 @@ public static class WuaJobs
         }
 
         var built = outcomes.Where(o => o.Status is JobStatus.Succeeded or JobStatus.Warning).ToList();
-        if (s.WiiUDeleteOriginals && built.Count == outcomes.Count)
+        if (s.Output.RemoveWiiUOriginals && built.Count == outcomes.Count)
         {
             c.Report.SetStage("Removing the archive");
-            FileRemover.Remove([archive], s.UseRecycleBin, c.Log);
+            FileRemover.Remove([archive], s.Output.UseRecycleBin, c.Log);
         }
         if (outcomes.Count == 1) return outcomes[0];
         var failed = outcomes.Count(o => o.Status == JobStatus.Failed);
