@@ -27,6 +27,7 @@ cmake -S "$here/archive" -B "$here/build-linux-x64" -DCMAKE_BUILD_TYPE=Release \
     "-DNOI_BIT7Z_DIR=$srcbit7z" "-DNOI_7ZIP_DIR=$src7z"
 cmake --build "$here/build-linux-x64" --parallel "$jobs"
 cp "$here/build-linux-x64/libnoi_archive.so" "$out/"
+strip --strip-unneeded "$out/libnoi_archive.so"
 
 file "$out/7z.so" "$out/libnoi_archive.so"
 echo "Built $out/7z.so and $out/libnoi_archive.so"

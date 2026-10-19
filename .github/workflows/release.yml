@@ -329,7 +329,7 @@ jobs:
 
           macOS: unzip and move NoIntrovert.app to Applications. The app isn't notarised, so the first time, right-click it and choose Open (or run \`xattr -dr com.apple.quarantine /Applications/NoIntrovert.app\`).
 
-          Linux: extract the tar.gz and run NoIntrovert from the folder it makes (\`tar -xzf NoIntrovert-$VERSION-linux-x64.tar.gz && ./NoIntrovert-$VERSION-linux-x64/NoIntrovert\`). Keep the .so files next to it.
+          Linux: extract the tar.gz and run NoIntrovert from the folder it makes (\`tar -xzf NoIntrovert-$VERSION-linux-x64.tar.gz && ./NoIntrovert-$VERSION-linux-x64/NoIntrovert\`). Keep the .so files next to it. It needs X11 or XWayland and the usual desktop libraries (ICU, fontconfig, libICE, libSM).
           EOF
           gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.tar.gz --repo "$GITHUB_REPOSITORY" \
             --title "NoIntrovert $VERSION" --notes-file notes.md
