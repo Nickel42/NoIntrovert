@@ -60,6 +60,9 @@ self-contained `NoIntrovert.app`, signed ad hoc but not notarised: right-click
 build is a folder with the `NoIntrovert` executable and its `.so` libraries
 beside it; removed originals go to the desktop's Trash (the freedesktop.org
 one, `~/.local/share/Trash`, or the disk's own `.Trash-<uid>` for other drives).
+It runs on X11 or XWayland and uses the libraries any desktop install has
+(ICU, fontconfig, libX11, libICE, libSM); on a minimal system such as a fresh
+WSL Ubuntu, install `libicu`, `libfontconfig1`, `libice6` and `libsm6` first.
 
 The workflow builds libchdman from source on each platform (and runs its
 tests on x64 Windows, macOS and Linux, plus the app's own quick self-test on Linux). libchdman is private, so the repository
