@@ -209,20 +209,20 @@
                                 <ItemsControl ItemsSource="{Binding Systems}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:SystemTargetRow">
-                                            <Grid ColumnDefinitions="*,150,Auto" ColumnSpacing="6" Margin="0,0,6,6">
+                                            <Grid ColumnDefinitions="*,150,64" ColumnSpacing="6" Margin="0,0,6,6">
                                                 <StackPanel VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding Name}" TextWrapping="Wrap" Classes.overridden="{Binding IsOverridden}" />
                                                     <TextBlock Text="{Binding Recommended}" Classes="hint" FontSize="11" TextWrapping="Wrap" />
                                                 </StackPanel>
                                                 <ComboBox Grid.Column="1" ItemsSource="{Binding Options}" SelectedItem="{Binding Choice}" HorizontalAlignment="Stretch"
-                                                          VerticalAlignment="Center" ToolTip.Tip="Your choice for this system">
+                                                          VerticalAlignment="Center" ToolTip.Tip="{Binding Choice}">
                                                     <ComboBox.Styles>
                                                         <Style Selector="ComboBoxItem">
                                                             <Setter Property="IsEnabled" Value="{ReflectionBinding Producible}" />
                                                         </Style>
                                                     </ComboBox.Styles>
                                                 </ComboBox>
-                                                <Button Grid.Column="2" Classes="tool" Content="Reset" Command="{Binding ResetCommand}" VerticalAlignment="Center"
+                                                <Button Grid.Column="2" Classes="tool" Content="Reset" Command="{Binding ResetCommand}" VerticalAlignment="Center" HorizontalAlignment="Stretch"
                                                         IsVisible="{Binding IsOverridden}" ToolTip.Tip="Back to the recommended target" />
                                             </Grid>
                                         </DataTemplate>
