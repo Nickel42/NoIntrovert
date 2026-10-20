@@ -57,6 +57,15 @@ Known limits: password-protected or multi-part ISZ, encrypted (PSN) PBPs and
 password-protected archives are refused with a message. Multi-session Alcohol
 CDs are written as one session (as chdman does).
 
+## Target formats
+
+Each system has a recommended format and container: for example, cartridge ROMs
+go in a single-file .7z; disc images become a bare CHD, RVZ or .wua; and arcade
+romsets are left alone. [docs/target-formats.md](docs/target-formats.md) lists
+the rules, the decisions and the target for every system. Overriding these per
+system or file type in Settings → Target formats is planned; see
+[docs/requirements/target-formats.md](docs/requirements/target-formats.md).
+
 ## Platforms and downloads
 
 Releases have four zips and a tar.gz, built by `.github/workflows/release.yml`
