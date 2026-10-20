@@ -190,6 +190,7 @@ shows the recommendation with no Convert button, and each converter gets its own
 | 15 | `Game.cso` (PSP) | defaults | `Game.chd` (createdvd, 2048-byte hunks) |
 | 16 | NoNpDrm folder `PCSE00000` | launcher on | `Title (PCSE00000).zip` + `Title (PCSE00000).psvita` |
 | 17 | `Game.nsp` | defaults | Recommended: `.nsz` (not yet supported) |
+| 17b | `Game.xci` | defaults / `switch` → `xcz` | Defaults: Recommended `.nsz` (not yet supported; repack to NSP first). With the override: Recommended `.xcz` |
 | 18 | `Game.v64` | header fixes off / on | Off: `Game.7z` holding `Game.v64`. On: `Game.7z` holding `Game.z64` |
 | 19 | Exported overrides imported on another PC | — | Same rows are marked as overridden |
 

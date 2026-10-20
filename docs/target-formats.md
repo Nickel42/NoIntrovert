@@ -77,10 +77,11 @@ per line, in disc order. The folder name can be changed in Settings.
 
 ### Notes from the review
 
-- **Switch: which format holds updates and DLC?** NSZ. Updates and DLC are only distributed as NSP
-  files, which become `.nsz`. Store each one as its own `.nsz` next to the base game, which is
-  `.nsz` (from NSP) or `.xcz` (from a cartridge XCI). Emulators load or install updates and DLC from
-  NSP/NSZ files; an XCI or XCZ holds the base game only.
+- **Switch:** `.nsz` is the default for everything. NSZ and XCZ are just zstd-compressed NSP and
+  XCI. Updates and DLC only exist as NSP, so making the base game `.nsz` too keeps one format
+  throughout. A cartridge XCI is repacked to NSP first, which drops the cartridge-only data, so
+  the result can't be turned back into the No-Intro XCI. Choose `.xcz` in Settings to keep cartridge
+  dumps as exact compressed copies.
 - **PS Vita:** the target is a `.zip` of a properly dumped NoNpDrm game folder, which Vita3K installs
   with File → Install .zip. A `.pkg` plus its zRIF key converts to that folder first (pkg2zip). As
   an option, the app also writes a small frontend launcher file named after the game that holds its
@@ -109,7 +110,7 @@ used in the settings file.
 | Virtual Boy | `virtual-boy` | .vb | 7z | Loose ROM, single-file .zip (Rule R1) | Single-file .zip (Deflate) | - |
 | Pokemon Mini | `pokemon-mini` | .min | 7z | Loose ROM, single-file .zip (Rule R1) | Single-file .zip (Deflate) | - |
 | Game & Watch / LCD handhelds | `game-watch-lcd-handhelds` | .zip (MAME romset) | zip | - | 7z romset (MAME supports); .mgw for gw core | Never extract/repack per file. .mgw (MADrigal) is a different format, not interchangeable. |
-| Switch | `switch` | .nsz (eShop/NSP) / .xcz (cart XCI) | bare | .nsp → .nsz; .xci → .xcz; update & DLC .nsp → .nsz | .nsp/.xci uncompressed | Updates and DLC are only distributed as NSP, so they always become .nsz files next to the base game; XCI/XCZ carry the base game only. Needs prod.keys. Never wrap in 7z. |
+| Switch | `switch` | .nsz | bare | .nsp → .nsz; .xci → repack to .nsp → .nsz; update & DLC .nsp → .nsz | .xcz (keeps a cartridge XCI as an exact compressed copy); .nsp/.xci uncompressed | NSZ/XCZ are just zstd-compressed NSP/XCI. NSZ is the default so the base game, update and DLC share one format. An NSZ made from an XCI can't be turned back into the No-Intro XCI (R11 keeps the original hashes); choose .xcz to keep cartridge dumps exact. Needs prod.keys. Never wrap in 7z. |
 | Master System / Mark III | `master-system-mark-iii` | .sms | 7z | Loose ROM, single-file .zip (Rule R1) | Single-file .zip (Deflate) | - |
 | Game Gear | `game-gear` | .gg | 7z | Loose ROM, single-file .zip (Rule R1) | Single-file .zip (Deflate) | - |
 | SG-1000 / SC-3000 | `sg-1000-sc-3000` | .sg | 7z | Loose ROM, single-file .zip (Rule R1) | Single-file .zip (Deflate) | - |
