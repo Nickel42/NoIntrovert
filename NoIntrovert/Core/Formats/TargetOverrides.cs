@@ -51,9 +51,18 @@ public static class TargetOverrides
         if (system is null)
             list.AddRange([new("7z", "7z", true), new("zip", "zip", true), new("bare", "Bare (unpacked)", true)]);
         else
-            list.AddRange(system.Alternatives.Select(a => new TargetOption(a.Id, a.Label, a.Producible)));
+            list.AddRange(system.Alternatives.Select(a => new TargetOption(a.Id, ShortLabel(a), a.Producible)));
         return list;
     }
+
+    /// <summary>The containers' plain names, so they fit the Settings grid ("Single-file .zip (Deflate)" → "zip").</summary>
+    private static string ShortLabel(TargetAlternative a) => a.Id switch
+    {
+        "zip" => "zip",
+        "7z" => "7z",
+        "bare" => "Bare (unpacked)",
+        _ => a.Label,
+    };
 
     public static bool IsValid(TargetOverride o)
     {

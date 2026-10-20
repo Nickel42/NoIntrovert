@@ -103,7 +103,8 @@ public sealed partial class TargetFormatSettingsViewModel : SettingsSectionViewM
             Systems.Add(row);
     }
 
-    public string OverrideSummary => S.TargetFormats.Overrides.Count switch
+    /// <summary>How many of your overrides are in use (ones the registry doesn't know are ignored, and not counted).</summary>
+    public string OverrideSummary => S.TargetFormats.Overrides.Count(TargetOverrides.IsValid) switch
     {
         0 => "Every system uses its recommended target.",
         1 => "1 change from the recommended targets.",
