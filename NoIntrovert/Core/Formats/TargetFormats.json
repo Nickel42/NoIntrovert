@@ -136,7 +136,7 @@
     "category": "cartridge",
     "extensions": [".3ds", ".cci", ".cia", ".cxi", ".zcci"],
     "folders": ["3ds", "n3ds", "nintendo3ds"],
-    "target": {"format": ".cci", "container": "7z", "label": ".cci (decrypted)", "producible": false},
+    "target": {"format": ".cci", "container": "7z", "label": ".cci (decrypted)", "producible": true},
     "alternatives": [
       {"id": "zcci", "label": ".zcci (Azahar only)", "producible": false},
       {"id": "bare", "label": "Bare .cci", "producible": true}
@@ -631,6 +631,7 @@
       {"id": "dosz", "label": ".dosz", "producible": false}
     ],
     "rules": ["R6", "R8", "R9", "R10", "R13"],
+    "containerByExtension": {".dosz": "bare"},
     "discTarget": ".chd"
   },
   {
@@ -741,13 +742,14 @@
     "category": "disc",
     "extensions": [".vpk"],
     "folders": ["psvita", "vita", "playstationvita"],
-    "target": {"format": "folder", "container": "zip", "label": ".zip of a NoNpDrm game folder", "producible": false},
+    "target": {"format": "folder", "container": "zip", "label": ".zip of a NoNpDrm game folder", "producible": true},
     "alternatives": [
       {"id": "folder", "label": "Bare NoNpDrm folder", "producible": false},
       {"id": "vpk", "label": ".vpk", "producible": false}
     ],
     "rules": ["R10", "R11", "R13"],
-    "dats": ["no-intro/Sony - PlayStation Vita"]
+    "dats": ["no-intro/Sony - PlayStation Vita"],
+    "containerByExtension": {".vpk": "bare"}
   },
   {
     "id": "mega-cd-sega-cd",

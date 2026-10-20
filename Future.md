@@ -25,3 +25,12 @@ images (`drvz_capi.cpp`: "the container doesn't record the disc's exact size").
 
 **Until then:** rebuild a plain ISO with another tool (for example `wit copy Game.wbfs Game.iso`
 from Wiimms ISO Tools), then convert the ISO to RVZ in NoIntrovert.
+
+## Export the original hashes as a DAT or CSV
+
+**Today:** the original No-Intro/Redump hashes of converted files (R11) are kept in
+`originals.json` beside the library index, and Verify & match uses them.
+
+**To add:** an export from the Library page, as a Logiqx DAT or a CSV (Q1 in the
+[target formats requirement](docs/requirements/target-formats.md#7-resolved-questions)), so other
+tools can check the collection too.

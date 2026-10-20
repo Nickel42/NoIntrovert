@@ -33,8 +33,23 @@ public static class ConvertPlanner
         var wiiu = new List<int>();
         var packs = new List<int>();
 
+        // FR-7: two or more discs of one game become one job (each disc into the hidden folder, then the .m3u).
+        var paths = rows.Select(r => r.Path).ToList();
+        var multiDisc = RomJobs.MultiDiscGroups(paths, Enumerable.Range(0, rows.Count).Where(i => rows[i].Target is TargetKind.Chd or TargetKind.Rvz));
+        foreach (var (game, discs) in multiDisc)
+        {
+            var target = rows[discs[0].Row].Target;
+            var nintendo = target == TargetKind.Rvz ? NintendoTarget.Rvz : NintendoTarget.Chd;
+            var sources = discs.Select(d => rows[d.Row].Path).ToList();
+            var extension = target == TargetKind.Rvz ? ".rvz" : ".chd";
+            jobs.Add(new($"{game} ({discs.Count} discs)", discs.Select(d => d.Row).ToList(), discs.Sum(d => rows[d.Row].Size),
+                c => RomJobs.MultiDisc(c.WithSettings(With(c.Settings, s => s.Nintendo.Target = nintendo)), sources, game, extension)));
+        }
+        var grouped = multiDisc.SelectMany(g => g.Discs.Select(d => d.Row)).ToHashSet();
+
         for (var i = 0; i < rows.Count; i++)
         {
+            if (grouped.Contains(i)) continue;
             var row = rows[i];
             var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(row.Path));
             var path = row.Path;
@@ -58,6 +73,14 @@ public static class ConvertPlanner
                     break;
                 case TargetKind.Wua:
                     wiiu.Add(i);
+                    break;
+                case TargetKind.SevenZip when ArchiveJobs.IsConvertible(path) && HoldsSeveralGames(path):
+                    // R6: one 7z per game, each holding one ROM (D9).
+                    jobs.Add(new(name, [i], row.Size, c => RomJobs.Split(c.WithSettings(With(c.Settings, s => { s.Archives.Format = ArchiveFormat.SevenZip; SingleFile7z(s); })),
+                        path, OutputPaths.FolderFor(c.Settings, path))));
+                    break;
+                case TargetKind.Zip when Directory.Exists(path) && VitaGame.IsGameFolder(path):
+                    jobs.Add(new(name, [i], row.Size, c => RomJobs.PackVita(c, path, OutputPaths.FolderFor(c.Settings, path))));
                     break;
                 case TargetKind.SevenZip or TargetKind.Zip when ArchiveJobs.IsConvertible(path):
                     var to = row.Target == TargetKind.SevenZip ? ConvertTarget.ToSevenZip : ConvertTarget.ToZip;
@@ -180,9 +203,11 @@ public static class ConvertPlanner
                     var label = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
                     if (settings.Archives.Grouping == ArchiveGrouping.PerEntryInFolders && Directory.Exists(path))
                         jobs.Add(new(label, [i], rows[i].Size, c => ArchiveJobs.CompressEntries(c.WithSettings(With(c.Settings, UseFormat)), path, c.Settings.Output.Folder)));
-                    else if (format == ArchiveFormat.SevenZip && File.Exists(path))
-                        jobs.Add(new(label, [i], rows[i].Size, c => ArchiveJobs.CompressOne(
-                            c.WithSettings(With(c.Settings, s => { UseFormat(s); SingleFile7z(s); })), [path], archiveName, OutputPaths.FolderFor(c.Settings, path))));
+                    else if (File.Exists(path))
+                        // One file: under its canonical name (.3ds → .cci, R12 fixes), and as a D9 7z.
+                        jobs.Add(new(label, [i], rows[i].Size, c => RomJobs.Pack(
+                            c.WithSettings(With(c.Settings, s => { UseFormat(s); if (format == ArchiveFormat.SevenZip) SingleFile7z(s); })),
+                            path, archiveName, OutputPaths.FolderFor(c.Settings, path))));
                     else
                         jobs.Add(new(label, [i], rows[i].Size,
                             c => ArchiveJobs.CompressOne(c.WithSettings(With(c.Settings, UseFormat)), [path], archiveName, OutputPaths.FolderFor(c.Settings, path))));
@@ -191,6 +216,11 @@ public static class ConvertPlanner
         }
         return null;
     }
+
+    /// <summary>R6: an archive with more than one cartridge ROM in it.</summary>
+    private static bool HoldsSeveralGames(string archive) =>
+        (ArchivePeek.Members(archive) ?? []).Count(m => KnownFormats.Cartridges.Any(k => k.HasExtension(m.Name))
+            && TargetFormats.ByExtension(Path.GetExtension(m.Name)).Any(s => s.Category == "cartridge")) > 1;
 
     /// <summary>D9: a 7z holding one file is LZMA2 at Ultra, and not solid (there's nothing to share a block with).</summary>
     private static void SingleFile7z(AppSettings s)

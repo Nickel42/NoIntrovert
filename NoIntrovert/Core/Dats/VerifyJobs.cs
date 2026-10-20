@@ -29,27 +29,29 @@ public static class VerifyJobs
             return new JobOutcome(JobStatus.Failed, damage);
         }
 
-        if (!CanHash(set))
+        // R11: a converted file is checked against the hashes of what it was made from.
+        var original = OriginalHashes.Default.Get(path);
+        if (!CanHash(set) && original is null)
         {
             var skip = MatchResult.Of(MatchStatus.CantCheck, "Can't be checked yet");
             matches.Set(path, skip);
             return new JobOutcome(JobStatus.Skipped, skip.Text);
         }
 
-        c.Report.SetStage("Hashing");
         IReadOnlyList<HashedFile> files;
-        try
+        if (original is not null)
+            files = original.Files;
+        else
         {
-            files = cache.GetOrAdd(path, () => Hash(c, set));
-        }
-        finally
-        {
-            cache.Flush();
+            c.Report.SetStage("Hashing");
+            try { files = cache.GetOrAdd(path, () => Hash(c, set)); }
+            finally { cache.Flush(); }
         }
 
         var result = Matcher.Match(path, files, dats.For(system, c.Settings.Dats.OwnFolder));
         matches.Set(path, result);
         var details = string.Join("\n", files.Select(f => $"{f.Name}{(f.Headerless ? " (without header)" : "")}: {f.Size:N0} bytes, CRC32 {f.Crc}{(f.Sha1 is null ? "" : ", SHA-1 " + f.Sha1)}"));
+        if (original is not null) details = $"Checked with the hashes of {original.Source}, which it was made from\n{details}";
         if (result.Dat is not null) details = $"{result.Dat}: {result.Game}\n{details}";
         switch (result.Status)
         {
@@ -63,6 +65,18 @@ public static class VerifyJobs
                 c.Log.Warn($"{name}: {result.Text}");
                 return new JobOutcome(JobStatus.Warning, result.Text, Details: details);
         }
+    }
+
+    /// <summary>
+    /// The hashes of <paramref name="path"/> as a conversion's source (R11),
+    /// through the hash cache; null for an input that isn't hashed.
+    /// </summary>
+    public static IReadOnlyList<HashedFile>? HashesOf(JobContext c, string path)
+    {
+        var set = FormatRegistry.Default.Identify(path);
+        if (set is null || !CanHash(set) || set.Format == KnownFormats.Chd) return null;
+        try { return HashCache.Default.GetOrAdd(path, () => Hash(c, set)); }
+        finally { HashCache.Default.Flush(); }
     }
 
     /// <summary>What's wrong with the file itself, or null: CHDs are verified, 7z and zip tested.</summary>

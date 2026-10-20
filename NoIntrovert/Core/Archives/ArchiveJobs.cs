@@ -417,7 +417,7 @@ public static class ArchiveJobs
         inputs.Count == 1 ? Path.GetFileName(Path.TrimEndingDirectorySeparator(inputs[0])) : $"{inputs.Count} items";
 
     /// <summary>Maps one step's progress into a slice of the job's progress bar.</summary>
-    private sealed class SubReport(IJobReport inner, double start, double weight, string prefix) : IJobReport
+    internal sealed class SubReport(IJobReport inner, double start, double weight, string prefix) : IJobReport
     {
         public void SetStage(string stage) => inner.SetStage(prefix + stage);
         public void SetProgress(double fraction) => inner.SetProgress(start + Math.Clamp(fraction, 0, 1) * weight);
