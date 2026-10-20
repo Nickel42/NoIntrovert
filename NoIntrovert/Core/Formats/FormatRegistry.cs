@@ -90,6 +90,7 @@ public sealed class FormatRegistry
     public static FormatRegistry Default { get; } = new(
     [
         new WiiUHandler(),
+        new VitaHandler(),
         new DiscDescriptorHandler(),
         new SplitFileHandler(),
         new ImageHandler(),

@@ -29,6 +29,9 @@ public static class KnownFormats
     public static readonly FormatInfo WiiUFolder = new("wiiu-folder", "Wii U title folder");
     public static readonly FormatInfo Nus = new("nus", "Wii U NUS title");
 
+    /// <summary>A PS Vita game as a NoNpDrm folder (sce_sys/param.sfo), zipped for Vita3K (FR-10).</summary>
+    public static readonly FormatInfo VitaFolder = new("vita-folder", "PS Vita game folder");
+
     /// <summary>Wii U inputs that are recognised only to say why they can't be used (NUS without a ticket, WUHB).</summary>
     public static readonly FormatInfo WiiUUnsupported = new("wiiu-unsupported", "Unsupported Wii U input", ".wuhb");
 
@@ -68,7 +71,7 @@ public static class KnownFormats
     public static FormatInfo? ById(string id) => AllById.GetValueOrDefault(id);
 
     private static readonly Dictionary<string, FormatInfo> AllById =
-        ((FormatInfo[])[.. ByNameFormats, SplitFile, WiiUFolder, Nus, ConvertTargets.OtherFile, ConvertTargets.PackedFolder])
+        ((FormatInfo[])[.. ByNameFormats, SplitFile, WiiUFolder, Nus, VitaFolder, ConvertTargets.OtherFile, ConvertTargets.PackedFolder])
             .GroupBy(f => f.Id).ToDictionary(g => g.Key, g => g.First());
 
     /// <summary>The format a file name says, without looking at the file (it may be inside an archive).</summary>
@@ -169,6 +172,26 @@ public sealed class ArchiveHandler() : ExtensionHandler("archive", 50, KnownForm
 {
     public override IEnumerable<FileSet> Claim(ScanSet set) =>
         base.Claim(set).Select(s => s with { Inside = ArchivePeek.Inside(s.Primary) }).ToList();
+}
+
+/// <summary>PS Vita games as NoNpDrm folders: claimed whole, never looked inside.</summary>
+public sealed class VitaHandler() : ExtensionHandler("vita", 400, [KnownFormats.VitaFolder])
+{
+    public override FormatInfo? Recognize(string file) => null;
+
+    public override FormatInfo? RecognizeFolder(string folder) => VitaGame.IsGameFolder(folder) ? KnownFormats.VitaFolder : null;
+
+    public override IEnumerable<FileSet> Claim(ScanSet set)
+    {
+        var claimed = new List<FileSet>();
+        foreach (var folder in set.UnclaimedFolders.ToList())
+        {
+            if (RecognizeFolder(folder) is not { } format) continue;
+            set.Claim(folder);
+            claimed.Add(new FileSet(folder, [folder], format));
+        }
+        return claimed;
+    }
 }
 
 /// <summary>

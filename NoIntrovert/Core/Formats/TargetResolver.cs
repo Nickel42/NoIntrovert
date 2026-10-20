@@ -68,6 +68,14 @@ public static class TargetResolver
         // D7: chdman can't convert DiscJuggler images reliably.
         if (id == "dreamcast" && contents.Contains(".cdi")) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (.cdi, D7)");
 
+        // D2, FR-9: a 3DS image has to be decrypted first, and a .cia can't become a .cci yet.
+        if (id == "nintendo-3ds" && !isArchive)
+        {
+            if (ext == ".cia") return Plan(id, TargetStatus.NotYetSupported, TargetChoice.Leave, "Recommended: .cci (not yet supported from .cia)", alternatives);
+            if (ext is ".3ds" or ".cci" && RomFixes.Is3dsEncrypted(set.Primary) == true)
+                return Plan(id, TargetStatus.NotYetSupported, TargetChoice.Leave, "Recommended: decrypt first", alternatives);
+        }
+
         // FR-12: your overrides, then the registry's target (and D1).
         var (resolved, overridden) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
         if (resolved is not { } target) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (your setting)", alternatives);
@@ -79,7 +87,7 @@ public static class TargetResolver
         if (target.Container == TargetContainer.Bare)
             return Bare(set, system, target, isArchive, contents, alternatives, settings);
         if (target.Container is TargetContainer.SevenZip or TargetContainer.Zip)
-            return Packed(set, system, target, overridden, isArchive, members, ext, alternatives);
+            return Packed(set, system, target, overridden, isArchive, members, ext, alternatives, settings.TargetFormats.NormalizeHeaders);
 
         // Folder targets: ScummVM games are unpacked; PS3 folders can't be made yet.
         if (!target.Producible) return NotYet(id, target, alternatives);
@@ -144,7 +152,7 @@ public static class TargetResolver
 
     /// <summary>Single-file 7z (R1, R8, D9) and zip for the computer systems (R9).</summary>
     private static TargetPlan Packed(FileSet set, SystemInfo system, SystemTarget target, bool overridden, bool isArchive,
-        IReadOnlyList<ArchiveMember>? members, string ext, IReadOnlyList<TargetChoice> alternatives)
+        IReadOnlyList<ArchiveMember>? members, string ext, IReadOnlyList<TargetChoice> alternatives, bool normalizeHeaders)
     {
         var id = system.Id;
         // The registry's per-file-type containers (MSX disks in zip) give way to a container you chose.
@@ -154,7 +162,9 @@ public static class TargetResolver
             var wanted = ContainerFor(ext);
             if (wanted == TargetContainer.Bare) return Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
             if (!target.Producible) return NotYet(id, target, alternatives);
-            return Plan(id, TargetStatus.Convert, ChoiceFor(wanted), $"Convert → {Label(wanted)}", alternatives);
+            // The name it gets inside (D2: .3ds → .cci; R12: .v64 → .z64…).
+            var inside = File.Exists(set.Primary) && RomFixes.FixedExtension(set.Primary, normalizeHeaders) is { } fixedExt && fixedExt != ext ? $" (as {fixedExt})" : "";
+            return Plan(id, TargetStatus.Convert, ChoiceFor(wanted), $"Convert → {Label(wanted)}{inside}", alternatives);
         }
 
         if (members is null) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (archive can't be read)", alternatives);
@@ -162,7 +172,7 @@ public static class TargetResolver
         if (roms.Count == 0) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (no game files inside)", alternatives);
         // R6 (splitting several games apart) comes later; a computer game's disks belong together in one zip.
         if (roms.Count > 1 && system.Category == "cartridge")
-            return Plan(id, TargetStatus.NotYetSupported, TargetChoice.Leave, "Recommended: one .7z per game (not yet supported)", alternatives);
+            return Plan(id, TargetStatus.Convert, TargetChoice.SevenZip, "Convert → one .7z per game (R6)", alternatives);
 
         var has = Ext(set.Primary) switch { ".7z" => TargetContainer.SevenZip, ".zip" => TargetContainer.Zip, _ => TargetContainer.Leave };
         var want = ContainerFor(Ext(roms[0].Name));

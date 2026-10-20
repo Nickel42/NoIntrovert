@@ -21,6 +21,13 @@ public static class ChdJobs
         Directory.CreateDirectory(s.Performance.EffectiveTempFolder);
 
         log.Info($"Converting {name}");
+        // R11: the source's own hashes, so the CHD or RVZ can still be checked against No-Intro and Redump.
+        IReadOnlyList<Dats.HashedFile>? originals = null;
+        if (s.TargetFormats.RecordOriginalHashes)
+        {
+            c.Report.SetStage("Hashing the original");
+            originals = Dats.VerifyJobs.HashesOf(c, source);
+        }
         // One bar for the whole job: preparing, then each disc's compress and verify steps.
         var prepShare = Path.GetExtension(source).ToLowerInvariant() is ".cue" or ".gdi" or ".toc" or ".nrg" or ".iso" or ".bin" or ".img" or ".gcm" ? 0.02 : 0.15;
         c.Band(0, prepShare);
@@ -105,6 +112,9 @@ public static class ChdJobs
             return new JobOutcome(JobStatus.Failed, "Created, but verification failed", Combine(created));
         if (created.Count == 0)
             return JobOutcome.Skipped(skipped > 0 ? "Output already exists" : "Nothing to convert");
+
+        if (originals is not null)
+            foreach (var (made, _) in created) Dats.OriginalHashes.Default.Set(made, source, originals);
 
         if (s.Output.RemoveOriginals && skipped == 0)
         {

@@ -1881,6 +1881,176 @@ if (ArchiveEngine.IsAvailable(out _))
     });
 }
 
+// ---- Target formats Phase 3: multi-disc, 3DS, PS Vita, hashes, header fixes, splitting ----
+
+if (ArchiveEngine.IsAvailable(out _))
+{
+    var p3 = Dir("phase3");
+    string Q(string rel) => Path.Combine([p3, .. rel.Split('/')]);
+    void Put3(string rel, byte[] bytes) { Directory.CreateDirectory(Path.GetDirectoryName(Q(rel))!); File.WriteAllBytes(Q(rel), bytes); }
+    FileSet Set3(string rel) => FormatRegistry.Default.Identify(Q(rel))!;
+    // Plans the row's default and runs its jobs; returns a problem or null.
+    string? RunDefault3(string rel, Action<AppSettings>? configure = null)
+    {
+        var s = new AppSettings();
+        configure?.Invoke(s);
+        var o = ConvertTargets.For(Set3(rel), s);
+        var plan = ConvertPlanner.Plan([new PlanInput(Q(rel), o.Default.Kind, 1)], s, log);
+        foreach (var job in plan.Jobs)
+            if (RunJob(job.Work, x => configure?.Invoke(x)) is { Status: not (JobStatus.Succeeded or JobStatus.Warning) } r) return $"{job.Name}: {r.Status}: {r.Summary}";
+        return plan.Jobs.Count == 0 ? "no job" : null;
+    }
+    string Members3(string archive) => string.Join(", ", (ArchivePeek.Members(archive) ?? []).Select(m => m.Name));
+
+    Test("Multi-disc: three discs become CHDs in hidden/ and one .m3u listing them (acceptance 7, FR-7)", () =>
+    {
+        for (var d = 1; d <= 3; d++)
+        {
+            var stem = $"Game (USA) (Disc {d})";
+            Directory.CreateDirectory(Q("PlayStation"));
+            File.Copy(synthBin, Q($"PlayStation/{stem}.bin"));
+            File.WriteAllText(Q($"PlayStation/{stem}.cue"), File.ReadAllText(synthCue).Replace("synth.bin", stem + ".bin"));
+        }
+        var rows = Enumerable.Range(1, 3).Select(d => new PlanInput(Q($"PlayStation/Game (USA) (Disc {d}).cue"), TargetKind.Chd, 1)).ToList();
+        for (var run = 0; run < 2; run++) // the second run rewrites the playlist instead of adding another
+        {
+            var plan = ConvertPlanner.Plan(rows, new AppSettings(), log);
+            if (plan.Jobs.Count != 1 || plan.Jobs[0].Rows.Count != 3) return $"{plan.Jobs.Count} job(s)";
+            var o = RunJob(plan.Jobs[0].Work, s => s.Output.Overwrite = true);
+            if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+        }
+        var chds = Directory.GetFiles(Q("PlayStation/hidden"), "*.chd").Select(Path.GetFileName).Order().ToList();
+        if (chds.Count != 3) return $"hidden/ has {string.Join(", ", chds)}";
+        var playlists = Directory.GetFiles(Q("PlayStation"), "*.m3u");
+        if (playlists.Length != 1) return $"{playlists.Length} playlists";
+        var lines = File.ReadAllLines(playlists[0]);
+        var expected = Enumerable.Range(1, 3).Select(d => $"hidden/Game (USA) (Disc {d}).chd");
+        return Path.GetFileName(playlists[0]) == "Game (USA).m3u" && lines.SequenceEqual(expected) ? null : $"{Path.GetFileName(playlists[0])}: {string.Join(" | ", lines)}";
+    });
+
+    // A 3DS cartridge image: an NCSD header whose first partition's NCCH has (or hasn't) the NoCrypto flag.
+    byte[] Cci(bool encrypted)
+    {
+        var image = TextBytes(64 * 1024);
+        image.AsSpan(0, 0x400).Clear();
+        "NCSD"u8.CopyTo(image.AsSpan(0x100));
+        BitConverter.TryWriteBytes(image.AsSpan(0x120), 1u); // partition 0 at media unit 1 (0x200)
+        "NCCH"u8.CopyTo(image.AsSpan(0x200 + 0x100));
+        image[0x200 + 0x188 + 7] = (byte)(encrypted ? 0 : 0x04);
+        return image;
+    }
+    Put3("3DS/Game.3ds", Cci(encrypted: false));
+    Put3("3DS/Locked.3ds", Cci(encrypted: true));
+
+    Test("3DS: a decrypted .3ds becomes a 7z holding .cci (acceptance 11, D2)", () =>
+    {
+        var o = ConvertTargets.For(Set3("3DS/Game.3ds"), new AppSettings());
+        if (o.Plan.Text != "Convert → .7z (as .cci)") return o.Plan.Text;
+        if (RunDefault3("3DS/Game.3ds") is { } problem) return problem;
+        var held = Members3(Q("3DS/Game.7z"));
+        return held == "Game.cci" && File.Exists(Q("3DS/Game.3ds")) ? null : $"holds {held}; original there: {File.Exists(Q("3DS/Game.3ds"))}";
+    });
+
+    Test("3DS: an encrypted image says decrypt first, with no job (acceptance 12, FR-9)", () =>
+    {
+        var o = ConvertTargets.For(Set3("3DS/Locked.3ds"), new AppSettings());
+        return o.Plan.Text == "Recommended: decrypt first" && o.Choices.Count == 1 && o.Default == TargetChoice.Leave ? null : $"{o.Plan.Text}, {o.Choices.Count} choice(s)";
+    });
+
+    // A NoNpDrm folder: sce_sys/param.sfo (TITLE, TITLE_ID) and the game's files.
+    byte[] Sfo(params (string Key, string Value)[] entries)
+    {
+        var keys = new MemoryStream();
+        var data = new MemoryStream();
+        var index = new List<(int Key, int Len, int Max, int Data)>();
+        foreach (var (key, value) in entries)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(value + "\0");
+            var max = (bytes.Length + 3) & ~3;
+            index.Add(((int)keys.Length, bytes.Length, max, (int)data.Length));
+            keys.Write(System.Text.Encoding.UTF8.GetBytes(key + "\0"));
+            data.Write(bytes); data.Write(new byte[max - bytes.Length]);
+        }
+        while (keys.Length % 4 != 0) keys.WriteByte(0);
+        var keyStart = 20 + 16 * entries.Length;
+        var o = new MemoryStream();
+        o.Write("\0PSF"u8); o.Write(BitConverter.GetBytes(0x101)); o.Write(BitConverter.GetBytes(keyStart));
+        o.Write(BitConverter.GetBytes(keyStart + (int)keys.Length)); o.Write(BitConverter.GetBytes(entries.Length));
+        foreach (var e in index)
+        {
+            o.Write(BitConverter.GetBytes((ushort)e.Key)); o.Write(BitConverter.GetBytes((ushort)0x0204));
+            o.Write(BitConverter.GetBytes(e.Len)); o.Write(BitConverter.GetBytes(e.Max)); o.Write(BitConverter.GetBytes(e.Data));
+        }
+        o.Write(keys.ToArray()); o.Write(data.ToArray());
+        return o.ToArray();
+    }
+    Put3("Vita/PCSE00000/sce_sys/param.sfo", Sfo(("CATEGORY", "gd"), ("TITLE", "Test: Game"), ("TITLE_ID", "PCSE00000")));
+    Put3("Vita/PCSE00000/eboot.bin", TextBytes(4096));
+
+    Test("PS Vita: a NoNpDrm folder becomes Title (ID).zip and a launcher file (acceptance 16, FR-10)", () =>
+    {
+        var set = Set3("Vita/PCSE00000");
+        if (set.Format != KnownFormats.VitaFolder) return $"seen as {set.Format.Id}";
+        var o = ConvertTargets.For(set, new AppSettings());
+        if (o.Plan.Text != "Convert → .zip") return o.Plan.Text;
+        if (RunDefault3("Vita/PCSE00000", s => s.TargetFormats.WriteVitaLauncher = true) is { } problem) return problem;
+        var made = Directory.GetFiles(Q("Vita")).Select(Path.GetFileName).Order().ToList();
+        if (!made.SequenceEqual(["Test Game (PCSE00000).psvita", "Test Game (PCSE00000).zip"])) return $"made {string.Join(", ", made)}";
+        if (File.ReadAllText(Q("Vita/Test Game (PCSE00000).psvita")) != "PCSE00000") return "the launcher doesn't hold the title ID";
+        return Members3(Q("Vita/Test Game (PCSE00000).zip")).Contains("PCSE00000/sce_sys/param.sfo") ? null : Members3(Q("Vita/Test Game (PCSE00000).zip"));
+    });
+
+    // A byte-swapped N64 ROM: the first word is 0x37804012.
+    var z64 = TextBytes(8192);
+    new byte[] { 0x80, 0x37, 0x12, 0x40 }.CopyTo(z64, 0);
+    var v64 = (byte[])z64.Clone();
+    for (var i = 0; i < v64.Length; i += 2) (v64[i], v64[i + 1]) = (v64[i + 1], v64[i]);
+    Put3("N64 off/Game.v64", v64);
+    Put3("N64 on/Game.v64", v64);
+
+    Test("Header fixes: .v64 stays .v64 with them off, becomes .z64 with them on (acceptance 18, R12)", () =>
+    {
+        if (RunDefault3("N64 off/Game.v64") is { } off) return $"off: {off}";
+        if (Members3(Q("N64 off/Game.7z")) != "Game.v64") return $"off: holds {Members3(Q("N64 off/Game.7z"))}";
+        var on = ConvertTargets.For(Set3("N64 on/Game.v64"), new AppSettings { TargetFormats = { NormalizeHeaders = true } });
+        if (on.Plan.Text != "Convert → .7z (as .z64)") return $"on: {on.Plan.Text}";
+        if (RunDefault3("N64 on/Game.v64", s => s.TargetFormats.NormalizeHeaders = true) is { } problem) return $"on: {problem}";
+        if (Members3(Q("N64 on/Game.7z")) != "Game.z64") return $"on: holds {Members3(Q("N64 on/Game.7z"))}";
+        var outDir = Dir("phase3-z64");
+        using (var engine = new ArchiveEngine()) engine.Extract(Q("N64 on/Game.7z"), outDir, null, CancellationToken.None);
+        if (!File.ReadAllBytes(Path.Combine(outDir, "Game.z64")).SequenceEqual(z64)) return "the .z64 isn't the big-endian ROM";
+        // R11: the fixed ROM's archive keeps the hashes of the .v64 it came from.
+        return NoIntrovert.Core.Dats.OriginalHashes.Default.Get(Q("N64 on/Game.7z"))?.Source == "Game.v64" ? null : "no original hashes recorded";
+    });
+
+    Test("Splitting: a zip holding two games becomes one 7z per game (R6)", () =>
+    {
+        Directory.CreateDirectory(Q("NES"));
+        using (var z = ZipFile.Open(Q("NES/Two Games.zip"), ZipArchiveMode.Create))
+            foreach (var name in new[] { "Alpha (USA).nes", "Beta (USA).nes" })
+                using (var s = z.CreateEntry(name).Open()) s.Write(TextBytes(4096));
+        var o = ConvertTargets.For(Set3("NES/Two Games.zip"), new AppSettings());
+        if (o.Plan.Text != "Convert → one .7z per game (R6)") return o.Plan.Text;
+        if (RunDefault3("NES/Two Games.zip") is { } problem) return problem;
+        return Members3(Q("NES/Alpha (USA).7z")) == "Alpha (USA).nes" && Members3(Q("NES/Beta (USA).7z")) == "Beta (USA).nes"
+            ? null : string.Join(", ", Directory.GetFiles(Q("NES")).Select(Path.GetFileName));
+    });
+
+    Test("Original hashes: a CHD remembers its cue/bin's name, size, CRC32, MD5 and SHA-1 (R11, FR-11)", () =>
+    {
+        var dir = Q("R11");
+        Directory.CreateDirectory(dir);
+        File.Copy(synthBin, Path.Combine(dir, "Disc.bin"));
+        File.WriteAllText(Path.Combine(dir, "Disc.cue"), File.ReadAllText(synthCue).Replace("synth.bin", "Disc.bin"));
+        var o = RunJob(c => ChdJobs.Convert(c, Path.Combine(dir, "Disc.cue")));
+        if (o.Status != JobStatus.Succeeded) return o.Summary;
+        var entry = NoIntrovert.Core.Dats.OriginalHashes.Default.Get(Path.Combine(dir, "Disc.chd"));
+        var bin = entry?.Files.SingleOrDefault(f => f.Name == "Disc.bin");
+        var sha = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(File.ReadAllBytes(synthBin)));
+        return bin is { Md5: not null } && bin.Sha1 == sha && bin.Size == new FileInfo(synthBin).Length ? null : $"{entry?.Source}: {string.Join(" | ", entry?.Files ?? [])}";
+    });
+}
+
 // ---- Verify & match (M6): DATs, hashing, matching --------------------------------
 
 Test("DATs: ClrMamePro and Logiqx XML read the same games", () =>

@@ -8,9 +8,9 @@ namespace NoIntrovert.Core.Dats;
 /// One hashed file of an input: its name, size, CRC32 and SHA-1 (upper-case
 /// hex; SHA-1 is null for archive members, whose CRC32 comes from the
 /// archive's headers). <see cref="Headerless"/> marks the same ROM hashed
-/// without its header.
+/// without its header. MD5 is kept for the original hashes of converted files (R11).
 /// </summary>
-public sealed record HashedFile(string Name, long Size, string Crc, string? Sha1, bool Headerless = false);
+public sealed record HashedFile(string Name, long Size, string Crc, string? Sha1, bool Headerless = false, string? Md5 = null);
 
 /// <summary>Size, CRC32 and SHA-1 in one pass, plus the headerless form of headered ROMs (FR-5).</summary>
 public static class Hasher
@@ -31,6 +31,7 @@ public static class Hasher
         stream.Position = skip;
         var crc = new System.IO.Hashing.Crc32();
         using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+        using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
         var buffer = new byte[1 << 20];
         long size = 0;
         int read;
@@ -39,9 +40,11 @@ public static class Hasher
             token.ThrowIfCancellationRequested();
             crc.Append(buffer.AsSpan(0, read));
             sha.AppendData(buffer, 0, read);
+            md5.AppendData(buffer, 0, read);
             size += read;
         }
-        return new HashedFile(name, size, crc.GetCurrentHashAsUInt32().ToString("X8"), Convert.ToHexString(sha.GetHashAndReset()));
+        return new HashedFile(name, size, crc.GetCurrentHashAsUInt32().ToString("X8"), Convert.ToHexString(sha.GetHashAndReset()),
+            Md5: Convert.ToHexString(md5.GetHashAndReset()));
     }
 
     /// <summary>
