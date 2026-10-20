@@ -540,6 +540,19 @@ public sealed class LibrarySettingsViewModel(AppSettings settings) : SettingsSec
 
     public bool RescanOnStart { get => S.Library.RescanOnStart; set => Set(value, (s, v) => s.Library.RescanOnStart = v); }
 
+    /// <summary>Where the Cleanup wizard puts games (M7 Q1).</summary>
+    public static IReadOnlyList<Choice<LibraryLayout>> Layouts { get; } =
+    [
+        new(LibraryLayout.EsDe, "ES-DE system folders (psx, gba, …)"),
+        new(LibraryLayout.InPlace, "Keep games in their own folders"),
+    ];
+
+    public Choice<LibraryLayout> SelectedLayout
+    {
+        get => Layouts.First(l => l.Value == S.Library.Layout);
+        set { if (value is not null) Set(value.Value, (s, v) => s.Library.Layout = v); }
+    }
+
     /// <summary>Adds folders not already there (or inside one that is); returns those added.</summary>
     public List<string> AddFolders(IEnumerable<string> folders)
     {

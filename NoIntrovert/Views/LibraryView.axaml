@@ -105,6 +105,8 @@
                 <!-- Actions on the selected games -->
                 <Border Grid.Row="5" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="12,10">
                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                        <Button Content="Clean up selected" Command="{Binding CleanupSelectedCommand}"
+                                ToolTip.Tip="Plan converting, renaming, moving and removing duplicates for the selected games, as a dry run first." />
                         <Button Content="Verify selected" Command="{Binding VerifySelectedCommand}"
                                 ToolTip.Tip="Send the selected games to Verify &amp; match, to check them for damage and against the No-Intro and Redump databases." />
                         <Button Classes="primary" Content="Convert selected" Command="{Binding ConvertSelectedCommand}"

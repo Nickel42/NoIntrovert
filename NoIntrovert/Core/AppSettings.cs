@@ -214,6 +214,15 @@ public sealed class KeySettings
     public string WiiUKeysPath { get; set; } = ""; // empty = look in the usual places
 }
 
+/// <summary>Where the Cleanup wizard puts games inside a Library folder.</summary>
+public enum LibraryLayout
+{
+    /// <summary>One folder per system, named as ES-DE names it (psx, gba, megadrive…).</summary>
+    EsDe,
+    /// <summary>Each file stays in its folder; it's only renamed (and converted).</summary>
+    InPlace,
+}
+
 /// <summary>The folders the Library page keeps track of.</summary>
 public sealed class LibrarySettings
 {
@@ -221,6 +230,9 @@ public sealed class LibrarySettings
 
     /// <summary>Look through the folders again (only changed files are reread) when the app starts.</summary>
     public bool RescanOnStart { get; set; } = true;
+
+    /// <summary>Where the Cleanup wizard puts each game (M7 Q1).</summary>
+    public LibraryLayout Layout { get; set; } = LibraryLayout.EsDe;
 }
 
 /// <summary>

@@ -32,7 +32,8 @@ public sealed record TargetAlternative(string Id, string Label, bool Producible)
 /// recognised by (an extension several systems share is decided by folder),
 /// <see cref="Folders"/> the folder names people use for it, compared as
 /// lower-case letters and digits only. <see cref="Dats"/> names the
-/// libretro-database DATs that cover it ("no-intro/Nintendo - Game Boy").
+/// libretro-database DATs that cover it ("no-intro/Nintendo - Game Boy"),
+/// and <see cref="Esde"/> the folder ES-DE keeps its games in ("gba").
 /// </summary>
 public sealed record SystemInfo(
     string Id,
@@ -46,7 +47,8 @@ public sealed record SystemInfo(
     IReadOnlyDictionary<string, TargetContainer>? ContainerByExtension = null,
     IReadOnlyList<TargetContainer>? AlsoOptimal = null,
     string? DiscTarget = null,
-    IReadOnlyList<string>? Dats = null)
+    IReadOnlyList<string>? Dats = null,
+    string? Esde = null)
 {
     public bool Follows(string rule) => Rules.Contains(rule);
 

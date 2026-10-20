@@ -48,9 +48,10 @@ Nothing happens until you've seen the whole plan, and everything the wizard did 
   - Steps go to the shared queue.
   - A step that depends on another (rename after convert) waits for it, and is skipped if it fails.
 - **FR-4 Journal and undo.**
-  - Each run writes a journal beside the settings: every move and rename with its before and after paths, and every removed file with where it went (the Recycle Bin, or a quarantine folder where there's no bin).
+  - Each run writes a journal beside the settings: every move and rename with its before and after paths, and every removed file with where it went.
+  - Removed files (originals of conversions, duplicates) go to the run's trash, `.noi-trash/<run>/` in their Library folder: on the same drive, so it's a rename, and restorable without depending on the Recycle Bin. **Empty trash** sends a run's trash to the Recycle Bin.
   - **Undo run** reverses the run in reverse order, skipping anything changed since.
-  - A conversion is undone by restoring its original from the bin or quarantine and removing the new file (Q2). This works until the bin is emptied; a step that can no longer be undone is listed, not guessed at.
+  - A conversion is undone by restoring its original from the trash and removing the new file (Q2). This works until the run's trash is emptied; a step that can no longer be undone is listed, not guessed at.
 - **FR-5 Safety.**
   - Never overwrites: a name clash becomes a step you have to resolve in the dry run.
   - Removals only happen after the new file verifies.
@@ -69,7 +70,7 @@ Nothing happens until you've seen the whole plan, and everything the wizard did 
 ## 5. Decisions
 
 - **Q1 Folder layout:** ES-DE's short system names by default, with "keep in their own folders" (rename only) as the alternative.
-- **Q2 Undoing conversions:** yes, while the original can still be restored from the bin or quarantine.
+- **Q2 Undoing conversions:** yes, while the original can still be restored from the run's trash.
 - **Q3 Duplicates:** the best copy stays (FR-7); the others go to the bin.
 
 ## 6. Acceptance criteria

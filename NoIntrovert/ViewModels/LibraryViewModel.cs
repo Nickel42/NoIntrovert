@@ -95,6 +95,15 @@ public partial class LibraryViewModel : ViewModelBase
     public Action<IReadOnlyList<string>>? SendToConvert { get; set; }
     public Action<IReadOnlyList<string>>? SendToVerify { get; set; }
 
+    /// <summary>Opens the Cleanup wizard for these games (set by the main window).</summary>
+    public Action<IReadOnlyList<Game>>? SendToCleanup { get; set; }
+
+    /// <summary>The index as last loaded or scanned.</summary>
+    public LibraryIndex Index => _index;
+
+    /// <summary>Looks through the folders again (after the Cleanup wizard moved things).</summary>
+    public Task RescanNowAsync() => RescanAsync();
+
     public IReadOnlyList<string> Folders => _settings.Library.Folders;
     public bool HasFolders => Folders.Count > 0;
 
@@ -278,6 +287,15 @@ public partial class LibraryViewModel : ViewModelBase
         var paths = Chosen().SelectMany(g => g.Game.Items).Select(i => i.Path).Distinct().ToList();
         if (paths.Count == 0) { _log.Warn("Library: no games are selected."); return; }
         SendToVerify?.Invoke(paths);
+    }
+
+    /// <summary>Plans a cleanup of the chosen games (M7).</summary>
+    [RelayCommand]
+    private void CleanupSelected()
+    {
+        var games = Chosen().Select(g => g.Game).ToList();
+        if (games.Count == 0) { _log.Warn("Library: no games are selected."); return; }
+        SendToCleanup?.Invoke(games);
     }
 
     [RelayCommand]

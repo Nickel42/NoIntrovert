@@ -21,6 +21,12 @@ public partial class MainViewModel : ViewModelBase
         Library = new LibraryViewModel(Settings, Log, dialogs);
         Library.SendToConvert = paths => { Show("convert"); Convert.AddPaths(paths); };
         Library.SendToVerify = paths => { Show("verify"); Verify.AddPaths(paths); };
+        Cleanup = new CleanupViewModel(Settings, Log, queue, () => Library.Index)
+        {
+            SendToVerify = paths => { Show("verify"); Verify.AddPaths(paths); },
+            Rescan = () => Library.RescanNowAsync(),
+        };
+        Library.SendToCleanup = games => { Show("cleanup"); Cleanup.UseGames(games); };
         Library.IndexShown += index => _ = UpdateDatsAsync(index.Items.Select(i => i.System), startup: true);
         Settings.Dats.UpdateRequested = () => UpdateDatsAsync(Core.Library.LibraryIndex.Load().Items.Select(i => i.System), startup: false);
 
@@ -37,6 +43,7 @@ public partial class MainViewModel : ViewModelBase
             }),
             new("convert", "Convert", "M4 8h13l-3-3M20 16H7l3 3", Convert, p => { Convert.AddPaths(p); return Task.CompletedTask; }),
             new("verify", "Verify & match", "M5 12l4 4L19 6", Verify, p => { Verify.AddPaths(p); return Task.CompletedTask; }),
+            new("cleanup", "Cleanup", "M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3", Cleanup),
             new("info", "CHD info", "M12 8h.01M11 12h1v5h1M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z", Info, async p =>
             {
                 if (p.FirstOrDefault(x => x.EndsWith(".chd", StringComparison.OrdinalIgnoreCase)) is { } chd) await Info.LoadAsync(chd);
@@ -122,6 +129,7 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>The shared job queue, shown in the status bar and the queue drawer.</summary>
     public QueueViewModel Queue { get; }
     public LibraryViewModel Library { get; }
+    public CleanupViewModel Cleanup { get; }
     public ConvertViewModel Convert { get; }
     public VerifyViewModel Verify { get; }
     public InfoViewModel Info { get; }
