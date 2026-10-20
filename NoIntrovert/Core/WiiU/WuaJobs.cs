@@ -134,11 +134,15 @@ public static class WuaJobs
             .Where(f => KnownFormats.WiiUBuildable.Contains(f.Format))
             .Select(f => f.Primary)
             .ToList();
-        if (sources.Count == 0) return JobOutcome.Skipped("No Wii U game inside the archive");
-
         var keys = sources.Any(p => WiiUEncrypted.IsNusFolder(p) || WiiUEncrypted.IsDiscImage(p))
             ? WiiUKeys.Load(s.Keys.WiiUKeysPath) : WiiUKeys.Empty;
         var games = sources.SelectMany(p => WiiUTitles.Read(p, keys)).Select(t => t.BaseId).Distinct().ToList();
+        // Nothing built means nothing verified, so the archive is never removed for it.
+        if (games.Count == 0)
+        {
+            c.Log.Warn($"  {Path.GetFileName(archive)}: no Wii U game found (no .wux, .wud, .wua, NUS or title folder inside)");
+            return JobOutcome.Skipped("No Wii U game found in the archive");
+        }
         var outputFolder = OutputPaths.FolderFor(s, archive);
 
         var outcomes = new List<JobOutcome>();

@@ -2735,6 +2735,151 @@ Test("Wii U: the .wua is written next to the title's folder, not inside it", () 
     return failed.Count == 0 ? null : string.Join("; ", failed);
 });
 
+// ---- Wii U archives (R3): a .zip/.7z holding a WUX, WUD or NUS title ----------------
+
+if (ArchiveEngine.IsAvailable(out _))
+{
+    const string encWua = "Encrypted Game [0005000010303E00].wua";
+
+    // Packs the given files and folders into an archive in its own folder.
+    string PackWiiU(string label, string archiveName, params string[] members)
+    {
+        var dir = Dir("wiiu-arc-" + label);
+        var archive = Path.Combine(dir, archiveName);
+        using var engine = new ArchiveEngine();
+        engine.Compress(archiveName.EndsWith(".zip") ? ArchiveFormat.Zip : ArchiveFormat.SevenZip, ArchiveLevel.Fastest, 0, false,
+            members, archive, contentsOnly: false, null, CancellationToken.None);
+        return archive;
+    }
+
+    // Runs BuildFromArchive with its own temp folder, so leftovers can be counted.
+    (JobOutcome Outcome, string Temp) FromArchive(string archive, bool remove, Action<AppSettings>? configure = null,
+        CancellationToken token = default, IJobReport? report = null)
+    {
+        var temp = Dir("wiiu-arc-temp-" + Path.GetFileName(Path.GetDirectoryName(archive)));
+        var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.BuildFromArchive(c, archive), s =>
+        {
+            s.Keys.WiiUKeysPath = encKeysTxt;
+            s.Performance.TempFolder = temp;
+            s.Output.RemoveWiiUOriginals = remove;
+            s.Output.UseRecycleBin = false;
+            configure?.Invoke(s);
+        }, token, report);
+        return (o, temp);
+    }
+
+    string? Leftovers(string temp, string dir)
+    {
+        var inTemp = Directory.GetFileSystemEntries(temp);
+        if (inTemp.Length > 0) return $"temp files left: {string.Join(", ", inTemp.Select(Path.GetFileName))}";
+        var tmp = Directory.GetFiles(dir, "*.tmp");
+        return tmp.Length > 0 ? $"partial archive left: {Path.GetFileName(tmp[0])}" : null;
+    }
+
+    string? SameAsGame(string wua)
+    {
+        var unpacked = Path.Combine(Path.GetDirectoryName(wua)!, "unpacked");
+        WiiUSample.Unpack(wua, unpacked);
+        var folders = Directory.GetDirectories(unpacked).Select(Path.GetFileName).ToList();
+        if (!folders.SequenceEqual(["0005000010303e00_v0"])) return $"title folders {string.Join(", ", folders)}";
+        return SameTree(encTree, Path.Combine(unpacked, "0005000010303e00_v0"));
+    }
+
+    Test("Wii U archive: Game.7z holding Game.wux → .wua next to it, archive and temp removed", () =>
+    {
+        var src = Dir("wiiu-arc-wux-src");
+        var wux = Path.Combine(src, "Game.wux");
+        File.WriteAllBytes(wux, EncryptedSample.ToWux(wudBytes));
+        File.SetAttributes(wux, FileAttributes.ReadOnly); // unpacked read-only, the temp folder must still go
+        var archive = PackWiiU("wux", "Game.7z", wux);
+        File.SetAttributes(wux, FileAttributes.Normal);
+        var (o, temp) = FromArchive(archive, remove: true);
+        if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+        var dir = Path.GetDirectoryName(archive)!;
+        var wua = Path.Combine(dir, encWua);
+        if (!File.Exists(wua)) return $"no .wua next to the 7z: {string.Join(", ", Directory.GetFiles(dir).Select(Path.GetFileName))}";
+        if (File.Exists(archive)) return "the 7z wasn't removed after the .wua verified";
+        return Leftovers(temp, dir) ?? SameAsGame(wua) ?? Note(o.Summary);
+    });
+
+    Test("Wii U archive: Game.zip holding a NUS folder → one .wua", () =>
+    {
+        var archive = PackWiiU("nus", "Game.zip", nusGame);
+        var (o, temp) = FromArchive(archive, remove: false);
+        if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+        var dir = Path.GetDirectoryName(archive)!;
+        var wuas = Directory.GetFiles(dir, "*.wua");
+        if (wuas.Length != 1 || Path.GetFileName(wuas[0]) != encWua) return $"{wuas.Length} .wua: {string.Join(", ", wuas.Select(Path.GetFileName))}";
+        if (!File.Exists(archive)) return "the zip was removed with Remove originals off";
+        return Leftovers(temp, dir) ?? SameAsGame(wuas[0]) ?? Note(o.Summary);
+    });
+
+    Test("Wii U archive: a split _partN.wud set inside a 7z", () =>
+    {
+        var src = Dir("wiiu-arc-split-src");
+        var half = wudBytes.Length / 2 / EncryptedSample.Sector * EncryptedSample.Sector;
+        File.WriteAllBytes(Path.Combine(src, "Game_part1.wud"), wudBytes[..half]);
+        File.WriteAllBytes(Path.Combine(src, "Game_part2.wud"), wudBytes[half..]);
+        var archive = PackWiiU("split", "Game.7z", Path.Combine(src, "Game_part1.wud"), Path.Combine(src, "Game_part2.wud"));
+        var inside = ArchivePeek.Inside(archive) ?? [];
+        if (!KnownFormats.TakesWiiU(new FileSet(archive, [archive], KnownFormats.ByName(archive)!, inside)))
+            return $"the 7z isn't offered a .wua: it holds {string.Join(", ", inside.Select(f => f.Id))}";
+        var (o, temp) = FromArchive(archive, remove: true);
+        if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+        var dir = Path.GetDirectoryName(archive)!;
+        var wuas = Directory.GetFiles(dir, "*.wua");
+        if (wuas.Length != 1) return $"{wuas.Length} .wua files";
+        if (File.Exists(archive)) return "the 7z wasn't removed after the .wua verified";
+        return Leftovers(temp, dir) ?? SameAsGame(wuas[0]) ?? Note(o.Summary);
+    });
+
+    Test("Wii U archive: a failed build keeps the archive and leaves no temp files", () =>
+    {
+        var archive = PackWiiU("fail", "Game.zip", nusGame);
+        var (o, temp) = FromArchive(archive, remove: true, s => s.Keys.WiiUKeysPath = Path.Combine(encDir, "wrong-keys.txt"));
+        if (o.Status != JobStatus.Failed) return $"{o.Status}: {o.Summary}";
+        var dir = Path.GetDirectoryName(archive)!;
+        if (!File.Exists(archive)) return "the zip was removed although nothing was built";
+        if (Directory.GetFiles(dir, "*.wua").Length > 0) return "a .wua was written";
+        return Leftovers(temp, dir) ?? Note(o.Summary);
+    });
+
+    Test("Wii U archive: cancelling while packing keeps the archive and leaves no temp files", () =>
+    {
+        var archive = PackWiiU("cancel", "Game.7z", nusGame);
+        using var cts = new CancellationTokenSource();
+        var (o, temp) = FromArchive(archive, remove: true, null, cts.Token, new CancelAtStage(cts, "Packing"));
+        if (o.Status != JobStatus.Cancelled) return $"{o.Status}: {o.Summary}";
+        var dir = Path.GetDirectoryName(archive)!;
+        if (!File.Exists(archive)) return "the 7z was removed after a cancel";
+        if (Directory.GetFiles(dir, "*.wua").Length > 0) return "a .wua was written";
+        return Leftovers(temp, dir);
+    });
+
+    Test("Wii U archive: kept when the .wua isn't built, even with Remove originals on", () =>
+    {
+        var archive = PackWiiU("exists", "Game.zip", nusGame);
+        var dir = Path.GetDirectoryName(archive)!;
+        File.WriteAllText(Path.Combine(dir, encWua), "not mine");
+        var (o, temp) = FromArchive(archive, remove: true);
+        if (o.Status != JobStatus.Skipped) return $"{o.Status}: {o.Summary}";
+        if (!File.Exists(archive)) return "the zip was removed although its .wua was skipped";
+        return File.ReadAllText(Path.Combine(dir, encWua)) == "not mine" ? Leftovers(temp, dir) : "the existing .wua was replaced";
+    });
+
+    Test("Wii U archive: no Wii U content → \"No Wii U game found\", archive kept", () =>
+    {
+        var src = Dir("wiiu-arc-none-src");
+        File.WriteAllText(Path.Combine(src, "readme.txt"), "nothing to see");
+        File.WriteAllBytes(Path.Combine(src, "game_part2.wud"), new byte[4096]); // a stray part alone isn't a disc
+        var archive = PackWiiU("none", "Stuff.zip", Path.Combine(src, "readme.txt"), Path.Combine(src, "game_part2.wud"));
+        var (o, temp) = FromArchive(archive, remove: true);
+        if (o.Status != JobStatus.Skipped || !o.Summary.Contains("No Wii U game found")) return $"{o.Status}: {o.Summary}";
+        if (!File.Exists(archive)) return "the zip was removed";
+        return Leftovers(temp, Path.GetDirectoryName(archive)!) ?? Note(o.Summary);
+    });
+}
+
 // ---- GameCube / Wii (libdolphinrvz) ---------------------------------------------
 
 var rvzProblem = (string?)null;
@@ -3083,6 +3228,13 @@ sealed class CancelAtProgress(CancellationTokenSource cts, double at) : IJobRepo
     {
         if (_stage.StartsWith("Compressing", StringComparison.Ordinal) && fraction >= at) cts.Cancel();
     }
+}
+
+/// <summary>Cancels the batch when a job reaches a given stage.</summary>
+sealed class CancelAtStage(CancellationTokenSource cts, string stage) : IJobReport
+{
+    public void SetStage(string s) { if (s.StartsWith(stage, StringComparison.Ordinal)) cts.Cancel(); }
+    public void SetProgress(double fraction) { }
 }
 
 /// <summary>Settings tests never open a picker.</summary>
