@@ -160,6 +160,18 @@
                 </StackPanel>
             </Border>
 
+            <!-- Target formats (docs/target-formats.md) -->
+            <Border Classes="card" Margin="0,0,12,12">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="TARGET FORMATS" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap"
+                               Text="Each system has a recommended format and container: cartridge ROMs in a single-file 7z, discs as bare CHD, RVZ or WUA, computer games in zip, arcade romsets left as they are. The Convert and Library pages show where each file stands." />
+                    <HyperlinkButton Content="Read the target formats guide" Padding="0,2"
+                                     NavigateUri="https://github.com/Nickel42/NoIntrovert/blob/main/docs/target-formats.md"
+                                     ToolTip.Tip="What each system's target is, and why (opens in your browser)" />
+                </StackPanel>
+            </Border>
+
             <!-- Keys -->
             <Border Classes="card" Margin="0,0,12,12" DataContext="{Binding Keys}" x:DataType="vm:KeySettingsViewModel">
                 <StackPanel Spacing="4">

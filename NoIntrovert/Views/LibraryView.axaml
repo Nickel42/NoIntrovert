@@ -141,6 +141,8 @@
                                             <TextBlock Classes="hint" FontSize="11">
                                                 <Run Text="{Binding Format}" /><Run Text=" · " /><Run Text="{Binding Size}" /><Run Text=" " /><Run Text="{Binding Disc}" />
                                             </TextBlock>
+                                            <TextBlock Text="{Binding FormatStatus}" FontSize="11" TextWrapping="Wrap"
+                                                       ToolTip.Tip="Where this file stands against its system's target format (see Settings → Target formats guide)." />
                                             <TextBlock Text="{Binding Folder}" Classes="hint" FontSize="11" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding Folder}" />
                                         </StackPanel>
                                         <Button Grid.Column="1" Classes="tool" Content="Show" VerticalAlignment="Top" ToolTip.Tip="Open its folder"

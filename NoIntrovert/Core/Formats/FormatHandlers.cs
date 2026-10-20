@@ -13,15 +13,16 @@ public static class KnownFormats
     public static readonly FormatInfo Chd = new("chd", "CHD", ".chd");
 
     /// <summary>
-    /// Cartridge, handheld and computer ROM files, by extension. Nothing here
-    /// converts them; the Library lists them, and DAT matching (No-Intro) checks them.
+    /// Cartridge, handheld and computer ROM files (and the other per-system
+    /// files the target registry lists, such as .nsp or .wad), by extension.
+    /// Disc images, archives and Wii U files have handlers of their own.
+    /// The rules (<see cref="TargetResolver"/>) say what each one becomes.
     /// </summary>
     public static readonly IReadOnlyList<FormatInfo> Cartridges = ByExtension(
-    [
-        ".nes", ".fds", ".unf", ".sfc", ".smc", ".gb", ".gbc", ".gba", ".nds", ".dsi", ".3ds", ".cia",
-        ".n64", ".z64", ".v64", ".md", ".gen", ".smd", ".sms", ".gg", ".32x", ".pce", ".sgx",
-        ".a26", ".a52", ".a78", ".lnx", ".ws", ".wsc", ".ngp", ".vb", ".min", ".col", ".int", ".vec", ".j64",
-    ]);
+        TargetFormats.All.SelectMany(s => s.Extensions)
+            .Except([.. DiscFiles.Descriptors, .. DiscFiles.Images, .. ArchiveExtractor.Extensions, ".chd", ".wua", ".wud", ".wux", ".wuhb"],
+                StringComparer.OrdinalIgnoreCase)
+            .Distinct(StringComparer.OrdinalIgnoreCase));
 
     public static readonly FormatInfo Wua = new("wua", "Wii U archive (.wua)", ".wua");
     public static readonly FormatInfo WiiUDisc = new("wiiu-disc", "Wii U disc image", ".wud", ".wux");

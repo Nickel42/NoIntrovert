@@ -167,6 +167,62 @@ public static class ArchiveJobs
     }
 
     /// <summary>
+    /// Rewrites a zip or 7z in its own format with a method RetroArch opens
+    /// (R8: 7-Zip's default LZMA2 for 7z, Deflate for zip): unpacked to a
+    /// temporary folder, packed again, and always tested before it takes the
+    /// original's place. With an output folder set, the original stays where
+    /// it is (removed only with Remove originals on).
+    /// </summary>
+    public static JobOutcome Recompress(JobContext c, string archive)
+    {
+        var s = c.Settings;
+        var format = Path.GetExtension(archive).Equals(".zip", StringComparison.OrdinalIgnoreCase) ? ArchiveFormat.Zip : ArchiveFormat.SevenZip;
+        var output = Path.Combine(OutputPaths.FolderFor(s, archive), Path.GetFileName(archive));
+        var inPlace = Path.GetFullPath(output).Equals(Path.GetFullPath(archive), StringComparison.OrdinalIgnoreCase);
+        if (!inPlace && File.Exists(output) && !s.Output.Overwrite)
+        {
+            c.Log.Warn($"  {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
+            return JobOutcome.Skipped("Target already exists");
+        }
+
+        Directory.CreateDirectory(s.Performance.EffectiveTempFolder);
+        using var work = new WorkDirectory(s.Performance.EffectiveTempFolder);
+        var contents = Path.Combine(work.Path, "contents");
+        var packed = Path.Combine(work.Path, Path.GetFileName(archive));
+        using var engine = new ArchiveEngine();
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
+        c.Log.Info($"Recompressing {Path.GetFileName(archive)} ({FormatName(format)}, {s.Archives.Level})");
+        c.Report.SetStage("Extracting");
+        engine.Extract(archive, contents, f => c.Report.SetProgress(f * 0.4), c.Token);
+        if (!Directory.EnumerateFileSystemEntries(contents).Any())
+            return JobOutcome.Skipped("Archive is empty");
+
+        c.Report.SetStage($"Compressing to {FormatName(format)}");
+        engine.Compress(format, s.Archives.Level, s.Performance.ThreadsPerJob, s.Archives.Solid, [contents], packed,
+            contentsOnly: true, f => c.Report.SetProgress(0.4 + f * 0.5), c.Token);
+        c.Report.SetStage("Testing");
+        try { engine.Test(packed, f => c.Report.SetProgress(0.9 + f * 0.1), c.Token); }
+        catch (ArchiveException ex)
+        {
+            c.Log.Error($"  testing the new {Path.GetFileName(archive)} failed: {ex.Message}; the original is unchanged.");
+            return JobOutcome.Failed("The recompressed archive failed its test");
+        }
+        sw.Stop();
+
+        var inputBytes = new FileInfo(archive).Length;
+        var stats = new OperationStats(sw.Elapsed, inputBytes, new FileInfo(packed).Length);
+        File.Move(packed, output, overwrite: true);
+        if (!inPlace && s.Output.RemoveArchiveOriginals)
+        {
+            c.Report.SetStage("Removing originals");
+            FileRemover.Remove([archive], s.Output.UseRecycleBin, c.Log);
+        }
+        c.Log.Success($"{Path.GetFileName(output)}: recompressed and tested, {ChdJobs.Size(inputBytes)} → {ChdJobs.Size(stats.OutputBytes)}");
+        return new JobOutcome(JobStatus.Succeeded, $"{Path.GetFileName(output)} · {stats.Ratio:P0}", stats);
+    }
+
+    /// <summary>
     /// Unpacks an archive into a folder named after it (or straight into the
     /// output folder). Everything lands in a hidden staging folder first and
     /// is then moved into place, so existing files are only replaced with

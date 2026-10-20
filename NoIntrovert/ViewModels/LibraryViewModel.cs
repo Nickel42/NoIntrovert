@@ -2,21 +2,22 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoIntrovert.Core;
+using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.Jobs;
 using NoIntrovert.Core.Library;
 using NoIntrovert.Services;
 
 namespace NoIntrovert.ViewModels;
 
-/// <summary>One file (or folder) of a game, as the details panel lists it.</summary>
-public sealed record GameFileRow(string Name, string Format, string Size, string Folder, string Disc, string Path);
+/// <summary>One file (or folder) of a game, as the details panel lists it, with its target-format status (FR-4).</summary>
+public sealed record GameFileRow(string Name, string Format, string Size, string Folder, string Disc, string Path, string FormatStatus);
 
 /// <summary>One game in the Library list.</summary>
 public sealed class GameRowViewModel(Game game)
 {
     public Game Game { get; } = game;
     public string Title => Game.Title;
-    public string System => Game.System;
+    public string System => Game.SystemName;
     public string Formats => Game.Formats;
     public string DiscsText => Game.Discs > 1 ? $"{Game.Discs} discs" : "";
     public string SizeText => ChdJobs.Size(Game.Size);
@@ -33,7 +34,7 @@ public sealed class GameRowViewModel(Game game)
 
     public IReadOnlyList<GameFileRow> Files => Game.Items.Select(i => new GameFileRow(
         global::System.IO.Path.GetFileName(global::System.IO.Path.TrimEndingDirectorySeparator(i.Path)), i.FormatLabel, ChdJobs.Size(i.Size),
-        global::System.IO.Path.GetDirectoryName(i.Path) ?? "", i.Disc, i.Path)).ToList();
+        global::System.IO.Path.GetDirectoryName(i.Path) ?? "", i.Disc, i.Path, i.FormatStatusText)).ToList();
 }
 
 /// <summary>A choice in the Library's status filter.</summary>
@@ -240,7 +241,7 @@ public partial class LibraryViewModel : ViewModelBase
     [RelayCommand]
     private void ConvertSelected()
     {
-        var paths = Chosen().SelectMany(g => g.Game.Items).Where(i => i.IsSource).Select(i => i.Path).Distinct().ToList();
+        var paths = Chosen().SelectMany(g => g.Game.Items).Where(i => i.IsSource || i.FormatStatus == TargetStatus.Convert).Select(i => i.Path).Distinct().ToList();
         if (paths.Count == 0) { _log.Warn("Library: nothing in the selected games needs converting."); return; }
         SendToConvert?.Invoke(paths);
     }

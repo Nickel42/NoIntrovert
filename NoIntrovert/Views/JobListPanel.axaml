@@ -65,12 +65,14 @@
                                     <TextBlock Text="{Binding Folder}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="LeadingCharacterEllipsis" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="{Binding TypeText}" VerticalAlignment="Center" Classes="hint" />
-                                <Panel Grid.Column="2" Width="128" Margin="0,0,8,0" VerticalAlignment="Center"
-                                       IsVisible="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).ShowsTargets}">
+                                <StackPanel Grid.Column="2" Width="128" Margin="0,0,8,0" VerticalAlignment="Center"
+                                            IsVisible="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).ShowsTargets}">
                                     <ComboBox ItemsSource="{Binding Targets}" SelectedItem="{Binding Target}" IsVisible="{Binding HasTargets}"
                                               HorizontalAlignment="Stretch" ToolTip.Tip="What this row becomes. With several rows selected, the change applies to all of them." />
                                     <TextBlock Text="{Binding Target}" IsVisible="{Binding !HasTargets}" Classes="hint" VerticalAlignment="Center" />
-                                </Panel>
+                                    <TextBlock Text="{Binding FormatStatus}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                               ToolTip.Tip="{Binding FormatDetails}" />
+                                </StackPanel>
                                 <TextBlock Grid.Column="3" Text="{Binding SizeText}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0" />
                                 <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                     <Ellipse Width="8" Height="8" Fill="{Binding Status, Converter={x:Static v:Palette.StatusBrush}}" />
