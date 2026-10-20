@@ -54,6 +54,19 @@ internal sealed class WorkDirectory : IDisposable
         }
         try { Directory.Delete(Path, recursive: true); }
         catch (IOException) { /* a file may still be open; the next start-up sweep removes it */ }
+        catch (UnauthorizedAccessException) { DeleteReadOnly(); }
+    }
+
+    // Files unpacked from an archive can keep a read-only attribute, which stops Directory.Delete on Windows.
+    private void DeleteReadOnly()
+    {
+        try
+        {
+            foreach (var f in Directory.EnumerateFiles(Path, "*", SearchOption.AllDirectories))
+                File.SetAttributes(f, FileAttributes.Normal);
+            Directory.Delete(Path, recursive: true);
+        }
+        catch (IOException) { }
         catch (UnauthorizedAccessException) { }
     }
 }
