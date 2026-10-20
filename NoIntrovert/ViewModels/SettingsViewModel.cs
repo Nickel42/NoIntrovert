@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LibDolphinRvz;
 using NoIntrovert.Core;
@@ -34,6 +35,7 @@ public partial class SettingsViewModel : ViewModelBase
         Keys = new KeySettingsViewModel(settings, dialogs);
         Diagnostics = new DiagnosticsSettingsViewModel(settings, dialogs);
         Library = new LibrarySettingsViewModel(settings);
+        Dats = new DatSettingsViewModel(settings, dialogs);
     }
 
     public GeneralSettingsViewModel General { get; }
@@ -45,9 +47,10 @@ public partial class SettingsViewModel : ViewModelBase
     public KeySettingsViewModel Keys { get; }
     public DiagnosticsSettingsViewModel Diagnostics { get; }
     public LibrarySettingsViewModel Library { get; }
+    public DatSettingsViewModel Dats { get; }
 
     /// <summary>Every section, in the order the Settings page shows them.</summary>
-    public IReadOnlyList<SettingsSectionViewModel> Sections => [General, Library, Output, Performance, Chd, Nintendo, Archives, Keys, Diagnostics];
+    public IReadOnlyList<SettingsSectionViewModel> Sections => [General, Library, Dats, Output, Performance, Chd, Nintendo, Archives, Keys, Diagnostics];
 
     public AppSettings Snapshot() => _s.Clone();
     public void Save() => _s.Save();
@@ -431,6 +434,56 @@ public sealed class ArchiveSettingsViewModel(AppSettings settings) : SettingsSec
     public bool Solid { get => S.Archives.Solid; set => Set(value, (s, v) => s.Archives.Solid = v); }
     public string SingleName { get => S.Archives.SingleName; set => Set(value, (s, v) => s.Archives.SingleName = v); }
     public bool TestAfter { get => S.Archives.TestAfter; set => Set(value, (s, v) => s.Archives.TestAfter = v); }
+}
+
+/// <summary>
+/// The game databases: where they come from and how fresh they are, the
+/// startup check, and the user's own DAT folder. <see cref="UpdateRequested"/>
+/// is set by the main window, which knows the Library's systems.
+/// </summary>
+public sealed partial class DatSettingsViewModel(AppSettings settings, IDialogs dialogs) : SettingsSectionViewModel(settings)
+{
+    public override string Title => "Game databases";
+
+    public bool CheckOnStart { get => S.Dats.CheckOnStart; set => Set(value, (s, v) => s.Dats.CheckOnStart = v); }
+
+    public string OwnFolder
+    {
+        get => S.Dats.OwnFolder;
+        set { if (Set(value, (s, v) => s.Dats.OwnFolder = v)) OnPropertyChanged(nameof(OwnFolderText)); }
+    }
+
+    public string OwnFolderText => string.IsNullOrWhiteSpace(S.Dats.OwnFolder) ? "None (only the downloaded databases)" : S.Dats.OwnFolder;
+
+    /// <summary>"Game databases: libretro-database, updated 2 hours ago (12 databases)."</summary>
+    [ObservableProperty] public partial string Status { get; set; } = Core.Dats.DatStore.Default.Describe();
+
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(UpdateNowCommand))]
+    public partial bool IsUpdating { get; set; }
+
+    /// <summary>Runs an update for the Library's systems; set by the main window.</summary>
+    public Func<Task>? UpdateRequested { get; set; }
+
+    public void RefreshStatus(string? problem = null) =>
+        Status = Core.Dats.DatStore.Default.Describe() + (problem is null ? "" : $" Last check failed: {problem}");
+
+    private bool CanUpdateNow => !IsUpdating;
+
+    [RelayCommand(CanExecute = nameof(CanUpdateNow))]
+    private async Task UpdateNow()
+    {
+        if (UpdateRequested is not null) await UpdateRequested();
+    }
+
+    [RelayCommand]
+    private async Task BrowseOwnFolder()
+    {
+        var folder = await dialogs.PickFolderAsync("Choose a folder of your own DAT files");
+        if (folder is not null) OwnFolder = folder;
+    }
+
+    [RelayCommand]
+    private void ClearOwnFolder() => OwnFolder = "";
 }
 
 public sealed partial class KeySettingsViewModel(AppSettings settings, IDialogs dialogs) : SettingsSectionViewModel(settings)

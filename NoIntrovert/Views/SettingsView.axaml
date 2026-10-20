@@ -160,6 +160,31 @@
                 </StackPanel>
             </Border>
 
+            <!-- Game databases (M6) -->
+            <Border Classes="card" Margin="0,0,12,12" DataContext="{Binding Dats}" x:DataType="vm:DatSettingsViewModel">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="GAME DATABASES" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap"
+                               Text="Verify &amp; match looks games up in the No-Intro and Redump databases. NoIntrovert downloads them from libretro-database, only for the systems in your Library." />
+                    <TextBlock Classes="hint" Text="{Binding Status}" TextWrapping="Wrap" />
+                    <Button Classes="tool" Content="Update now" Command="{Binding UpdateNowCommand}" HorizontalAlignment="Left" />
+                    <CheckBox Content="Check for newer databases when the app starts" IsChecked="{Binding CheckOnStart}"
+                              ToolTip.Tip="One small request to GitHub, in the background; only changed databases are downloaded." />
+                    <Expander Header="Advanced" Margin="0,6,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Your own DAT files" />
+                            <TextBlock Classes="hint" TextWrapping="Wrap"
+                                       Text="A folder of .dat files (ClrMamePro or Logiqx XML, such as a No-Intro daily pack). One with the same name as a downloaded database is used instead of it." />
+                            <TextBlock Classes="hint" Text="{Binding OwnFolderText}" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding OwnFolderText}" />
+                            <WrapPanel Orientation="Horizontal">
+                                <Button Classes="tool" Content="Choose folder…" Command="{Binding BrowseOwnFolderCommand}" Margin="0,0,6,6" />
+                                <Button Classes="tool" Content="None" Command="{Binding ClearOwnFolderCommand}" Margin="0,0,6,6" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </Border>
+
             <!-- Target formats (docs/target-formats.md) -->
             <Border Classes="card" Margin="0,0,12,12">
                 <StackPanel Spacing="4">

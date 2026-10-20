@@ -9,8 +9,14 @@ using NoIntrovert.Services;
 
 namespace NoIntrovert.ViewModels;
 
-/// <summary>One file (or folder) of a game, as the details panel lists it, with its target-format status (FR-4).</summary>
-public sealed record GameFileRow(string Name, string Format, string Size, string Folder, string Disc, string Path, string FormatStatus);
+/// <summary>
+/// One file (or folder) of a game, as the details panel lists it, with its
+/// target-format status and its last Verify &amp; match result (empty until checked).
+/// </summary>
+public sealed record GameFileRow(string Name, string Format, string Size, string Folder, string Disc, string Path, string FormatStatus, string Match)
+{
+    public bool HasMatch => Match.Length > 0;
+}
 
 /// <summary>One game in the Library list.</summary>
 public sealed class GameRowViewModel(Game game)
@@ -34,7 +40,22 @@ public sealed class GameRowViewModel(Game game)
 
     public IReadOnlyList<GameFileRow> Files => Game.Items.Select(i => new GameFileRow(
         global::System.IO.Path.GetFileName(global::System.IO.Path.TrimEndingDirectorySeparator(i.Path)), i.FormatLabel, ChdJobs.Size(i.Size),
-        global::System.IO.Path.GetDirectoryName(i.Path) ?? "", i.Disc, i.Path, i.FormatStatusText)).ToList();
+        global::System.IO.Path.GetDirectoryName(i.Path) ?? "", i.Disc, i.Path, i.FormatStatusText,
+        Core.Dats.MatchStore.Default.Get(i.Path)?.Text ?? "")).ToList();
+
+    /// <summary>"2 of 2 files verified", or how many haven't been checked (FR-11).</summary>
+    public string MatchSummary
+    {
+        get
+        {
+            var results = Game.Items.Select(i => Core.Dats.MatchStore.Default.Get(i.Path)).ToList();
+            var checkedCount = results.Count(r => r is not null);
+            if (checkedCount == 0) return "Not checked against the databases yet (Verify selected).";
+            var good = results.Count(r => r?.Status is Core.Dats.MatchStatus.Verified or Core.Dats.MatchStatus.NameDiffers);
+            var text = $"{good} of {results.Count} file{(results.Count == 1 ? "" : "s")} verified";
+            return checkedCount < results.Count ? $"{text}; {results.Count - checkedCount} not checked yet." : text + ".";
+        }
+    }
 }
 
 /// <summary>A choice in the Library's status filter.</summary>
@@ -205,8 +226,12 @@ public partial class LibraryViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Raised when a new index is shown (loaded at start, or after a scan), with the systems in it.</summary>
+    public event Action<LibraryIndex>? IndexShown;
+
     private void Show(LibraryIndex index)
     {
+        IndexShown?.Invoke(index);
         var keep = SelectedGame?.Game.Key;
         _games = index.Games().Select(g => new GameRowViewModel(g)).ToList();
         Systems = [AllSystems, .. _games.Select(g => g.System).Distinct().Order(StringComparer.OrdinalIgnoreCase)];
@@ -250,8 +275,8 @@ public partial class LibraryViewModel : ViewModelBase
     [RelayCommand]
     private void VerifySelected()
     {
-        var paths = Chosen().SelectMany(g => g.Game.Items).Where(i => i.FormatId == "chd").Select(i => i.Path).ToList();
-        if (paths.Count == 0) { _log.Warn("Library: the selected games have no CHDs to verify."); return; }
+        var paths = Chosen().SelectMany(g => g.Game.Items).Select(i => i.Path).Distinct().ToList();
+        if (paths.Count == 0) { _log.Warn("Library: no games are selected."); return; }
         SendToVerify?.Invoke(paths);
     }
 

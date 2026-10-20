@@ -8,8 +8,12 @@ namespace NoIntrovert.Core.Formats;
 /// folders by the files that mark them. Lets the tabs tell a zip with an
 /// ISO in it from a zip of cartridge ROMs.
 /// </summary>
-/// <summary>One file in an archive, and how it's compressed there (see <see cref="ArchivePeek.Members"/>).</summary>
-public sealed record ArchiveMember(string Name, long Size, string Method);
+/// <summary>
+/// One file in an archive, how it's compressed there and its CRC32 from the
+/// archive's headers (upper-case hex; null when the archive doesn't store one).
+/// See <see cref="ArchivePeek.Members"/>.
+/// </summary>
+public sealed record ArchiveMember(string Name, long Size, string Method, string? Crc = null);
 
 internal static class ArchivePeek
 {
@@ -52,7 +56,7 @@ internal static class ArchivePeek
             (size, ticks) = (info.Length, info.LastWriteTimeUtc.Ticks);
             using var opened = ArchiveFactory.OpenArchive(archive);
             members = opened.Entries.Where(e => !e.IsDirectory && e.Key is not null)
-                .Select(e => new ArchiveMember(e.Key!.Replace('\\', '/'), e.Size, MethodOf(e)))
+                .Select(e => new ArchiveMember(e.Key!.Replace('\\', '/'), e.Size, MethodOf(e), e.Crc == 0 ? null : ((uint)e.Crc).ToString("X8")))
                 .ToList();
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))

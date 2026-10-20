@@ -25,6 +25,7 @@ public sealed class AppSettings
     public KeySettings Keys { get; set; } = new();
     public DiagnosticsSettings Diagnostics { get; set; } = new();
     public LibrarySettings Library { get; set; } = new();
+    public DatSettings Dats { get; set; } = new();
 
     /// <summary>
     /// Where settings and the library index live: %AppData%\NoIntrovert, or
@@ -219,6 +220,16 @@ public sealed class LibrarySettings
 
     /// <summary>Look through the folders again (only changed files are reread) when the app starts.</summary>
     public bool RescanOnStart { get; set; } = true;
+}
+
+/// <summary>The game databases (No-Intro and Redump DATs) Verify &amp; match uses.</summary>
+public sealed class DatSettings
+{
+    /// <summary>Look for newer DATs from libretro-database when the app starts (in the background).</summary>
+    public bool CheckOnStart { get; set; } = true;
+
+    /// <summary>A folder of the user's own DATs, which win over downloaded ones with the same name; empty = none.</summary>
+    public string OwnFolder { get; set; } = "";
 }
 
 /// <summary>Developer tools: the libchdman test bench.</summary>

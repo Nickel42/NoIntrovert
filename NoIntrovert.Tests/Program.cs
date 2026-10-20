@@ -1758,6 +1758,221 @@ Test("Target formats: the guide's table and the registry agree on every system",
     }
 }
 
+// ---- Verify & match (M6): DATs, hashing, matching --------------------------------
+
+Test("DATs: ClrMamePro and Logiqx XML read the same games", () =>
+{
+    var cmp = NoIntrovert.Core.Dats.DatFile.ParseClrMamePro("""
+        clrmamepro (
+        	name "Nintendo - Game Boy"
+        	version "2026.10.07"
+        )
+
+        game (
+        	name "Tetris (World) (Rev 1)"
+        	region "World"
+        	rom ( name "Tetris (World) (Rev 1).gb" size 32768 crc 46DF91AD md5 982ED5D2B12A0377EB14BCDC4123744E sha1 74591CC9501AF93873F9A5D3EB12DA12C0723BBC )
+        )
+        game (
+        	name "Disc Game (Japan)"
+        	serial "SLPS-00001"
+        	rom ( name "Disc Game (Japan) (Track 01).bin" size 1000 crc 0000abcd sha1 aa serial "SLPS-00001" )
+        )
+        """);
+    var xml = NoIntrovert.Core.Dats.DatFile.ParseXml("""
+        <?xml version="1.0"?>
+        <!DOCTYPE datafile PUBLIC "-//Logiqx//DTD ROM Management Datafile//EN" "http://www.logiqx.com/dtds/datafile.dtd">
+        <datafile>
+          <header><name>Nintendo - Game Boy</name><version>20261001</version></header>
+          <game name="Tetris (World) (Rev 1)"><description>x</description>
+            <rom name="Tetris (World) (Rev 1).gb" size="32768" crc="46df91ad" sha1="74591cc9501af93873f9a5d3eb12da12c0723bbc"/>
+          </game>
+        </datafile>
+        """);
+    if (cmp.Name != "Nintendo - Game Boy" || cmp.Version != "2026.10.07" || cmp.Games.Count != 2) return $"ClrMamePro: {cmp.Name} {cmp.Version}, {cmp.Games.Count} games";
+    if (cmp.Games[1].Roms[0].Crc != "0000ABCD") return $"CRC read as {cmp.Games[1].Roms[0].Crc}";
+    if (xml.Name != cmp.Name || xml.Games.Count != 1) return $"XML: {xml.Name}, {xml.Games.Count} games";
+    return xml.Games[0].Roms[0] == cmp.Games[0].Roms[0] ? null : $"{xml.Games[0].Roms[0]} ≠ {cmp.Games[0].Roms[0]}";
+});
+
+Test("Hashing: CRC32 and SHA-1 of the standard check string, and NES without its header", () =>
+{
+    var dir = Dir("hashing");
+    var check = Path.Combine(dir, "check.bin");
+    File.WriteAllText(check, "123456789");
+    var h = NoIntrovert.Core.Dats.Hasher.HashFile(check);
+    if (h.Count != 1 || h[0].Crc != "CBF43926" || h[0].Sha1 != "F7C3BC1D808E04732ADF679965CCC34CA7AE3441") return $"got {h[0]}";
+    var nes = Path.Combine(dir, "game.nes");
+    var body = TextBytes(8192);
+    File.WriteAllBytes(nes, [.. "NES\u001a"u8.ToArray(), .. new byte[12], .. body]);
+    var both = NoIntrovert.Core.Dats.Hasher.HashFile(nes);
+    var expected = System.IO.Hashing.Crc32.HashToUInt32(body).ToString("X8");
+    return both.Count == 2 && both[1].Headerless && both[1].Size == 8192 && both[1].Crc == expected ? null : string.Join(" | ", both);
+});
+
+{
+    // A made-up GitHub with three DATs; the Library wants two of them (acceptance 1-4).
+    string DatText(string name, params (string Game, string Rom, byte[] Bytes)[] games)
+    {
+        var sb = new System.Text.StringBuilder($"clrmamepro (\n\tname \"{name}\"\n\tversion \"test\"\n)\n\n");
+        foreach (var (game, rom, bytes) in games)
+            sb.Append($"game (\n\tname \"{game}\"\n\trom ( name \"{rom}\" size {bytes.Length} crc {System.IO.Hashing.Crc32.HashToUInt32(bytes):X8} " +
+                      $"sha1 {Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(bytes))} )\n)\n");
+        return sb.ToString();
+    }
+    const string nesKey = "no-intro/Nintendo - Nintendo Entertainment System", psxKey = "redump/Sony - PlayStation";
+    var github = new FakeGitHub();
+    github.Files[nesKey] = DatText("Nintendo - Nintendo Entertainment System", ("Old (USA)", "Old (USA).nes", [1, 2, 3]));
+    github.Files[psxKey] = DatText("Sony - PlayStation", ("Old Disc (USA)", "Old Disc (USA).bin", [4, 5, 6]));
+    github.Files["no-intro/Nintendo - Game Boy"] = DatText("Nintendo - Game Boy", ("Tetris (World)", "Tetris (World).gb", [7]));
+    var updateStore = new NoIntrovert.Core.Dats.DatStore(Dir("dats-update"));
+    var wanted = new[] { "nes-famicom", "playstation" }.SelectMany(id => TargetFormats.ById(id)!.Dats!).ToList();
+
+    Test("DATs: the first update downloads only the Library's systems (M6 1)", () =>
+    {
+        var r = new NoIntrovert.Core.Dats.DatUpdater(updateStore, github).UpdateAsync(wanted).GetAwaiter().GetResult();
+        if (r.Problem is not null) return r.Problem;
+        var got = string.Join(", ", github.Downloads.Order());
+        return got == $"{nesKey}, {psxKey}" && File.Exists(updateStore.PathOf(nesKey)) ? null : $"downloaded {got}";
+    });
+
+    Test("DATs: nothing changed upstream means one 304 per folder and no downloads (M6 2)", () =>
+    {
+        github.Downloads.Clear();
+        var r = new NoIntrovert.Core.Dats.DatUpdater(updateStore, github).UpdateAsync(wanted).GetAwaiter().GetResult();
+        return r.Problem is null && github.Downloads.Count == 0 && github.NotModified == 2 ? null : $"{github.NotModified} 304s, downloaded {string.Join(", ", github.Downloads)}";
+    });
+
+    Test("DATs: a changed DAT is the only one downloaded again (M6 3)", () =>
+    {
+        github.Downloads.Clear();
+        github.Files[nesKey] = DatText("Nintendo - Nintendo Entertainment System", ("New (USA)", "New (USA).nes", [9, 9, 9]));
+        var r = new NoIntrovert.Core.Dats.DatUpdater(updateStore, github).UpdateAsync(wanted).GetAwaiter().GetResult();
+        if (r.Problem is not null || !github.Downloads.SequenceEqual([nesKey])) return $"downloaded {string.Join(", ", github.Downloads)}";
+        return updateStore.Load([nesKey], null)[0].Games[0].Name == "New (USA)" ? null : "the cached copy wasn't replaced";
+    });
+
+    Test("DATs: offline, the cached copies are used and their age shown (M6 4)", () =>
+    {
+        github.Offline = true;
+        var r = new NoIntrovert.Core.Dats.DatUpdater(updateStore, github).UpdateAsync(wanted).GetAwaiter().GetResult();
+        github.Offline = false;
+        var status = updateStore.Describe();
+        return r.Problem is not null && updateStore.Load(wanted, null).Count == 2 && status.Contains("updated") && status.Contains("2 databases")
+            ? Note(status) : $"problem {r.Problem ?? "none"}; {status}";
+    });
+
+    // Matching (acceptance 5-12): a DAT store with made-up NES and PS1 entries.
+    var lib = Dir("m6-library");
+    var rom = TextBytes(32 * 1024);
+    byte[] nesFile = [.. "NES\u001a"u8.ToArray(), 2, 1, .. new byte[10], .. rom];
+    var otherRom = TextBytes(16 * 1024).Reverse().ToArray();
+    Directory.CreateDirectory(Path.Combine(lib, "NES"));
+    Directory.CreateDirectory(Path.Combine(lib, "PS1"));
+    File.WriteAllBytes(Path.Combine(lib, "NES", "Game (USA).nes"), nesFile);
+    File.WriteAllBytes(Path.Combine(lib, "NES", "Wrong.nes"), nesFile);
+    File.WriteAllBytes(Path.Combine(lib, "NES", "Other (Japan).nes"), [.. "NES\u001a"u8.ToArray(), 1, 1, .. new byte[10], .. otherRom]);
+    File.WriteAllBytes(Path.Combine(lib, "NES", "Unknown.nes"), [.. "NES\u001a"u8.ToArray(), .. new byte[12], .. TextBytes(4096).Select(b => (byte)(b ^ 0x5A))]);
+    using (var z = ZipFile.Open(Path.Combine(lib, "NES", "Game (USA).zip"), ZipArchiveMode.Create))
+        using (var s = z.CreateEntry("Game (USA).nes").Open()) s.Write(nesFile);
+    // A three-track disc whose first track is what libretro's Redump DAT lists.
+    var trackSpans = new[] { (0L, (long)DataSectors), (DataSectors, 150L), (DataSectors + 150L, 150L) };
+    var track1 = new byte[DataSectors * 2352];
+    for (var t = 0; t < 3; t++)
+        using (var o = File.Create(Path.Combine(lib, "PS1", $"Game (USA) (Track {t + 1}).bin")))
+            CopyRange(synthBin, o, trackSpans[t].Item1 * 2352, trackSpans[t].Item2 * 2352);
+    using (var s = File.OpenRead(Path.Combine(lib, "PS1", "Game (USA) (Track 1).bin"))) s.ReadExactly(track1);
+    File.WriteAllText(Path.Combine(lib, "PS1", "Game (USA).cue"),
+        "FILE \"Game (USA) (Track 1).bin\" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n" +
+        "FILE \"Game (USA) (Track 2).bin\" BINARY\n  TRACK 02 AUDIO\n    INDEX 01 00:00:00\n" +
+        "FILE \"Game (USA) (Track 3).bin\" BINARY\n  TRACK 03 AUDIO\n    INDEX 01 00:00:00\n");
+
+    var matchStore = new NoIntrovert.Core.Dats.DatStore(Dir("dats-match"));
+    Directory.CreateDirectory(Path.Combine(matchStore.Folder, "no-intro"));
+    Directory.CreateDirectory(Path.Combine(matchStore.Folder, "redump"));
+    File.WriteAllText(matchStore.PathOf(nesKey), DatText("Nintendo - Nintendo Entertainment System",
+        ("Game (USA)", "Game (USA).nes", nesFile), ("Other (Japan)", "Other (Japan).unh", otherRom)));
+    File.WriteAllText(matchStore.PathOf(psxKey), DatText("Sony - PlayStation", ("Game (USA)", "Game (USA) (Track 01).bin", track1)));
+
+    // One Verify & match job, with the result it stored.
+    (JobOutcome Outcome, NoIntrovert.Core.Dats.MatchResult? Result) Check(string rel, Action<AppSettings>? configure = null)
+    {
+        var path = Path.Combine(lib, rel);
+        var o = RunJob(c => NoIntrovert.Core.Dats.VerifyJobs.Check(c, path, matchStore,
+            NoIntrovert.Core.Dats.HashCache.Default, NoIntrovert.Core.Dats.MatchStore.Default), configure);
+        return (o, NoIntrovert.Core.Dats.MatchStore.Default.Get(path));
+    }
+
+    Test("Verify & match: ROMs are verified, misnamed, matched without their header, or not found (M6 5, 6, 8)", () =>
+    {
+        var cases = new (string Rel, NoIntrovert.Core.Dats.MatchStatus Status, string? Expected)[]
+        {
+            ("NES/Game (USA).nes", NoIntrovert.Core.Dats.MatchStatus.Verified, "Game (USA).nes"),
+            ("NES/Wrong.nes", NoIntrovert.Core.Dats.MatchStatus.NameDiffers, "Game (USA).nes"),
+            ("NES/Other (Japan).nes", NoIntrovert.Core.Dats.MatchStatus.Verified, "Other (Japan).nes"), // matched on the headerless entry
+            ("NES/Unknown.nes", NoIntrovert.Core.Dats.MatchStatus.NotInDatabase, null),
+        };
+        foreach (var (rel, status, expected) in cases)
+        {
+            var (o, r) = Check(rel);
+            if (r is null || r.Status != status || r.ExpectedName != expected) return $"{rel}: {r?.Status} {r?.ExpectedName} ({o.Status}: {o.Summary})";
+        }
+        return null;
+    });
+
+    Test("Verify & match: a zipped ROM is verified from the zip's own CRC32 (M6 7)", () =>
+    {
+        var (o, r) = Check("NES/Game (USA).zip");
+        return r?.Status == NoIntrovert.Core.Dats.MatchStatus.Verified && o.Summary.Contains("CRC32") ? Note(o.Summary) : $"{o.Status}: {o.Summary}";
+    });
+
+    Test("Verify & match: a cue/bin and the CHD made from it match Redump's first track (M6 9)", () =>
+    {
+        var (o, r) = Check("PS1/Game (USA).cue");
+        if (r?.Status != NoIntrovert.Core.Dats.MatchStatus.Verified) return $"cue/bin: {o.Status}: {o.Summary}";
+        var made = RunJob(c => ChdJobs.Convert(c, Path.Combine(lib, "PS1", "Game (USA).cue")));
+        if (made.Status != JobStatus.Succeeded) return $"making the CHD: {made.Summary}";
+        (o, r) = Check("PS1/Game (USA).chd");
+        return r?.Status == NoIntrovert.Core.Dats.MatchStatus.Verified ? null : $"CHD: {o.Status}: {o.Summary}";
+    });
+
+    Test("Verify & match: a damaged CHD and a damaged 7z are reported as damaged (M6 10)", () =>
+    {
+        var chd = Path.Combine(lib, "PS1", "Broken.chd");
+        var bytes = File.ReadAllBytes(Path.Combine(lib, "PS1", "Game (USA).chd"));
+        for (var i = bytes.Length / 2; i < bytes.Length / 2 + 64; i++) bytes[i] ^= 0xFF;
+        File.WriteAllBytes(chd, bytes);
+        var seven = Path.Combine(lib, "NES", "Broken.7z");
+        using (var engine = new ArchiveEngine())
+            engine.Compress(ArchiveFormat.SevenZip, ArchiveLevel.Normal, 0, false, [Path.Combine(lib, "NES", "Game (USA).nes")], seven, false, null, CancellationToken.None);
+        var packed = File.ReadAllBytes(seven);
+        for (var i = 64; i < 96; i++) packed[i] ^= 0xFF;
+        File.WriteAllBytes(seven, packed);
+        foreach (var rel in new[] { "PS1/Broken.chd", "NES/Broken.7z" })
+        {
+            var (o, r) = Check(rel);
+            if (o.Status != JobStatus.Failed || r?.Status != NoIntrovert.Core.Dats.MatchStatus.Damaged) return $"{rel}: {o.Status}: {o.Summary}";
+        }
+        return null;
+    });
+
+    Test("Verify & match: an unchanged file isn't hashed again (M6 11)", () =>
+    {
+        var cache = NoIntrovert.Core.Dats.HashCache.Default;
+        var before = cache.Hits;
+        Check("NES/Game (USA).nes");
+        return cache.Hits == before + 1 ? null : $"{cache.Hits - before} cache hits";
+    });
+
+    Test("Verify & match: a DAT in your own folder wins over the downloaded one (M6 12)", () =>
+    {
+        var own = Dir("own-dats");
+        File.WriteAllText(Path.Combine(own, "my nes.dat"), DatText("Nintendo - Nintendo Entertainment System", ("Own Name (USA)", "Own Name (USA).nes", nesFile)));
+        var (o, r) = Check("NES/Game (USA).nes", s => s.Dats.OwnFolder = own);
+        return r?.Game == "Own Name (USA)" && r.Status == NoIntrovert.Core.Dats.MatchStatus.NameDiffers ? null : $"{o.Status}: {o.Summary}";
+    });
+}
+
 // ---- Library (M5): scanning folders into games ----
 
 Test("Library: titles drop disc markers, generic names use their folder", () =>

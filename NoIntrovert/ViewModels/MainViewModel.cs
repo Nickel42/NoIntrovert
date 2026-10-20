@@ -21,6 +21,8 @@ public partial class MainViewModel : ViewModelBase
         Library = new LibraryViewModel(Settings, Log, dialogs);
         Library.SendToConvert = paths => { Show("convert"); Convert.AddPaths(paths); };
         Library.SendToVerify = paths => { Show("verify"); Verify.AddPaths(paths); };
+        Library.IndexShown += index => _ = UpdateDatsAsync(index.Items.Select(i => i.System), startup: true);
+        Settings.Dats.UpdateRequested = () => UpdateDatsAsync(Core.Library.LibraryIndex.Load().Items.Select(i => i.System), startup: false);
 
         // The one place pages are listed: the rail, --page and drops all follow it.
         Pages =
@@ -34,7 +36,7 @@ public partial class MainViewModel : ViewModelBase
                 if (files.Count > 0) { Show("convert"); Convert.AddPaths(files); }
             }),
             new("convert", "Convert", "M4 8h13l-3-3M20 16H7l3 3", Convert, p => { Convert.AddPaths(p); return Task.CompletedTask; }),
-            new("verify", "Verify", "M5 12l4 4L19 6", Verify, p => { Verify.AddPaths(p); return Task.CompletedTask; }),
+            new("verify", "Verify & match", "M5 12l4 4L19 6", Verify, p => { Verify.AddPaths(p); return Task.CompletedTask; }),
             new("info", "CHD info", "M12 8h.01M11 12h1v5h1M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z", Info, async p =>
             {
                 if (p.FirstOrDefault(x => x.EndsWith(".chd", StringComparison.OrdinalIgnoreCase)) is { } chd) await Info.LoadAsync(chd);
@@ -81,6 +83,40 @@ public partial class MainViewModel : ViewModelBase
 
     public SettingsViewModel Settings { get; }
     public LogViewModel Log { get; }
+
+    private bool _checkedDats;
+
+    /// <summary>
+    /// Brings the DATs for these systems up to date (FR-2): at start when the
+    /// setting is on (once, and again when a scan finds a system with no DAT
+    /// yet), and whenever Update now is clicked. Never blocks the window.
+    /// </summary>
+    private async Task UpdateDatsAsync(IEnumerable<string?> systems, bool startup)
+    {
+        var keys = systems.Distinct().Select(Core.Formats.TargetFormats.ById).OfType<Core.Formats.SystemInfo>()
+            .SelectMany(s => s.Dats ?? []).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var store = Core.Dats.DatStore.Default;
+        if (startup)
+        {
+            if (!Settings.Dats.CheckOnStart) return;
+            var missing = keys.Any(k => !File.Exists(store.PathOf(k)));
+            if (_checkedDats && !missing) return;
+        }
+        if (Settings.Dats.IsUpdating) return;
+        _checkedDats = true;
+        Settings.Dats.IsUpdating = true;
+        try
+        {
+            var result = await Task.Run(() => new Core.Dats.DatUpdater(store).UpdateAsync(keys));
+            if (result.Changed) Log.Info($"Game databases: downloaded {string.Join(", ", result.Downloaded.Select(k => k[(k.IndexOf('/') + 1)..]))}");
+            if (result.Problem is { } problem) Log.Warn($"Game databases: couldn't check for updates ({problem}); using the copies already here.");
+            Settings.Dats.RefreshStatus(result.Problem);
+        }
+        finally
+        {
+            Settings.Dats.IsUpdating = false;
+        }
+    }
 
     /// <summary>The shared job queue, shown in the status bar and the queue drawer.</summary>
     public QueueViewModel Queue { get; }

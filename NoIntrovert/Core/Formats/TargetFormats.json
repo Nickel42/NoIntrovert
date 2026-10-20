@@ -9,7 +9,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Nintendo - Nintendo Entertainment System"]
   },
   {
     "id": "famicom-disk-system",
@@ -21,7 +22,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Nintendo - Family Computer Disk System"]
   },
   {
     "id": "snes-super-famicom",
@@ -33,7 +35,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R12", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R12", "R13"],
+    "dats": ["no-intro/Nintendo - Super Nintendo Entertainment System", "no-intro/Nintendo - Satellaview", "no-intro/Nintendo - Sufami Turbo"]
   },
   {
     "id": "nintendo-64",
@@ -45,7 +48,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R12", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R12", "R13"],
+    "dats": ["no-intro/Nintendo - Nintendo 64"]
   },
   {
     "id": "nintendo-64dd",
@@ -57,7 +61,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Nintendo - Nintendo 64DD"]
   },
   {
     "id": "game-boy",
@@ -69,7 +74,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Nintendo - Game Boy"]
   },
   {
     "id": "game-boy-color",
@@ -81,7 +87,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Nintendo - Game Boy Color"]
   },
   {
     "id": "game-boy-advance",
@@ -93,7 +100,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Nintendo - Game Boy Advance"]
   },
   {
     "id": "nintendo-ds",
@@ -106,7 +114,8 @@
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true},
       {"id": "bare", "label": "Bare .nds", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Nintendo - Nintendo DS", "no-intro/Nintendo - Nintendo DS (Download Play)"]
   },
   {
     "id": "nintendo-dsi",
@@ -118,7 +127,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Nintendo - Nintendo DSi"]
   },
   {
     "id": "nintendo-3ds",
@@ -131,7 +141,8 @@
       {"id": "zcci", "label": ".zcci (Azahar only)", "producible": false},
       {"id": "bare", "label": "Bare .cci", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Nintendo - Nintendo 3DS", "no-intro/Nintendo - New Nintendo 3DS"]
   },
   {
     "id": "virtual-boy",
@@ -143,7 +154,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Nintendo - Virtual Boy"]
   },
   {
     "id": "pokemon-mini",
@@ -155,7 +167,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Nintendo - Pokemon Mini"]
   },
   {
     "id": "game-watch-lcd-handhelds",
@@ -193,7 +206,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Sega - Master System - Mark III"]
   },
   {
     "id": "game-gear",
@@ -205,7 +219,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Sega - Game Gear"]
   },
   {
     "id": "sg-1000-sc-3000",
@@ -217,7 +232,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Sega - SG-1000"]
   },
   {
     "id": "mega-drive-genesis",
@@ -229,7 +245,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R12", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R12", "R13"],
+    "dats": ["no-intro/Sega - Mega Drive - Genesis"]
   },
   {
     "id": "32x",
@@ -241,7 +258,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Sega - 32X"]
   },
   {
     "id": "pico",
@@ -253,7 +271,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Sega - PICO"]
   },
   {
     "id": "atari-2600",
@@ -265,7 +284,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Atari - 2600"]
   },
   {
     "id": "atari-5200",
@@ -277,7 +297,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Atari - 5200"]
   },
   {
     "id": "atari-7800",
@@ -289,7 +310,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Atari - 7800"]
   },
   {
     "id": "atari-lynx",
@@ -301,7 +323,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Atari - Lynx"]
   },
   {
     "id": "atari-jaguar",
@@ -313,7 +336,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Atari - Jaguar"]
   },
   {
     "id": "pc-engine-turbografx-16",
@@ -325,7 +349,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/NEC - PC Engine - TurboGrafx 16"]
   },
   {
     "id": "pc-engine-supergrafx",
@@ -337,7 +362,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/NEC - PC Engine SuperGrafx"]
   },
   {
     "id": "neo-geo-pocket-color",
@@ -349,7 +375,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/SNK - Neo Geo Pocket", "no-intro/SNK - Neo Geo Pocket Color"]
   },
   {
     "id": "wonderswan-color-swancrystal",
@@ -361,7 +388,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Bandai - WonderSwan", "no-intro/Bandai - WonderSwan Color"]
   },
   {
     "id": "colecovision",
@@ -373,7 +401,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Coleco - ColecoVision"]
   },
   {
     "id": "intellivision",
@@ -385,7 +414,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Mattel - Intellivision"]
   },
   {
     "id": "vectrex",
@@ -397,7 +427,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/GCE - Vectrex"]
   },
   {
     "id": "odyssey2-videopac",
@@ -409,7 +440,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Magnavox - Odyssey2", "no-intro/Philips - Videopac+"]
   },
   {
     "id": "channel-f",
@@ -421,7 +453,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Fairchild - Channel F"]
   },
   {
     "id": "supervision",
@@ -433,7 +466,8 @@
     "alternatives": [
       {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"]
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Watara - Supervision"]
   },
   {
     "id": "arcadia-2001",
@@ -446,6 +480,7 @@
       {"id": "zip", "label": "zip", "producible": true}
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Emerson - Arcadia 2001"],
     "alsoOptimal": ["zip"]
   },
   {
@@ -459,6 +494,7 @@
       {"id": "zip", "label": "zip for everything", "producible": true}
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "dats": ["no-intro/Microsoft - MSX", "no-intro/Microsoft - MSX2"],
     "containerByExtension": {".dsk": "zip", ".cas": "zip"}
   },
   {
@@ -471,7 +507,8 @@
     "alternatives": [
       {"id": "bare", "label": "Bare", "producible": true}
     ],
-    "rules": ["R6", "R8", "R9", "R10", "R13"]
+    "rules": ["R6", "R8", "R9", "R10", "R13"],
+    "dats": ["no-intro/Commodore - 64", "no-intro/Commodore - VIC-20", "no-intro/Commodore - Plus-4"]
   },
   {
     "id": "amiga",
@@ -485,6 +522,7 @@
       {"id": "adz", "label": ".adz (gzipped ADF)", "producible": false}
     ],
     "rules": ["R6", "R8", "R9", "R10", "R13"],
+    "dats": ["no-intro/Commodore - Amiga"],
     "containerByExtension": {".lha": "bare"}
   },
   {
@@ -497,7 +535,8 @@
     "alternatives": [
       {"id": "cue-bin", "label": "cue/bin", "producible": true}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "dats": ["redump/Commodore - CD32", "redump/Commodore - CDTV"]
   },
   {
     "id": "zx-spectrum-zx81",
@@ -510,6 +549,7 @@
       {"id": "bare", "label": "Bare", "producible": true}
     ],
     "rules": ["R6", "R8", "R9", "R10", "R13"],
+    "dats": ["no-intro/Sinclair - ZX Spectrum +3"],
     "alsoOptimal": ["zip"]
   },
   {
@@ -535,7 +575,8 @@
     "alternatives": [
       {"id": "bare", "label": "Bare", "producible": true}
     ],
-    "rules": ["R6", "R8", "R9", "R10", "R13"]
+    "rules": ["R6", "R8", "R9", "R10", "R13"],
+    "dats": ["no-intro/Atari - ST"]
   },
   {
     "id": "atari-8-bit",
@@ -547,7 +588,8 @@
     "alternatives": [
       {"id": "7z", "label": "7z", "producible": true}
     ],
-    "rules": ["R6", "R8", "R9", "R10", "R13"]
+    "rules": ["R6", "R8", "R9", "R10", "R13"],
+    "dats": ["no-intro/Atari - 8-bit Family"]
   },
   {
     "id": "pc-88-pc-98",
@@ -560,6 +602,7 @@
       {"id": "bare", "label": "Bare", "producible": true}
     ],
     "rules": ["R6", "R8", "R9", "R10", "R13"],
+    "dats": ["redump/NEC - PC-98"],
     "containerByExtension": {".hdi": "bare"}
   },
   {
@@ -573,6 +616,7 @@
       {"id": "bare", "label": "Bare", "producible": true}
     ],
     "rules": ["R6", "R8", "R9", "R10", "R13"],
+    "dats": ["no-intro/Sharp - X68000", "no-intro/Sharp - X1"],
     "containerByExtension": {".hdf": "bare"}
   },
   {
@@ -633,7 +677,8 @@
     "alternatives": [
       {"id": "7z", "label": "7z romsets", "producible": false}
     ],
-    "rules": ["R5"]
+    "rules": ["R5"],
+    "dats": ["redump/Sega - Naomi", "redump/Sega - Naomi 2"]
   },
   {
     "id": "playstation",
@@ -646,7 +691,8 @@
       {"id": "pbp", "label": "PBP", "producible": false},
       {"id": "cue-bin", "label": "cue/bin", "producible": true}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "dats": ["redump/Sony - PlayStation"]
   },
   {
     "id": "playstation-2",
@@ -659,7 +705,8 @@
       {"id": "cso", "label": "CSO/ZSO", "producible": false},
       {"id": "iso", "label": "Bare .iso", "producible": true}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "dats": ["redump/Sony - PlayStation 2"]
   },
   {
     "id": "playstation-3",
@@ -671,7 +718,8 @@
     "alternatives": [
       {"id": "iso", "label": "Decrypted ISO", "producible": false}
     ],
-    "rules": ["R10", "R11", "R13"]
+    "rules": ["R10", "R11", "R13"],
+    "dats": ["redump/Sony - PlayStation 3"]
   },
   {
     "id": "playstation-portable",
@@ -684,7 +732,8 @@
       {"id": "cso", "label": "CSO", "producible": false},
       {"id": "pbp", "label": ".pbp", "producible": false}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "dats": ["redump/Sony - PlayStation Portable", "no-intro/Sony - PlayStation Portable"]
   },
   {
     "id": "playstation-vita",
@@ -697,7 +746,8 @@
       {"id": "folder", "label": "Bare NoNpDrm folder", "producible": false},
       {"id": "vpk", "label": ".vpk", "producible": false}
     ],
-    "rules": ["R10", "R11", "R13"]
+    "rules": ["R10", "R11", "R13"],
+    "dats": ["no-intro/Sony - PlayStation Vita"]
   },
   {
     "id": "mega-cd-sega-cd",
@@ -709,7 +759,8 @@
     "alternatives": [
       {"id": "cue-bin", "label": "cue/bin", "producible": true}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "dats": ["redump/Sega - Mega-CD - Sega CD"]
   },
   {
     "id": "saturn",
@@ -721,7 +772,8 @@
     "alternatives": [
       {"id": "cue-bin", "label": "cue/bin", "producible": true}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "dats": ["redump/Sega - Saturn"]
   },
   {
     "id": "dreamcast",
@@ -734,7 +786,8 @@
       {"id": "gdi", "label": "Bare .gdi set", "producible": true},
       {"id": "cdi", "label": ".cdi", "producible": false}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "dats": ["redump/Sega - Dreamcast"]
   },
   {
     "id": "pc-engine-cd-turbografx-cd",
@@ -746,7 +799,8 @@
     "alternatives": [
       {"id": "cue-bin", "label": "cue/bin", "producible": true}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "dats": ["redump/NEC - PC Engine CD - TurboGrafx-CD"]
   },
   {
     "id": "pc-fx",
@@ -758,7 +812,8 @@
     "alternatives": [
       {"id": "cue-bin", "label": "cue/bin", "producible": true}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "dats": ["redump/NEC - PC-FX"]
   },
   {
     "id": "neo-geo-cd",
@@ -770,7 +825,8 @@
     "alternatives": [
       {"id": "cue-bin", "label": "cue/bin", "producible": true}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "dats": ["redump/SNK - Neo Geo CD"]
   },
   {
     "id": "3do",
@@ -783,7 +839,8 @@
       {"id": "cue-bin", "label": "cue/bin", "producible": true},
       {"id": "iso", "label": ".iso", "producible": true}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "dats": ["redump/The 3DO Company - 3DO"]
   },
   {
     "id": "cd-i",
@@ -795,7 +852,8 @@
     "alternatives": [
       {"id": "cue-bin", "label": "cue/bin", "producible": true}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "dats": ["redump/Philips - CD-i"]
   },
   {
     "id": "jaguar-cd",
@@ -808,7 +866,8 @@
       {"id": "cue-bin", "label": "cue/bin", "producible": true},
       {"id": "cdi", "label": ".cdi", "producible": false}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "dats": ["redump/Atari - Jaguar CD"]
   },
   {
     "id": "playdia",
@@ -845,7 +904,8 @@
     "alternatives": [
       {"id": "iso", "label": "Bare .iso", "producible": true}
     ],
-    "rules": ["R4", "R10", "R11", "R13"]
+    "rules": ["R4", "R10", "R11", "R13"],
+    "dats": ["redump/Nintendo - GameCube"]
   },
   {
     "id": "wii",
@@ -858,7 +918,8 @@
       {"id": "iso", "label": "Bare .iso", "producible": true},
       {"id": "wbfs", "label": ".wbfs", "producible": false}
     ],
-    "rules": ["R4", "R10", "R11", "R13"]
+    "rules": ["R4", "R10", "R11", "R13"],
+    "dats": ["redump/Nintendo - Wii"]
   },
   {
     "id": "wiiware-virtual-console",
@@ -870,7 +931,8 @@
     "alternatives": [
       {"id": "7z", "label": "7z", "producible": true}
     ],
-    "rules": ["R10", "R13"]
+    "rules": ["R10", "R13"],
+    "dats": ["no-intro/Nintendo - Wii (Digital)"]
   },
   {
     "id": "wii-u",
@@ -895,7 +957,8 @@
     "alternatives": [
       {"id": "cci", "label": "CCI", "producible": false}
     ],
-    "rules": ["R10", "R11", "R13"]
+    "rules": ["R10", "R11", "R13"],
+    "dats": ["redump/Microsoft - Xbox"]
   },
   {
     "id": "xbox-360",
@@ -909,6 +972,7 @@
       {"id": "god", "label": "GOD", "producible": false},
       {"id": "zar", "label": ".zar", "producible": false}
     ],
-    "rules": ["R10", "R11", "R13"]
+    "rules": ["R10", "R11", "R13"],
+    "dats": ["redump/Microsoft - Xbox 360"]
   }
 ]
