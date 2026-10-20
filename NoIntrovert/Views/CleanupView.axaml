@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             x:Class="NoIntrovert.Views.CleanupView"
+             x:DataType="vm:CleanupViewModel">
+    <!--
+        The Cleanup wizard (M7): a plan for the selected games or the whole
+        Library, shown as a dry run with a tick box per step; Run sends the
+        ticked steps to the queue. Past runs can be undone, or their trash emptied.
+    -->
+    <Grid ColumnDefinitions="*,340" ColumnSpacing="12" Margin="0,10,0,0">
+        <Border Classes="card" Padding="0">
+            <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+                <Grid ColumnDefinitions="*,Auto" Margin="12,10,12,4">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="CLEANUP" Classes="section" />
+                        <TextBlock Text="{Binding ScopeText}" FontSize="15" FontWeight="SemiBold" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Button Classes="tool" Content="Whole Library" Command="{Binding WholeLibraryCommand}"
+                                ToolTip.Tip="Plan for every game in the Library instead of the selected ones." />
+                        <Button Classes="tool" Content="Make the plan again" Command="{Binding MakePlanCommand}" />
+                    </StackPanel>
+                </Grid>
+                <TextBlock Grid.Row="1" Text="{Binding Summary}" Classes="hint" TextWrapping="Wrap" Margin="12,0,12,6" />
+
+                <Grid Grid.Row="2" ColumnDefinitions="40,120,1.2*,2*" Margin="22,4,22,4">
+                    <TextBlock Grid.Column="1" Text="STEP" Classes="colhead" />
+                    <TextBlock Grid.Column="2" Text="GAME" Classes="colhead" />
+                    <TextBlock Grid.Column="3" Text="CHANGE" Classes="colhead" />
+                </Grid>
+
+                <Panel Grid.Row="3">
+                    <ListBox ItemsSource="{Binding Steps}" Background="Transparent" Margin="10,0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CleanupStepRow">
+                                <Grid ColumnDefinitions="40,120,1.2*,2*" ToolTip.Tip="{Binding Reason}">
+                                    <CheckBox IsChecked="{Binding Enabled}" IsVisible="{Binding CanRun}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding KindText}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="{Binding Game}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+                                    <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Change}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Reason}" Classes="hint" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock Text="Choose games on the Library page and click Clean up selected, or plan for the whole Library."
+                               IsVisible="{Binding !HasPlan}" Classes="hint" FontSize="13" TextWrapping="Wrap"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30" />
+                </Panel>
+
+                <Border Grid.Row="4" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="12,10">
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                        <Button Content="Verify the unchecked ones" Command="{Binding VerifyUncheckedCommand}"
+                                ToolTip.Tip="Only games Verify &amp; match recognised are renamed and moved. Send the rest there first." />
+                        <Button Classes="primary" Content="Run" Command="{Binding RunCommand}"
+                                ToolTip.Tip="Run the ticked steps on the queue. Every change is recorded, so the run can be undone." />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Column="1">
+            <StackPanel Spacing="12">
+                <Border Classes="card">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="LAYOUT" Classes="section" />
+                        <ComboBox ItemsSource="{x:Static vm:LibrarySettingsViewModel.Layouts}" SelectedItem="{Binding Settings.Library.SelectedLayout}"
+                                  HorizontalAlignment="Stretch" />
+                        <TextBlock Classes="hint" TextWrapping="Wrap"
+                                   Text="ES-DE system folders put each game in its system's folder (psx, gba, megadrive…) inside its Library folder, with multi-disc games in hidden/ and an .m3u. Make the plan again after changing it." />
+                        <TextBlock Text="SAFETY" Classes="section" Margin="0,8,0,0" />
+                        <TextBlock Classes="hint" TextWrapping="Wrap"
+                                   Text="Nothing is overwritten. Originals and duplicates go to a .noi-trash folder in their Library folder, so a run can be undone (conversions too) until you empty its trash." />
+                    </StackPanel>
+                </Border>
+                <Border Classes="card">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="PAST RUNS" Classes="section" />
+                        <TextBlock Text="No runs yet." Classes="hint" IsVisible="{Binding !HasRuns}" />
+                        <ItemsControl ItemsSource="{Binding Runs}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CleanupRunRow">
+                                    <StackPanel Spacing="4" Margin="0,0,0,10">
+                                        <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" />
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Button Classes="tool" Content="Undo" IsVisible="{Binding CanUndo}"
+                                                    Command="{Binding $parent[UserControl].((vm:CleanupViewModel)DataContext).UndoCommand}" CommandParameter="{Binding}" />
+                                            <Button Classes="tool" Content="Empty trash" IsVisible="{Binding CanEmpty}"
+                                                    ToolTip.Tip="Send this run's trash to the Recycle Bin. Its conversions can't be undone after that."
+                                                    Command="{Binding $parent[UserControl].((vm:CleanupViewModel)DataContext).EmptyTrashCommand}" CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

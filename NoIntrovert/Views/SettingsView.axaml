@@ -39,6 +39,8 @@
                     <TextBlock Classes="hint" Text="{Binding FoldersSummary}" TextWrapping="Wrap" />
                     <CheckBox Content="Look through the library folders when the app starts" IsChecked="{Binding RescanOnStart}"
                               ToolTip.Tip="Only files that changed since the last scan are read again." />
+                    <TextBlock Text="The Cleanup wizard puts games in" />
+                    <ComboBox ItemsSource="{x:Static vm:LibrarySettingsViewModel.Layouts}" SelectedItem="{Binding SelectedLayout}" HorizontalAlignment="Stretch" />
                 </StackPanel>
             </Border>
 

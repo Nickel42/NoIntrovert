@@ -2266,6 +2266,171 @@ Test("Hashing: CRC32 and SHA-1 of the standard check string, and NES without its
     });
 }
 
+// ---- Cleanup wizard (M7) ------------------------------------------------------
+
+if (ArchiveEngine.IsAvailable(out _))
+{
+    var games7 = Dir("m7/Games");
+    string G7(string rel) => Path.Combine([games7, .. rel.Split('/')]);
+    string Dat7(string name, params (string Game, string Rom, byte[] Bytes)[] games)
+    {
+        var sb = new System.Text.StringBuilder($"clrmamepro (\n\tname \"{name}\"\n)\n");
+        foreach (var (game, rom, bytes) in games)
+            sb.Append($"game (\n\tname \"{game}\"\n\trom ( name \"{rom}\" size {bytes.Length} crc {System.IO.Hashing.Crc32.HashToUInt32(bytes):X8} " +
+                      $"sha1 {Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(bytes))} )\n)\n");
+        return sb.ToString();
+    }
+    // A disc: a copy of the synthetic PS1 bin, made different by its last byte.
+    byte[] Disc(int n) { var b = File.ReadAllBytes(synthBin); b[^1] = (byte)n; return b; }
+    void PutDisc(string rel, byte[] bin)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(G7(rel))!);
+        File.WriteAllBytes(G7(rel) + ".bin", bin);
+        File.WriteAllText(G7(rel) + ".cue", File.ReadAllText(synthCue).Replace("synth.bin", Path.GetFileName(rel) + ".bin"));
+    }
+    byte[] Nes(int seed) => [.. "NES\u001a"u8.ToArray(), 2, 1, .. new byte[10], .. TextBytes(16384 + seed)];
+
+    PutDisc("PS1/Crash Bandicoot", Disc(1));
+    for (var d = 1; d <= 3; d++) PutDisc($"PS1/Epic (USA) (Disc {d})", Disc(10 + d));
+    var mario = Nes(1); var zelda = Nes(2); var metroid = Nes(3);
+    Directory.CreateDirectory(G7("NES"));
+    File.WriteAllBytes(G7("NES/Mario.nes"), mario);
+    File.WriteAllBytes(G7("NES/Zelda.nes"), zelda);
+    File.WriteAllBytes(G7("NES/Unknown.nes"), Nes(99));
+    Directory.CreateDirectory(G7("nes"));
+    File.WriteAllBytes(G7("nes/Zelda (USA).7z"), [1, 2, 3]); // in the way of Zelda's target: a clash
+    Directory.CreateDirectory(G7("Misc"));
+    File.WriteAllBytes(G7("Misc/loose.bin"), new byte[4096]);
+    using (var engine = new ArchiveEngine())
+    {
+        var src = Path.Combine(Dir("m7-src"), "Metroid.nes");
+        File.WriteAllBytes(src, metroid);
+        engine.Compress(ArchiveFormat.SevenZip, ArchiveLevel.Normal, 0, false, [src], G7("nes/Wrong Name.7z"), false, null, CancellationToken.None);
+    }
+
+    var store7 = new NoIntrovert.Core.Dats.DatStore(Dir("m7-dats"));
+    Directory.CreateDirectory(Path.Combine(store7.Folder, "no-intro"));
+    Directory.CreateDirectory(Path.Combine(store7.Folder, "redump"));
+    File.WriteAllText(store7.PathOf("no-intro/Nintendo - Nintendo Entertainment System"), Dat7("Nintendo - Nintendo Entertainment System",
+        ("Super Mario Bros. (World)", "Super Mario Bros. (World).nes", mario), ("Zelda (USA)", "Zelda (USA).nes", zelda),
+        ("Metroid (USA)", "Metroid (USA).nes", metroid)));
+    File.WriteAllText(store7.PathOf("redump/Sony - PlayStation"), Dat7("Sony - PlayStation",
+        [("Crash Bandicoot (USA)", "Crash Bandicoot (USA).bin", Disc(1)), .. Enumerable.Range(1, 3).Select(d => ($"Epic (USA) (Disc {d})", $"Epic (USA) (Disc {d}).bin", Disc(10 + d)))]));
+
+    // Scans the Library and checks every file in it against the made-up DATs, as Verify & match would.
+    List<NoIntrovert.Core.Library.Game> ScanAndVerify(AppSettings s)
+    {
+        var index = NoIntrovert.Core.Library.LibraryScanner.Scan([games7], null, null, CancellationToken.None, s);
+        foreach (var item in index.Items)
+            RunJob(c => NoIntrovert.Core.Dats.VerifyJobs.Check(c, item.Path, store7, NoIntrovert.Core.Dats.HashCache.Default, NoIntrovert.Core.Dats.MatchStore.Default));
+        return index.Games();
+    }
+    NoIntrovert.Core.Cleanup.CleanupPlan PlanFor(LibraryLayout layout)
+    {
+        var s = new AppSettings { Library = { Layout = layout } };
+        return NoIntrovert.Core.Cleanup.CleanupPlanner.Plan(ScanAndVerify(s), s, NoIntrovert.Core.Dats.MatchStore.Default);
+    }
+    string Rel(string? path) => path is null ? "" : Path.GetRelativePath(games7, path).Replace('\\', '/');
+    string Describe(NoIntrovert.Core.Cleanup.CleanupPlan plan) =>
+        string.Join("\n", plan.Steps.Select(s => $"{s.Kind} {s.Game}: {string.Join(",", s.Sources.Take(1).Select(Rel))} → {Rel(s.Target)} ({s.Reason})"));
+    NoIntrovert.Core.Cleanup.CleanupStep? Find(NoIntrovert.Core.Cleanup.CleanupPlan plan, string game) =>
+        plan.Steps.FirstOrDefault(s => s.Game == game);
+    // Paths as the tests write them, compared without case (Windows' NES and ES-DE's nes are one folder).
+    HashSet<string> Tree() => Directory.EnumerateFileSystemEntries(games7, "*", SearchOption.AllDirectories).Select(Rel).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    NoIntrovert.Core.Cleanup.CleanupRun RunPlan(NoIntrovert.Core.Cleanup.CleanupPlan plan)
+    {
+        var runner = new NoIntrovert.Core.Cleanup.CleanupRunner();
+        foreach (var (name, _, work) in runner.Jobs(plan))
+            if (RunJob(work) is { Status: not JobStatus.Succeeded } o) throw new InvalidOperationException($"{name}: {o.Summary}");
+        return runner.Run;
+    }
+    NoIntrovert.Core.Cleanup.CleanupPlan? esdePlan = null;
+
+    Test("Cleanup: the plan converts, renames and moves into ES-DE folders, and leaves the rest (M7 1, 3, 4, 6, 7)", () =>
+    {
+        var plan = esdePlan = PlanFor(LibraryLayout.EsDe);
+        string? Check(string game, NoIntrovert.Core.Cleanup.CleanupKind kind, string? target)
+        {
+            var s = Find(plan, game);
+            return s is not null && s.Kind == kind && Rel(s.Target) == (target ?? "") ? null : $"{game}: expected {kind} → {target}\n{Describe(plan)}";
+        }
+        return Check("Crash Bandicoot", NoIntrovert.Core.Cleanup.CleanupKind.Convert, "psx/Crash Bandicoot (USA).chd")
+            ?? Check("Mario", NoIntrovert.Core.Cleanup.CleanupKind.Convert, "nes/Super Mario Bros. (World).7z")
+            ?? Check("Epic (USA)", NoIntrovert.Core.Cleanup.CleanupKind.Convert, "psx/Epic (USA).m3u")
+            ?? Check("Zelda", NoIntrovert.Core.Cleanup.CleanupKind.Clash, "nes/Zelda (USA).7z")
+            ?? Check("Wrong Name", NoIntrovert.Core.Cleanup.CleanupKind.Rename, "nes/Metroid (USA).7z")
+            ?? Check("Unknown", NoIntrovert.Core.Cleanup.CleanupKind.Untouched, null)
+            ?? Check("loose", NoIntrovert.Core.Cleanup.CleanupKind.Untouched, null);
+    });
+
+    Test("Cleanup: keeping games in their own folders only converts and renames (M7 2)", () =>
+    {
+        var plan = PlanFor(LibraryLayout.InPlace);
+        var crash = Find(plan, "Crash Bandicoot");
+        return Rel(crash?.Target) == "PS1/Crash Bandicoot (USA).chd" ? null : Describe(plan);
+    });
+
+    Test("Cleanup: a dry run writes nothing (M7 8)", () =>
+    {
+        var before = Tree();
+        PlanFor(LibraryLayout.EsDe);
+        var after = Tree();
+        return before.SetEquals(after) ? null : $"changed: {string.Join(", ", after.Except(before).Concat(before.Except(after)))}";
+    });
+
+    NoIntrovert.Core.Cleanup.CleanupRun? firstRun = null;
+    Test("Cleanup: running the plan gives the ES-DE layout, multi-disc playlist and trash (M7 1, 3, 4)", () =>
+    {
+        firstRun = RunPlan(esdePlan!);
+        var tree = Tree();
+        var expected = new[]
+        {
+            "psx/Crash Bandicoot (USA).chd", "nes/Super Mario Bros. (World).7z", "nes/Metroid (USA).7z",
+            "psx/Epic (USA).m3u", "psx/hidden/Epic (USA) (Disc 1).chd", "psx/hidden/Epic (USA) (Disc 3).chd",
+            "NES/Zelda.nes", "NES/Unknown.nes", "Misc/loose.bin",
+        };
+        if (expected.FirstOrDefault(e => !tree.Contains(e)) is { } missing) return $"missing {missing}:\n{string.Join("\n", tree.Order())}";
+        if (tree.Any(t => t.StartsWith("PS1/") && !t.StartsWith("PS1/.")) || tree.Contains("NES/Mario.nes")) return $"originals left behind:\n{string.Join("\n", tree.Order())}";
+        if (!tree.Any(t => t.StartsWith(".noi-trash/") && t.EndsWith("Crash Bandicoot.bin"))) return "the originals aren't in the trash";
+        var m3u = File.ReadAllLines(G7("psx/Epic (USA).m3u"));
+        return m3u.SequenceEqual(Enumerable.Range(1, 3).Select(d => $"hidden/Epic (USA) (Disc {d}).chd")) ? null : string.Join(" | ", m3u);
+    });
+
+    Test("Cleanup: of two copies, the one in the layout folder stays (M7 5)", () =>
+    {
+        Directory.CreateDirectory(G7("Old/psx"));
+        File.Copy(G7("psx/Crash Bandicoot (USA).chd"), G7("Old/psx/Crash Bandicoot (USA).chd"));
+        var plan = PlanFor(LibraryLayout.EsDe);
+        var dup = plan.Steps.Where(s => s.Kind == NoIntrovert.Core.Cleanup.CleanupKind.RemoveDuplicate).Select(s => Rel(s.Sources[0])).ToList();
+        var stays = plan.Steps.Where(s => s.Game.StartsWith("Epic") && s.Kind != NoIntrovert.Core.Cleanup.CleanupKind.Untouched).ToList();
+        if (stays.Count > 0) return $"the discs in hidden/ would move again:\n{Describe(plan)}";
+        return dup.SequenceEqual(["Old/psx/Crash Bandicoot (USA).chd"]) ? null : Describe(plan);
+    });
+
+    Test("Cleanup: undo puts everything back, conversions included (M7 9)", () =>
+    {
+        var problems = NoIntrovert.Core.Cleanup.CleanupRunner.Undo(firstRun!, useBin: false, log);
+        if (problems.Count > 0) return string.Join(" | ", problems);
+        var tree = Tree();
+        var back = new[] { "PS1/Crash Bandicoot.cue", "PS1/Crash Bandicoot.bin", "PS1/Epic (USA) (Disc 2).cue", "NES/Mario.nes", "nes/Wrong Name.7z" };
+        if (back.FirstOrDefault(b => !tree.Contains(b)) is { } missing) return $"not restored: {missing}";
+        var gone = new[] { "psx/Crash Bandicoot (USA).chd", "nes/Super Mario Bros. (World).7z", "psx/Epic (USA).m3u", "nes/Metroid (USA).7z" };
+        return gone.FirstOrDefault(tree.Contains) is { } left ? $"still there: {left}" : null;
+    });
+
+    Test("Cleanup: after the trash is emptied, undo reverses moves but keeps conversions (M7 10)", () =>
+    {
+        File.Delete(G7("Old/psx/Crash Bandicoot (USA).chd"));
+        var run = RunPlan(PlanFor(LibraryLayout.EsDe));
+        NoIntrovert.Core.Cleanup.CleanupRunner.EmptyTrash(run, useBin: false, log);
+        var problems = NoIntrovert.Core.Cleanup.CleanupRunner.Undo(run, useBin: false, log);
+        var tree = Tree();
+        if (!tree.Contains("nes/Wrong Name.7z")) return "the rename wasn't undone";
+        if (!tree.Contains("psx/Crash Bandicoot (USA).chd")) return "a conversion whose originals are gone was undone anyway";
+        return problems.Any(p => p.Contains("no longer in the trash")) ? Note($"{problems.Count} kept") : string.Join(" | ", problems);
+    });
+}
+
 // ---- Library (M5): scanning folders into games ----
 
 Test("Library: titles drop disc markers, generic names use their folder", () =>

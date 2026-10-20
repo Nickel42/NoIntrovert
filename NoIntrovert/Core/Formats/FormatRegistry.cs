@@ -167,6 +167,8 @@ public sealed class FormatRegistry
         found.AddRange(set.Files.Where(byPath.ContainsKey).Select(f => byPath[f]));
         foreach (var dir in set.Folders)
         {
+            // NoIntrovert's own working folders (the Cleanup wizard's trash and staging, extraction staging).
+            if (Path.GetFileName(dir).StartsWith(".noi-", StringComparison.OrdinalIgnoreCase)) continue;
             if (byPath.TryGetValue(dir, out var whole)) found.Add(whole);
             else if (depth > 1) ScanInto(dir, depth - 1, found, isRoot: false);
         }
