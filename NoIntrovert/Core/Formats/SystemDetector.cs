@@ -62,7 +62,7 @@ public static class SystemDetector
             return FromFolders(where, root, s => s.Id == "playstation-2") ?? "playstation-portable";
         var candidates = TargetFormats.ByExtension(ext);
         if (candidates.Count == 1 && !Generic.Contains(ext)) return candidates[0].Id;
-        if (candidates.Count > 1) return FromFolders(where, root, candidates.Contains);
+        if (candidates.Count > 0) return FromFolders(where, root, candidates.Contains);
 
         // Disc images (and CHDs) belong to whichever disc system the folder names.
         if (IsDiscFile(name) || ext == ".chd") return FromFolders(where, root, TakesDiscs);

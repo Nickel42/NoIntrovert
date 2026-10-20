@@ -1672,6 +1672,26 @@ Test("Target formats: the guide's table and the registry agree on every system",
                 ? null : $"left alone: {string.Join(", ", left)}";
         });
 
+        Test("Target formats: per-file-type containers (MSX carts in 7z, its disks in zip, Amiga in zip)", () =>
+        {
+            var cases = new (string Rel, string Text)[]
+            {
+                ("MSX/Game.rom", "Convert → .7z"),
+                ("MSX/Disk.dsk", "Convert → .zip"),
+                ("Amiga/Game.adf", "Convert → .zip"),
+                ("Amiga/Game.lha", "Optimal"), // WHDLoad stays bare
+            };
+            foreach (var (rel, text) in cases)
+            {
+                var path = In(rel);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllBytes(path, TextBytes(4096));
+                var got = ConvertTargets.For(Identify(path), new AppSettings()).Plan.Text;
+                if (got != text) return $"{rel}: {got}, expected {text}";
+            }
+            return null;
+        });
+
         Test("Target formats: WBFS and CISO are left as is", () =>
         {
             foreach (var path in new[] { Put("Wii/Game.wbfs"), Put("Wii/Game.ciso") })
