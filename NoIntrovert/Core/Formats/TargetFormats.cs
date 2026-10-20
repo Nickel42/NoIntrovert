@@ -50,7 +50,7 @@ public sealed record SystemInfo(
 
     /// <summary>The container a file with <paramref name="extension"/> goes in (MSX disks in zip, WHDLoad .lha bare).</summary>
     public TargetContainer ContainerFor(string extension) =>
-        ContainerByExtension?.GetValueOrDefault(extension.ToLowerInvariant()) ?? Target.Container;
+        ContainerByExtension is not null && ContainerByExtension.TryGetValue(extension.ToLowerInvariant(), out var container) ? container : Target.Container;
 
     public bool IsOptimalContainer(TargetContainer container, string memberExtension) =>
         container == ContainerFor(memberExtension) || (AlsoOptimal?.Contains(container) ?? false);
