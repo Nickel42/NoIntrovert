@@ -2655,6 +2655,86 @@ Test("Wii U NUS: a personalised ticket is refused", () =>
     return o.Status == JobStatus.Failed && o.Summary.Contains("personalised") ? null : $"{o.Status}: {o.Summary}";
 });
 
+// Issue #21: the .wua goes next to a title's folder, as a CHD goes next to its disc
+// image, not inside it. Rows come from a real scan and the Convert planner.
+JobWork PlannedWua(IEnumerable<string> rowPaths, Action<AppSettings>? configure = null)
+{
+    var settings = new AppSettings { Keys = { WiiUKeysPath = encKeysTxt } };
+    configure?.Invoke(settings);
+    var plan = ConvertPlanner.Plan(rowPaths.Select(p => new PlanInput(p, TargetKind.Wua, 1)).ToList(), settings, log);
+    if (plan.Error is { } error) throw new InvalidOperationException(error);
+    return plan.Jobs.Count == 1 ? plan.Jobs[0].Work : throw new InvalidOperationException($"{plan.Jobs.Count} jobs planned");
+}
+
+string? WuaLandsIn(string label, JobWork work, string root, string expectFolder, Action<AppSettings>? configure = null)
+{
+    var before = Directory.GetFiles(root, "*.wua", SearchOption.AllDirectories).ToDictionary(f => f, File.GetLastWriteTimeUtc);
+    var o = RunJob(work, s => { s.Keys.WiiUKeysPath = encKeysTxt; s.Output.Overwrite = true; configure?.Invoke(s); });
+    if (o.Status != JobStatus.Succeeded) return $"{label}: {o.Status}: {o.Summary}";
+    var written = Directory.GetFiles(root, "*.wua", SearchOption.AllDirectories)
+        .Where(f => !before.TryGetValue(f, out var t) || File.GetLastWriteTimeUtc(f) != t).ToList();
+    if (written.Count != 1) return $"{label}: wrote {written.Count} .wua files ({string.Join(", ", written)})";
+    return PathNames.Comparer.Equals(Path.GetDirectoryName(written[0]), Path.GetFullPath(expectFolder))
+        ? null : $"{label}: the .wua went to {Path.GetDirectoryName(written[0])}, not {expectFolder}";
+}
+
+string? NothingWritten(string label, JobWork work, string root)
+{
+    var before = Directory.GetFiles(root, "*", SearchOption.AllDirectories).Length;
+    var o = RunJob(work, s => s.Keys.WiiUKeysPath = encKeysTxt);
+    var after = Directory.GetFiles(root, "*", SearchOption.AllDirectories).Length;
+    return o.Status == JobStatus.Failed && after == before ? null : $"{label}: {o.Status} ({after - before} new files)";
+}
+
+Test("Wii U: the .wua is written next to the title's folder, not inside it", () =>
+{
+    // A NUS folder, found by scanning its parent (the Convert page's folder drop).
+    var root = Dir("wiiu-next-to-nus");
+    var games = Path.Combine(root, "Games");
+    var nus = Path.Combine(games, "Mario Kart 8 [NUS]");
+    WiiUSample.CopyTree(nusGame, nus);
+    var scanned = FormatRegistry.Default.Scan(games, recursive: true);
+    if (scanned.Count != 1 || scanned[0].Format != KnownFormats.Nus) return $"the scan found {string.Join(", ", scanned.Select(s => $"{s.Primary} ({s.Format.Id})"))}";
+    if (ConvertTargets.For(scanned[0], new AppSettings()).Default.Kind != TargetKind.Wua) return "a NUS folder doesn't start on .wua";
+    JobWork Direct(string source) => c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, encBase, [source]);
+    var problems = new List<string?>
+    {
+        WuaLandsIn("NUS folder from a scan", PlannedWua(scanned.Select(s => s.Primary)), root, games),
+        // The NUS folder dropped on its own (a scan of it), and given with a trailing separator.
+        WuaLandsIn("NUS folder dropped", PlannedWua(FormatRegistry.Default.Scan(nus, true).Select(s => s.Primary)), root, games),
+        WuaLandsIn("NUS folder with a trailing separator", PlannedWua([nus + Path.DirectorySeparatorChar]), root, games),
+        // A file inside the NUS folder isn't a title: it fails without writing anything.
+        NothingWritten("a file inside the NUS folder", PlannedWua([Path.Combine(nus, "title.tmd")]), root),
+        // The output folder setting still wins.
+        WuaLandsIn("NUS folder with an output folder", PlannedWua([nus]), root, Path.Combine(root, "Out"), s => s.Output.Folder = Path.Combine(root, "Out")),
+    };
+
+    // A plain title folder (code/content/meta), and a file inside it.
+    var titleRoot = Dir("wiiu-next-to-title");
+    var titleGames = Path.Combine(titleRoot, "Games");
+    var title = Path.Combine(titleGames, "Encrypted Game");
+    WiiUSample.CopyTree(encTree, title);
+    var titleScan = FormatRegistry.Default.Scan(titleGames, true);
+    if (titleScan.Count != 1 || titleScan[0].Format != KnownFormats.WiiUFolder) return "the title folder wasn't found as one";
+    problems.Add(WuaLandsIn("title folder from a scan", PlannedWua(titleScan.Select(s => s.Primary)), titleRoot, titleGames));
+    problems.Add(WuaLandsIn("title folder with a trailing separator", PlannedWua([title + Path.DirectorySeparatorChar]), titleRoot, titleGames));
+    problems.Add(NothingWritten("a file inside the title folder", Direct(Path.Combine(title, "meta", "meta.xml")), titleRoot));
+
+    // A .wua with an update folder beside it: the merged .wua stays beside them, whichever row comes first.
+    var wuaRoot = Dir("wiiu-next-to-wua");
+    var wuaGames = Path.Combine(wuaRoot, "Games");
+    var made = RunJob(Direct(encTree), s => s.Output.Folder = wuaGames);
+    if (made.Status != JobStatus.Succeeded) return $"making the .wua: {made.Status}: {made.Summary}";
+    WiiUSample.CopyTree(encUpdateTree, Path.Combine(wuaGames, "Encrypted Game Update"));
+    var wuaScan = FormatRegistry.Default.Scan(wuaGames, true).Select(s => s.Primary).ToList();
+    if (wuaScan.Count != 2) return $"the .wua scan found {wuaScan.Count} inputs";
+    problems.Add(WuaLandsIn(".wua and an update folder", PlannedWua(wuaScan), wuaRoot, wuaGames));
+    problems.Add(WuaLandsIn("update folder and .wua", PlannedWua(Enumerable.Reverse(wuaScan)), wuaRoot, wuaGames));
+
+    var failed = problems.OfType<string>().ToList();
+    return failed.Count == 0 ? null : string.Join("; ", failed);
+});
+
 // ---- GameCube / Wii (libdolphinrvz) ---------------------------------------------
 
 var rvzProblem = (string?)null;

@@ -45,7 +45,8 @@ public static class WuaJobs
 
         var name = chosen.FirstOrDefault(t => t.Kind is WiiUTitleKind.Game or WiiUTitleKind.Demo && t.Name.Length > 0)?.Name
             ?? chosen.FirstOrDefault(t => t.Name.Length > 0)?.Name ?? "";
-        outputFolder ??= OutputPaths.FolderFor(s, sources[0]);
+        // Next to the first source, never inside it: "Game [NUS]\" would otherwise give the folder itself.
+        outputFolder ??= OutputPaths.FolderFor(s, ScanSet.Normalize(sources[0]));
         Directory.CreateDirectory(outputFolder);
         var output = Path.Combine(outputFolder, WiiUTitles.WuaFileName(baseId, name));
         var replacesInput = sources.Any(p => Path.GetFullPath(p).Equals(Path.GetFullPath(output), StringComparison.OrdinalIgnoreCase));
