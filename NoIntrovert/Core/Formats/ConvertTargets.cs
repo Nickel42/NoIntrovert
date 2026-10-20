@@ -99,7 +99,7 @@ public static class ConvertTargets
 
         // GameCube / Wii: the containers by name, plain .iso/.gcm by the disc header.
         var ext = Path.GetExtension(set.Primary).ToLowerInvariant();
-        if (ext is ".wbfs" or ".ciso") return Make(TargetChoice.Leave, TargetChoice.Rvz, TargetChoice.Leave); // Q3: with a warning
+        if (ext is ".wbfs" or ".ciso") return Make(TargetChoice.Leave, TargetChoice.Leave); // they don't record the disc's exact size
         if (ext == ".rvz") return Make(TargetChoice.Iso, TargetChoice.Iso, TargetChoice.Chd, TargetChoice.Leave);
         if (ext is ".gcz" or ".wia") return Make(nintendoDefault, TargetChoice.Rvz, TargetChoice.Chd, TargetChoice.Iso, TargetChoice.Leave);
         if (ext is ".tgc" or ".gcm" || (ext == ".iso" && File.Exists(set.Primary) && NintendoDisc.IsPlainDisc(set.Primary)))

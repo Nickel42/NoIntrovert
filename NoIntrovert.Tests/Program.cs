@@ -1405,7 +1405,7 @@ if (ArchiveEngine.IsAvailable(out _))
             ("game.rvz", "ISO, CHD, Leave as is", "Leave as is"),    // unknown system (its header is blank)
             ("gc.iso", "RVZ, CHD, Leave as is", "RVZ"),
             ("ps2.iso", "CHD, Leave as is", "Leave as is"),          // unknown system: left alone unless picked
-            ("w.wbfs", "RVZ, Leave as is", "Leave as is"),           // Q3: offered, with a warning
+            ("w.wbfs", "Leave as is", "Leave as is"),                // can't be converted yet (Future.md)
             ("Game (USA).zip", "CHD, 7z, Unpack files, Leave as is", "Leave as is"),
             ("NES.zip", "7z, Unpack files, Leave as is", "7z"),
             ("notes.txt", "7z, zip, Leave as is", "7z"),
@@ -1672,14 +1672,16 @@ Test("Target formats: the guide's table and the registry agree on every system",
                 ? null : $"left alone: {string.Join(", ", left)}";
         });
 
-        Test("Target formats: WBFS and CISO offer RVZ with a warning (Q3)", () =>
+        Test("Target formats: WBFS and CISO are left as is", () =>
         {
-            var wbfs = Put("Wii/Game.wbfs");
-            var o = ConvertTargets.For(Identify(wbfs), new AppSettings());
-            var choices = string.Join(", ", o.Choices.Select(c => c.Label));
-            if (choices != "RVZ, Leave as is" || o.Default != TargetChoice.Leave) return $"offers {choices}, starts on {o.Default}";
-            var plan = ConvertPlanner.Plan([new PlanInput(wbfs, TargetKind.Rvz, 1)], new AppSettings(), log);
-            return o.Plan.Warning is not null && plan.Warnings.Any(w => w.Contains("won't match Redump")) ? null : "no Redump warning";
+            foreach (var path in new[] { Put("Wii/Game.wbfs"), Put("Wii/Game.ciso") })
+            {
+                var o = ConvertTargets.For(Identify(path), new AppSettings());
+                var choices = string.Join(", ", o.Choices.Select(c => c.Label));
+                if (o.Plan.Status != TargetStatus.LeftAsIs || choices != "Leave as is")
+                    return $"{Path.GetFileName(path)}: {o.Plan.Status} \"{o.Plan.Text}\", offers {choices}";
+            }
+            return null;
         });
 
         // Runs the jobs the planner makes for each row's default, with results in their own folder.

@@ -70,7 +70,7 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
     /// <summary>Where the input stands against its system's target ("Optimal", "Convert → .7z"…; Convert page only).</summary>
     public string FormatStatus { get; init; } = "";
 
-    /// <summary>The system and any warning that goes with the conversion, for the status's tooltip.</summary>
+    /// <summary>The system's name, for the status's tooltip.</summary>
     public string FormatDetails { get; init; } = "";
 
     /// <summary>What this row becomes; changed by the row's own drop-down.</summary>

@@ -83,7 +83,7 @@ public static class ConvertPlanner
         var error = PlanPacking(rows, packs, settings, jobs);
 
         if (rows.Any(r => Path.GetExtension(r.Path).ToLowerInvariant() is ".wbfs" or ".ciso" && r.Target != TargetKind.Leave))
-            warnings.Add(TargetResolver.WbfsWarning + " libdolphinrvz doesn't convert them yet, so those rows will fail.");
+            warnings.Add("WBFS and CISO images can't be converted (they don't record the disc's exact size); convert them to ISO first.");
         var removes = rows.Where((r, i) => !left.Contains(i)).ToList();
         if (removes.Count > 0 && (settings.Output.RemoveOriginals || settings.Output.RemoveArchiveOriginals || settings.Output.RemoveWiiUOriginals))
         {

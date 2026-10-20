@@ -67,7 +67,7 @@ shows the recommendation with no Convert button, and each converter gets its own
   | Optimal | Already in its target format and container |
   | Convert → *target* | The app can produce the target |
   | Recommended: *target* (not yet supported) | D8 systems; no Convert button |
-  | Left as is | Arcade romsets (R5, D10), Dreamcast `.cdi` (D7), or a user override of *Leave as is* |
+  | Left as is | Arcade romsets (R5, D10), Dreamcast `.cdi` (D7), WBFS/CISO images (Q3), or a user override of *Leave as is* |
   | Unknown system | See FR-2 |
 
 - **FR-5 Convert defaults.** `ConvertTargets.For()` takes the resolved target (FR-12) as the row's
@@ -210,6 +210,7 @@ shows the recommendation with no Convert button, and each converter gets its own
   exported, as a DAT or CSV, from the Library page.
 - **Q2 Vita launcher extension:** the default is `.psvita`, which is what ES-DE's PS Vita system
   expects (the review said `.vita`). It can be changed in Settings.
-- **Q3 WBFS/CISO → RVZ:** allowed, with a warning on the row that the result won't match Redump:
-  these containers don't record the disc's exact size or its scrubbed data.
-  `ConvertTargets` stops offering only *Leave as is* for them.
+- **Q3 WBFS/CISO → RVZ:** deferred. These containers don't record the disc's exact size, and
+  libdolphinrvz (like Dolphin) refuses to convert them, so for now they are *Left as is* with no
+  other choice. The plan for converting them, with a warning that the result won't match Redump,
+  is in [Future.md](../../Future.md).

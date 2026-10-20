@@ -9,7 +9,7 @@ public enum TargetStatus
     Convert,
     /// <summary>The target is known but the app can't make it yet (D8): no Convert button.</summary>
     NotYetSupported,
-    /// <summary>Never touched: arcade romsets (R5, D10) and Dreamcast .cdi (D7).</summary>
+    /// <summary>Never touched: arcade romsets (R5, D10), Dreamcast .cdi (D7), WBFS and CISO images.</summary>
     LeftAsIs,
     /// <summary>The system couldn't be told (FR-2).</summary>
     UnknownSystem,
@@ -20,16 +20,14 @@ public enum TargetStatus
 /// its status, the target the row starts on (<see cref="TargetChoice.Leave"/>
 /// unless the status is <see cref="TargetStatus.Convert"/>), the registry's
 /// alternatives this input can be turned into, and the status as the pages
-/// show it ("Optimal", "Convert → .7z"…). <see cref="Warning"/> goes with the
-/// conversion (an RVZ made from WBFS won't match Redump).
+/// show it ("Optimal", "Convert → .7z"…).
 /// </summary>
 public sealed record TargetPlan(
     string? System,
     TargetStatus Status,
     TargetChoice Choice,
     string Text,
-    IReadOnlyList<TargetChoice> Alternatives,
-    string? Warning = null)
+    IReadOnlyList<TargetChoice> Alternatives)
 {
     public string SystemName => TargetFormats.NameOf(System);
 }
@@ -44,9 +42,6 @@ public sealed record TargetPlan(
 /// </summary>
 public static class TargetResolver
 {
-    public const string WbfsWarning =
-        "An RVZ made from WBFS or CISO won't match Redump: those containers don't record the disc's exact size or its scrubbed data.";
-
     public static TargetPlan Resolve(FileSet set, AppSettings settings, string? root = null, Func<string, string?>? chdProbe = null)
     {
         if (set.Format == ConvertTargets.OtherFile || set.Format == ConvertTargets.PackedFolder)
@@ -131,10 +126,9 @@ public static class TargetResolver
                 ? Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (unsupported Wii U input)")
                 : Plan(id, TargetStatus.Convert, choice, "Convert → .wua", alternatives);
 
-        // Q3: WBFS and CISO may become RVZ, with a warning; libdolphinrvz doesn't convert them yet.
+        // WBFS and CISO don't record the disc's exact size, which libdolphinrvz needs (see Future.md).
         if (ext is ".wbfs" or ".ciso")
-            return Plan(id, TargetStatus.NotYetSupported, TargetChoice.Leave, $"Recommended: {label} (not yet supported from {ext})",
-                [TargetChoice.Rvz, .. alternatives], WbfsWarning);
+            return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, $"Left as is ({ext} can't be converted yet)");
 
         if (choice is null || !(KnownFormats.DiscInputs.Contains(set.Format) || NintendoDisc.IsContainer(set.Primary)))
             return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is", alternatives);
@@ -215,6 +209,6 @@ public static class TargetResolver
     private static string Ext(string path) => Path.GetExtension(path).ToLowerInvariant();
 
     private static TargetPlan Plan(string? system, TargetStatus status, TargetChoice choice, string text,
-        IReadOnlyList<TargetChoice>? alternatives = null, string? warning = null) =>
-        new(system, status, choice, text, alternatives ?? [], warning);
+        IReadOnlyList<TargetChoice>? alternatives = null) =>
+        new(system, status, choice, text, alternatives ?? []);
 }

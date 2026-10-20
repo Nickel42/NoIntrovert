@@ -130,7 +130,7 @@ public partial class ConvertViewModel : BatchTabViewModel
         return new JobItemViewModel(path)
         {
             Targets = options.Choices, Target = options.Default, FormatStatus = plan.Text,
-            FormatDetails = plan.SystemName + (plan.Warning is null ? "" : "\n" + plan.Warning),
+            FormatDetails = plan.SystemName,
         };
     }
 
