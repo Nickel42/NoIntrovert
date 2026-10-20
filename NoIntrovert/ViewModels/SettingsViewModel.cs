@@ -36,6 +36,7 @@ public partial class SettingsViewModel : ViewModelBase
         Diagnostics = new DiagnosticsSettingsViewModel(settings, dialogs);
         Library = new LibrarySettingsViewModel(settings);
         Dats = new DatSettingsViewModel(settings, dialogs);
+        TargetFormats = new TargetFormatSettingsViewModel(settings, dialogs);
     }
 
     public GeneralSettingsViewModel General { get; }
@@ -48,9 +49,10 @@ public partial class SettingsViewModel : ViewModelBase
     public DiagnosticsSettingsViewModel Diagnostics { get; }
     public LibrarySettingsViewModel Library { get; }
     public DatSettingsViewModel Dats { get; }
+    public TargetFormatSettingsViewModel TargetFormats { get; }
 
     /// <summary>Every section, in the order the Settings page shows them.</summary>
-    public IReadOnlyList<SettingsSectionViewModel> Sections => [General, Library, Dats, Output, Performance, Chd, Nintendo, Archives, Keys, Diagnostics];
+    public IReadOnlyList<SettingsSectionViewModel> Sections => [General, Library, Dats, Output, Performance, Chd, Nintendo, Archives, TargetFormats, Keys, Diagnostics];
 
     public AppSettings Snapshot() => _s.Clone();
     public void Save() => _s.Save();

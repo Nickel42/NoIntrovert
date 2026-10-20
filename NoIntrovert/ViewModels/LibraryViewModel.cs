@@ -200,7 +200,7 @@ public partial class LibraryViewModel : ViewModelBase
             var progress = new InlineProgress<int>(n => Volatile.Write(ref found, n));
             var index = await Task.Run(() =>
             {
-                var scanned = LibraryScanner.Scan(folders, previous, progress, cts.Token);
+                var scanned = LibraryScanner.Scan(folders, previous, progress, cts.Token, _settings.Snapshot());
                 scanned.Save();
                 return scanned;
             }, cts.Token);

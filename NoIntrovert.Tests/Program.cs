@@ -1778,6 +1778,109 @@ Test("Target formats: the guide's table and the registry agree on every system",
     }
 }
 
+// ---- Target formats Phase 2: overrides (FR-12 to FR-14) ---------------------------
+
+if (ArchiveEngine.IsAvailable(out _))
+{
+    var ovr = Dir("overrides");
+    string P(string rel) => Path.Combine([ovr, .. rel.Split('/')]);
+    void Write(string rel, byte[] bytes) { Directory.CreateDirectory(Path.GetDirectoryName(P(rel))!); File.WriteAllBytes(P(rel), bytes); }
+    Write("NDS/Game.nds", TextBytes(2 * 1024 * 1024));
+    Write("NDS/Small.nds", TextBytes(64 * 1024));
+    Write("PSP/Game.cso", new byte[4096]);
+    Write("Switch/Game.xci", new byte[4096]);
+    Write("GBA/Game.gba", TextBytes(4096));
+    FileSet SetAt(string rel) => FormatRegistry.Default.Identify(P(rel))!;
+    TargetPlan PlanWith(string rel, params TargetOverride[] overrides)
+    {
+        var s = new AppSettings();
+        s.TargetFormats.Overrides.AddRange(overrides);
+        return TargetResolver.Resolve(SetAt(rel), s);
+    }
+
+    Test("Overrides: a file type in a system, then the system, then a file type everywhere, then the registry (FR-12)", () =>
+    {
+        var cases = new (TargetOverride[] Overrides, string Expected)[]
+        {
+            ([], "Convert → .7z"),
+            ([new("*", ".gba", "zip")], "Convert → .zip"),
+            ([new("*", ".gba", "zip"), new("game-boy-advance", null, "leave")], "Left as is (your setting)"),
+            ([new("game-boy-advance", null, "leave"), new("game-boy-advance", ".gba", "zip")], "Convert → .zip"),
+            ([new("game-boy-advance", null, "recommended"), new("*", ".gba", "zip")], "Convert → .7z"), // "recommended" is a choice too
+        };
+        foreach (var (overrides, expected) in cases)
+        {
+            var got = PlanWith("GBA/Game.gba", overrides).Text;
+            if (got != expected) return $"{string.Join(" + ", overrides.Select(o => $"{o.System}/{o.Extension}→{o.Target}"))}: {got}, expected {expected}";
+        }
+        return null;
+    });
+
+    Test("Overrides: Nintendo DS → zip makes Game.zip (Phase 2 acceptance 13)", () =>
+    {
+        var s = new AppSettings { TargetFormats = { Overrides = [new("nintendo-ds", null, "zip")] } };
+        var o = ConvertTargets.For(SetAt("NDS/Game.nds"), s);
+        if (o.Default != TargetChoice.Zip || o.Plan.Text != "Convert → .zip") return $"{o.Plan.Text}, starts on {o.Default}";
+        var outDir = Dir("overrides-out");
+        var plan = ConvertPlanner.Plan([new PlanInput(P("NDS/Game.nds"), o.Default.Kind, 1)], s, log);
+        foreach (var job in plan.Jobs)
+            if (RunJob(job.Work, x => x.Output.Folder = outDir) is { Status: not JobStatus.Succeeded } r) return r.Summary;
+        return File.Exists(Path.Combine(outDir, "Game.zip")) ? null : string.Join(", ", Directory.GetFiles(outDir).Select(Path.GetFileName));
+    });
+
+    Test("Overrides: every system's .cso left as is (acceptance 14), Switch → .xcz (17b)", () =>
+    {
+        var cso = PlanWith("PSP/Game.cso", new TargetOverride("*", ".cso", "leave"));
+        if (cso.Status != TargetStatus.LeftAsIs) return $"cso: {cso.Text}";
+        var xci = PlanWith("Switch/Game.xci", new TargetOverride("switch", null, "xcz"));
+        return xci.Text == "Recommended: .xcz (not yet supported)" ? null : $"xci: {xci.Text}";
+    });
+
+    Test("Overrides: D1 keeps a DS ROM above the size bare", () =>
+    {
+        var s = new AppSettings { TargetFormats = { DsBareAboveMb = 1 } };
+        var big = TargetResolver.Resolve(SetAt("NDS/Game.nds"), s);
+        var small = TargetResolver.Resolve(SetAt("NDS/Small.nds"), s);
+        return big.Status == TargetStatus.Optimal && small.Text == "Convert → .7z" ? null : $"big: {big.Text}; small: {small.Text}";
+    });
+
+    Test("Overrides: an unknown system or target is ignored and reported (FR-13)", () =>
+    {
+        var s = new AppSettings { TargetFormats = { Overrides = [new("not-a-system", null, "zip"), new("game-boy-advance", null, "xcz"), new("*", ".gba", "cso")] } };
+        var plan = TargetResolver.Resolve(SetAt("GBA/Game.gba"), s);
+        var problems = TargetOverrides.Problems(s.TargetFormats).ToList();
+        return plan.Text == "Convert → .7z" && problems.Count == 3 ? null : $"{plan.Text}; {problems.Count} problem(s): {string.Join(" | ", problems)}";
+    });
+
+    Test("Overrides: exported on one PC, imported on another, the same rows are marked (acceptance 19)", () =>
+    {
+        var first = new NoIntrovert.ViewModels.TargetFormatSettingsViewModel(new AppSettings(), null!);
+        first.Systems.First(r => r.System.Id == "nintendo-ds").Choice = first.Systems.First(r => r.System.Id == "nintendo-ds").Options.First(o => o.Id == "zip");
+        first.NewRuleSystem = first.RuleSystems.First(c => c.Value == "*");
+        first.NewRuleExtension = "cso";
+        first.NewRuleTarget = first.RuleTargets.First(t => t.Id == "leave");
+        first.AddRuleCommand.Execute(null);
+        var exported = System.Text.Json.JsonSerializer.Serialize(new AppSettings { TargetFormats = { Overrides = [new("nintendo-ds", null, "zip"), new("*", ".cso", "leave")] } }.TargetFormats.Overrides);
+
+        var second = new NoIntrovert.ViewModels.TargetFormatSettingsViewModel(new AppSettings(), null!);
+        var note = second.ImportFrom(exported);
+        string Marked(NoIntrovert.ViewModels.TargetFormatSettingsViewModel vm) =>
+            string.Join(", ", vm.Systems.Where(r => r.IsOverridden).Select(r => $"{r.System.Id}={r.Choice.Id}")) + " | " + string.Join(", ", vm.Rules.Select(r => r.Text));
+        return Marked(first) == Marked(second) ? Note(note) : $"{Marked(first)} ≠ {Marked(second)}";
+    });
+
+    Test("Overrides: the Library describes every file again when they change", () =>
+    {
+        var s = new AppSettings();
+        var first = NoIntrovert.Core.Library.LibraryScanner.Scan([ovr], null, null, CancellationToken.None, s);
+        var before = first.Items.Single(i => i.Path.EndsWith("Game.gba")).FormatStatusText;
+        s.TargetFormats.Overrides.Add(new("game-boy-advance", null, "leave"));
+        var second = NoIntrovert.Core.Library.LibraryScanner.Scan([ovr], first, null, CancellationToken.None, s);
+        var after = second.Items.Single(i => i.Path.EndsWith("Game.gba")).FormatStatusText;
+        return before == "Convert → .7z" && after == "Left as is (your setting)" ? null : $"{before} → {after}";
+    });
+}
+
 // ---- Verify & match (M6): DATs, hashing, matching --------------------------------
 
 Test("DATs: ClrMamePro and Logiqx XML read the same games", () =>

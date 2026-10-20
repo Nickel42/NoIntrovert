@@ -103,6 +103,9 @@ public sealed class LibraryIndex
 
     public int SchemaVersion { get; set; } = CurrentSchema;
     public DateTime ScannedUtc { get; set; }
+
+    /// <summary>The target settings the statuses were worked out under (<see cref="LibraryScanner.TargetSettingsKey"/>).</summary>
+    public string TargetSettingsKey { get; set; } = "";
     public List<LibraryItem> Items { get; set; } = [];
 
     /// <summary>Folders that couldn't be read at the last scan (unplugged drive, cloud folder offline).</summary>
