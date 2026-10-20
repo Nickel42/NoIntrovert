@@ -26,6 +26,7 @@ public sealed class AppSettings
     public DiagnosticsSettings Diagnostics { get; set; } = new();
     public LibrarySettings Library { get; set; } = new();
     public DatSettings Dats { get; set; } = new();
+    public TargetFormatSettings TargetFormats { get; set; } = new();
 
     /// <summary>
     /// Where settings and the library index live: %AppData%\NoIntrovert, or
@@ -221,6 +222,39 @@ public sealed class LibrarySettings
     /// <summary>Look through the folders again (only changed files are reread) when the app starts.</summary>
     public bool RescanOnStart { get; set; } = true;
 }
+
+/// <summary>
+/// Your changes to the recommended target formats (docs/target-formats.md,
+/// FR-13), and the options of the rules. A settings file without this
+/// section loads with these defaults, so the schema version stays 2.
+/// </summary>
+public sealed class TargetFormatSettings
+{
+    public List<TargetOverride> Overrides { get; set; } = [];
+
+    /// <summary>R7: the subfolder multi-disc games' discs go in, beside their .m3u.</summary>
+    public string MultiDiscFolder { get; set; } = "hidden";
+
+    /// <summary>R12, D6: fix byte order and copier headers (.v64 → .z64, …).</summary>
+    public bool NormalizeHeaders { get; set; }
+
+    /// <summary>D1: Nintendo DS ROMs bigger than this stay bare; 0 = off.</summary>
+    public int DsBareAboveMb { get; set; }
+
+    /// <summary>R11: keep the original No-Intro/Redump hashes of converted files in the library index.</summary>
+    public bool RecordOriginalHashes { get; set; } = true;
+
+    public bool WriteVitaLauncher { get; set; }
+    public string VitaLauncherExtension { get; set; } = ".psvita";
+}
+
+/// <summary>
+/// One change to a target: for a system (a registry id, or "*" for every
+/// system), optionally only for one file type, the target to use instead:
+/// "recommended", "leave", or one of the system's alternatives ("zip", "7z",
+/// "bare", "xcz"…).
+/// </summary>
+public sealed record TargetOverride(string System, string? Extension, string Target);
 
 /// <summary>The game databases (No-Intro and Redump DATs) Verify &amp; match uses.</summary>
 public sealed class DatSettings

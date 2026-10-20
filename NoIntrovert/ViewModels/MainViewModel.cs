@@ -79,6 +79,7 @@ public partial class MainViewModel : ViewModelBase
         Settings.Diagnostics.LibraryVersions = $"{LibraryVersion}\n{RvzLibraryVersion}";
 
         WorkPaths.SweepStale(settings.Performance.EffectiveTempFolder);
+        foreach (var problem in Core.Formats.TargetOverrides.Problems(settings.TargetFormats)) Log.Warn($"Target formats: {problem}");
     }
 
     public SettingsViewModel Settings { get; }
