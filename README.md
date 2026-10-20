@@ -10,7 +10,7 @@ Workflow on every tab: **pick files → choose options → run the batch → rea
 | Tab | What it does |
 |---|---|
 | Convert | Any supported image → CHD (GameCube/Wii discs → RVZ, or CHD if you choose), optional verify, optional removal of the originals (Recycle Bin by default, and only after the CHD verifies) |
-| Verify | Checks CHDs against their stored SHA-1; can fix a wrong header SHA-1 |
+| Verify & match | Checks each game for damage (CHDs against their stored SHA-1, 7z and zip by testing every file), then looks it up in the No-Intro and Redump databases: a good dump, a misnamed one (with the name it should have), or not in the database. The databases come from [libretro-database](https://github.com/libretro/libretro-database), only for the systems in your Library, checked for updates when the app starts ([requirement](docs/requirements/verify-match.md)) |
 | Extract | CHD → cue/bin (one bin per track or a single bin), gdi, iso (DVDs, and single-track data CDs) or raw img; RVZ/WIA/GCZ → iso |
 | Archive | Files and folders → .7z or .zip (one archive per item, one per file/subfolder in a folder, or one for everything), zip ↔ 7z conversion, and extracting zip/7z (into a folder per archive or straight into the output folder); tests each archive and can remove the originals |
 | CHD Info | Header fields, metadata (copy, save an item to a file), hunk counts per codec |

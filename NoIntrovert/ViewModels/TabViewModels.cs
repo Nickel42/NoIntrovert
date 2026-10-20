@@ -9,15 +9,26 @@ using NoIntrovert.Services;
 
 namespace NoIntrovert.ViewModels;
 
+/// <summary>
+/// Verify &amp; match (M6): checks each input's own integrity, then looks its
+/// hashes up in the No-Intro and Redump databases and says what it should be called.
+/// </summary>
 public partial class VerifyViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
     : BatchTabViewModel(settings, log, dialogs, queue)
 {
-    public override string Title => "Verify";
-    public override string StartLabel => "Verify CHDs";
-    public override string EmptyHint => "Drop CHD files or folders here to check their data against the stored SHA-1.";
-    protected override string FilterName => "CHD files";
-    protected override IReadOnlyList<FormatInfo> InputFormats { get; } = [KnownFormats.Chd];
-    protected override JobOutcome Work(JobContext context, JobItemViewModel item) => ChdJobs.Verify(context, item.Path);
+    public override string Title => "Verify & match";
+    public override string StartLabel => "Verify";
+    public override string EmptyHint =>
+        "Drop games here: ROMs, archives, disc images, CHDs, GameCube/Wii discs.\n" +
+        "Each is checked for damage, then looked up in the No-Intro and Redump databases, which say whether it's a good dump and what it should be called.";
+    protected override string FilterName => "Games";
+    protected override IReadOnlyList<FormatInfo>? InputFormats => null;
+    protected override bool Accepts(string path) => FormatRegistry.Default.Identify(path) is not null;
+
+    /// <summary>A folder brings in every input the registry finds in it.</summary>
+    protected override IEnumerable<string> ItemsForFolder(string folder) =>
+        FormatRegistry.Default.Scan(folder, Settings.Output.ScanSubfolders).Select(s => s.Primary).ToList();
+    protected override JobOutcome Work(JobContext context, JobItemViewModel item) => Core.Dats.VerifyJobs.Check(context, item.Path);
 }
 
 public partial class TestsViewModel : BatchTabViewModel

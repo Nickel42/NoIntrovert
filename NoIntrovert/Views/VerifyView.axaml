@@ -10,12 +10,17 @@
         <ScrollViewer Grid.Column="1">
             <Border Classes="card">
                 <StackPanel Spacing="4">
-                    <TextBlock Text="VERIFY CHDS" Classes="section" Margin="0,0,0,4" />
-                    <TextBlock Classes="hint"
-                               Text="Reads every hunk, decompresses it and checks the result against the SHA-1 stored in the CHD header." />
+                    <TextBlock Text="VERIFY &amp; MATCH" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap"
+                               Text="Each game is checked for damage first (CHDs against their stored SHA-1, 7z and zip by testing every file), then hashed and looked up in the No-Intro and Redump databases. Hashes are remembered, so an unchanged file is never hashed twice." />
+
+                    <TextBlock Text="GAME DATABASES" Classes="section" />
+                    <TextBlock Classes="hint" Text="{Binding Settings.Dats.Status}" TextWrapping="Wrap" />
+                    <Button Classes="tool" Content="Update now" Command="{Binding Settings.Dats.UpdateNowCommand}" HorizontalAlignment="Left"
+                            ToolTip.Tip="Download newer databases from libretro-database for the systems in your Library" />
 
                     <TextBlock Text="OPTIONS" Classes="section" />
-                    <CheckBox Content="Fix a wrong header SHA-1" IsChecked="{Binding Settings.Chd.FixHeaderSha1}"
+                    <CheckBox Content="Fix a CHD's wrong header SHA-1" IsChecked="{Binding Settings.Chd.FixHeaderSha1}"
                               ToolTip.Tip="Rewrites the SHA-1 in the header when the data is intact but the stored hash is wrong (chdman verify --fix)." />
                     <TextBlock Classes="hint" Text="Fixing changes the CHD file in place." IsVisible="{Binding Settings.Chd.FixHeaderSha1}" />
 

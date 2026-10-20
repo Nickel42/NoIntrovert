@@ -31,7 +31,8 @@ public sealed record TargetAlternative(string Id, string Label, bool Producible)
 /// One system in the registry. <see cref="Extensions"/> are the files it's
 /// recognised by (an extension several systems share is decided by folder),
 /// <see cref="Folders"/> the folder names people use for it, compared as
-/// lower-case letters and digits only.
+/// lower-case letters and digits only. <see cref="Dats"/> names the
+/// libretro-database DATs that cover it ("no-intro/Nintendo - Game Boy").
 /// </summary>
 public sealed record SystemInfo(
     string Id,
@@ -44,7 +45,8 @@ public sealed record SystemInfo(
     IReadOnlyList<string> Rules,
     IReadOnlyDictionary<string, TargetContainer>? ContainerByExtension = null,
     IReadOnlyList<TargetContainer>? AlsoOptimal = null,
-    string? DiscTarget = null)
+    string? DiscTarget = null,
+    IReadOnlyList<string>? Dats = null)
 {
     public bool Follows(string rule) => Rules.Contains(rule);
 

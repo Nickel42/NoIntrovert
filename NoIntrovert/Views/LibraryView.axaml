@@ -106,7 +106,7 @@
                 <Border Grid.Row="5" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="12,10">
                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                         <Button Content="Verify selected" Command="{Binding VerifySelectedCommand}"
-                                ToolTip.Tip="Send the selected games' CHDs to the Verify page." />
+                                ToolTip.Tip="Send the selected games to Verify &amp; match, to check them for damage and against the No-Intro and Redump databases." />
                         <Button Classes="primary" Content="Convert selected" Command="{Binding ConvertSelectedCommand}"
                                 ToolTip.Tip="Send what still needs converting in the selected games to the Convert page." />
                     </StackPanel>
@@ -131,6 +131,8 @@
                             <TextBlock Text="{Binding StatusText}" />
                         </StackPanel>
 
+                        <TextBlock Text="{Binding MatchSummary}" Classes="hint" TextWrapping="Wrap" />
+
                         <TextBlock Text="FILES" Classes="section" />
                         <ItemsControl ItemsSource="{Binding Files}">
                             <ItemsControl.ItemTemplate>
@@ -141,6 +143,7 @@
                                             <TextBlock Classes="hint" FontSize="11">
                                                 <Run Text="{Binding Format}" /><Run Text=" · " /><Run Text="{Binding Size}" /><Run Text=" " /><Run Text="{Binding Disc}" />
                                             </TextBlock>
+                                            <TextBlock Text="{Binding Match}" FontSize="11" TextWrapping="Wrap" IsVisible="{Binding HasMatch}" />
                                             <TextBlock Text="{Binding FormatStatus}" FontSize="11" TextWrapping="Wrap"
                                                        ToolTip.Tip="Where this file stands against its system's target format (see Settings → Target formats guide)." />
                                             <TextBlock Text="{Binding Folder}" Classes="hint" FontSize="11" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding Folder}" />

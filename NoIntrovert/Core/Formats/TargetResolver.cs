@@ -36,9 +36,9 @@ public sealed record TargetPlan(
 /// Applies the rules of docs/target-formats.md to one input: finds its system,
 /// looks inside a zip or 7z (members and their compression methods), and
 /// decides whether it's already optimal or what it should become.
-/// Phase 1 covers R1–R5, R8–R10 and R13 with the existing CHD, RVZ, WUA and
-/// archive jobs; overrides (FR-12) aren't applied yet, so the registry's
-/// target is the resolved one.
+/// It covers R1–R5, R8–R10 and R13 with the existing CHD, RVZ, WUA and
+/// archive jobs, on the target your overrides resolve to (FR-12,
+/// <see cref="TargetOverrides"/>).
 /// </summary>
 public static class TargetResolver
 {
@@ -68,16 +68,18 @@ public static class TargetResolver
         // D7: chdman can't convert DiscJuggler images reliably.
         if (id == "dreamcast" && contents.Contains(".cdi")) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (.cdi, D7)");
 
-        var target = system.Target;
+        // FR-12: your overrides, then the registry's target (and D1).
+        var (resolved, overridden) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
+        if (resolved is not { } target) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (your setting)", alternatives);
         var isDisc = set.Format == KnownFormats.Chd || KnownFormats.TakesDisc(set) || KnownFormats.TakesWiiU(set)
                      || NintendoDisc.IsContainer(set.Primary) || contents.Any(c => NintendoDisc.IsContainer("x" + c));
-        if (system.DiscTarget is { } discFormat && isDisc)
+        if (system.DiscTarget is { } discFormat && isDisc && !overridden)
             target = target with { Format = discFormat, Container = TargetContainer.Bare, Label = discFormat, Producible = true };
 
         if (target.Container == TargetContainer.Bare)
             return Bare(set, system, target, isArchive, contents, alternatives, settings);
         if (target.Container is TargetContainer.SevenZip or TargetContainer.Zip)
-            return Packed(set, system, target, isArchive, members, ext, alternatives);
+            return Packed(set, system, target, overridden, isArchive, members, ext, alternatives);
 
         // Folder targets: ScummVM games are unpacked; PS3 folders can't be made yet.
         if (!target.Producible) return NotYet(id, target, alternatives);
@@ -101,15 +103,20 @@ public static class TargetResolver
             ".rvz" when settings.Nintendo.Target == Jobs.NintendoTarget.Chd => TargetChoice.Chd,
             ".rvz" => TargetChoice.Rvz,
             ".wua" => TargetChoice.Wua,
+            // A plain image chosen in place of a CHD or RVZ: extract or decode it back.
+            ".iso" or ".cue" or ".gdi" when set.Format == KnownFormats.Chd => TargetChoice.DiscImage,
+            ".iso" when NintendoDisc.IsDecodable(set.Primary) => TargetChoice.Iso,
             _ => null,
         };
-        var label = choice == TargetChoice.Chd ? ".chd" : targetExt;
+        var label = choice == TargetChoice.Chd ? ".chd" : targetExt == ".cue" ? "cue/bin" : targetExt;
 
         if (!isArchive && (ext == targetExt || (id == "wii-u" && set.Format == KnownFormats.Wua)))
             return id == "xbox" && !DiscProbe.IsXiso(set.Primary)
                 ? NotYet(id, target, alternatives)
                 : Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
-        if (!target.Producible) return NotYet(id, target, alternatives, ext == ".xci" ? "repack to NSP first" : null);
+        if (!target.Producible) return NotYet(id, target, alternatives, ext == ".xci" && targetExt == ".nsz" ? "repack to NSP first" : null);
+        if (choice == TargetChoice.DiscImage || choice == TargetChoice.Iso)
+            return Plan(id, TargetStatus.Convert, choice, $"Convert → {label}", alternatives);
 
         if (isArchive)
         {
@@ -136,13 +143,15 @@ public static class TargetResolver
     }
 
     /// <summary>Single-file 7z (R1, R8, D9) and zip for the computer systems (R9).</summary>
-    private static TargetPlan Packed(FileSet set, SystemInfo system, SystemTarget target, bool isArchive, IReadOnlyList<ArchiveMember>? members,
-        string ext, IReadOnlyList<TargetChoice> alternatives)
+    private static TargetPlan Packed(FileSet set, SystemInfo system, SystemTarget target, bool overridden, bool isArchive,
+        IReadOnlyList<ArchiveMember>? members, string ext, IReadOnlyList<TargetChoice> alternatives)
     {
         var id = system.Id;
+        // The registry's per-file-type containers (MSX disks in zip) give way to a container you chose.
+        TargetContainer ContainerFor(string e) => overridden ? target.Container : system.ContainerFor(e);
         if (!isArchive)
         {
-            var wanted = system.ContainerFor(ext);
+            var wanted = ContainerFor(ext);
             if (wanted == TargetContainer.Bare) return Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
             if (!target.Producible) return NotYet(id, target, alternatives);
             return Plan(id, TargetStatus.Convert, ChoiceFor(wanted), $"Convert → {Label(wanted)}", alternatives);
@@ -156,9 +165,10 @@ public static class TargetResolver
             return Plan(id, TargetStatus.NotYetSupported, TargetChoice.Leave, "Recommended: one .7z per game (not yet supported)", alternatives);
 
         var has = Ext(set.Primary) switch { ".7z" => TargetContainer.SevenZip, ".zip" => TargetContainer.Zip, _ => TargetContainer.Leave };
-        var want = system.ContainerFor(Ext(roms[0].Name));
+        var want = ContainerFor(Ext(roms[0].Name));
         if (want == TargetContainer.Bare) return Plan(id, TargetStatus.Convert, TargetChoice.Files, "Convert → bare file (unpack)", alternatives);
-        if (system.IsOptimalContainer(has, Ext(roms[0].Name)) && MethodsFit(has, members))
+        var optimal = overridden ? has == want : system.IsOptimalContainer(has, Ext(roms[0].Name));
+        if (optimal && MethodsFit(has, members))
             return Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
         if (!target.Producible) return NotYet(id, target, alternatives);
         if (has == want)

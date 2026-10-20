@@ -1,0 +1,167 @@
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text.Json;
+
+namespace NoIntrovert.Core.Dats;
+
+/// <summary>
+/// One hashed file of an input: its name, size, CRC32 and SHA-1 (upper-case
+/// hex; SHA-1 is null for archive members, whose CRC32 comes from the
+/// archive's headers). <see cref="Headerless"/> marks the same ROM hashed
+/// without its header.
+/// </summary>
+public sealed record HashedFile(string Name, long Size, string Crc, string? Sha1, bool Headerless = false);
+
+/// <summary>Size, CRC32 and SHA-1 in one pass, plus the headerless form of headered ROMs (FR-5).</summary>
+public static class Hasher
+{
+    /// <summary>The file, and for a headered ROM the file without its header.</summary>
+    public static List<HashedFile> HashFile(string path, CancellationToken token = default)
+    {
+        var name = Path.GetFileName(path);
+        var list = new List<HashedFile> { Hash(path, 0, name, token) };
+        var skip = HeaderSize(path);
+        if (skip > 0) list.Add(Hash(path, skip, name, token) with { Headerless = true });
+        return list;
+    }
+
+    private static HashedFile Hash(string path, long skip, string name, CancellationToken token)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, FileOptions.SequentialScan);
+        stream.Position = skip;
+        var crc = new System.IO.Hashing.Crc32();
+        using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+        var buffer = new byte[1 << 20];
+        long size = 0;
+        int read;
+        while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            token.ThrowIfCancellationRequested();
+            crc.Append(buffer.AsSpan(0, read));
+            sha.AppendData(buffer, 0, read);
+            size += read;
+        }
+        return new HashedFile(name, size, crc.GetCurrentHashAsUInt32().ToString("X8"), Convert.ToHexString(sha.GetHashAndReset()));
+    }
+
+    /// <summary>
+    /// How many bytes of header a ROM carries that some DATs leave out: iNES
+    /// and fwNES (16), Lynx (64), Atari 7800 (128), and a SNES copier header
+    /// (512, when the size is 512 more than a multiple of 1 KiB). 0 for none.
+    /// </summary>
+    public static int HeaderSize(string path)
+    {
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        Span<byte> head = stackalloc byte[16];
+        long length;
+        try
+        {
+            using var s = File.OpenRead(path);
+            length = s.Length;
+            if (s.ReadAtLeast(head, head.Length, throwOnEndOfStream: false) < head.Length) return 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return 0; }
+        return ext switch
+        {
+            ".nes" when head[..4].SequenceEqual("NES\x1A"u8) => 16,
+            ".fds" when head[..4].SequenceEqual("FDS\x1A"u8) => 16,
+            ".lnx" when head[..4].SequenceEqual("LYNX"u8) => 64,
+            ".a78" when head[1..10].SequenceEqual("ATARI7800"u8) => 128,
+            ".sfc" or ".smc" or ".swc" or ".fig" when length % 1024 == 512 => 512,
+            _ => 0,
+        };
+    }
+}
+
+/// <summary>
+/// Hashes already worked out (FR-6), kept in <c>hashes.json</c> beside the
+/// settings and keyed by path, size and modification time, so an unchanged
+/// input is never hashed twice.
+/// </summary>
+public sealed class HashCache
+{
+    public sealed record Entry(long Size, long Ticks, IReadOnlyList<HashedFile> Files);
+
+    private static readonly ConcurrentDictionary<string, HashCache> Caches = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly JsonSerializerOptions JsonOptions = new();
+    private readonly ConcurrentDictionary<string, Entry> _entries;
+    private readonly string _path;
+
+    private HashCache(string path)
+    {
+        _path = path;
+        Dictionary<string, Entry>? loaded = null;
+        try
+        {
+            if (File.Exists(path)) loaded = JsonSerializer.Deserialize<Dictionary<string, Entry>>(File.ReadAllText(path), JsonOptions);
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
+        _entries = new ConcurrentDictionary<string, Entry>(loaded ?? [], StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The cache under the current settings folder.</summary>
+    public static HashCache Default => Caches.GetOrAdd(Path.Combine(AppSettings.SettingsDirectory, "hashes.json"), p => new HashCache(p));
+
+    public bool IsDirty => _dirty;
+
+    /// <summary>How many lookups found what they needed (tests use it to check nothing was hashed again).</summary>
+    public int Hits;
+
+    /// <summary>The input's hashes, from the cache while <paramref name="path"/> is unchanged, else from <paramref name="hash"/>.</summary>
+    public IReadOnlyList<HashedFile> GetOrAdd(string path, Func<IReadOnlyList<HashedFile>> hash)
+    {
+        var (size, ticks) = Stamp(path);
+        if (_entries.TryGetValue(path, out var e) && e.Size == size && e.Ticks == ticks)
+        {
+            Interlocked.Increment(ref Hits);
+            return e.Files;
+        }
+        var files = hash();
+        _entries[path] = new Entry(size, ticks, files);
+        if (DateTime.UtcNow - _saved > TimeSpan.FromSeconds(2)) Flush();
+        else _dirty = true;
+        return files;
+    }
+
+    /// <summary>Total size and newest change of a file, or of a folder's files.</summary>
+    public static (long Size, long Ticks) Stamp(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                var f = new FileInfo(path);
+                return (f.Length, f.LastWriteTimeUtc.Ticks);
+            }
+            if (Directory.Exists(path))
+            {
+                var files = new DirectoryInfo(path).EnumerateFiles("*", SearchOption.AllDirectories).ToList();
+                return (files.Sum(f => f.Length), files.Count == 0 ? 0 : files.Max(f => f.LastWriteTimeUtc.Ticks));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        return (-1, 0);
+    }
+
+    private readonly object _saveLock = new();
+    private DateTime _saved;
+    private volatile bool _dirty;
+
+    /// <summary>Writes the cache now. It's written at most every two seconds while hashing; a run flushes it at the end.</summary>
+    public void Flush()
+    {
+        lock (_saveLock)
+        {
+            _saved = DateTime.UtcNow;
+            _dirty = false;
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+                var temp = _path + ".tmp";
+                File.WriteAllText(temp, JsonSerializer.Serialize(_entries, JsonOptions));
+                File.Move(temp, _path, overwrite: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
+}

@@ -14,16 +14,21 @@ namespace NoIntrovert.Core.Library;
 /// </summary>
 public static partial class LibraryScanner
 {
-    public static LibraryIndex Scan(IReadOnlyList<string> roots, LibraryIndex? previous, IProgress<int>? progress, CancellationToken token)
+    public static LibraryIndex Scan(IReadOnlyList<string> roots, LibraryIndex? previous, IProgress<int>? progress, CancellationToken token,
+        AppSettings? settings = null)
     {
+        settings ??= new AppSettings();
+        // Statuses depend on your target overrides: when they changed, every item is described again
+        // (archives still aren't reopened: their contents are remembered below).
+        var key = TargetSettingsKey(settings);
+        var reuse = previous?.TargetSettingsKey == key;
         var old = (previous?.Items ?? []).GroupBy(i => i.Path, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         // Archives that haven't changed keep what they were seen to hold, so they're not opened again.
         foreach (var item in old.Values.Where(i => i.Inside is not null))
             ArchivePeek.Remember(item.Path, item.Size, item.ModifiedTicks, item.Inside!);
 
-        var index = new LibraryIndex { ScannedUtc = DateTime.UtcNow };
-        var settings = new AppSettings();
+        var index = new LibraryIndex { ScannedUtc = DateTime.UtcNow, TargetSettingsKey = key };
         Chdman? chdman = null;
         try
         {
@@ -46,7 +51,7 @@ public static partial class LibraryScanner
                 {
                     token.ThrowIfCancellationRequested();
                     var (size, ticks) = Stamp(set);
-                    if (old.TryGetValue(set.Primary, out var known) && known.Size == size && known.ModifiedTicks == ticks
+                    if (reuse && old.TryGetValue(set.Primary, out var known) && known.Size == size && known.ModifiedTicks == ticks
                         && known.FormatId == set.Format.Id && string.Equals(known.Root, root, StringComparison.OrdinalIgnoreCase))
                         index.Items.Add(known);
                     else
@@ -61,6 +66,10 @@ public static partial class LibraryScanner
         }
         return index;
     }
+
+    /// <summary>The settings a status depends on, as text: an index made under others is described again.</summary>
+    public static string TargetSettingsKey(AppSettings settings) =>
+        System.Text.Json.JsonSerializer.Serialize(new { settings.TargetFormats.Overrides, settings.TargetFormats.DsBareAboveMb, settings.Nintendo.Target });
 
     /// <summary>Total size and newest change of an input's files (a cue and its bins, a title folder's files).</summary>
     private static (long Size, long Ticks) Stamp(FileSet set)
