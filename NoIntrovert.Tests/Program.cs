@@ -1400,13 +1400,13 @@ if (ArchiveEngine.IsAvailable(out _))
         var settings = new AppSettings();
         var cases = new (string Name, string Choices, string Default)[]
         {
-            ("a.cue", "CHD, Leave as is", "CHD"),
-            ("x.chd", "Disc image, Leave as is", "Disc image"),
-            ("game.rvz", "ISO, CHD, Leave as is", "ISO"),
+            ("a.cue", "CHD, Leave as is", "CHD"),                    // a CD of no particular system: a CHD all the same
+            ("x.chd", "Disc image, Leave as is", "Leave as is"),     // already optimal
+            ("game.rvz", "ISO, CHD, Leave as is", "Leave as is"),    // unknown system (its header is blank)
             ("gc.iso", "RVZ, CHD, Leave as is", "RVZ"),
-            ("ps2.iso", "CHD, Leave as is", "CHD"),
-            ("w.wbfs", "Leave as is", "Leave as is"),
-            ("Game (USA).zip", "CHD, 7z, Unpack files, Leave as is", "CHD"),
+            ("ps2.iso", "CHD, Leave as is", "Leave as is"),          // unknown system: left alone unless picked
+            ("w.wbfs", "Leave as is", "Leave as is"),                // can't be converted yet (Future.md)
+            ("Game (USA).zip", "CHD, 7z, Unpack files, Leave as is", "Leave as is"),
             ("NES.zip", "7z, Unpack files, Leave as is", "7z"),
             ("notes.txt", "7z, zip, Leave as is", "7z"),
             ("Saves", "7z, zip, Leave as is", "7z"),
@@ -1477,6 +1477,307 @@ if (ArchiveEngine.IsAvailable(out _))
     });
 }
 
+// ---- Target formats (docs/target-formats.md, Phase 1) --------------------------
+
+Test("Target formats: the guide's table and the registry agree on every system", () =>
+{
+    var guide = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "docs", "target-formats.md"));
+    if (!File.Exists(guide)) return $"{guide} not found";
+    var text = File.ReadAllText(guide);
+    var table = text[text.IndexOf("## Per-system targets", StringComparison.Ordinal)..text.IndexOf("## Overriding the defaults", StringComparison.Ordinal)];
+    var rows = table.Split('\n').Select(l => l.Trim())
+        .Where(l => l.StartsWith("| ") && !l.StartsWith("| System") && !l.StartsWith("|---"))
+        .Select(l => l.Split('|').Select(c => c.Trim()).ToArray())
+        .Select(c => (Id: c[2].Trim('`'), Target: c[3], Container: c[4]))
+        .ToList();
+    if (rows.Count == 0) return "no systems found in the guide";
+    var registry = TargetFormats.All;
+    if (registry.Select(s => s.Id).Distinct().Count() != registry.Count) return "the registry repeats an id";
+    var missing = rows.Select(r => r.Id).Except(registry.Select(s => s.Id)).Concat(registry.Select(s => s.Id).Except(rows.Select(r => r.Id))).ToList();
+    if (missing.Count > 0) return $"only in one of them: {string.Join(", ", missing)}";
+    foreach (var (id, target, container) in rows)
+    {
+        var s = TargetFormats.ById(id)!;
+        if (s.Target.Label != target) return $"{id}: the guide's target is \"{target}\", the registry's \"{s.Target.Label}\"";
+        var word = new string(container.TakeWhile(char.IsLetterOrDigit).ToArray());
+        var expected = word switch
+        {
+            "bare" => TargetContainer.Bare, "7z" => TargetContainer.SevenZip, "zip" => TargetContainer.Zip, "folder" => TargetContainer.Folder,
+            _ => (TargetContainer?)null,
+        };
+        if (expected != s.Target.Container) return $"{id}: the guide's container is \"{container}\", the registry's {s.Target.Container}";
+    }
+    return Note($"{rows.Count} systems");
+});
+
+{
+    var sysDir = Dir("systems");
+    string Put(string rel, byte[]? bytes = null)
+    {
+        var p = Path.Combine([sysDir, .. rel.Split('/')]);
+        Directory.CreateDirectory(Path.GetDirectoryName(p)!);
+        File.WriteAllBytes(p, bytes ?? new byte[4096]);
+        return p;
+    }
+    string ZipOf(string rel, params string[] entries)
+    {
+        var p = Put(rel, []);
+        File.Delete(p);
+        using var z = ZipFile.Open(p, ZipArchiveMode.Create);
+        foreach (var e in entries) using (var w = new StreamWriter(z.CreateEntry(e).Open())) w.Write("rom");
+        return p;
+    }
+    // A tiny ISO 9660 image whose SYSTEM.CNF says how the console boots it.
+    byte[] PlayStationIso(string systemCnf)
+    {
+        var iso = new byte[20 * 2048];
+        var pvd = 16 * 2048;
+        iso[pvd] = 1;
+        "CD001"u8.CopyTo(iso.AsSpan(pvd + 1));
+        System.Text.Encoding.ASCII.GetBytes("PLAYSTATION".PadRight(32)).CopyTo(iso, pvd + 8);
+        BitConverter.TryWriteBytes(iso.AsSpan(pvd + 156 + 2), 18u); // root directory at sector 18
+        BitConverter.TryWriteBytes(iso.AsSpan(pvd + 156 + 10), 2048u);
+        var dir = 18 * 2048;
+        var name = "SYSTEM.CNF;1"u8;
+        iso[dir] = (byte)(33 + name.Length + 1);
+        BitConverter.TryWriteBytes(iso.AsSpan(dir + 2), 19u);
+        BitConverter.TryWriteBytes(iso.AsSpan(dir + 10), (uint)systemCnf.Length);
+        iso[dir + 32] = (byte)name.Length;
+        name.CopyTo(iso.AsSpan(dir + 33));
+        System.Text.Encoding.ASCII.GetBytes(systemCnf).CopyTo(iso, 19 * 2048);
+        return iso;
+    }
+    byte[] Header(int size, params (int Offset, byte[] Bytes)[] parts)
+    {
+        var b = new byte[size];
+        foreach (var (offset, bytes) in parts) bytes.CopyTo(b, offset);
+        return b;
+    }
+
+    Test("Target formats: systems are told by header, then extension, then folder", () =>
+    {
+        File.WriteAllText(Path.Combine(Dir("systems/Misc"), "Game.cue"), "FILE \"Game.bin\" BINARY\n TRACK 01 MODE1/2352\n  INDEX 01 00:00:00\n");
+        var cases = new (string Path, string? System)[]
+        {
+            (Put("Misc/Tetris.gb"), "game-boy"),
+            (Put("Misc/Sonic.md"), "mega-drive-genesis"),
+            (Put("Misc/Game.d64"), "commodore-64-128-vic-20-pet"),
+            (Put("Misc/Game.nsp"), "switch"),
+            (Put("Atari 2600/Pitfall.bin"), "atari-2600"),       // a shared extension, decided by the folder
+            (Put("Downloads/loose.bin"), null),                   // …and without one, unknown
+            (Put("PS2/Game.iso"), "playstation-2"),
+            (Put("Misc/PS2 Game.iso", PlayStationIso("BOOT2 = cdrom0:\\SLUS_200.00;1\r\n")), "playstation-2"),
+            (Put("Misc/PS1 Game.iso", PlayStationIso("BOOT = cdrom:\\SLUS_000.00;1\r\n")), "playstation"),
+            (Put("Misc/Saturn Game.iso", Header(4096, (0, "SEGA SEGASATURN "u8.ToArray()))), "saturn"),
+            (Put("Misc/Wii Game.gcz", Header(64, (0, [0x01, 0xC0, 0x0B, 0xB1]), (4, [1, 0, 0, 0]))), "wii"),
+            (Put("Misc/GC Game.rvz", Header(0x100, (0, "RVZ\u0001"u8.ToArray()), (0x48, [0, 0, 0, 1]))), "gamecube"),
+            (Put("Misc/Xbox Game.iso", Header(0x10000 + 64, (0x10000, "MICROSOFT*XBOX*MEDIA"u8.ToArray()))), "xbox"),
+            (Path.Combine(sysDir, "Misc", "Game.cue"), SystemDetector.GenericDisc), // a CD of no particular system: still a CHD
+            (ZipOf("Misc/Mario (USA).zip", "Mario (USA).nes"), "nes-famicom"),
+            (ZipOf("MAME/sf2.zip", "sf2_30g.bin", "sf2e.11e"), "mame"),
+        };
+        Chdman? chdman = null;
+        foreach (var (path, system) in cases)
+        {
+            var set = FormatRegistry.Default.Identify(path) ?? new FileSet(path, [path], ConvertTargets.OtherFile);
+            var got = NoIntrovert.Core.Library.LibraryScanner.SystemOf(set, sysDir, ref chdman);
+            if (got != system) return $"{Path.GetRelativePath(sysDir, path)}: {got ?? "unknown"}, expected {system ?? "unknown"}";
+        }
+        chdman?.Dispose();
+        return TargetFormats.NameOf("nes-famicom") == "NES / Famicom" && TargetFormats.NameOf(null) == "Unknown system"
+            ? Note($"{cases.Length} files") : "display names don't come from the registry";
+    });
+
+    if (ArchiveEngine.IsAvailable(out _))
+    {
+        var acc = Dir("acceptance");
+        string In(string rel) => Path.Combine([acc, .. rel.Split('/')]);
+        FileSet Identify(string path) => FormatRegistry.Default.Identify(path) ?? new FileSet(path, [path], ConvertTargets.OtherFile);
+        string Make7z(string rel, string member, byte[] bytes)
+        {
+            var src = Path.Combine(Dir("acceptance-src/" + Guid.NewGuid().ToString("N")[..6]), member);
+            File.WriteAllBytes(src, bytes);
+            var path = In(rel);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            using var engine = new ArchiveEngine();
+            engine.Compress(ArchiveFormat.SevenZip, ArchiveLevel.Normal, 0, false, [src], path, false, null, CancellationToken.None);
+            return path;
+        }
+        var rom = TextBytes(64 * 1024);
+        Directory.CreateDirectory(In("NES"));
+        File.WriteAllBytes(In("NES/Loose.nes"), rom);                                               // 1
+        using (var z = ZipFile.Open(In("NES/Zipped.zip"), ZipArchiveMode.Create))                   // 2
+            using (var s = z.CreateEntry("Zipped.nes").Open()) s.Write(rom);
+        Make7z("NES/Packed.7z", "Packed.nes", rom);                                                 // 3
+        HandMade7z.Write(In("NES/Zstd.7z"), "Zstd.nes", rom, HandMade7z.Zstd);                      // 4 (as RetroArch would see it)
+        HandMade7z.Write(In("NES/Stored.7z"), "Stored.nes", rom, HandMade7z.Copy);                  // 4 (one 7-Zip can unpack)
+        Make7z("Wii U/Game.7z", "Game.wux", new byte[4096]);                                        // 5
+        Directory.CreateDirectory(In("PS1"));                                                       // 6: cue + 3 bins in a zip
+        var tracks = new[] { (0L, (long)DataSectors), (DataSectors, 150L), (DataSectors + 150L, 150L) };
+        using (var z = ZipFile.Open(In("PS1/Game.zip"), ZipArchiveMode.Create))
+        {
+            using (var w = new StreamWriter(z.CreateEntry("Game.cue").Open()))
+                w.Write("FILE \"Game (Track 1).bin\" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n" +
+                        "FILE \"Game (Track 2).bin\" BINARY\n  TRACK 02 AUDIO\n    INDEX 01 00:00:00\n" +
+                        "FILE \"Game (Track 3).bin\" BINARY\n  TRACK 03 AUDIO\n    INDEX 01 00:00:00\n");
+            for (var t = 0; t < tracks.Length; t++)
+                using (var s = z.CreateEntry($"Game (Track {t + 1}).bin").Open()) CopyRange(synthBin, s, tracks[t].Item1 * 2352, tracks[t].Item2 * 2352);
+        }
+        var gcIso = new byte[0x8000];
+        new byte[] { 0xC2, 0x33, 0x9F, 0x3D }.CopyTo(gcIso, 0x1C);
+        Directory.CreateDirectory(In("Misc"));
+        File.WriteAllBytes(In("Misc/Game.iso"), gcIso);                                              // 8
+        Make7z("C64/Game.7z", "Game.d64", TextBytes(170 * 1024));                                   // 9
+        Directory.CreateDirectory(In("mame"));                                                      // 10
+        using (var z = ZipFile.Open(In("mame/sf2.zip"), ZipArchiveMode.Create))
+            foreach (var e in new[] { "sf2_30g.bin", "sf2e.11e" }) using (var s = z.CreateEntry(e).Open()) s.Write(rom);
+        Directory.CreateDirectory(In("PSP"));
+        Encoders.WriteCso(isoSlice, In("PSP/Game.cso"), lz4: false);                                // 15
+        Directory.CreateDirectory(In("Switch"));
+        File.WriteAllBytes(In("Switch/Game.nsp"), new byte[4096]);                                  // 17
+        File.WriteAllBytes(In("Switch/Game.xci"), new byte[4096]);                                  // 17b
+
+        Test("Target formats: each acceptance case gets its status and default (1-6, 8-10, 15, 17)", () =>
+        {
+            var settings = new AppSettings();
+            var cases = new (string Rel, TargetStatus Status, string Default, string Text)[]
+            {
+                ("NES/Loose.nes", TargetStatus.Convert, "7z", "Convert → .7z"),
+                ("NES/Zipped.zip", TargetStatus.Convert, "7z", "Convert → .7z"),
+                ("NES/Packed.7z", TargetStatus.Optimal, "Leave as is", "Optimal"),
+                ("NES/Zstd.7z", TargetStatus.Convert, "7z", "Convert → .7z (recompress as LZMA2)"),
+                ("NES/Stored.7z", TargetStatus.Convert, "7z", "Convert → .7z (recompress as LZMA2)"),
+                ("Wii U/Game.7z", TargetStatus.Convert, ".wua", "Convert → .wua"),
+                ("PS1/Game.zip", TargetStatus.Convert, "CHD", "Convert → .chd"),
+                ("Misc/Game.iso", TargetStatus.Convert, "RVZ", "Convert → .rvz"),
+                ("C64/Game.7z", TargetStatus.Convert, "zip", "Convert → .zip"),
+                ("mame/sf2.zip", TargetStatus.LeftAsIs, "Leave as is", "Left as is (arcade romset)"),
+                ("PSP/Game.cso", TargetStatus.Convert, "CHD", "Convert → .chd"),
+                ("Switch/Game.nsp", TargetStatus.NotYetSupported, "Leave as is", "Recommended: .nsz (not yet supported)"),
+                ("Switch/Game.xci", TargetStatus.NotYetSupported, "Leave as is", "Recommended: .nsz (not yet supported; repack to NSP first)"),
+            };
+            var rows = new List<PlanInput>();
+            foreach (var (rel, status, initial, text) in cases)
+            {
+                var o = ConvertTargets.For(Identify(In(rel)), settings);
+                if (o.Plan.Status != status || o.Default.Label != initial || o.Plan.Text != text)
+                    return $"{rel}: {o.Plan.Status} \"{o.Plan.Text}\", starts on {o.Default.Label}; expected {status} \"{text}\", {initial}";
+                if (status == TargetStatus.NotYetSupported && o.Choices.Count != 1) return $"{rel} offers {string.Join(", ", o.Choices)} for a target the app can't make";
+                rows.Add(new PlanInput(In(rel), o.Default.Kind, 1));
+            }
+            // Optimal, arcade and not-yet-supported rows get no job.
+            var plan = ConvertPlanner.Plan(rows, settings, log);
+            var left = plan.Left.Select(i => cases[i].Rel).ToList();
+            return left.SequenceEqual(["NES/Packed.7z", "mame/sf2.zip", "Switch/Game.nsp", "Switch/Game.xci"])
+                ? null : $"left alone: {string.Join(", ", left)}";
+        });
+
+        Test("Target formats: per-file-type containers (MSX carts in 7z, its disks in zip, Amiga in zip)", () =>
+        {
+            var cases = new (string Rel, string Text)[]
+            {
+                ("MSX/Game.rom", "Convert → .7z"),
+                ("MSX/Disk.dsk", "Convert → .zip"),
+                ("Amiga/Game.adf", "Convert → .zip"),
+                ("Amiga/Game.lha", "Optimal"), // WHDLoad stays bare
+            };
+            foreach (var (rel, text) in cases)
+            {
+                var path = In(rel);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllBytes(path, TextBytes(4096));
+                var got = ConvertTargets.For(Identify(path), new AppSettings()).Plan.Text;
+                if (got != text) return $"{rel}: {got}, expected {text}";
+            }
+            return null;
+        });
+
+        Test("Target formats: WBFS and CISO are left as is", () =>
+        {
+            foreach (var path in new[] { Put("Wii/Game.wbfs"), Put("Wii/Game.ciso") })
+            {
+                var o = ConvertTargets.For(Identify(path), new AppSettings());
+                var choices = string.Join(", ", o.Choices.Select(c => c.Label));
+                if (o.Plan.Status != TargetStatus.LeftAsIs || choices != "Leave as is")
+                    return $"{Path.GetFileName(path)}: {o.Plan.Status} \"{o.Plan.Text}\", offers {choices}";
+            }
+            return null;
+        });
+
+        // Runs the jobs the planner makes for each row's default, with results in their own folder.
+        string? RunDefault(string rel, string outDir)
+        {
+            var o = ConvertTargets.For(Identify(In(rel)), new AppSettings());
+            var plan = ConvertPlanner.Plan([new PlanInput(In(rel), o.Default.Kind, 1)], new AppSettings(), log);
+            if (plan.Error is { } error) return error;
+            foreach (var job in plan.Jobs)
+            {
+                var r = RunJob(job.Work, s => s.Output.Folder = outDir);
+                if (r.Status != JobStatus.Succeeded) return $"{job.Name}: {r.Status}: {r.Summary}";
+            }
+            return null;
+        }
+        string? HoldsOnly(string archive, string member, string method)
+        {
+            var members = ArchivePeek.Members(archive);
+            if (members is null) return $"{Path.GetFileName(archive)} can't be read";
+            if (members.Count != 1 || members[0].Name != member || members[0].Method != method)
+                return $"{Path.GetFileName(archive)} holds {string.Join(", ", members.Select(m => $"{m.Name} ({m.Method})"))}";
+            return null;
+        }
+
+        Test("Target formats: a loose ROM and a zipped one become single-file LZMA2 7z, not solid (1, 2, D9)", () =>
+        {
+            var outDir = Dir("acceptance-out-7z");
+            if ((RunDefault("NES/Loose.nes", outDir) ?? RunDefault("NES/Zipped.zip", outDir)) is { } problem) return problem;
+            foreach (var name in new[] { "Loose", "Zipped" })
+            {
+                var made = Path.Combine(outDir, name + ".7z");
+                if (HoldsOnly(made, name + ".nes", "LZMA") is { } wrong) return wrong;
+                using var a = SharpCompress.Archives.ArchiveFactory.OpenArchive(made);
+                if (a.IsSolid) return $"{name}.7z is solid";
+                if (ConvertTargets.For(Identify(made), new AppSettings()).Plan.Status != TargetStatus.Optimal) return $"{name}.7z isn't optimal";
+            }
+            return null;
+        });
+
+        Test("Target formats: a 7z that isn't LZMA/LZMA2 is recompressed in place (4)", () =>
+        {
+            var path = In("NES/Stored.7z");
+            if (RunDefault("NES/Stored.7z", "") is { } problem) return problem;
+            if (HoldsOnly(path, "Stored.nes", "LZMA") is { } wrong) return wrong;
+            var outDir = Dir("acceptance-out-recompressed");
+            using (var engine = new ArchiveEngine()) engine.Extract(path, outDir, null, CancellationToken.None);
+            return File.ReadAllBytes(Path.Combine(outDir, "Stored.nes")).AsSpan().SequenceEqual(rom) ? null : "the ROM changed";
+        });
+
+        Test("Target formats: a zipped cue with three bins becomes a bare CHD (6)", () =>
+        {
+            var outDir = Dir("acceptance-out-chd");
+            if (RunDefault("PS1/Game.zip", outDir) is { } problem) return problem;
+            var made = Directory.GetFiles(outDir).Select(Path.GetFileName).ToList();
+            return made.SequenceEqual(["Game.chd"]) ? null : $"made {string.Join(", ", made)}";
+        });
+
+        Test("Target formats: a C64 disk in 7z becomes a zip (9, R9)", () =>
+        {
+            var outDir = Dir("acceptance-out-zip");
+            if (RunDefault("C64/Game.7z", outDir) is { } problem) return problem;
+            return HoldsOnly(Path.Combine(outDir, "Game.zip"), "Game.d64", "Deflate");
+        });
+
+        Test("Target formats: a PSP CSO becomes a DVD CHD with 2048-byte hunks (15, D3)", () =>
+        {
+            var outDir = Dir("acceptance-out-psp");
+            if (RunDefault("PSP/Game.cso", outDir) is { } problem) return problem;
+            using var chdman = new Chdman();
+            var info = chdman.Info(Path.Combine(outDir, "Game.chd"), hunkStats: false);
+            return info.HunkBytes == 2048 && info.Metadata.Any(m => m.TagString.Trim() == "DVD")
+                ? null : $"{info.HunkBytes}-byte hunks, metadata {string.Join(", ", info.Metadata.Select(m => m.TagString))}";
+        });
+    }
+}
+
 // ---- Library (M5): scanning folders into games ----
 
 Test("Library: titles drop disc markers, generic names use their folder", () =>
@@ -1529,14 +1830,14 @@ Test("Library: titles drop disc markers, generic names use their folder", () =>
     {
         var index = NoIntrovert.Core.Library.LibraryScanner.Scan([lib], null, null, CancellationToken.None);
         var games = index.Games().ToDictionary(g => g.Title);
-        string Describe(string title) => games.TryGetValue(title, out var g) ? $"{g.System} · {g.Items.Count} item(s) · {g.Status}" : "missing";
+        string Describe(string title) => games.TryGetValue(title, out var g) ? $"{g.SystemName} · {g.Items.Count} item(s) · {g.Status}" : "missing";
         var expected = new Dictionary<string, string>
         {
             ["Final Fantasy VII (USA)"] = "PlayStation · 3 item(s) · OriginalsRemain",
             ["Guardian Heroes (USA)"] = "Saturn · 2 item(s) · Duplicate",
             ["Metroid Prime (USA)"] = "GameCube · 1 item(s) · NeedsConverting",
-            ["Tetris (World)"] = "Game Boy · 1 item(s) · Ready",
-            ["Mario (USA)"] = "Unknown · 1 item(s) · Ready",
+            ["Tetris (World)"] = "Game Boy · 1 item(s) · NeedsConverting", // a loose ROM goes into a 7z (R1)
+            ["Mario (USA)"] = "NES / Famicom · 1 item(s) · NeedsConverting", // told from the zip's contents (FR-3)
             ["Test Game"] = "Wii U · 2 item(s) · NeedsConverting",
         };
         foreach (var (title, want) in expected)

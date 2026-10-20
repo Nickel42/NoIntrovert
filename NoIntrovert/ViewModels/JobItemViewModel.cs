@@ -67,6 +67,12 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
 
     public bool HasTargets => Targets.Count > 1;
 
+    /// <summary>Where the input stands against its system's target ("Optimal", "Convert → .7z"…; Convert page only).</summary>
+    public string FormatStatus { get; init; } = "";
+
+    /// <summary>The system's name, for the status's tooltip.</summary>
+    public string FormatDetails { get; init; } = "";
+
     /// <summary>What this row becomes; changed by the row's own drop-down.</summary>
     [ObservableProperty] public partial Core.Formats.TargetChoice? Target { get; set; }
 

@@ -7,7 +7,7 @@ namespace NoIntrovert.Core.Library;
 /// <summary>Where a game stands, before any DAT matching.</summary>
 public enum GameStatus
 {
-    /// <summary>Has a source (cue/bin, ISO, title folder…) and nothing converted yet.</summary>
+    /// <summary>Has a source (cue/bin, ISO, title folder, a ROM not in its 7z…) and nothing converted yet.</summary>
     NeedsConverting,
     /// <summary>Converted (CHD, RVZ, .wua), but the source files are still here too.</summary>
     OriginalsRemain,
@@ -15,13 +15,14 @@ public enum GameStatus
     Converted,
     /// <summary>The same disc in its converted form more than once (two folders, two copies).</summary>
     Duplicate,
-    /// <summary>Nothing to convert: cartridge ROMs, or archives of them.</summary>
+    /// <summary>Nothing to convert: everything is optimal, left as is, or of an unknown system.</summary>
     Ready,
 }
 
 /// <summary>
-/// One input the Library found: what the registry saw, plus what the scan
-/// worked out (system, title, which game it belongs to). Saved in the index,
+/// One input the Library found: what the format registry saw, plus what the
+/// scan worked out (system id, title, which game it belongs to, and where it
+/// stands against its system's target: <see cref="FormatStatus"/>). Saved in the index,
 /// and reused on the next scan while the files' size and date don't change.
 /// </summary>
 public sealed record LibraryItem(
@@ -32,13 +33,18 @@ public sealed record LibraryItem(
     long Size,
     long ModifiedTicks,
     string Root,
-    string System,
+    string? System,
     string Title,
     string GameKey,
     string Disc,
-    TargetKind Target)
+    TargetKind Target,
+    TargetStatus FormatStatus,
+    string FormatStatusText)
 {
     public FormatInfo? Format => KnownFormats.ById(FormatId);
+
+    [JsonIgnore]
+    public string SystemName => TargetFormats.NameOf(System);
 
     /// <summary>In its converted form: a CHD, an RVZ or a .wua.</summary>
     [JsonIgnore]
@@ -64,8 +70,10 @@ public sealed record LibraryItem(
 }
 
 /// <summary>A game: every library item that's the same title on the same system (all its discs and copies).</summary>
-public sealed record Game(string Key, string Title, string System, IReadOnlyList<LibraryItem> Items)
+public sealed record Game(string Key, string Title, string? System, IReadOnlyList<LibraryItem> Items)
 {
+    public string SystemName => TargetFormats.NameOf(System);
+
     public long Size => Items.Sum(i => i.Size);
 
     public string Formats => string.Join(", ", Items.Select(i => i.FormatLabel).Distinct());
@@ -79,7 +87,7 @@ public sealed record Game(string Key, string Title, string System, IReadOnlyList
         {
             var final = Items.Where(i => i.IsFinal).ToList();
             if (final.GroupBy(i => (i.Disc, i.FormatId)).Any(g => g.Count() > 1)) return GameStatus.Duplicate;
-            var sources = Items.Any(i => i.IsSource);
+            var sources = Items.Any(i => i.IsSource || i.FormatStatus == TargetStatus.Convert);
             if (final.Count > 0 && sources) return GameStatus.OriginalsRemain;
             if (sources) return GameStatus.NeedsConverting;
             return final.Count > 0 ? GameStatus.Converted : GameStatus.Ready;
@@ -90,7 +98,8 @@ public sealed record Game(string Key, string Title, string System, IReadOnlyList
 /// <summary>Everything the Library knows: the items found in its folders, saved between runs.</summary>
 public sealed class LibraryIndex
 {
-    public const int CurrentSchema = 1;
+    /// <summary>2: systems are registry ids, and each item has its target-format status.</summary>
+    public const int CurrentSchema = 2;
 
     public int SchemaVersion { get; set; } = CurrentSchema;
     public DateTime ScannedUtc { get; set; }

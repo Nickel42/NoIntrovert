@@ -37,14 +37,16 @@ public sealed record TargetChoice(TargetKind Kind, string Label)
 }
 
 /// <summary>
-/// The targets each input offers, and which one it starts on. The first
-/// entry of <see cref="Options.Choices"/> that isn't "Leave as is" is the
-/// natural one; <see cref="Options.Default"/> is what the row starts on,
-/// following the settings (RVZ or CHD for GameCube/Wii, for example).
+/// The targets each input offers, and which one it starts on (FR-5). The
+/// rules (<see cref="TargetResolver"/>) give the default: the system's target
+/// when the input isn't already optimal, else "Leave as is". The list holds
+/// that target, the registry's alternatives this input can become, what the
+/// app could already do with the format (extract a CHD, decode an RVZ…), and
+/// "Leave as is". A target the app can't make yet (D8) offers nothing else.
 /// </summary>
 public static class ConvertTargets
 {
-    public sealed record Options(IReadOnlyList<TargetChoice> Choices, TargetChoice Default);
+    public sealed record Options(IReadOnlyList<TargetChoice> Choices, TargetChoice Default, TargetPlan Plan);
 
     /// <summary>A file the registry doesn't recognise: it can only be packed.</summary>
     public static readonly FormatInfo OtherFile = new("file", "File");
@@ -52,7 +54,24 @@ public static class ConvertTargets
     /// <summary>A folder added as one item, to be packed whole.</summary>
     public static readonly FormatInfo PackedFolder = new("folder", "Folder");
 
-    public static Options For(FileSet set, AppSettings settings)
+    public static Options For(FileSet set, AppSettings settings) => For(set, settings, TargetResolver.Resolve(set, settings));
+
+    public static Options For(FileSet set, AppSettings settings, TargetPlan plan)
+    {
+        var (choices, initial) = ByFormat(set, settings);
+        // Files the registry doesn't know, and folders, are dropped to be packed: they keep the packing default.
+        if (set.Format == OtherFile || set.Format == PackedFolder) return new Options(choices, initial, plan);
+        if (plan.Status == TargetStatus.NotYetSupported) choices = [];
+        var list = new List<TargetChoice>();
+        if (plan.Choice != TargetChoice.Leave) list.Add(plan.Choice);
+        foreach (var c in plan.Alternatives.Concat(choices))
+            if (c != TargetChoice.Leave && !list.Contains(c)) list.Add(c);
+        list.Add(TargetChoice.Leave);
+        return new Options(list, plan.Choice, plan);
+    }
+
+    /// <summary>What the app can do with <paramref name="set"/>'s format, whatever its system, and the old default.</summary>
+    private static (IReadOnlyList<TargetChoice> Choices, TargetChoice Default) ByFormat(FileSet set, AppSettings settings)
     {
         var f = set.Format;
         var nintendoDefault = settings.Nintendo.Target == Jobs.NintendoTarget.Rvz ? TargetChoice.Rvz : TargetChoice.Chd;
@@ -75,13 +94,12 @@ public static class ConvertTargets
             if (other is not null) list.Add(other);
             list.Add(TargetChoice.Files);
             list.Add(TargetChoice.Leave);
-            return new Options(list, list[0]);
+            return (list, list[0]);
         }
 
         // GameCube / Wii: the containers by name, plain .iso/.gcm by the disc header.
         var ext = Path.GetExtension(set.Primary).ToLowerInvariant();
-        if (ext is ".wbfs" or ".ciso")
-            return Make(TargetChoice.Leave, TargetChoice.Leave); // they don't record the disc's exact size
+        if (ext is ".wbfs" or ".ciso") return Make(TargetChoice.Leave, TargetChoice.Leave); // they don't record the disc's exact size
         if (ext == ".rvz") return Make(TargetChoice.Iso, TargetChoice.Iso, TargetChoice.Chd, TargetChoice.Leave);
         if (ext is ".gcz" or ".wia") return Make(nintendoDefault, TargetChoice.Rvz, TargetChoice.Chd, TargetChoice.Iso, TargetChoice.Leave);
         if (ext is ".tgc" or ".gcm" || (ext == ".iso" && File.Exists(set.Primary) && NintendoDisc.IsPlainDisc(set.Primary)))
@@ -91,5 +109,5 @@ public static class ConvertTargets
         return Make(TargetChoice.Leave, TargetChoice.Leave);
     }
 
-    private static Options Make(TargetChoice initial, params TargetChoice[] choices) => new(choices, initial);
+    private static (IReadOnlyList<TargetChoice>, TargetChoice) Make(TargetChoice initial, params TargetChoice[] choices) => (choices, initial);
 }

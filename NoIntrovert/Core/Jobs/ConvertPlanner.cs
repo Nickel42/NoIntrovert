@@ -61,7 +61,17 @@ public static class ConvertPlanner
                     break;
                 case TargetKind.SevenZip or TargetKind.Zip when ArchiveJobs.IsConvertible(path):
                     var to = row.Target == TargetKind.SevenZip ? ConvertTarget.ToSevenZip : ConvertTarget.ToZip;
-                    jobs.Add(new(name, [i], row.Size, c => ArchiveJobs.Convert(c.WithSettings(With(c.Settings, s => s.Archives.ConvertTarget = to)), path)));
+                    var single = ArchivePeek.Members(path)?.Count == 1;
+                    void Archive(AppSettings s)
+                    {
+                        s.Archives.ConvertTarget = to;
+                        if (to == ConvertTarget.ToSevenZip && single) SingleFile7z(s);
+                    }
+                    // Asked for the format it already has: recompressed with a method RetroArch reads (R8).
+                    if (Path.GetExtension(path).Equals(row.Target == TargetKind.SevenZip ? ".7z" : ".zip", StringComparison.OrdinalIgnoreCase))
+                        jobs.Add(new(name, [i], row.Size, c => ArchiveJobs.Recompress(c.WithSettings(With(c.Settings, Archive)), path)));
+                    else
+                        jobs.Add(new(name, [i], row.Size, c => ArchiveJobs.Convert(c.WithSettings(With(c.Settings, Archive)), path)));
                     break;
                 case TargetKind.SevenZip or TargetKind.Zip:
                     packs.Add(i);
@@ -170,6 +180,9 @@ public static class ConvertPlanner
                     var label = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
                     if (settings.Archives.Grouping == ArchiveGrouping.PerEntryInFolders && Directory.Exists(path))
                         jobs.Add(new(label, [i], rows[i].Size, c => ArchiveJobs.CompressEntries(c.WithSettings(With(c.Settings, UseFormat)), path, c.Settings.Output.Folder)));
+                    else if (format == ArchiveFormat.SevenZip && File.Exists(path))
+                        jobs.Add(new(label, [i], rows[i].Size, c => ArchiveJobs.CompressOne(
+                            c.WithSettings(With(c.Settings, s => { UseFormat(s); SingleFile7z(s); })), [path], archiveName, OutputPaths.FolderFor(c.Settings, path))));
                     else
                         jobs.Add(new(label, [i], rows[i].Size,
                             c => ArchiveJobs.CompressOne(c.WithSettings(With(c.Settings, UseFormat)), [path], archiveName, OutputPaths.FolderFor(c.Settings, path))));
@@ -177,6 +190,13 @@ public static class ConvertPlanner
             }
         }
         return null;
+    }
+
+    /// <summary>D9: a 7z holding one file is LZMA2 at Ultra, and not solid (there's nothing to share a block with).</summary>
+    private static void SingleFile7z(AppSettings s)
+    {
+        s.Archives.Level = ArchiveLevel.Ultra;
+        s.Archives.Solid = false;
     }
 
     /// <summary>A copy of <paramref name="settings"/> with one change, so a row's choice never leaks into the shared snapshot.</summary>

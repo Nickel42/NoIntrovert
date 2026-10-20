@@ -76,7 +76,11 @@ public static class ChdJobs
 
             c.Band(compressStart, compressShare);
             c.TrackChdman($"Compressing{discLabel}");
-            var stats = ChdService.Create(c.Chdman, disc, output, c.OutputSettings(), c.Token);
+            var chdSettings = c.OutputSettings();
+            // D3: a PSP UMD goes in 2048-byte hunks (one sector each), which PPSSPP reads fastest.
+            if (disc.Kind == DiscKind.Dvd && chdSettings.HunkSize == 0 && DiscProbe.SystemOf(disc.InputPath) == "playstation-portable")
+                chdSettings.HunkSize = 2048;
+            var stats = ChdService.Create(c.Chdman, disc, output, chdSettings, c.Token);
             log.Info($"  created {Path.GetFileName(output)}: {Size(stats.InputBytes)} → {Size(stats.OutputBytes)} ({stats.Ratio:P1}) in {stats.Elapsed:mm\\:ss\\.f} at {stats.MegabytesPerSecond:F1} MB/s");
 
             if (mustVerify)

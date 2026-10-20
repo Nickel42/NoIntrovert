@@ -70,7 +70,7 @@ public partial class ConvertViewModel : BatchTabViewModel
 
     public override string EmptyHint =>
         "Drop disc images, GameCube/Wii and Wii U games, or archives here — or any files and folders to pack into 7z or zip.\n" +
-        "Folders bring in what still needs converting; drop a CHD or RVZ on its own to extract it.\n" +
+        "Folders bring in what isn't in its system's target format yet; drop a CHD or RVZ on its own to extract it.\n" +
         "Each row's TARGET says what it becomes; change it per row (or for every selected row at once).";
 
     protected override string FilterName => "Games, archives and files";
@@ -79,20 +79,28 @@ public partial class ConvertViewModel : BatchTabViewModel
         KnownFormats.Patterns([.. KnownFormats.DiscInputs, KnownFormats.Chd, .. KnownFormats.WiiUInputs]);
 
     /// <summary>
-    /// A folder becomes the inputs found in it that have a natural conversion
-    /// (archives of other files are skipped, so a folder of zipped cartridge
-    /// ROMs isn't repacked by accident); a folder with none becomes one row to pack.
+    /// A folder becomes the inputs found in it that the rules say to convert
+    /// (a loose ROM, a zip that should be a 7z), plus those with a natural
+    /// conversion whose system is unknown (a disc image in an unnamed folder).
+    /// What's optimal or left as is stays out, so a folder of finished 7z
+    /// ROMs isn't repacked; a folder with nothing becomes one row to pack.
     /// </summary>
     protected override IEnumerable<string> ItemsForFolder(string folder)
     {
         var scan = FormatRegistry.Default.Scan(folder, Settings.Output.ScanSubfolders);
+        var settings = Settings.Snapshot();
         // A .wua only matters next to another source to merge into it (an update or DLC folder).
         var otherWiiU = scan.Any(s => KnownFormats.WiiUBuildable.Contains(s.Format) && s.Format != KnownFormats.Wua);
-        var found = scan
-            .Where(s => !IsFinished(s) || (s.Format == KnownFormats.Wua && otherWiiU))
-            .Where(s => !KnownFormats.Cartridges.Contains(s.Format))
-            .Where(s => !KnownFormats.Archives.Contains(s.Format) || s.Inside is null
-                        || s.Holds(KnownFormats.DiscInputs) || s.Holds(KnownFormats.WiiUBuildable))
+        bool Natural(FileSet s) =>
+            (!IsFinished(s) || (s.Format == KnownFormats.Wua && otherWiiU))
+            && !KnownFormats.Cartridges.Contains(s.Format)
+            && (!KnownFormats.Archives.Contains(s.Format) || s.Inside is null || s.Holds(KnownFormats.DiscInputs) || s.Holds(KnownFormats.WiiUBuildable));
+        var found = scan.Where(s => TargetResolver.Resolve(s, settings).Status switch
+            {
+                TargetStatus.Convert => true,
+                TargetStatus.UnknownSystem => Natural(s),
+                _ => s.Format == KnownFormats.Wua && otherWiiU,
+            })
             .ToList();
         if (found.Count == 0)
         {
@@ -118,7 +126,12 @@ public partial class ConvertViewModel : BatchTabViewModel
             set = FormatRegistry.Default.Identify(path)
                   ?? new FileSet(path, [path], Directory.Exists(path) ? ConvertTargets.PackedFolder : ConvertTargets.OtherFile);
         var options = ConvertTargets.For(set, _addSettings ?? Settings.Snapshot());
-        return new JobItemViewModel(path) { Targets = options.Choices, Target = options.Default };
+        var plan = options.Plan;
+        return new JobItemViewModel(path)
+        {
+            Targets = options.Choices, Target = options.Default, FormatStatus = plan.Text,
+            FormatDetails = plan.SystemName,
+        };
     }
 
     /// <summary>One settings copy for a whole scan, not one per row.</summary>

@@ -41,6 +41,11 @@
     <InternalsVisibleTo Include="NoIntrovert.Tests" />
   </ItemGroup>
 
+  <!-- The target-format registry (one entry per system in docs/target-formats.md). -->
+  <ItemGroup>
+    <EmbeddedResource Include="Core/Formats/TargetFormats.json" LogicalName="NoIntrovert.TargetFormats.json" />
+  </ItemGroup>
+
   <Import Project="$(LibChdmanRoot)/bindings/csharp/ChdmanNativeCopy.targets" />
 
   <!--

@@ -1,0 +1,914 @@
+[
+  {
+    "id": "nes-famicom",
+    "name": "NES / Famicom",
+    "category": "cartridge",
+    "extensions": [".nes", ".unf", ".unif"],
+    "folders": ["nes", "famicom", "fc", "nintendoentertainmentsystem"],
+    "target": {"format": ".nes", "container": "7z", "label": ".nes", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "famicom-disk-system",
+    "name": "Famicom Disk System",
+    "category": "cartridge",
+    "extensions": [".fds", ".qd"],
+    "folders": ["fds", "famicomdisksystem", "famicomdisk"],
+    "target": {"format": ".fds", "container": "7z", "label": ".fds", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "snes-super-famicom",
+    "name": "SNES / Super Famicom (incl. Satellaview .bs, Sufami Turbo .st)",
+    "category": "cartridge",
+    "extensions": [".sfc", ".smc", ".swc", ".fig", ".bs", ".st"],
+    "folders": ["snes", "superfamicom", "supernintendo", "supernes", "sfc", "satellaview", "sufamiturbo"],
+    "target": {"format": ".sfc", "container": "7z", "label": ".sfc", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R12", "R13"]
+  },
+  {
+    "id": "nintendo-64",
+    "name": "Nintendo 64",
+    "category": "cartridge",
+    "extensions": [".z64", ".v64", ".n64"],
+    "folders": ["n64", "nintendo64"],
+    "target": {"format": ".z64", "container": "7z", "label": ".z64", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R12", "R13"]
+  },
+  {
+    "id": "nintendo-64dd",
+    "name": "Nintendo 64DD",
+    "category": "cartridge",
+    "extensions": [".ndd"],
+    "folders": ["n64dd", "64dd", "nintendo64dd"],
+    "target": {"format": ".ndd", "container": "7z", "label": ".ndd", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "game-boy",
+    "name": "Game Boy",
+    "category": "cartridge",
+    "extensions": [".gb"],
+    "folders": ["gb", "gameboy"],
+    "target": {"format": ".gb", "container": "7z", "label": ".gb", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "game-boy-color",
+    "name": "Game Boy Color",
+    "category": "cartridge",
+    "extensions": [".gbc"],
+    "folders": ["gbc", "gameboycolor"],
+    "target": {"format": ".gbc", "container": "7z", "label": ".gbc", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "game-boy-advance",
+    "name": "Game Boy Advance",
+    "category": "cartridge",
+    "extensions": [".gba"],
+    "folders": ["gba", "gameboyadvance"],
+    "target": {"format": ".gba", "container": "7z", "label": ".gba", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "nintendo-ds",
+    "name": "Nintendo DS",
+    "category": "cartridge",
+    "extensions": [".nds"],
+    "folders": ["nds", "ds", "nintendods"],
+    "target": {"format": ".nds", "container": "7z", "label": ".nds", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true},
+      {"id": "bare", "label": "Bare .nds", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "nintendo-dsi",
+    "name": "Nintendo DSi (enhanced carts & DSiWare)",
+    "category": "cartridge",
+    "extensions": [".dsi"],
+    "folders": ["dsi", "nintendodsi", "dsiware"],
+    "target": {"format": ".nds", "container": "7z", "label": ".nds (decrypted)", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "nintendo-3ds",
+    "name": "Nintendo 3DS",
+    "category": "cartridge",
+    "extensions": [".3ds", ".cci", ".cia", ".cxi", ".zcci"],
+    "folders": ["3ds", "n3ds", "nintendo3ds"],
+    "target": {"format": ".cci", "container": "7z", "label": ".cci (decrypted)", "producible": false},
+    "alternatives": [
+      {"id": "zcci", "label": ".zcci (Azahar only)", "producible": false},
+      {"id": "bare", "label": "Bare .cci", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "virtual-boy",
+    "name": "Virtual Boy",
+    "category": "cartridge",
+    "extensions": [".vb", ".vboy"],
+    "folders": ["vb", "virtualboy"],
+    "target": {"format": ".vb", "container": "7z", "label": ".vb", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "pokemon-mini",
+    "name": "Pokemon Mini",
+    "category": "cartridge",
+    "extensions": [".min"],
+    "folders": ["pokemini", "pokemonmini"],
+    "target": {"format": ".min", "container": "7z", "label": ".min", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "game-watch-lcd-handhelds",
+    "name": "Game & Watch / LCD handhelds",
+    "category": "cartridge",
+    "extensions": [".mgw"],
+    "folders": ["gameandwatch", "gamewatch", "gw", "lcdhandhelds"],
+    "target": {"format": "romset", "container": "zip", "label": ".zip (MAME romset)", "producible": true},
+    "alternatives": [
+      {"id": "7z", "label": "7z romset", "producible": false},
+      {"id": "mgw", "label": ".mgw for the gw core", "producible": false}
+    ],
+    "rules": ["R5"]
+  },
+  {
+    "id": "switch",
+    "name": "Switch",
+    "category": "cartridge",
+    "extensions": [".nsp", ".xci", ".nsz", ".xcz"],
+    "folders": ["switch", "nintendoswitch", "nsw"],
+    "target": {"format": ".nsz", "container": "bare", "label": ".nsz", "producible": false},
+    "alternatives": [
+      {"id": "xcz", "label": ".xcz", "producible": false},
+      {"id": "nsp", "label": ".nsp/.xci uncompressed", "producible": false}
+    ],
+    "rules": ["R10", "R11", "R13"]
+  },
+  {
+    "id": "master-system-mark-iii",
+    "name": "Master System / Mark III",
+    "category": "cartridge",
+    "extensions": [".sms"],
+    "folders": ["mastersystem", "sms", "segamastersystem", "markiii"],
+    "target": {"format": ".sms", "container": "7z", "label": ".sms", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "game-gear",
+    "name": "Game Gear",
+    "category": "cartridge",
+    "extensions": [".gg"],
+    "folders": ["gamegear", "gg", "segagamegear"],
+    "target": {"format": ".gg", "container": "7z", "label": ".gg", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "sg-1000-sc-3000",
+    "name": "SG-1000 / SC-3000",
+    "category": "cartridge",
+    "extensions": [".sg", ".sc"],
+    "folders": ["sg1000", "sc3000", "segasg1000"],
+    "target": {"format": ".sg", "container": "7z", "label": ".sg", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "mega-drive-genesis",
+    "name": "Mega Drive / Genesis",
+    "category": "cartridge",
+    "extensions": [".md", ".gen", ".smd"],
+    "folders": ["genesis", "megadrive", "segagenesis", "segamegadrive", "md"],
+    "target": {"format": ".md", "container": "7z", "label": ".md", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R12", "R13"]
+  },
+  {
+    "id": "32x",
+    "name": "32X",
+    "category": "cartridge",
+    "extensions": [".32x"],
+    "folders": ["32x", "sega32x"],
+    "target": {"format": ".32x", "container": "7z", "label": ".32x", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "pico",
+    "name": "Pico",
+    "category": "cartridge",
+    "extensions": [],
+    "folders": ["pico", "segapico"],
+    "target": {"format": ".md", "container": "7z", "label": ".md", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "atari-2600",
+    "name": "Atari 2600",
+    "category": "cartridge",
+    "extensions": [".a26", ".bin"],
+    "folders": ["atari2600", "a2600", "2600", "vcs"],
+    "target": {"format": ".a26", "container": "7z", "label": ".a26", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "atari-5200",
+    "name": "Atari 5200",
+    "category": "cartridge",
+    "extensions": [".a52", ".bin"],
+    "folders": ["atari5200", "a5200", "5200"],
+    "target": {"format": ".a52", "container": "7z", "label": ".a52", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "atari-7800",
+    "name": "Atari 7800",
+    "category": "cartridge",
+    "extensions": [".a78", ".bin"],
+    "folders": ["atari7800", "a7800", "7800"],
+    "target": {"format": ".a78", "container": "7z", "label": ".a78 (headered)", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "atari-lynx",
+    "name": "Atari Lynx",
+    "category": "cartridge",
+    "extensions": [".lnx", ".lyx"],
+    "folders": ["lynx", "atarilynx"],
+    "target": {"format": ".lnx", "container": "7z", "label": ".lnx (headered)", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "atari-jaguar",
+    "name": "Atari Jaguar",
+    "category": "cartridge",
+    "extensions": [".j64", ".jag"],
+    "folders": ["jaguar", "atarijaguar"],
+    "target": {"format": ".j64", "container": "7z", "label": ".j64", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "pc-engine-turbografx-16",
+    "name": "PC Engine / TurboGrafx-16",
+    "category": "cartridge",
+    "extensions": [".pce"],
+    "folders": ["pcengine", "pce", "turbografx16", "turbografx", "tg16"],
+    "target": {"format": ".pce", "container": "7z", "label": ".pce", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "pc-engine-supergrafx",
+    "name": "PC Engine SuperGrafx",
+    "category": "cartridge",
+    "extensions": [".sgx"],
+    "folders": ["supergrafx", "pcenginesupergrafx", "sgx"],
+    "target": {"format": ".sgx", "container": "7z", "label": ".sgx", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "neo-geo-pocket-color",
+    "name": "Neo Geo Pocket / Color",
+    "category": "cartridge",
+    "extensions": [".ngp", ".ngc"],
+    "folders": ["ngp", "ngpc", "neogeopocket", "neogeopocketcolor"],
+    "target": {"format": ".ngp", "container": "7z", "label": ".ngp / .ngc", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "wonderswan-color-swancrystal",
+    "name": "WonderSwan / Color / SwanCrystal",
+    "category": "cartridge",
+    "extensions": [".ws", ".wsc"],
+    "folders": ["wonderswan", "wonderswancolor", "swancrystal", "ws", "wsc"],
+    "target": {"format": ".ws", "container": "7z", "label": ".ws / .wsc", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "colecovision",
+    "name": "ColecoVision",
+    "category": "cartridge",
+    "extensions": [".col"],
+    "folders": ["colecovision", "coleco"],
+    "target": {"format": ".col", "container": "7z", "label": ".col", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "intellivision",
+    "name": "Intellivision",
+    "category": "cartridge",
+    "extensions": [".int"],
+    "folders": ["intellivision", "intv"],
+    "target": {"format": ".int", "container": "7z", "label": ".int", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "vectrex",
+    "name": "Vectrex",
+    "category": "cartridge",
+    "extensions": [".vec"],
+    "folders": ["vectrex"],
+    "target": {"format": ".vec", "container": "7z", "label": ".vec", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "odyssey2-videopac",
+    "name": "Odyssey2 / Videopac(+)",
+    "category": "cartridge",
+    "extensions": [".bin"],
+    "folders": ["odyssey2", "videopac", "o2", "magnavoxodyssey2"],
+    "target": {"format": ".bin", "container": "7z", "label": ".bin", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "channel-f",
+    "name": "Channel F",
+    "category": "cartridge",
+    "extensions": [".bin", ".chf"],
+    "folders": ["channelf", "fairchildchannelf"],
+    "target": {"format": ".bin", "container": "7z", "label": ".bin", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "supervision",
+    "name": "Supervision",
+    "category": "cartridge",
+    "extensions": [".sv"],
+    "folders": ["supervision", "watarasupervision"],
+    "target": {"format": ".sv", "container": "7z", "label": ".sv", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "Single-file .zip (Deflate)", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"]
+  },
+  {
+    "id": "arcadia-2001",
+    "name": "Arcadia 2001 (and clones)",
+    "category": "cartridge",
+    "extensions": [".bin"],
+    "folders": ["arcadia2001", "arcadia", "emersonarcadia2001"],
+    "target": {"format": ".bin", "container": "7z", "label": ".bin in 7z (archival); MAME softlist .zip for play", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "zip", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "alsoOptimal": ["zip"]
+  },
+  {
+    "id": "msx-msx2-msx2-turbor",
+    "name": "MSX / MSX2 / MSX2+ / turboR",
+    "category": "cartridge",
+    "extensions": [".rom", ".mx1", ".mx2", ".dsk", ".cas"],
+    "folders": ["msx", "msx1", "msx2", "msx2plus", "msxturbor", "turbor"],
+    "target": {"format": ".rom", "container": "7z", "label": ".rom (carts) in 7z; .dsk/.cas in zip", "producible": true},
+    "alternatives": [
+      {"id": "zip", "label": "zip for everything", "producible": true}
+    ],
+    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "containerByExtension": {".dsk": "zip", ".cas": "zip"}
+  },
+  {
+    "id": "commodore-64-128-vic-20-pet",
+    "name": "Commodore 64 / 128 / VIC-20 / PET",
+    "category": "computer",
+    "extensions": [".d64", ".g64", ".crt", ".tap", ".t64", ".prg", ".nib", ".d71", ".d81"],
+    "folders": ["c64", "commodore64", "c128", "commodore128", "vic20", "pet", "commodore"],
+    "target": {"format": ".d64", "container": "zip", "label": ".d64/.g64/.crt/.tap in .zip", "producible": true},
+    "alternatives": [
+      {"id": "bare", "label": "Bare", "producible": true}
+    ],
+    "rules": ["R6", "R8", "R9", "R10", "R13"]
+  },
+  {
+    "id": "amiga",
+    "name": "Amiga (ADF floppies / WHDLoad)",
+    "category": "computer",
+    "extensions": [".adf", ".adz", ".dms", ".ipf", ".lha"],
+    "folders": ["amiga", "commodoreamiga", "whdload"],
+    "target": {"format": ".adf", "container": "zip", "label": ".adf in .zip; WHDLoad .lha bare", "producible": true},
+    "alternatives": [
+      {"id": "7z", "label": "7z", "producible": true},
+      {"id": "adz", "label": ".adz (gzipped ADF)", "producible": false}
+    ],
+    "rules": ["R6", "R8", "R9", "R10", "R13"],
+    "containerByExtension": {".lha": "bare"}
+  },
+  {
+    "id": "amiga-cd32-cdtv",
+    "name": "Amiga CD32 / CDTV",
+    "category": "computer",
+    "extensions": [],
+    "folders": ["cd32", "amigacd32", "cdtv", "commodorecdtv"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "cue-bin", "label": "cue/bin", "producible": true}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "zx-spectrum-zx81",
+    "name": "ZX Spectrum / ZX81",
+    "category": "computer",
+    "extensions": [".tzx", ".tap", ".z80", ".sna", ".szx", ".dsk"],
+    "folders": ["zxspectrum", "spectrum", "zx81", "zx", "sinclair"],
+    "target": {"format": ".tzx", "container": "7z", "label": ".tzx/.tap/.z80 in .7z or .zip", "producible": true},
+    "alternatives": [
+      {"id": "bare", "label": "Bare", "producible": true}
+    ],
+    "rules": ["R6", "R8", "R9", "R10", "R13"],
+    "alsoOptimal": ["zip"]
+  },
+  {
+    "id": "amstrad-cpc-gx4000",
+    "name": "Amstrad CPC / GX4000",
+    "category": "computer",
+    "extensions": [".dsk", ".cdt", ".cpr"],
+    "folders": ["amstradcpc", "cpc", "gx4000", "amstrad"],
+    "target": {"format": ".dsk", "container": "zip", "label": ".dsk/.cdt in .zip", "producible": true},
+    "alternatives": [
+      {"id": "bare", "label": "Bare", "producible": true},
+      {"id": "7z", "label": "7z", "producible": true}
+    ],
+    "rules": ["R6", "R8", "R9", "R10", "R13"]
+  },
+  {
+    "id": "atari-st-ste-falcon",
+    "name": "Atari ST / STE / Falcon",
+    "category": "computer",
+    "extensions": [".st", ".msa", ".stx"],
+    "folders": ["atarist", "atariste", "atarifalcon", "ste", "falcon"],
+    "target": {"format": ".st", "container": "zip", "label": ".st/.msa/.stx in .zip", "producible": true},
+    "alternatives": [
+      {"id": "bare", "label": "Bare", "producible": true}
+    ],
+    "rules": ["R6", "R8", "R9", "R10", "R13"]
+  },
+  {
+    "id": "atari-8-bit",
+    "name": "Atari 8-bit (400/800/XL/XE)",
+    "category": "computer",
+    "extensions": [".atr", ".xex", ".car", ".xfd", ".cas"],
+    "folders": ["atari800", "atari8bit", "atarixl", "atarixe", "atari400", "a800"],
+    "target": {"format": ".atr", "container": "zip", "label": ".atr/.xex/.car in .zip", "producible": true},
+    "alternatives": [
+      {"id": "7z", "label": "7z", "producible": true}
+    ],
+    "rules": ["R6", "R8", "R9", "R10", "R13"]
+  },
+  {
+    "id": "pc-88-pc-98",
+    "name": "PC-88 / PC-98",
+    "category": "computer",
+    "extensions": [".d88", ".88d", ".98d", ".hdi", ".fdi"],
+    "folders": ["pc88", "pc98", "pc8801", "pc9801", "necpc88", "necpc98"],
+    "target": {"format": ".d88", "container": "zip", "label": ".d88 in .zip; HDD images bare", "producible": true},
+    "alternatives": [
+      {"id": "bare", "label": "Bare", "producible": true}
+    ],
+    "rules": ["R6", "R8", "R9", "R10", "R13"],
+    "containerByExtension": {".hdi": "bare"}
+  },
+  {
+    "id": "x68000-x1",
+    "name": "X68000 / X1",
+    "category": "computer",
+    "extensions": [".dim", ".xdf", ".hdf", ".2d"],
+    "folders": ["x68000", "x68k", "sharpx68000", "x1", "sharpx1"],
+    "target": {"format": ".dim", "container": "zip", "label": ".dim/.xdf in .zip; .hdf bare", "producible": true},
+    "alternatives": [
+      {"id": "bare", "label": "Bare", "producible": true}
+    ],
+    "rules": ["R6", "R8", "R9", "R10", "R13"],
+    "containerByExtension": {".hdf": "bare"}
+  },
+  {
+    "id": "ms-dos",
+    "name": "MS-DOS",
+    "category": "computer",
+    "extensions": [".dosz"],
+    "folders": ["dos", "msdos", "dosbox"],
+    "target": {"format": "folder", "container": "zip", "label": ".zip (game folder) / .dosz; CD-ROM → .chd", "producible": true},
+    "alternatives": [
+      {"id": "folder", "label": "Folder", "producible": false},
+      {"id": "dosz", "label": ".dosz", "producible": false}
+    ],
+    "rules": ["R6", "R8", "R9", "R10", "R13"],
+    "discTarget": ".chd"
+  },
+  {
+    "id": "scummvm-supported-adventure-games",
+    "name": "ScummVM-supported adventure games",
+    "category": "computer",
+    "extensions": [],
+    "folders": ["scummvm"],
+    "target": {"format": "folder", "container": "folder", "label": "folder", "producible": true},
+    "alternatives": [],
+    "rules": ["R10"]
+  },
+  {
+    "id": "mame",
+    "name": "MAME (arcade)",
+    "category": "arcade",
+    "extensions": [],
+    "folders": ["mame", "arcade", "mamearcade"],
+    "target": {"format": "romset", "container": "zip", "label": ".zip romset (+ CHD in <set>/ subfolder)", "producible": true},
+    "alternatives": [
+      {"id": "7z", "label": "7z romsets", "producible": false}
+    ],
+    "rules": ["R5"]
+  },
+  {
+    "id": "finalburn-neo",
+    "name": "FinalBurn Neo",
+    "category": "arcade",
+    "extensions": [],
+    "folders": ["fbneo", "finalburnneo", "fba", "fbalpha", "finalburnalpha"],
+    "target": {"format": "romset", "container": "zip", "label": ".zip romset", "producible": true},
+    "alternatives": [
+      {"id": "7z", "label": "7z romsets", "producible": false}
+    ],
+    "rules": ["R5"]
+  },
+  {
+    "id": "naomi-naomi-2-atomiswave",
+    "name": "NAOMI / NAOMI 2 / Atomiswave",
+    "category": "arcade",
+    "extensions": [],
+    "folders": ["naomi", "naomi2", "atomiswave"],
+    "target": {"format": "romset", "container": "zip", "label": ".zip (MAME naming) + .chd for GD-ROM titles", "producible": true},
+    "alternatives": [
+      {"id": "7z", "label": "7z romsets", "producible": false}
+    ],
+    "rules": ["R5"]
+  },
+  {
+    "id": "playstation",
+    "name": "PlayStation",
+    "category": "disc",
+    "extensions": [".pbp"],
+    "folders": ["ps1", "psx", "psone", "playstation", "playstation1", "sonyplaystation"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "pbp", "label": "PBP", "producible": false},
+      {"id": "cue-bin", "label": "cue/bin", "producible": true}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "playstation-2",
+    "name": "PlayStation 2",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["ps2", "playstation2", "sonyplaystation2"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "cso", "label": "CSO/ZSO", "producible": false},
+      {"id": "iso", "label": "Bare .iso", "producible": true}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "playstation-3",
+    "name": "PlayStation 3",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["ps3", "playstation3", "sonyplaystation3"],
+    "target": {"format": "folder", "container": "folder", "label": "Decrypted disc folder (PS3_GAME layout); PSN installed via .pkg + .rap", "producible": false},
+    "alternatives": [
+      {"id": "iso", "label": "Decrypted ISO", "producible": false}
+    ],
+    "rules": ["R10", "R11", "R13"]
+  },
+  {
+    "id": "playstation-portable",
+    "name": "PlayStation Portable",
+    "category": "disc",
+    "extensions": [".cso", ".zso"],
+    "folders": ["psp", "playstationportable", "sonypsp"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "cso", "label": "CSO", "producible": false},
+      {"id": "pbp", "label": ".pbp", "producible": false}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "playstation-vita",
+    "name": "PlayStation Vita",
+    "category": "disc",
+    "extensions": [".vpk"],
+    "folders": ["psvita", "vita", "playstationvita"],
+    "target": {"format": "folder", "container": "zip", "label": ".zip of a NoNpDrm game folder", "producible": false},
+    "alternatives": [
+      {"id": "folder", "label": "Bare NoNpDrm folder", "producible": false},
+      {"id": "vpk", "label": ".vpk", "producible": false}
+    ],
+    "rules": ["R10", "R11", "R13"]
+  },
+  {
+    "id": "mega-cd-sega-cd",
+    "name": "Mega-CD / Sega CD",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["segacd", "megacd", "segamegacd"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "cue-bin", "label": "cue/bin", "producible": true}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "saturn",
+    "name": "Saturn",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["saturn", "segasaturn", "ss"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "cue-bin", "label": "cue/bin", "producible": true}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "dreamcast",
+    "name": "Dreamcast",
+    "category": "disc",
+    "extensions": [".gdi", ".cdi"],
+    "folders": ["dreamcast", "dc", "segadreamcast"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "gdi", "label": "Bare .gdi set", "producible": true},
+      {"id": "cdi", "label": ".cdi", "producible": false}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "pc-engine-cd-turbografx-cd",
+    "name": "PC Engine CD / TurboGrafx-CD",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["pcenginecd", "pcecd", "turbografxcd", "tg16cd", "turbocd"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "cue-bin", "label": "cue/bin", "producible": true}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "pc-fx",
+    "name": "PC-FX",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["pcfx", "necpcfx"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "cue-bin", "label": "cue/bin", "producible": true}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "neo-geo-cd",
+    "name": "Neo Geo CD",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["neogeocd", "neocd"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "cue-bin", "label": "cue/bin", "producible": true}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "3do",
+    "name": "3DO",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["3do", "panasonic3do"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "cue-bin", "label": "cue/bin", "producible": true},
+      {"id": "iso", "label": ".iso", "producible": true}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "cd-i",
+    "name": "CD-i",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["cdi", "philipscdi"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "cue-bin", "label": "cue/bin", "producible": true}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "jaguar-cd",
+    "name": "Jaguar CD",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["jaguarcd", "atarijaguarcd"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd (UNSURE)", "producible": true},
+    "alternatives": [
+      {"id": "cue-bin", "label": "cue/bin", "producible": true},
+      {"id": "cdi", "label": ".cdi", "producible": false}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "playdia",
+    "name": "Playdia",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["playdia"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "cue-bin", "label": "cue/bin", "producible": true}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "other-redump-cd-dvd-systems",
+    "name": "Other Redump CD/DVD systems (FM Towns, PC-98 CD, Pippin, Mac, PC CD-ROM, arcade CDs)",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["fmtowns", "pippin", "pccd", "pccdrom", "pc98cd"],
+    "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
+    "alternatives": [
+      {"id": "cue-bin", "label": "cue/bin", "producible": true},
+      {"id": "iso", "label": ".iso", "producible": true}
+    ],
+    "rules": ["R2", "R7", "R10", "R11", "R13"]
+  },
+  {
+    "id": "gamecube",
+    "name": "GameCube",
+    "category": "disc",
+    "extensions": [".gcm", ".tgc"],
+    "folders": ["gamecube", "gc", "ngc", "nintendogamecube"],
+    "target": {"format": ".rvz", "container": "bare", "label": ".rvz", "producible": true},
+    "alternatives": [
+      {"id": "iso", "label": "Bare .iso", "producible": true}
+    ],
+    "rules": ["R4", "R10", "R11", "R13"]
+  },
+  {
+    "id": "wii",
+    "name": "Wii (discs)",
+    "category": "disc",
+    "extensions": [".wbfs"],
+    "folders": ["wii", "nintendowii"],
+    "target": {"format": ".rvz", "container": "bare", "label": ".rvz", "producible": true},
+    "alternatives": [
+      {"id": "iso", "label": "Bare .iso", "producible": true},
+      {"id": "wbfs", "label": ".wbfs", "producible": false}
+    ],
+    "rules": ["R4", "R10", "R11", "R13"]
+  },
+  {
+    "id": "wiiware-virtual-console",
+    "name": "WiiWare / Virtual Console (Wii digital)",
+    "category": "disc",
+    "extensions": [".wad"],
+    "folders": ["wiiware", "virtualconsole", "wiivc"],
+    "target": {"format": ".wad", "container": "bare", "label": ".wad", "producible": true},
+    "alternatives": [
+      {"id": "7z", "label": "7z", "producible": true}
+    ],
+    "rules": ["R10", "R13"]
+  },
+  {
+    "id": "wii-u",
+    "name": "Wii U",
+    "category": "disc",
+    "extensions": [".wua", ".wud", ".wux"],
+    "folders": ["wiiu", "nintendowiiu"],
+    "target": {"format": ".wua", "container": "bare", "label": ".wua", "producible": true},
+    "alternatives": [
+      {"id": "wux", "label": ".wux", "producible": false},
+      {"id": "folder", "label": "loadiine folder", "producible": false}
+    ],
+    "rules": ["R3", "R10", "R11", "R13"]
+  },
+  {
+    "id": "xbox",
+    "name": "Xbox",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["xbox", "originalxbox", "microsoftxbox"],
+    "target": {"format": ".iso", "container": "bare", "label": ".iso (XISO game partition)", "producible": false},
+    "alternatives": [
+      {"id": "cci", "label": "CCI", "producible": false}
+    ],
+    "rules": ["R10", "R11", "R13"]
+  },
+  {
+    "id": "xbox-360",
+    "name": "Xbox 360",
+    "category": "disc",
+    "extensions": [],
+    "folders": ["xbox360", "x360", "microsoftxbox360"],
+    "target": {"format": ".iso", "container": "bare", "label": ".iso", "producible": false},
+    "alternatives": [
+      {"id": "folder", "label": "Extracted XEX folder", "producible": false},
+      {"id": "god", "label": "GOD", "producible": false},
+      {"id": "zar", "label": ".zar", "producible": false}
+    ],
+    "rules": ["R10", "R11", "R13"]
+  }
+]

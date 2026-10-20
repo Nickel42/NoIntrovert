@@ -7,7 +7,8 @@ namespace NoIntrovert.Core.Library;
 
 /// <summary>
 /// Looks through the library folders and works out, for each input, which
-/// system it's for, its title and which game it belongs to. Inputs whose
+/// system it's for (a registry id), its title, which game it belongs to and
+/// where it stands against its system's target format. Inputs whose
 /// files haven't changed since the last scan (same size and date) are taken
 /// from the old index without being read again, archives included.
 /// </summary>
@@ -95,18 +96,19 @@ public static partial class LibraryScanner
     {
         var system = SystemOf(set, root, ref chdman);
         var (title, disc) = TitleOf(set.Primary);
-        var key = $"{system}|{title}";
+        var key = $"{system ?? "unknown"}|{title}";
 
         // Wii U: base game, update and DLC share the low half of their title ID, so they're one game.
-        if (system == "Wii U" && WiiUIdentity(set) is { } wiiu)
+        if (system == "wii-u" && WiiUIdentity(set) is { } wiiu)
         {
-            key = $"Wii U|{wiiu.BaseId:X16}";
+            key = $"wii-u|{wiiu.BaseId:X16}";
             if (wiiu.Name.Length > 0) title = wiiu.Name;
             disc = "";
         }
-        var target = ConvertTargets.For(set, settings).Default.Kind;
+        var plan = TargetResolver.Resolve(set, TargetFormats.ById(system), settings);
+        var target = ConvertTargets.For(set, settings, plan).Default.Kind;
         return new LibraryItem(set.Primary, set.Members, set.Format.Id, set.Inside?.Select(f => f.Id).ToList(), size, ticks,
-            root, system, title, key.ToLowerInvariant(), disc, target);
+            root, system, title, key.ToLowerInvariant(), disc, target, plan.Status, plan.Text);
     }
 
     // ---- Titles ----
@@ -144,107 +146,25 @@ public static partial class LibraryScanner
 
     // ---- Systems ----
 
-    private static readonly Dictionary<string, string> CartridgeSystems = new(StringComparer.OrdinalIgnoreCase)
-    {
-        [".nes"] = "NES", [".fds"] = "NES", [".unf"] = "NES", [".sfc"] = "SNES", [".smc"] = "SNES",
-        [".gb"] = "Game Boy", [".gbc"] = "Game Boy Color", [".gba"] = "Game Boy Advance",
-        [".nds"] = "Nintendo DS", [".dsi"] = "Nintendo DS", [".3ds"] = "Nintendo 3DS", [".cia"] = "Nintendo 3DS",
-        [".n64"] = "Nintendo 64", [".z64"] = "Nintendo 64", [".v64"] = "Nintendo 64",
-        [".md"] = "Genesis", [".gen"] = "Genesis", [".smd"] = "Genesis", [".sms"] = "Master System", [".gg"] = "Game Gear",
-        [".32x"] = "32X", [".pce"] = "PC Engine", [".sgx"] = "PC Engine", [".a26"] = "Atari 2600", [".a52"] = "Atari 5200",
-        [".a78"] = "Atari 7800", [".lnx"] = "Lynx", [".ws"] = "WonderSwan", [".wsc"] = "WonderSwan Color",
-        [".ngp"] = "Neo Geo Pocket", [".vb"] = "Virtual Boy", [".min"] = "Pokémon Mini", [".col"] = "ColecoVision",
-        [".int"] = "Intellivision", [".vec"] = "Vectrex", [".j64"] = "Jaguar",
-    };
-
-    /// <summary>Folder names people use for each system, compared without spaces, dashes or case.</summary>
-    private static readonly (string System, string[] Names)[] FolderNames =
-    [
-        ("PlayStation 2", ["ps2", "playstation2", "sonyplaystation2"]),
-        ("PlayStation", ["ps1", "psx", "psone", "playstation", "playstation1", "sonyplaystation"]),
-        ("PSP", ["psp", "playstationportable"]),
-        ("Saturn", ["saturn", "segasaturn", "ss"]),
-        ("Dreamcast", ["dreamcast", "dc", "segadreamcast"]),
-        ("Sega CD", ["segacd", "megacd", "segamegacd"]),
-        ("GameCube", ["gamecube", "gc", "ngc", "nintendogamecube"]),
-        ("Wii U", ["wiiu", "nintendowiiu"]),
-        ("Wii", ["wii", "nintendowii"]),
-        ("PC Engine CD", ["pcenginecd", "turbografxcd", "tg16cd", "pcecd"]),
-        ("Neo Geo CD", ["neogeocd"]),
-        ("3DO", ["3do"]),
-        ("NES", ["nes", "famicom", "nintendoentertainmentsystem"]),
-        ("SNES", ["snes", "superfamicom", "supernintendo", "sfc"]),
-        ("Nintendo 64", ["n64", "nintendo64"]),
-        ("Genesis", ["genesis", "megadrive", "segagenesis", "md"]),
-        ("Game Boy Advance", ["gba", "gameboyadvance"]),
-        ("Game Boy Color", ["gbc", "gameboycolor"]),
-        ("Game Boy", ["gb", "gameboy"]),
-        ("Nintendo DS", ["nds", "nintendods"]),
-        ("Xbox", ["xbox"]),
-    ];
-
     /// <summary>
-    /// The system: from the file itself where that's quick and certain (Wii U
-    /// formats, GameCube/Wii and PSP disc headers, GD-ROM CHDs, cartridge
-    /// extensions), else from a folder name on the way up to the library
-    /// folder ("PS1", "Saturn"…), else "Unknown".
+    /// The registry id of the input's system (see <see cref="SystemDetector"/>),
+    /// or null for Unknown system. A CHD whose folder says nothing is opened to
+    /// find a Dreamcast GD-ROM.
     /// </summary>
-    public static string SystemOf(FileSet set, string root, ref Chdman? chdman)
+    public static string? SystemOf(FileSet set, string root, ref Chdman? chdman)
     {
-        var f = set.Format;
-        var ext = Path.GetExtension(set.Primary).ToLowerInvariant();
-        if (KnownFormats.WiiUInputs.Contains(f) || set.Holds(KnownFormats.WiiUBuildable)) return "Wii U";
-        if (CartridgeSystems.TryGetValue(ext, out var cart)) return cart;
-        if (f.Id == "gdi") return "Dreamcast";
-        var folder = FromFolders(set.Primary, root);
-        if (ext is ".iso" or ".gcm" && File.Exists(set.Primary))
-        {
-            var console = ConsoleOfDisc(set.Primary);
-            if (console is not null) return console;
-            if (IsoProbe.LooksLikeDvd(set.Primary, out var why) && why == "PSP UMD image") return "PSP";
-        }
-        if (ext is ".cso" or ".zso") return folder == "PlayStation 2" ? folder : "PSP";
-        if (ext is ".gcz" or ".wia" or ".rvz" or ".tgc" or ".wbfs" or ".ciso") return folder is "GameCube" or "Wii" ? folder : "GameCube / Wii";
-        if (folder is not null) return folder;
-        if (f == KnownFormats.Chd && File.Exists(set.Primary))
+        Chdman? opened = chdman;
+        var system = SystemDetector.SystemOf(set, root, chd =>
         {
             try
             {
-                chdman ??= new Chdman();
-                if (chdman.Info(set.Primary, hunkStats: false).Metadata.Any(m => m.TagString == "CHGD")) return "Dreamcast";
+                opened ??= new Chdman();
+                return opened.Info(chd, hunkStats: false).Metadata.Any(m => m.TagString == "CHGD") ? "dreamcast" : null;
             }
-            catch (Exception ex) when (ex is ChdmanException or IOException or DllNotFoundException) { }
-        }
-        return "Unknown";
-    }
-
-    private static string? FromFolders(string path, string root)
-    {
-        var dir = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(path));
-        var stop = Path.GetDirectoryName(root);
-        while (dir is not null && !string.Equals(dir, stop, StringComparison.OrdinalIgnoreCase))
-        {
-            var name = new string(Path.GetFileName(dir).Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
-            foreach (var (system, names) in FolderNames)
-                if (names.Contains(name)) return system;
-            dir = Path.GetDirectoryName(dir);
-        }
-        return null;
-    }
-
-    /// <summary>"GameCube" or "Wii" from a plain disc's header magic, or null.</summary>
-    private static string? ConsoleOfDisc(string path)
-    {
-        Span<byte> head = stackalloc byte[0x20];
-        try
-        {
-            using var s = File.OpenRead(path);
-            if (s.ReadAtLeast(head, head.Length, throwOnEndOfStream: false) < head.Length) return null;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
-        if (System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(head[0x18..]) == 0x5D1C9EA3) return "Wii";
-        if (System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(head[0x1C..]) == 0xC2339F3D) return "GameCube";
-        return null;
+            catch (Exception ex) when (ex is ChdmanException or IOException or DllNotFoundException) { return null; }
+        });
+        chdman = opened;
+        return system;
     }
 
     /// <summary>A Wii U input's base title ID and name, where they can be read without keys.</summary>
