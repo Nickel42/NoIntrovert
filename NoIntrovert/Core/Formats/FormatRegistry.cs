@@ -52,16 +52,17 @@ public interface IFormatHandler
 
 /// <summary>
 /// The files (and folders) one scan step looks at. Paths are made full and
-/// compared without case once, here, so no handler compares raw strings.
+/// compared once, here (as the OS compares them, <see cref="PathNames"/>), so
+/// no handler compares raw strings.
 /// </summary>
 public sealed class ScanSet
 {
-    private readonly HashSet<string> _claimed = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _claimed = new(PathNames.Comparer);
 
     public ScanSet(IEnumerable<string> files, IEnumerable<string>? folders = null)
     {
-        Files = files.Select(Normalize).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        Folders = (folders ?? []).Select(Normalize).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        Files = files.Select(Normalize).Distinct(PathNames.Comparer).ToList();
+        Folders = (folders ?? []).Select(Normalize).Distinct(PathNames.Comparer).ToList();
     }
 
     public IReadOnlyList<string> Files { get; }
@@ -123,7 +124,7 @@ public sealed class FormatRegistry
         if (Directory.Exists(full))
             return _handlers.Select(h => h.RecognizeFolder(full)).FirstOrDefault(f => f is not null) is { } folder
                 ? new FileSet(full, [full], folder) : null;
-        return Claim(new ScanSet([full])).FirstOrDefault(s => s.Primary.Equals(full, StringComparison.OrdinalIgnoreCase));
+        return Claim(new ScanSet([full])).FirstOrDefault(s => s.Primary.Equals(full, PathNames.Comparison));
     }
 
     /// <summary>Lets every handler claim from <paramref name="set"/>, highest priority first, sorted by path.</summary>
@@ -163,7 +164,7 @@ public sealed class FormatRegistry
 
         var set = new ScanSet(files, dirs);
         var claimed = Claim(set);
-        var byPath = claimed.ToDictionary(s => s.Primary, StringComparer.OrdinalIgnoreCase);
+        var byPath = claimed.ToDictionary(s => s.Primary, PathNames.Comparer);
         found.AddRange(set.Files.Where(byPath.ContainsKey).Select(f => byPath[f]));
         foreach (var dir in set.Folders)
         {

@@ -2335,8 +2335,8 @@ if (ArchiveEngine.IsAvailable(out _))
         string.Join("\n", plan.Steps.Select(s => $"{s.Kind} {s.Game}: {string.Join(",", s.Sources.Take(1).Select(Rel))} → {Rel(s.Target)} ({s.Reason})"));
     NoIntrovert.Core.Cleanup.CleanupStep? Find(NoIntrovert.Core.Cleanup.CleanupPlan plan, string game) =>
         plan.Steps.FirstOrDefault(s => s.Game == game);
-    // Paths as the tests write them, compared without case (Windows' NES and ES-DE's nes are one folder).
-    HashSet<string> Tree() => Directory.EnumerateFileSystemEntries(games7, "*", SearchOption.AllDirectories).Select(Rel).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    // Paths compared as the OS does: on Windows and macOS, NES/ and ES-DE's nes/ are one folder; on Linux, two.
+    HashSet<string> Tree() => Directory.EnumerateFileSystemEntries(games7, "*", SearchOption.AllDirectories).Select(Rel).ToHashSet(PathNames.Comparer);
     NoIntrovert.Core.Cleanup.CleanupRun RunPlan(NoIntrovert.Core.Cleanup.CleanupPlan plan)
     {
         var runner = new NoIntrovert.Core.Cleanup.CleanupRunner();

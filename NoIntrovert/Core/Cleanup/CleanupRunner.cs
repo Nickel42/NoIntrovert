@@ -192,7 +192,7 @@ public sealed class CleanupRunner
     {
         var trash = TrashFolder(root, Run.Id);
         lock (_lock) if (!Run.TrashFolders.Contains(trash)) Run.TrashFolders.Add(trash);
-        foreach (var file in files.Where(f => File.Exists(f) || Directory.Exists(f)).Distinct(StringComparer.OrdinalIgnoreCase))
+        foreach (var file in files.Where(f => File.Exists(f) || Directory.Exists(f)).Distinct(PathNames.Comparer))
         {
             var relative = System.IO.Path.GetRelativePath(root, file);
             if (relative.StartsWith("..")) relative = System.IO.Path.GetFileName(file);

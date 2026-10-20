@@ -22,8 +22,8 @@ public static partial class LibraryScanner
         // (archives still aren't reopened: their contents are remembered below).
         var key = TargetSettingsKey(settings);
         var reuse = previous?.TargetSettingsKey == key;
-        var old = (previous?.Items ?? []).GroupBy(i => i.Path, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var old = (previous?.Items ?? []).GroupBy(i => i.Path, PathNames.Comparer)
+            .ToDictionary(g => g.Key, g => g.First(), PathNames.Comparer);
         // Archives that haven't changed keep what they were seen to hold, so they're not opened again.
         foreach (var item in old.Values.Where(i => i.Inside is not null))
             ArchivePeek.Remember(item.Path, item.Size, item.ModifiedTicks, item.Inside!);
@@ -32,7 +32,7 @@ public static partial class LibraryScanner
         Chdman? chdman = null;
         try
         {
-            foreach (var root in roots.Select(ScanSet.Normalize).Distinct(StringComparer.OrdinalIgnoreCase))
+            foreach (var root in roots.Select(ScanSet.Normalize).Distinct(PathNames.Comparer))
             {
                 token.ThrowIfCancellationRequested();
                 if (!Directory.Exists(root))
@@ -52,7 +52,7 @@ public static partial class LibraryScanner
                     token.ThrowIfCancellationRequested();
                     var (size, ticks) = Stamp(set);
                     if (reuse && old.TryGetValue(set.Primary, out var known) && known.Size == size && known.ModifiedTicks == ticks
-                        && known.FormatId == set.Format.Id && string.Equals(known.Root, root, StringComparison.OrdinalIgnoreCase))
+                        && known.FormatId == set.Format.Id && string.Equals(known.Root, root, PathNames.Comparison))
                         index.Items.Add(known);
                     else
                         index.Items.Add(Describe(set, root, size, ticks, settings, ref chdman));
