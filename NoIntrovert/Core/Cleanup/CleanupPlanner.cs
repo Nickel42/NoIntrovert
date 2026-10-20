@@ -37,7 +37,7 @@ public sealed class CleanupStep
     public required string Root { get; init; }
 
     /// <summary>For a conversion: what each source becomes (the converter's own name → the database name).</summary>
-    public Dictionary<string, string> Renames { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> Renames { get; init; } = new(PathNames.Comparer);
 
     /// <summary>For a conversion: the target the Convert page would pick.</summary>
     public TargetKind ConvertTo { get; init; }
@@ -166,13 +166,12 @@ public static class CleanupPlanner
     public static string MultiDiscFolder(AppSettings settings) =>
         string.IsNullOrWhiteSpace(settings.TargetFormats.MultiDiscFolder) ? "hidden" : settings.TargetFormats.MultiDiscFolder.Trim();
 
-    /// <summary>Whether two paths name the same file or folder: without case on Windows and macOS, whose file systems ignore it.</summary>
-    public static bool SamePath(string a, string b) =>
-        string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
+    /// <summary>Whether two paths name the same file or folder, as the OS compares them.</summary>
+    public static bool SamePath(string a, string b) => PathNames.Same(a, b);
 
     private static bool InLayout(LibraryItem item, AppSettings settings) =>
         TargetFormats.ById(item.System) is { } system
-        && string.Equals(Path.GetDirectoryName(item.Path), FolderFor(item, system, settings), StringComparison.OrdinalIgnoreCase);
+        && SamePath(Path.GetDirectoryName(item.Path)!, FolderFor(item, system, settings));
 
     private static string? Folder(AppSettings settings) => settings.Library.Layout == LibraryLayout.EsDe ? "its system folder" : null;
 
@@ -194,8 +193,8 @@ public static class CleanupPlanner
     private static void MarkClashes(List<CleanupStep> steps)
     {
         var leaving = steps.Where(s => s.Kind is CleanupKind.Move or CleanupKind.Rename or CleanupKind.RemoveDuplicate or CleanupKind.Convert)
-            .SelectMany(s => s.Sources).Select(Path.GetFullPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            .SelectMany(s => s.Sources).Select(Path.GetFullPath).ToHashSet(PathNames.Comparer);
+        var claimed = new HashSet<string>(PathNames.Comparer);
         for (var i = 0; i < steps.Count; i++)
         {
             var s = steps[i];
