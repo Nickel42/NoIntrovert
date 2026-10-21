@@ -5,6 +5,7 @@ using LibChdman;
 using NoIntrovert.Core;
 using NoIntrovert.Core.Archives;
 using NoIntrovert.Core.Cd;
+using NoIntrovert.Core.Esde;
 using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.Jobs;
 using NoIntrovert.Tests;
@@ -2155,6 +2156,103 @@ Test("Hashing: CRC32 and SHA-1 of the standard check string, and NES without its
             ? Note(status) : $"problem {r.Problem ?? "none"}; {status}";
     });
 
+    // ES-DE's system folders (#29): the bundled snapshot, and a made-up GitLab for the update check.
+    Test("ES-DE systems: the bundled snapshot is parsed and has every folder the registry maps to", () =>
+    {
+        var snap = EsdeSystems.Snapshot;
+        if (!snap.Ref.StartsWith('v') || snap.Commit.Length != 40 || snap.Systems.Count < 150) return $"{snap.Ref} {snap.Commit}: {snap.Systems.Count} systems";
+        if (snap.Find("psx") is not { FullName: "Sony PlayStation" } psx || !psx.Extensions.Contains(".chd")) return "psx isn't as ES-DE has it";
+        var problems = EsdeSystems.Problems(snap);
+        return problems.Count == 0 ? Note($"{snap.Ref}, {snap.Systems.Count} systems") : string.Join("\n", problems);
+    });
+
+    Test("ES-DE systems: es_systems.xml is read as ES-DE writes it (names, full names, extensions in lower case)", () =>
+    {
+        var list = EsdeSystemList.Parse(FakeGitLab.XmlOf(EsdeSystems.Snapshot.Systems.Take(3)), "v1", "c1");
+        var first = EsdeSystems.Snapshot.Systems[0];
+        return list.Systems.Count == 3 && list.Systems[0].Name == first.Name && list.Systems[0].FullName == first.FullName
+               && list.Systems[0].Extensions.SequenceEqual(first.Extensions)
+            ? null : $"{list.Systems.Count} systems; {string.Join(" ", list.Systems[0].Extensions)}";
+    });
+
+    {
+        var gitlab = new FakeGitLab { Tag = EsdeSystems.Snapshot.Ref, Commit = EsdeSystems.Snapshot.Commit, Xml = FakeGitLab.XmlOf(EsdeSystems.Snapshot.Systems) };
+        var esdeStore = new EsdeStore(Dir("esde-update"));
+        EsdeUpdateResult CheckEsde() => new EsdeUpdater(esdeStore, gitlab).UpdateAsync().GetAwaiter().GetResult();
+
+        Test("ES-DE systems: offline on first run, the snapshot is used and the check stays due", () =>
+        {
+            gitlab.Offline = true;
+            var r = CheckEsde();
+            gitlab.Offline = false;
+            var list = EsdeSystems.Load(esdeStore);
+            return r.Problem is not null && ReferenceEquals(list, EsdeSystems.Snapshot) && esdeStore.LoadList() is null && new EsdeUpdater(esdeStore).IsDue(DateTime.UtcNow)
+                   && EsdeSystems.Resolve(TargetFormats.ById("gamecube")!, list).Name == "gc"
+                ? Note(esdeStore.Describe()) : $"problem {r.Problem ?? "none"}";
+        });
+
+        Test("ES-DE systems: the release the snapshot came from downloads nothing, then costs one 304 (unchanged)", () =>
+        {
+            var r = CheckEsde();
+            if (r.Problem is not null || r.Downloaded || gitlab.Downloads + gitlab.Commits > 0) return $"{r.Problem}; {gitlab.Commits} commit checks, {gitlab.Downloads} downloads";
+            if (new EsdeUpdater(esdeStore).IsDue(DateTime.UtcNow)) return "a check just made is due again";
+            if (!new EsdeUpdater(esdeStore).IsDue(DateTime.UtcNow.AddDays(1.1))) return "a check over a day old isn't due";
+            r = CheckEsde();
+            return r.Problem is null && gitlab.NotModified == 1 && gitlab.Downloads == 0 && r.Ref == EsdeSystems.Snapshot.Ref ? null : $"{gitlab.NotModified} 304s, {gitlab.Downloads} downloads";
+        });
+
+        Test("ES-DE systems: a new release with the same es_systems.xml moves the ref without downloading", () =>
+        {
+            gitlab.Tag = "v98.0.0";
+            var r = CheckEsde();
+            var list = esdeStore.LoadList();
+            return r.Problem is null && !r.Downloaded && gitlab.Downloads == 0 && list?.Ref == "v98.0.0" && list.Commit == EsdeSystems.Snapshot.Commit
+                ? null : $"{r.Problem}; downloads {gitlab.Downloads}; cached {list?.Ref} {list?.Commit}";
+        });
+
+        Test("ES-DE systems: a changed es_systems.xml is downloaded and cached with its release and commit (changed)", () =>
+        {
+            gitlab.Tag = "v99.0.0";
+            gitlab.Commit = new string('a', 40);
+            gitlab.Xml = FakeGitLab.XmlOf([.. EsdeSystems.Snapshot.Systems, new EsdeSystem("newsystem", "A New System", [".new"])]);
+            var r = CheckEsde();
+            var list = esdeStore.LoadList();
+            if (r.Problem is not null || !r.Downloaded || gitlab.Downloads != 1) return $"{r.Problem}; downloads {gitlab.Downloads}";
+            if (list?.Ref != "v99.0.0" || list.Commit != gitlab.Commit || list.Find("newsystem") is null) return $"cached {list?.Ref} {list?.Commit}";
+            r = CheckEsde();
+            return r.Problem is null && !r.Downloaded && gitlab.Downloads == 1 ? Note(esdeStore.Describe()) : $"downloaded again ({gitlab.Downloads})";
+        });
+
+        Test("ES-DE systems: offline later, the cache is kept and the last check time isn't moved (offline)", () =>
+        {
+            var before = esdeStore.LoadState().LastCheckedUtc;
+            gitlab.Offline = true;
+            var r = CheckEsde();
+            gitlab.Offline = false;
+            return r.Problem is not null && esdeStore.LoadList()?.Ref == "v99.0.0" && esdeStore.LoadState().LastCheckedUtc == before ? null : $"problem {r.Problem ?? "none"}";
+        });
+
+        Test("ES-DE systems: a renamed or removed system is reported, falls back to the snapshot name, and is never invented", () =>
+        {
+            gitlab.Tag = "v100.0.0";
+            gitlab.Commit = new string('b', 40);
+            gitlab.Xml = FakeGitLab.XmlOf(EsdeSystems.Snapshot.Systems
+                .Where(s => s.Name != "wiiu")
+                .Select(s => s.Name == "gc" ? s with { Name = "gamecube" } : s));
+            var r = CheckEsde();
+            var list = esdeStore.LoadList()!;
+            var gc = EsdeSystems.Resolve(TargetFormats.ById("gamecube")!, list);
+            var wiiu = EsdeSystems.Resolve(TargetFormats.ById("wii-u")!, list);
+            if (r.Problem is not null || gc.Name != "gc" || wiiu.Name != "wiiu") return $"{r.Problem}; gc → {gc.Name}, wiiu → {wiiu.Name}";
+            if (r.Missing.Count != 2 || !r.Missing.Any(m => m.Contains("\"gc\"") && m.Contains("renamed to \"gamecube\""))
+                || !r.Missing.Any(m => m.Contains("\"wiiu\"") && !m.Contains("renamed"))) return string.Join("\n", r.Missing);
+            // Neither list has it: the games stay where they are.
+            var empty = new EsdeSystemList { Ref = "v0", Systems = [] };
+            var lost = EsdeSystems.Resolve(TargetFormats.ById("gamecube")!, list, empty);
+            return lost.Name is null && lost.Problem!.Contains("stay where they are") ? Note(string.Join(" | ", r.Missing)) : $"{lost.Name}: {lost.Problem}";
+        });
+    }
+
     // Matching (acceptance 5-12): a DAT store with made-up NES and PS1 entries.
     var lib = Dir("m6-library");
     var rom = TextBytes(32 * 1024);
@@ -2383,6 +2481,28 @@ if (ArchiveEngine.IsAvailable(out _))
             ?? Check("Wrong Name", NoIntrovert.Core.Cleanup.CleanupKind.Rename, "roms/nes/Metroid (USA).7z")
             ?? Check("Unknown", NoIntrovert.Core.Cleanup.CleanupKind.Untouched, null)
             ?? Check("loose", NoIntrovert.Core.Cleanup.CleanupKind.Untouched, null);
+    });
+
+    Test("Cleanup: a system ES-DE renamed upstream is reported and still filed under the snapshot's folder (#29)", () =>
+    {
+        // The cache says ES-DE now calls psx "playstation"; the plan must not invent that folder or lose psx.
+        var store = EsdeStore.Default;
+        var renamed = EsdeSystems.Snapshot.Systems.Select(s => s.Name == "psx" ? s with { Name = "playstation" } : s).ToList();
+        store.SaveList(new EsdeSystemList { Ref = "v99.0.0", Commit = "renamed", Systems = renamed });
+        EsdeSystems.Reload();
+        try
+        {
+            var plan = PlanFor(LibraryLayout.EsDe);
+            var status = store.Describe();
+            if (Rel(Find(plan, "Crash Bandicoot")?.Target) != "roms/psx/Crash Bandicoot (USA).chd") return Describe(plan);
+            return status.Contains("v99.0.0") && status.Contains("no \"psx\" folder") && status.Contains("renamed to \"playstation\"")
+                ? Note(status) : status;
+        }
+        finally
+        {
+            File.Delete(Path.Combine(store.Folder, "es_systems.json"));
+            EsdeSystems.Reload();
+        }
     });
 
     Test("Cleanup: keeping the current layout only converts and renames, in place (M7 2)", () =>

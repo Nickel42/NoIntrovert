@@ -45,6 +45,8 @@
   <!-- The target-format registry (one entry per system in docs/target-formats.md). -->
   <ItemGroup>
     <EmbeddedResource Include="Core/Formats/TargetFormats.json" LogicalName="NoIntrovert.TargetFormats.json" />
+    <!-- ES-DE's system folders as of its latest release (Core/Esde, docs/requirements/cleanup-wizard.md). -->
+    <EmbeddedResource Include="Core/Esde/es_systems.json" LogicalName="NoIntrovert.es_systems.json" />
   </ItemGroup>
 
   <Import Project="$(LibChdmanRoot)/bindings/csharp/ChdmanNativeCopy.targets" />

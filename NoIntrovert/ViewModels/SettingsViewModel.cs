@@ -477,6 +477,26 @@ public sealed partial class DatSettingsViewModel(AppSettings settings, IDialogs 
         if (UpdateRequested is not null) await UpdateRequested();
     }
 
+    /// <summary>"ES-DE systems: release v3.5.0, checked 2 hours ago (195 systems)." (the Cleanup wizard's folder names).</summary>
+    [ObservableProperty] public partial string EsdeStatus { get; set; } = Core.Esde.EsdeStore.Default.Describe();
+
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(CheckEsdeNowCommand))]
+    public partial bool IsCheckingEsde { get; set; }
+
+    /// <summary>Checks ES-DE's latest release for changed system folders; set by the main window.</summary>
+    public Func<Task>? EsdeCheckRequested { get; set; }
+
+    public void RefreshEsdeStatus(string? problem = null) =>
+        EsdeStatus = Core.Esde.EsdeStore.Default.Describe() + (problem is null ? "" : $" Last check failed: {problem}");
+
+    private bool CanCheckEsdeNow => !IsCheckingEsde;
+
+    [RelayCommand(CanExecute = nameof(CanCheckEsdeNow))]
+    private async Task CheckEsdeNow()
+    {
+        if (EsdeCheckRequested is not null) await EsdeCheckRequested();
+    }
+
     [RelayCommand]
     private async Task BrowseOwnFolder()
     {

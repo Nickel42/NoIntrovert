@@ -58,7 +58,7 @@ Nothing happens until you've seen the whole plan, and everything the wizard did 
   - Nothing outside the Library folders is written.
 - **FR-6 Layout (Q1, issue #30).** A setting, chosen on the Cleanup page itself (*File layout*) and in *Settings → Library → Folder layout*. Changing it makes the plan again.
   - **ES-DE format** (the default): a top-level `roms` folder in each Library folder, one folder per system inside it, and the games' files inside those: `<Library folder>/roms/<es-de name>/<Game>.<ext>`. If the Library folder is itself called `roms`, the system folders go straight inside it.
-    - The system folders have the names in ES-DE's *Supported game systems* list (`nes`, `snes`, `psx`, `saturn`, `dreamcast`, `gc`, `wii`, `wiiu`, `psp`, `ps2`, `ps3`…), in lower case as ES-DE expects them (Linux and macOS ES-DE are case-sensitive). The registry has an `esde` name for each system.
+    - The system folders have the names in ES-DE's *Supported game systems* list (`nes`, `snes`, `psx`, `saturn`, `dreamcast`, `gc`, `wii`, `wiiu`, `psp`, `ps2`, `ps3`…), in lower case as ES-DE expects them (Linux and macOS ES-DE are case-sensitive). The registry has an `esde` name for each system, checked against ES-DE's own list (FR-6a).
     - Games below a system folder don't keep subfolders. **The only folders allowed at the game level** are games that have to be folders:
       - Wii U NUS titles and Wii U title folders (`code/content/meta`), moved whole under their own name;
       - PS3 games, as `<Game>.ps3` folders (ES-DE's *directories interpreted as files*; a PS3 game folder without `.ps3` gets it);
@@ -68,6 +68,17 @@ Nothing happens until you've seen the whole plan, and everything the wizard did 
   - **Keep the current layout:** the existing file and folder hierarchy stays as it is. Files are only converted and renamed in place; a multi-disc conversion follows R7 (`hidden/` plus `<Game>.m3u` in the discs' folder).
   - A system ES-DE has no folder for, and an unknown system, stay where they are.
   - Nothing is moved until **Run**, and every move is in the run's journal (FR-4).
+- **FR-6a ES-DE system list (issue #29).** ES-DE adds and renames systems from release to release, so its folder names come from ES-DE itself, not from strings in the code.
+  - **Source:** `resources/systems/unix/es_systems.xml` in ES-DE's GitLab project (`es-de/emulationstation-de`), at the **latest release tag**, not `master`, so the folders match the ES-DE users have installed. Each `<system>` gives the folder (`<name>`), `<fullname>` and `<extension>`; the folder names are the same on every platform, so the `unix` file is enough.
+  - **Snapshot:** the app ships that list, parsed (`Core/Esde/es_systems.json`, with its release tag and the commit that last changed the file), so the ES-DE layout works offline and on first run.
+  - **Update check:** in the background on app start, at most once a day, when *Check for newer databases when the app starts* is on; and whenever *Check now* is clicked (Settings → Game databases).
+    1. Ask the releases API (`/projects/es-de%2Femulationstation-de/releases?per_page=1`) for the latest tag, with the last ETag; a 304 ends the check.
+    2. If the tag differs from the list in use, ask the commits API for the last change to `es_systems.xml` at that tag. Only when that commit differs from the list's is the file downloaded (from `/-/raw/<tag>/…`) and parsed; otherwise only the tag is recorded.
+    3. The list is cached under the settings folder: `esde/es_systems.json` (tag, commit, systems) and `esde/state.json` (last check time, ETags).
+    4. Offline, refused, or a file that doesn't parse: nothing changes, the snapshot or the last cache keeps working, the problem is logged and shown in Settings, and the check is tried again on the next start.
+  - **Mapping:** each registry system's `esde` name is looked up in the list in use (the cache, else the snapshot). When upstream has renamed or removed it, this is logged and shown in Settings (with the likely new name: the system with the same full name or extensions), and the snapshot's name is used. A name neither list has is never used: those games stay where they are. A changed mapping is a registry change, made by hand after checking.
+  - **Settings** shows *ES-DE systems: release v3.5.0, checked 2 hours ago (195 systems)* beside the game databases' status.
+  - **Snapshot guard:** a weekly GitHub Action (`.github/workflows/esde-snapshot.yml`) compares the bundled snapshot's commit with the last change to `es_systems.xml` at ES-DE's latest release and opens an issue when they differ, so releases ship a current snapshot.
 - **FR-7 Duplicates (Q3).** When the same game (same DAT entry, or the same title, disc and system) exists more than once, the copy that stays is:
   1. the one already in its target format;
   2. then the verified one;
@@ -99,3 +110,5 @@ Nothing happens until you've seen the whole plan, and everything the wizard did 
 | 8 | A dry run with nothing ticked off | — | Lists every step and the space saved; writes nothing |
 | 9 | Undo right after case 1 | — | The cue/bin are back where they were and the CHD is gone |
 | 10 | Undo after the bin was emptied | — | The renames and moves are undone; the conversion is listed as no longer reversible |
+| 11 | ES-DE's latest release renames `psx` (FR-6a) | ES-DE | Logged and shown in Settings with the likely new name; the games still go to `roms/psx/` |
+| 12 | First run with no network (FR-6a) | ES-DE | The bundled snapshot's folder names are used; the check is tried again on the next start |
