@@ -114,10 +114,10 @@ public sealed class CleanupRunner
     private string? Convert(JobContext c, CleanupStep step)
     {
         var folder = System.IO.Path.GetDirectoryName(step.Target!)!;
-        // ES-DE multi-disc: the discs sit beside the playlist in its <Game>.m3u folder, not in hidden/.
-        var flat = step.Target!.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase) && CleanupPlanner.IsPlaylistFolder(step.Target);
+        // R7 multi-disc: the playlist goes in the system folder and the discs in hidden/ beside it.
+        var playlist = step.Target!.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase);
+        if (playlist && Directory.Exists(step.Target)) return $"{System.IO.Path.GetFileName(step.Target)} is a folder";
         var id = NextStep();
-        if (flat && TrashOldPlaylists(step, id) is { } blocked) return blocked;
         Directory.CreateDirectory(folder);
         var staging = System.IO.Path.Combine(folder, $".noi-cleanup-{Run.Id}");
         Directory.CreateDirectory(staging);
@@ -149,7 +149,7 @@ public sealed class CleanupRunner
                 var relative = System.IO.Path.GetRelativePath(staging, file);
                 var name = step.Renames.GetValueOrDefault(System.IO.Path.GetFileName(file))
                            ?? (made.Count == 1 ? System.IO.Path.GetFileName(step.Target!) : System.IO.Path.GetFileName(file));
-                var target = System.IO.Path.Combine(folder, flat ? "" : System.IO.Path.GetDirectoryName(relative) ?? "", name);
+                var target = System.IO.Path.Combine(folder, System.IO.Path.GetDirectoryName(relative) ?? "", name);
                 if (File.Exists(target)) return $"{System.IO.Path.GetFileName(target)} already exists";
                 Directory.CreateDirectory(System.IO.Path.GetDirectoryName(target)!);
                 var original = OriginalHashes.Default.Get(file);
@@ -164,10 +164,12 @@ public sealed class CleanupRunner
                 {
                     var file = l.Split('/').Last();
                     var renamed = step.Renames.GetValueOrDefault(file);
-                    return flat ? renamed ?? file : renamed is not null ? l[..^file.Length] + renamed : l;
-                });
+                    return renamed is not null ? l[..^file.Length] + renamed : l;
+                }).ToList();
+                TrashOldPlaylists(step, id);
                 File.WriteAllText(step.Target!, string.Join("\n", lines) + "\n");
                 Record(JournalAction.Created, step.Target!, null, id);
+                WriteSkipFile(step, id);
             }
             return TrashAll(step.Sources.SelectMany(Members).ToList(), step.Root, id);
         }
@@ -198,44 +200,57 @@ public sealed class CleanupRunner
     }
 
     /// <summary>
-    /// ES-DE multi-disc (R7): moves converted discs into their <c>Game.m3u</c>
-    /// folder under their database names and writes the playlist there,
-    /// listing them in disc order. The old playlist goes to the trash.
+    /// ES-DE multi-disc (R7): moves converted discs into hidden/ in their
+    /// system folder under their database names (<see cref="CleanupStep.Renames"/>
+    /// gives each one's place, such as <c>hidden/Game (Disc 1).chd</c>), and
+    /// writes the playlist beside hidden/, listing them in disc order. Old
+    /// playlists go to the trash. A <c>Game.m3u</c> folder an earlier version
+    /// made is emptied this way, then removed.
     /// </summary>
     private string? MovePlaylist(CleanupStep step)
     {
-        var id = NextStep();
         var folder = System.IO.Path.GetDirectoryName(step.Target!)!;
-        if (TrashOldPlaylists(step, id) is { } blocked) return blocked;
-        Directory.CreateDirectory(folder);
-        var names = new List<string>();
+        var name = System.IO.Path.GetFileName(step.Target!);
+        // That old Game.m3u folder may hold only these discs and its own playlist; anything else stays the user's call.
+        if (Directory.Exists(step.Target) && Directory.EnumerateFileSystemEntries(step.Target).Any(e =>
+                !step.Sources.Contains(e, PathNames.Comparer) && !string.Equals(System.IO.Path.GetFileName(e), name, PathNames.Comparison)))
+            return $"the {name} folder holds other files";
+        var moves = new List<(string From, string To)>();
+        var lines = new List<string>();
         foreach (var source in step.Sources)
         {
-            var name = step.Renames.GetValueOrDefault(System.IO.Path.GetFileName(source)) ?? System.IO.Path.GetFileName(source);
-            var target = System.IO.Path.Combine(folder, name);
-            names.Add(name);
-            if (System.IO.Path.GetFileName(source) == name && CleanupPlanner.SamePath(source, target)) continue;
+            var place = step.Renames.GetValueOrDefault(System.IO.Path.GetFileName(source)) ?? System.IO.Path.GetFileName(source);
+            var target = System.IO.Path.Combine(folder, place.Replace('/', System.IO.Path.DirectorySeparatorChar));
+            lines.Add(place);
+            if (System.IO.Path.GetFileName(source) == System.IO.Path.GetFileName(target) && CleanupPlanner.SamePath(source, target)) continue;
             if ((File.Exists(target) || Directory.Exists(target)) && !CleanupPlanner.SamePath(source, target))
-                return $"{name} already exists";
-            File.Move(source, target);
-            Record(JournalAction.Moved, target, source, id);
+                return $"{System.IO.Path.GetFileName(target)} already exists";
+            moves.Add((source, target));
         }
-        if (File.Exists(step.Target!)) TrashAll([step.Target!], step.Root, id);
-        File.WriteAllText(step.Target!, string.Join("\n", names.Order(StringComparer.OrdinalIgnoreCase)) + "\n");
+        var id = NextStep();
+        TrashOldPlaylists(step, id);
+        foreach (var (from, to) in moves)
+        {
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(to)!);
+            File.Move(from, to);
+            Record(JournalAction.Moved, to, from, id);
+        }
+        if (Directory.Exists(step.Target) && !Directory.EnumerateFileSystemEntries(step.Target).Any()) Directory.Delete(step.Target);
+        File.WriteAllText(step.Target!, string.Join("\n", lines.Order(StringComparer.OrdinalIgnoreCase)) + "\n");
         Record(JournalAction.Created, step.Target!, null, id);
+        WriteSkipFile(step, id);
         return null;
     }
 
     /// <summary>
-    /// The playlists a multi-disc step replaces: a file where its
-    /// <c>Game.m3u</c> folder goes, and <c>Game.m3u</c> beside the discs or
-    /// beside their hidden folder. They go to the trash, so undo brings them back.
+    /// The playlists a multi-disc step replaces: one where its playlist goes,
+    /// one beside the discs (inside an old <c>Game.m3u</c> folder) and one
+    /// beside their folder (beside an old hidden/). They go to the trash, so undo brings them back.
     /// </summary>
-    private string? TrashOldPlaylists(CleanupStep step, int id)
+    private void TrashOldPlaylists(CleanupStep step, int id)
     {
         var name = System.IO.Path.GetFileName(step.Target!);
-        var folder = System.IO.Path.GetDirectoryName(step.Target!)!;
-        var old = new List<string> { folder };
+        var old = new List<string> { step.Target! };
         foreach (var source in step.Sources)
         {
             var dir = System.IO.Path.GetDirectoryName(source)!;
@@ -244,7 +259,15 @@ public sealed class CleanupRunner
         }
         var files = old.Where(File.Exists).Distinct(PathNames.Comparer).ToList();
         if (files.Count > 0) TrashAll(files, step.Root, id);
-        return File.Exists(folder) ? $"{System.IO.Path.GetFileName(folder)} is in the way" : null;
+    }
+
+    /// <summary>ES-DE: an empty noload.txt in hidden/, so ES-DE doesn't list each disc as a game of its own.</summary>
+    private void WriteSkipFile(CleanupStep step, int id)
+    {
+        if (step.SkipFile is not { } skip || File.Exists(skip)) return;
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(skip)!);
+        File.WriteAllText(skip, "");
+        Record(JournalAction.Created, skip, null, id);
     }
 
     /// <summary>Moves files into the run's trash in their library folder, keeping their paths below it.</summary>
@@ -357,9 +380,10 @@ public sealed class CleanupRunner
                         break;
                 }
             }
-            // An ES-DE Game.m3u folder the step made goes too, once it's empty.
-            foreach (var dir in step.Select(e => System.IO.Path.GetDirectoryName(e.Path)!).Distinct(PathNames.Comparer)
-                         .Where(d => d.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase) && Directory.Exists(d) && !Directory.EnumerateFileSystemEntries(d).Any()))
+            // A folder the step made (hidden/, or an older version's Game.m3u folder) goes too, once it's empty.
+            foreach (var dir in step.Where(e => e.Action is JournalAction.Moved or JournalAction.Created)
+                         .Select(e => System.IO.Path.GetDirectoryName(e.Path)!).Distinct(PathNames.Comparer)
+                         .Where(d => Directory.Exists(d) && !Directory.EnumerateFileSystemEntries(d).Any()))
                 Directory.Delete(dir);
         }
         run.Undone = true;

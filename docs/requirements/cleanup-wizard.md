@@ -62,9 +62,10 @@ Nothing happens until you've seen the whole plan, and everything the wizard did 
     - Games below a system folder don't keep subfolders. **The only folders allowed at the game level** are games that have to be folders:
       - Wii U NUS titles and Wii U title folders (`code/content/meta`), moved whole under their own name;
       - PS3 games, as `<Game>.ps3` folders (ES-DE's *directories interpreted as files*; a PS3 game folder without `.ps3` gets it);
-      - a multi-disc game's `<Game>.m3u` folder (R7 in ES-DE form, below).
+      - the `hidden/` folder that holds multi-disc games' discs (R7, below).
     - Folder games are moved whole even though no DAT entry names them; they're never renamed, looked inside or flattened.
-    - Multi-disc games: the discs and the playlist share a folder named after the playlist, `psx/<Game>.m3u/<Game>.m3u` plus `psx/<Game>.m3u/<Game> (Disc N).chd`. ES-DE shows the folder as one game and launches the playlist inside it. The playlist lists the discs by file name. An older playlist (`psx/<Game>.m3u` beside a `hidden/` folder) goes to the run's trash.
+    - Multi-disc games (R7): the playlist goes directly in the system folder, `psx/<Game>.m3u`, and the discs in `hidden/` there, `psx/hidden/<Game> (Disc N).chd`. The playlist lists them by relative path (`hidden/<Game> (Disc 1).chd`). An empty `psx/hidden/noload.txt` makes ES-DE skip the folder, so the discs don't show as games of their own. The folder's name is the multi-disc folder setting (`hidden` by default), the same one the Convert page uses.
+    - Discs from elsewhere (an old `hidden/` beside its playlist, or a `<Game>.m3u/` folder holding the playlist and discs, which an earlier version of the wizard made) move into `psx/hidden/` under their database names; the old playlist goes to the run's trash and an emptied `<Game>.m3u/` folder is removed. A `<Game>.m3u/` folder holding anything else is left, and the step fails with the reason.
   - **Keep the current layout:** the existing file and folder hierarchy stays as it is. Files are only converted and renamed in place; a multi-disc conversion follows R7 (`hidden/` plus `<Game>.m3u` in the discs' folder).
   - A system ES-DE has no folder for, and an unknown system, stay where they are.
   - Nothing is moved until **Run**, and every move is in the run's journal (FR-4).
@@ -99,9 +100,10 @@ Nothing happens until you've seen the whole plan, and everything the wizard did 
 | 1 | `Games/Crash Bandicoot.cue` + `.bin` (PS1, matches the DAT) | ES-DE | Convert to CHD, rename and move: `Games/roms/psx/Crash Bandicoot (USA).chd`; the cue/bin go to the bin |
 | 2 | The same | Keep the current layout | `Games/Crash Bandicoot (USA).chd`, in place |
 | 3 | `Games/Mario.nes`, loose and verified | ES-DE | `Games/roms/nes/Super Mario Bros. (World).7z` |
-| 4 | Three discs of one PS1 game | ES-DE | `roms/psx/<Game>.m3u/<Game>.m3u` + `roms/psx/<Game>.m3u/<Game> (Disc 1..3).chd` |
+| 4 | Three discs of one PS1 game | ES-DE | `roms/psx/<Game>.m3u` + `roms/psx/hidden/<Game> (Disc 1..3).chd` + `roms/psx/hidden/noload.txt` |
 | 4a | The same | Keep the current layout | `hidden/<Game> (Disc 1..3).chd` + `<Game>.m3u` in the discs' folder |
-| 4b | Converted discs in `psx/hidden/` with `psx/<Game>.m3u` | ES-DE | Moved into `roms/psx/<Game>.m3u/`, the playlist rewritten there; the old one goes to the bin |
+| 4b | Converted discs in `PS1/hidden/` with `PS1/<Game>.m3u` | ES-DE | Moved into `roms/psx/hidden/`, the playlist written as `roms/psx/<Game>.m3u`; the old one goes to the trash |
+| 4c | A `roms/psx/<Game>.m3u/` folder with the playlist and discs (an earlier version) | ES-DE | Discs moved into `roms/psx/hidden/`, `roms/psx/<Game>.m3u` written as a file; the old playlist goes to the trash; undo restores the folder |
 | 4c | A Wii U NUS title or title folder; a PS3 game folder | ES-DE | Moved whole to `roms/wiiu/<folder>/`, `roms/ps3/<Game>.ps3/`; nothing inside them changes |
 | 4d | The same | Keep the current layout | Left where they are |
 | 5 | The same game as a CHD in two folders | ES-DE | One stays in `roms/psx/`; the other goes to the bin |
