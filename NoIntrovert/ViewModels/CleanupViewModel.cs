@@ -28,9 +28,10 @@ public sealed partial class CleanupStepRow(CleanupStep step, Action changed) : O
         _ => "Left alone",
     };
 
+    /// <summary>Before → after, as paths in the Library folder, so the dry run shows where each file ends up (FR-2).</summary>
     public string Change => Step.Target is { } target
-        ? $"{string.Join(", ", Step.Sources.Take(1).Select(Path.GetFileName))}{(Step.Sources.Count > 1 ? $" (+{Step.Sources.Count - 1})" : "")} → {Shorten(target)}"
-        : string.Join(", ", Step.Sources.Take(1).Select(Path.GetFileName)) + (Step.Kind == CleanupKind.RemoveDuplicate ? " → trash" : "");
+        ? $"{string.Join(", ", Step.Sources.Take(1).Select(Shorten))}{(Step.Sources.Count > 1 ? $" (+{Step.Sources.Count - 1})" : "")} → {Shorten(target)}"
+        : string.Join(", ", Step.Sources.Take(1).Select(Shorten)) + (Step.Kind == CleanupKind.RemoveDuplicate ? " → trash" : "");
 
     public bool Enabled
     {
@@ -70,8 +71,33 @@ public partial class CleanupViewModel : ViewModelBase
         _log = log;
         _queue = queue;
         _index = index;
+        // The layout can be changed here or in Settings; either way the plan is made again for it.
+        _settings.Library.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(LibrarySettingsViewModel.SelectedLayout)) return;
+            OnPropertyChanged(nameof(EsDeLayout));
+            OnPropertyChanged(nameof(KeepLayout));
+            if (HasPlan && !IsBusy) _ = MakePlan();
+        };
         RefreshRuns();
     }
+
+    /// <summary>FR-6: ES-DE format (the default), shown as a choice on the page.</summary>
+    public bool EsDeLayout
+    {
+        get => _settings.Library.SelectedLayout.Value == LibraryLayout.EsDe;
+        set { if (value) UseLayout(LibraryLayout.EsDe); }
+    }
+
+    /// <summary>FR-6: keep the current file and folder hierarchy; files are only converted and renamed.</summary>
+    public bool KeepLayout
+    {
+        get => _settings.Library.SelectedLayout.Value == LibraryLayout.InPlace;
+        set { if (value) UseLayout(LibraryLayout.InPlace); }
+    }
+
+    private void UseLayout(LibraryLayout layout) =>
+        _settings.Library.SelectedLayout = LibrarySettingsViewModel.Layouts.First(l => l.Value == layout);
 
     public SettingsViewModel Settings => _settings;
 

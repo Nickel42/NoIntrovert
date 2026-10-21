@@ -32,6 +32,9 @@ public static class KnownFormats
     /// <summary>A PS Vita game as a NoNpDrm folder (sce_sys/param.sfo), zipped for Vita3K (FR-10).</summary>
     public static readonly FormatInfo VitaFolder = new("vita-folder", "PS Vita game folder");
 
+    /// <summary>A decrypted PS3 disc game as a folder (PS3_GAME/PARAM.SFO), named "Game.ps3" for ES-DE.</summary>
+    public static readonly FormatInfo Ps3Folder = new("ps3-folder", "PS3 game folder");
+
     /// <summary>Wii U inputs that are recognised only to say why they can't be used (NUS without a ticket, WUHB).</summary>
     public static readonly FormatInfo WiiUUnsupported = new("wiiu-unsupported", "Unsupported Wii U input", ".wuhb");
 
@@ -180,6 +183,30 @@ public sealed class VitaHandler() : ExtensionHandler("vita", 400, [KnownFormats.
     public override FormatInfo? Recognize(string file) => null;
 
     public override FormatInfo? RecognizeFolder(string folder) => VitaGame.IsGameFolder(folder) ? KnownFormats.VitaFolder : null;
+
+    public override IEnumerable<FileSet> Claim(ScanSet set)
+    {
+        var claimed = new List<FileSet>();
+        foreach (var folder in set.UnclaimedFolders.ToList())
+        {
+            if (RecognizeFolder(folder) is not { } format) continue;
+            set.Claim(folder);
+            claimed.Add(new FileSet(folder, [folder], format));
+        }
+        return claimed;
+    }
+}
+
+/// <summary>PS3 games as decrypted disc folders: claimed whole, never looked inside.</summary>
+public sealed class Ps3Handler() : ExtensionHandler("ps3", 400, [KnownFormats.Ps3Folder])
+{
+    public override FormatInfo? Recognize(string file) => null;
+
+    public override FormatInfo? RecognizeFolder(string folder) => IsGameFolder(folder) ? KnownFormats.Ps3Folder : null;
+
+    /// <summary>A disc game's folder: PS3_GAME/PARAM.SFO or PS3_DISC.SFB inside it.</summary>
+    public static bool IsGameFolder(string folder) =>
+        File.Exists(Path.Combine(folder, "PS3_GAME", "PARAM.SFO")) || File.Exists(Path.Combine(folder, "PS3_DISC.SFB"));
 
     public override IEnumerable<FileSet> Claim(ScanSet set)
     {

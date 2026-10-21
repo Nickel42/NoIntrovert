@@ -293,7 +293,7 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Sega - PICO"],
-    "esde": "pico"
+    "esde": null
   },
   {
     "id": "atari-2600",

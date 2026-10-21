@@ -92,6 +92,7 @@ public sealed class FormatRegistry
     [
         new WiiUHandler(),
         new VitaHandler(),
+        new Ps3Handler(),
         new DiscDescriptorHandler(),
         new SplitFileHandler(),
         new ImageHandler(),

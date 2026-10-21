@@ -2297,15 +2297,15 @@ if (ArchiveEngine.IsAvailable(out _))
     File.WriteAllBytes(G7("NES/Mario.nes"), mario);
     File.WriteAllBytes(G7("NES/Zelda.nes"), zelda);
     File.WriteAllBytes(G7("NES/Unknown.nes"), Nes(99));
-    Directory.CreateDirectory(G7("nes"));
-    File.WriteAllBytes(G7("nes/Zelda (USA).7z"), [1, 2, 3]); // in the way of Zelda's target: a clash
+    Directory.CreateDirectory(G7("roms/nes"));
+    File.WriteAllBytes(G7("roms/nes/Zelda (USA).7z"), [1, 2, 3]); // in the way of Zelda's target: a clash
     Directory.CreateDirectory(G7("Misc"));
     File.WriteAllBytes(G7("Misc/loose.bin"), new byte[4096]);
     using (var engine = new ArchiveEngine())
     {
         var src = Path.Combine(Dir("m7-src"), "Metroid.nes");
         File.WriteAllBytes(src, metroid);
-        engine.Compress(ArchiveFormat.SevenZip, ArchiveLevel.Normal, 0, false, [src], G7("nes/Wrong Name.7z"), false, null, CancellationToken.None);
+        engine.Compress(ArchiveFormat.SevenZip, ArchiveLevel.Normal, 0, false, [src], G7("roms/nes/Wrong Name.7z"), false, null, CancellationToken.None);
     }
 
     var store7 = new NoIntrovert.Core.Dats.DatStore(Dir("m7-dats"));
@@ -2318,9 +2318,9 @@ if (ArchiveEngine.IsAvailable(out _))
         [("Crash Bandicoot (USA)", "Crash Bandicoot (USA).bin", Disc(1)), .. Enumerable.Range(1, 3).Select(d => ($"Epic (USA) (Disc {d})", $"Epic (USA) (Disc {d}).bin", Disc(10 + d)))]));
 
     // Scans the Library and checks every file in it against the made-up DATs, as Verify & match would.
-    List<NoIntrovert.Core.Library.Game> ScanAndVerify(AppSettings s)
+    List<NoIntrovert.Core.Library.Game> ScanAndVerify(AppSettings s, string? root = null)
     {
-        var index = NoIntrovert.Core.Library.LibraryScanner.Scan([games7], null, null, CancellationToken.None, s);
+        var index = NoIntrovert.Core.Library.LibraryScanner.Scan([root ?? games7], null, null, CancellationToken.None, s);
         foreach (var item in index.Items)
             RunJob(c => NoIntrovert.Core.Dats.VerifyJobs.Check(c, item.Path, store7, NoIntrovert.Core.Dats.HashCache.Default, NoIntrovert.Core.Dats.MatchStore.Default));
         return index.Games();
@@ -2346,6 +2346,28 @@ if (ArchiveEngine.IsAvailable(out _))
     }
     NoIntrovert.Core.Cleanup.CleanupPlan? esdePlan = null;
 
+    Test("Cleanup: the layout setting defaults to ES-DE format", () =>
+        new AppSettings().Library.Layout == LibraryLayout.EsDe
+        && System.Text.Json.JsonSerializer.Deserialize<AppSettings>("""{"SchemaVersion":2,"Library":{"Folders":[]}}""")!.Library.Layout == LibraryLayout.EsDe ? null : "the default isn't ES-DE");
+
+    Test("Cleanup: ES-DE system folders go in roms/, or straight in a Library folder called roms (FR-6)", () =>
+    {
+        var lib = Path.Combine(Path.GetTempPath(), "Lib");
+        var a = NoIntrovert.Core.Cleanup.CleanupPlanner.RomsFolder(lib);
+        var b = NoIntrovert.Core.Cleanup.CleanupPlanner.RomsFolder(Path.Combine(lib, "ROMs") + Path.DirectorySeparatorChar);
+        if (a != Path.Combine(lib, "roms") || b != Path.Combine(lib, "ROMs")) return $"{a} / {b}";
+        // ES-DE's own names (USERGUIDE.md, Supported game systems), lower-case as ES-DE expects them.
+        var names = new Dictionary<string, string>
+        {
+            ["nes-famicom"] = "nes", ["snes-super-famicom"] = "snes", ["playstation"] = "psx", ["saturn"] = "saturn",
+            ["dreamcast"] = "dreamcast", ["gamecube"] = "gc", ["wii"] = "wii", ["wii-u"] = "wiiu", ["playstation-portable"] = "psp",
+            ["playstation-2"] = "ps2", ["playstation-3"] = "ps3", ["mega-drive-genesis"] = "megadrive", ["sg-1000-sc-3000"] = "sg-1000",
+        };
+        var wrong = names.Where(n => NoIntrovert.Core.Formats.TargetFormats.ById(n.Key)?.Esde != n.Value).Select(n => n.Key).ToList();
+        var upper = NoIntrovert.Core.Formats.TargetFormats.All.Where(t => t.Esde is { } e && e != e.ToLowerInvariant()).Select(t => t.Id).ToList();
+        return wrong.Count + upper.Count == 0 ? null : $"wrong: {string.Join(", ", wrong)}; not lower-case: {string.Join(", ", upper)}";
+    });
+
     Test("Cleanup: the plan converts, renames and moves into ES-DE folders, and leaves the rest (M7 1, 3, 4, 6, 7)", () =>
     {
         var plan = esdePlan = PlanFor(LibraryLayout.EsDe);
@@ -2354,20 +2376,25 @@ if (ArchiveEngine.IsAvailable(out _))
             var s = Find(plan, game);
             return s is not null && s.Kind == kind && Rel(s.Target) == (target ?? "") ? null : $"{game}: expected {kind} → {target}\n{Describe(plan)}";
         }
-        return Check("Crash Bandicoot", NoIntrovert.Core.Cleanup.CleanupKind.Convert, "psx/Crash Bandicoot (USA).chd")
-            ?? Check("Mario", NoIntrovert.Core.Cleanup.CleanupKind.Convert, "nes/Super Mario Bros. (World).7z")
-            ?? Check("Epic (USA)", NoIntrovert.Core.Cleanup.CleanupKind.Convert, "psx/Epic (USA).m3u")
-            ?? Check("Zelda", NoIntrovert.Core.Cleanup.CleanupKind.Clash, "nes/Zelda (USA).7z")
-            ?? Check("Wrong Name", NoIntrovert.Core.Cleanup.CleanupKind.Rename, "nes/Metroid (USA).7z")
+        return Check("Crash Bandicoot", NoIntrovert.Core.Cleanup.CleanupKind.Convert, "roms/psx/Crash Bandicoot (USA).chd")
+            ?? Check("Mario", NoIntrovert.Core.Cleanup.CleanupKind.Convert, "roms/nes/Super Mario Bros. (World).7z")
+            ?? Check("Epic (USA)", NoIntrovert.Core.Cleanup.CleanupKind.Convert, "roms/psx/Epic (USA).m3u/Epic (USA).m3u")
+            ?? Check("Zelda", NoIntrovert.Core.Cleanup.CleanupKind.Clash, "roms/nes/Zelda (USA).7z")
+            ?? Check("Wrong Name", NoIntrovert.Core.Cleanup.CleanupKind.Rename, "roms/nes/Metroid (USA).7z")
             ?? Check("Unknown", NoIntrovert.Core.Cleanup.CleanupKind.Untouched, null)
             ?? Check("loose", NoIntrovert.Core.Cleanup.CleanupKind.Untouched, null);
     });
 
-    Test("Cleanup: keeping games in their own folders only converts and renames (M7 2)", () =>
+    Test("Cleanup: keeping the current layout only converts and renames, in place (M7 2)", () =>
     {
         var plan = PlanFor(LibraryLayout.InPlace);
         var crash = Find(plan, "Crash Bandicoot");
-        return Rel(crash?.Target) == "PS1/Crash Bandicoot (USA).chd" ? null : Describe(plan);
+        if (Rel(crash?.Target) != "PS1/Crash Bandicoot (USA).chd" || Rel(Find(plan, "Mario")?.Target) != "NES/Super Mario Bros. (World).7z")
+            return Describe(plan);
+        if (Rel(Find(plan, "Epic (USA)")?.Target) != "PS1/Epic (USA).m3u") return Describe(plan);
+        // Nothing changes folder: every target is beside its source.
+        var moved = plan.Steps.Where(st => st.Target is not null && Path.GetDirectoryName(st.Target) != Path.GetDirectoryName(st.Sources[0])).ToList();
+        return moved.Count == 0 && plan.Count(NoIntrovert.Core.Cleanup.CleanupKind.Move) == 0 ? null : Describe(plan);
     });
 
     Test("Cleanup: a dry run writes nothing (M7 8)", () =>
@@ -2385,25 +2412,135 @@ if (ArchiveEngine.IsAvailable(out _))
         var tree = Tree();
         var expected = new[]
         {
-            "psx/Crash Bandicoot (USA).chd", "nes/Super Mario Bros. (World).7z", "nes/Metroid (USA).7z",
-            "psx/Epic (USA).m3u", "psx/hidden/Epic (USA) (Disc 1).chd", "psx/hidden/Epic (USA) (Disc 3).chd",
+            "roms/psx/Crash Bandicoot (USA).chd", "roms/nes/Super Mario Bros. (World).7z", "roms/nes/Metroid (USA).7z",
+            "roms/psx/Epic (USA).m3u/Epic (USA).m3u", "roms/psx/Epic (USA).m3u/Epic (USA) (Disc 1).chd", "roms/psx/Epic (USA).m3u/Epic (USA) (Disc 3).chd",
             "NES/Zelda.nes", "NES/Unknown.nes", "Misc/loose.bin",
         };
         if (expected.FirstOrDefault(e => !tree.Contains(e)) is { } missing) return $"missing {missing}:\n{string.Join("\n", tree.Order())}";
         if (tree.Any(t => t.StartsWith("PS1/") && !t.StartsWith("PS1/.")) || tree.Contains("NES/Mario.nes")) return $"originals left behind:\n{string.Join("\n", tree.Order())}";
         if (!tree.Any(t => t.StartsWith(".noi-trash/") && t.EndsWith("Crash Bandicoot.bin"))) return "the originals aren't in the trash";
-        var m3u = File.ReadAllLines(G7("psx/Epic (USA).m3u"));
-        return m3u.SequenceEqual(Enumerable.Range(1, 3).Select(d => $"hidden/Epic (USA) (Disc {d}).chd")) ? null : string.Join(" | ", m3u);
+        if (tree.Any(t => t.Contains("hidden"))) return "ES-DE format has no hidden/ folder";
+        var m3u = File.ReadAllLines(G7("roms/psx/Epic (USA).m3u/Epic (USA).m3u"));
+        if (!m3u.SequenceEqual(Enumerable.Range(1, 3).Select(d => $"Epic (USA) (Disc {d}).chd"))) return string.Join(" | ", m3u);
+        // The only folders at the game level are the .m3u one; everything else in a system folder is a file.
+        var gameFolders = tree.Where(t => t.StartsWith("roms/") && t.Count(ch => ch == '/') == 2 && Directory.Exists(G7(t))).ToList();
+        return gameFolders.SequenceEqual(["roms/psx/Epic (USA).m3u"]) ? null : string.Join(", ", gameFolders);
+    });
+
+    // A second Library for the folder exceptions: Wii U titles and PS3 games stay folders; an old hidden/ playlist moves.
+    var games7b = Dir("m7b/Library");
+    string G7b(string rel) => Path.Combine([games7b, .. rel.Split('/')]);
+    string RelB(string? path) => path is null ? "" : Path.GetRelativePath(games7b, path).Replace('\\', '/');
+    HashSet<string> TreeB() => Directory.EnumerateFileSystemEntries(games7b, "*", SearchOption.AllDirectories).Select(RelB).ToHashSet(PathNames.Comparer);
+    NoIntrovert.Core.Cleanup.CleanupPlan PlanB(LibraryLayout layout)
+    {
+        var s = new AppSettings { Library = { Layout = layout } };
+        return NoIntrovert.Core.Cleanup.CleanupPlanner.Plan(ScanAndVerify(s, games7b), s, NoIntrovert.Core.Dats.MatchStore.Default);
+    }
+    string DescribeB(NoIntrovert.Core.Cleanup.CleanupPlan plan) =>
+        string.Join("\n", plan.Steps.Select(st => $"{st.Kind} {st.Game}: {string.Join(",", st.Sources.Take(1).Select(RelB))} → {RelB(st.Target)} ({st.Reason})"));
+    NoIntrovert.Core.Cleanup.CleanupRun? layoutRun = null;
+
+    Test("Cleanup: folder games stay folders and move whole into roms/<system>/ (FR-6)", () =>
+    {
+        Directory.CreateDirectory(G7b("Wii U/Some NUS Title"));
+        File.WriteAllBytes(G7b("Wii U/Some NUS Title/title.tmd"), [0]);
+        File.WriteAllBytes(G7b("Wii U/Some NUS Title/title.tik"), [0]);
+        File.WriteAllBytes(G7b("Wii U/Some NUS Title/00000000.app"), new byte[64]);
+        WiiUSample.MakeTitle(G7b("Wii U/Extracted/Some Game"), 0x0005000010199900, 0, "Some Game", 3);
+        Directory.CreateDirectory(G7b("PS3/Gran Turismo 5/PS3_GAME/USRDIR"));
+        File.WriteAllBytes(G7b("PS3/Gran Turismo 5/PS3_GAME/PARAM.SFO"), new byte[64]);
+        File.WriteAllBytes(G7b("PS3/Gran Turismo 5/PS3_GAME/USRDIR/EBOOT.BIN"), new byte[64]);
+        Directory.CreateDirectory(G7b("Games/Demo.ps3"));
+        File.WriteAllBytes(G7b("Games/Demo.ps3/PS3_DISC.SFB"), new byte[16]);
+        Directory.CreateDirectory(G7b("roms/ps3/Already.ps3/PS3_GAME"));
+        File.WriteAllBytes(G7b("roms/ps3/Already.ps3/PS3_GAME/PARAM.SFO"), new byte[64]);
+        // Converted discs in the old layout: hidden/ beside the playlist.
+        Directory.CreateDirectory(G7b("PS1/hidden"));
+        for (var d = 1; d <= 3; d++)
+        {
+            var name = $"Epic (USA) (Disc {d}).chd";
+            File.Copy(G7($"roms/psx/Epic (USA).m3u/{name}"), G7b($"PS1/hidden/{name}"));
+            if (NoIntrovert.Core.Dats.OriginalHashes.Default.Get(G7($"roms/psx/Epic (USA).m3u/{name}")) is { } o)
+                NoIntrovert.Core.Dats.OriginalHashes.Default.Set(G7b($"PS1/hidden/{name}"), o.Source, o.Files);
+        }
+        File.WriteAllText(G7b("PS1/Epic (USA).m3u"), string.Join("\n", Enumerable.Range(1, 3).Select(d => $"hidden/Epic (USA) (Disc {d}).chd")) + "\n");
+
+        var plan = PlanB(LibraryLayout.EsDe);
+        var expected = new Dictionary<string, string>
+        {
+            ["Wii U/Some NUS Title"] = "roms/wiiu/Some NUS Title",
+            ["Wii U/Extracted/Some Game"] = "roms/wiiu/Some Game",
+            ["PS3/Gran Turismo 5"] = "roms/ps3/Gran Turismo 5.ps3",
+            ["Games/Demo.ps3"] = "roms/ps3/Demo.ps3",
+        };
+        foreach (var (from, to) in expected)
+        {
+            var step = plan.Steps.FirstOrDefault(st => st.Sources.Count == 1 && RelB(st.Sources[0]) == from);
+            if (step is not { Kind: NoIntrovert.Core.Cleanup.CleanupKind.Move } || RelB(step.Target) != to) return $"{from}: expected a move to {to}\n{DescribeB(plan)}";
+        }
+        if (plan.Steps.Any(st => st.Sources.Any(src => RelB(src).StartsWith("roms/ps3/Already.ps3")) && st.Kind != NoIntrovert.Core.Cleanup.CleanupKind.Untouched))
+            return $"a PS3 game already in place would change\n{DescribeB(plan)}";
+        if (plan.Steps.Any(st => st.Sources.Any(src => RelB(src).Contains("/PS3_GAME") || RelB(src).Contains("/code/") || RelB(src).EndsWith(".app"))))
+            return $"the plan looks inside a folder game\n{DescribeB(plan)}";
+        var epic = plan.Steps.FirstOrDefault(st => st.Game == "Epic (USA)");
+        if (epic is not { Kind: NoIntrovert.Core.Cleanup.CleanupKind.Move } || RelB(epic.Target) != "roms/psx/Epic (USA).m3u/Epic (USA).m3u" || epic.Sources.Count != 3)
+            return $"the discs in hidden/ should move into Epic (USA).m3u/\n{DescribeB(plan)}";
+        return null;
+    });
+
+    Test("Cleanup: keeping the current layout leaves folder games and hidden/ discs where they are", () =>
+    {
+        var plan = PlanB(LibraryLayout.InPlace);
+        var moves = plan.Steps.Where(st => st.Kind is NoIntrovert.Core.Cleanup.CleanupKind.Move or NoIntrovert.Core.Cleanup.CleanupKind.Convert).ToList();
+        return moves.Count == 0 ? null : DescribeB(plan);
+    });
+
+    Test("Cleanup: running the ES-DE plan moves folder games whole and the old playlist's discs into Game.m3u/, through the journal", () =>
+    {
+        var before = TreeB();
+        layoutRun = RunPlan(PlanB(LibraryLayout.EsDe));
+        var tree = TreeB();
+        var expected = new[]
+        {
+            "roms/wiiu/Some NUS Title/title.tmd", "roms/wiiu/Some NUS Title/00000000.app", "roms/wiiu/Some Game/code/app.xml",
+            "roms/ps3/Gran Turismo 5.ps3/PS3_GAME/USRDIR/EBOOT.BIN", "roms/ps3/Demo.ps3/PS3_DISC.SFB", "roms/ps3/Already.ps3/PS3_GAME/PARAM.SFO",
+            "roms/psx/Epic (USA).m3u/Epic (USA).m3u", "roms/psx/Epic (USA).m3u/Epic (USA) (Disc 2).chd",
+        };
+        if (expected.FirstOrDefault(e => !tree.Contains(e)) is { } missing) return $"missing {missing}:\n{string.Join("\n", tree.Order())}";
+        if (tree.Contains("PS1/Epic (USA).m3u") || tree.Contains("PS1/hidden/Epic (USA) (Disc 1).chd")) return "the old layout was left behind";
+        if (!tree.Any(t => t.StartsWith(".noi-trash/") && t.EndsWith("PS1/Epic (USA).m3u"))) return "the old playlist isn't in the trash";
+        var m3u = File.ReadAllLines(G7b("roms/psx/Epic (USA).m3u/Epic (USA).m3u"));
+        if (!m3u.SequenceEqual(Enumerable.Range(1, 3).Select(d => $"Epic (USA) (Disc {d}).chd"))) return string.Join(" | ", m3u);
+        var moves = layoutRun.Entries.Count(e => e.Action == NoIntrovert.Core.Cleanup.JournalAction.Moved);
+        if (moves != 7) return $"{moves} moves in the journal, expected 7 (4 folder games, 3 discs)";
+        // Planned again, the result is already in place.
+        var again = PlanB(LibraryLayout.EsDe);
+        return again.Steps.All(st => st.Kind == NoIntrovert.Core.Cleanup.CleanupKind.Untouched) ? null : DescribeB(again);
+    });
+
+    Test("Cleanup: undoing the ES-DE run puts folder games, discs and the old playlist back", () =>
+    {
+        var problems = NoIntrovert.Core.Cleanup.CleanupRunner.Undo(layoutRun!, useBin: false, log);
+        if (problems.Count > 0) return string.Join(" | ", problems);
+        var tree = TreeB();
+        var back = new[]
+        {
+            "Wii U/Some NUS Title/title.tik", "Wii U/Extracted/Some Game/meta/meta.xml", "PS3/Gran Turismo 5/PS3_GAME/PARAM.SFO",
+            "Games/Demo.ps3/PS3_DISC.SFB", "PS1/hidden/Epic (USA) (Disc 3).chd", "PS1/Epic (USA).m3u", "roms/ps3/Already.ps3/PS3_GAME/PARAM.SFO",
+        };
+        if (back.FirstOrDefault(b => !tree.Contains(b)) is { } missing) return $"not restored: {missing}\n{string.Join("\n", tree.Order())}";
+        return tree.Any(t => t.StartsWith("roms/psx/Epic (USA).m3u")) || tree.Any(t => t.StartsWith("roms/wiiu/")) ? $"left behind:\n{string.Join("\n", tree.Order())}" : null;
     });
 
     Test("Cleanup: of two copies, the one in the layout folder stays (M7 5)", () =>
     {
         Directory.CreateDirectory(G7("Old/psx"));
-        File.Copy(G7("psx/Crash Bandicoot (USA).chd"), G7("Old/psx/Crash Bandicoot (USA).chd"));
+        File.Copy(G7("roms/psx/Crash Bandicoot (USA).chd"), G7("Old/psx/Crash Bandicoot (USA).chd"));
         var plan = PlanFor(LibraryLayout.EsDe);
         var dup = plan.Steps.Where(s => s.Kind == NoIntrovert.Core.Cleanup.CleanupKind.RemoveDuplicate).Select(s => Rel(s.Sources[0])).ToList();
         var stays = plan.Steps.Where(s => s.Game.StartsWith("Epic") && s.Kind != NoIntrovert.Core.Cleanup.CleanupKind.Untouched).ToList();
-        if (stays.Count > 0) return $"the discs in hidden/ would move again:\n{Describe(plan)}";
+        if (stays.Count > 0) return $"the discs in Epic (USA).m3u/ would move again:\n{Describe(plan)}";
         return dup.SequenceEqual(["Old/psx/Crash Bandicoot (USA).chd"]) ? null : Describe(plan);
     });
 
@@ -2412,9 +2549,9 @@ if (ArchiveEngine.IsAvailable(out _))
         var problems = NoIntrovert.Core.Cleanup.CleanupRunner.Undo(firstRun!, useBin: false, log);
         if (problems.Count > 0) return string.Join(" | ", problems);
         var tree = Tree();
-        var back = new[] { "PS1/Crash Bandicoot.cue", "PS1/Crash Bandicoot.bin", "PS1/Epic (USA) (Disc 2).cue", "NES/Mario.nes", "nes/Wrong Name.7z" };
+        var back = new[] { "PS1/Crash Bandicoot.cue", "PS1/Crash Bandicoot.bin", "PS1/Epic (USA) (Disc 2).cue", "NES/Mario.nes", "roms/nes/Wrong Name.7z" };
         if (back.FirstOrDefault(b => !tree.Contains(b)) is { } missing) return $"not restored: {missing}";
-        var gone = new[] { "psx/Crash Bandicoot (USA).chd", "nes/Super Mario Bros. (World).7z", "psx/Epic (USA).m3u", "nes/Metroid (USA).7z" };
+        var gone = new[] { "roms/psx/Crash Bandicoot (USA).chd", "roms/nes/Super Mario Bros. (World).7z", "roms/psx/Epic (USA).m3u", "roms/nes/Metroid (USA).7z" };
         return gone.FirstOrDefault(tree.Contains) is { } left ? $"still there: {left}" : null;
     });
 
@@ -2425,8 +2562,8 @@ if (ArchiveEngine.IsAvailable(out _))
         NoIntrovert.Core.Cleanup.CleanupRunner.EmptyTrash(run, useBin: false, log);
         var problems = NoIntrovert.Core.Cleanup.CleanupRunner.Undo(run, useBin: false, log);
         var tree = Tree();
-        if (!tree.Contains("nes/Wrong Name.7z")) return "the rename wasn't undone";
-        if (!tree.Contains("psx/Crash Bandicoot (USA).chd")) return "a conversion whose originals are gone was undone anyway";
+        if (!tree.Contains("roms/nes/Wrong Name.7z")) return "the rename wasn't undone";
+        if (!tree.Contains("roms/psx/Crash Bandicoot (USA).chd")) return "a conversion whose originals are gone was undone anyway";
         return problems.Any(p => p.Contains("no longer in the trash")) ? Note($"{problems.Count} kept") : string.Join(" | ", problems);
     });
 }

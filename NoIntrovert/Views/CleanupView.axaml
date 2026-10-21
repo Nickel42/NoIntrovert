@@ -66,11 +66,27 @@
             <StackPanel Spacing="12">
                 <Border Classes="card">
                     <StackPanel Spacing="4">
-                        <TextBlock Text="LAYOUT" Classes="section" />
-                        <ComboBox ItemsSource="{x:Static vm:LibrarySettingsViewModel.Layouts}" SelectedItem="{Binding Settings.Library.SelectedLayout}"
-                                  HorizontalAlignment="Stretch" />
-                        <TextBlock Classes="hint" TextWrapping="Wrap"
-                                   Text="ES-DE system folders put each game in its system's folder (psx, gba, megadrive…) inside its Library folder, with multi-disc games in hidden/ and an .m3u. Make the plan again after changing it." />
+                        <TextBlock Text="FILE LAYOUT" Classes="section" />
+                        <RadioButton GroupName="CleanupLayout" IsChecked="{Binding EsDeLayout}">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="ES-DE format (recommended)" FontWeight="SemiBold" />
+                                <TextBlock Classes="hint" TextWrapping="Wrap"
+                                           Text="A roms folder in each Library folder, one folder per system named as ES-DE names it, and the games' files inside. Only games that have to be folders stay folders: Wii U titles, PS3 games, and a multi-disc game's Game.m3u folder." />
+                            </StackPanel>
+                        </RadioButton>
+                        <Border Background="{DynamicResource RowAlt}" CornerRadius="4" Padding="8,6" Margin="28,0,0,4" IsVisible="{Binding EsDeLayout}">
+                            <TextBlock FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace" FontSize="11" TextWrapping="NoWrap"
+                                       Text="roms/&#10;  nes/Super Mario Bros. (World).7z&#10;  psx/Crash Bandicoot (USA).chd&#10;  psx/Final Fantasy VII (USA).m3u/&#10;      Final Fantasy VII (USA).m3u&#10;      Final Fantasy VII (USA) (Disc 1).chd …&#10;  wiiu/Some NUS Title/&#10;  ps3/Gran Turismo 5.ps3/" />
+                        </Border>
+                        <RadioButton GroupName="CleanupLayout" IsChecked="{Binding KeepLayout}">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Keep the current layout" FontWeight="SemiBold" />
+                                <TextBlock Classes="hint" TextWrapping="Wrap"
+                                           Text="Files and folders stay where they are. Games are only converted and renamed in place." />
+                            </StackPanel>
+                        </RadioButton>
+                        <TextBlock Classes="hint" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="The plan shows where every file would end up. Nothing moves until you click Run." />
                         <TextBlock Text="SAFETY" Classes="section" Margin="0,8,0,0" />
                         <TextBlock Classes="hint" TextWrapping="Wrap"
                                    Text="Nothing is overwritten. Originals and duplicates go to a .noi-trash folder in their Library folder, so a run can be undone (conversions too) until you empty its trash." />

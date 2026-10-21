@@ -217,9 +217,12 @@ public sealed class KeySettings
 /// <summary>Where the Cleanup wizard puts games inside a Library folder.</summary>
 public enum LibraryLayout
 {
-    /// <summary>One folder per system, named as ES-DE names it (psx, gba, megadrive…).</summary>
+    /// <summary>
+    /// ES-DE format: <c>roms/&lt;system&gt;/&lt;game&gt;</c> in each Library folder, with ES-DE's
+    /// system names (nes, psx, wiiu…). Only games that have to be folders stay folders.
+    /// </summary>
     EsDe,
-    /// <summary>Each file stays in its folder; it's only renamed (and converted).</summary>
+    /// <summary>Keep the current layout: each file stays in its folder; it's only renamed (and converted).</summary>
     InPlace,
 }
 
@@ -231,7 +234,7 @@ public sealed class LibrarySettings
     /// <summary>Look through the folders again (only changed files are reread) when the app starts.</summary>
     public bool RescanOnStart { get; set; } = true;
 
-    /// <summary>Where the Cleanup wizard puts each game (M7 Q1).</summary>
+    /// <summary>Where the Cleanup wizard puts each game (M7 Q1, FR-6): ES-DE format unless you choose otherwise.</summary>
     public LibraryLayout Layout { get; set; } = LibraryLayout.EsDe;
 }
 

@@ -543,8 +543,8 @@ public sealed class LibrarySettingsViewModel(AppSettings settings) : SettingsSec
     /// <summary>Where the Cleanup wizard puts games (M7 Q1).</summary>
     public static IReadOnlyList<Choice<LibraryLayout>> Layouts { get; } =
     [
-        new(LibraryLayout.EsDe, "ES-DE system folders (psx, gba, …)"),
-        new(LibraryLayout.InPlace, "Keep games in their own folders"),
+        new(LibraryLayout.EsDe, "ES-DE format: roms/<system>/<game>"),
+        new(LibraryLayout.InPlace, "Keep the current layout"),
     ];
 
     public Choice<LibraryLayout> SelectedLayout
