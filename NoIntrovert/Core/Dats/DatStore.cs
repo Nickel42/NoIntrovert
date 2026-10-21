@@ -134,7 +134,7 @@ public sealed class DatStore(string folder)
         return $"Game databases: libretro-database, updated {when} ({count} {(count == 1 ? "database" : "databases")}).";
     }
 
-    private static string Ago(TimeSpan span) => span.TotalMinutes switch
+    internal static string Ago(TimeSpan span) => span.TotalMinutes switch
     {
         < 1 => "just now",
         < 60 => $"{(int)span.TotalMinutes} min ago",

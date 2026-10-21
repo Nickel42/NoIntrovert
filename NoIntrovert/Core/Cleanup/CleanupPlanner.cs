@@ -1,4 +1,5 @@
 using NoIntrovert.Core.Dats;
+using NoIntrovert.Core.Esde;
 using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.Library;
 
@@ -111,7 +112,7 @@ public static class CleanupPlanner
         // their own name; there's no DAT entry to rename them by. They're never looked inside or flattened.
         foreach (var i in items.Where(IsFolderGame).ToList())
         {
-            if (settings.Library.Layout != LibraryLayout.EsDe || system.Esde is null) break;
+            if (settings.Library.Layout != LibraryLayout.EsDe || EsdeSystems.FolderOf(system) is null) break;
             items.Remove(i);
             var target = Path.Combine(FolderFor(i, system, settings), FolderGameName(i));
             if (SamePath(target, i.Path) && Path.GetFileName(target) == Path.GetFileName(i.Path)) continue;
@@ -200,9 +201,12 @@ public static class CleanupPlanner
         return string.Equals(Path.GetFileName(trimmed), RomsFolderName, StringComparison.OrdinalIgnoreCase) ? trimmed : Path.Combine(trimmed, RomsFolderName);
     }
 
-    /// <summary>FR-6: the system's ES-DE folder (<c>roms/psx</c>) in the item's library folder, or where it is now.</summary>
+    /// <summary>
+    /// FR-6: the system's ES-DE folder (<c>roms/psx</c>) in the item's library folder, or where it is now.
+    /// The folder name comes from ES-DE's own list (<see cref="EsdeSystems"/>), never a made-up one.
+    /// </summary>
     public static string FolderFor(LibraryItem item, SystemInfo system, AppSettings settings) =>
-        settings.Library.Layout == LibraryLayout.EsDe && system.Esde is { } esde
+        settings.Library.Layout == LibraryLayout.EsDe && EsdeSystems.FolderOf(system) is { } esde
             ? Path.Combine(RomsFolder(item.Root), esde)
             : Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(item.Path))!;
 

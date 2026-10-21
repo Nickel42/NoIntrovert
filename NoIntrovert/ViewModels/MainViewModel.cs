@@ -29,6 +29,8 @@ public partial class MainViewModel : ViewModelBase
         Library.SendToCleanup = games => { Show("cleanup"); Cleanup.UseGames(games); };
         Library.IndexShown += index => _ = UpdateDatsAsync(index.Items.Select(i => i.System), startup: true);
         Settings.Dats.UpdateRequested = () => UpdateDatsAsync(Core.Library.LibraryIndex.Load().Items.Select(i => i.System), startup: false);
+        Library.IndexShown += _ => CheckEsdeAsync(startup: true);
+        Settings.Dats.EsdeCheckRequested = () => CheckEsdeAsync(startup: false);
 
         // The one place pages are listed: the rail, --page and drops all follow it.
         Pages =
@@ -123,6 +125,34 @@ public partial class MainViewModel : ViewModelBase
         finally
         {
             Settings.Dats.IsUpdating = false;
+        }
+    }
+
+    private bool _checkedEsde;
+
+    /// <summary>
+    /// Brings ES-DE's system folders up to date (the Cleanup wizard's ES-DE layout):
+    /// at start when the database check is on, at most once a day, and whenever
+    /// Check now is clicked. Folders ES-DE dropped or renamed are logged.
+    /// </summary>
+    private async Task CheckEsdeAsync(bool startup)
+    {
+        var updater = new Core.Esde.EsdeUpdater(Core.Esde.EsdeStore.Default);
+        if (startup && (_checkedEsde || !Settings.Dats.CheckOnStart || !updater.IsDue(DateTime.UtcNow))) return;
+        if (Settings.Dats.IsCheckingEsde) return;
+        _checkedEsde = true;
+        Settings.Dats.IsCheckingEsde = true;
+        try
+        {
+            var result = await Task.Run(() => updater.UpdateAsync());
+            if (result.Downloaded) Log.Info($"ES-DE systems: updated to release {result.Ref}.");
+            if (result.Problem is { } problem) Log.Warn($"ES-DE systems: couldn't check for updates ({problem}); using the list already here.");
+            foreach (var missing in result.Missing) Log.Warn(missing);
+            Settings.Dats.RefreshEsdeStatus(result.Problem);
+        }
+        finally
+        {
+            Settings.Dats.IsCheckingEsde = false;
         }
     }
 
