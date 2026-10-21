@@ -126,10 +126,15 @@ public sealed class CleanupRunner
             var s = c.Settings.Clone();
             s.Output.Folder = staging;
             s.Output.Overwrite = false;
-            s.Output.RemoveOriginals = s.Output.RemoveArchiveOriginals = s.Output.RemoveWiiUOriginals = false;
-            s.Chd.VerifyAfterCreate = true;
-            s.Archives.TestAfter = true;
-            var plan = ConvertPlanner.Plan(step.Sources.Select(p => new PlanInput(p, step.ConvertTo, 1)).ToList(), s, c.Log);
+            // Whatever the presets say: verified or tested, originals kept (the run moves them to its trash itself).
+            static void Safe(AppSettings x)
+            {
+                x.Output.RemoveOriginals = x.Output.RemoveArchiveOriginals = x.Output.RemoveWiiUOriginals = false;
+                x.Chd.VerifyAfterCreate = true;
+                x.Archives.TestAfter = true;
+            }
+            Safe(s);
+            var plan = ConvertPlanner.Plan(step.Sources.Select(p => new PlanInput(p, step.ConvertTo, 1)).ToList(), s, c.Log, Safe);
             if (plan.Error is { } error) return error;
             foreach (var job in plan.Jobs)
             {

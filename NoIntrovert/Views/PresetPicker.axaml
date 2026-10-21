@@ -1,0 +1,118 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             xmlns:presets="using:NoIntrovert.Core.Presets"
+             x:Class="NoIntrovert.Views.PresetPicker"
+             x:DataType="vm:ActionPresetViewModel">
+    <!--
+        One action's presets (issue #33): the recommended one first, then the
+        others, then Custom. Only Custom shows the action's parameters.
+    -->
+    <StackPanel Spacing="4" Margin="0,0,0,6">
+        <TextBlock Text="{Binding Title}" Classes="section" />
+        <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="presets:ActionPreset">
+                    <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBlock Classes="hint" Text="{Binding Summary}" TextWrapping="Wrap" />
+
+        <Border IsVisible="{Binding IsCustom}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="2,0,0,0" Padding="10,2,0,2" Margin="2,0,0,0">
+            <StackPanel Spacing="4">
+                <!-- Disc images → CHD -->
+                <StackPanel Spacing="4" IsVisible="{Binding IsChd}">
+                    <TextBlock Text="Compression" />
+                    <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.CompressionChoices}"
+                              SelectedItem="{Binding Settings.Chd.SelectedCompression}" HorizontalAlignment="Stretch" />
+                    <TextBox Text="{Binding Settings.Chd.CustomCompression}" PlaceholderText="e.g. cdzs,cdzl,cdfl (up to four codecs)"
+                             IsVisible="{Binding Settings.Chd.IsCustomCompression}" />
+                    <TextBlock Text="ISO images" Margin="0,4,0,0" />
+                    <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.IsoModes}"
+                              SelectedItem="{Binding Settings.Chd.SelectedIsoMode}" HorizontalAlignment="Stretch" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="0,4,0,0" IsVisible="{Binding Settings.General.PowerUserMode}">
+                        <TextBlock Text="Hunk size" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:ChdSettingsViewModel.HunkSizes}"
+                                  SelectedItem="{Binding Settings.Chd.SelectedHunkSize}" HorizontalAlignment="Stretch" />
+                    </Grid>
+                </StackPanel>
+
+                <!-- GameCube / Wii → RVZ -->
+                <StackPanel Spacing="4" IsVisible="{Binding IsRvz}">
+                    <TextBlock Text="Compression" />
+                    <ComboBox ItemsSource="{x:Static vm:NintendoSettingsViewModel.Compressions}"
+                              SelectedItem="{Binding Settings.Nintendo.SelectedCompression}" HorizontalAlignment="Stretch" />
+                    <Grid ColumnDefinitions="*,110" IsEnabled="{Binding Settings.Nintendo.HasLevel}">
+                        <TextBlock Text="Level" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Column="1" Value="{Binding Settings.Nintendo.CompressionLevel}"
+                                       Minimum="{Binding Settings.Nintendo.LevelMinimum}" Maximum="{Binding Settings.Nintendo.LevelMaximum}"
+                                       Increment="1" FormatString="0" />
+                    </Grid>
+                    <StackPanel Spacing="4" IsVisible="{Binding Settings.General.PowerUserMode}">
+                        <Grid ColumnDefinitions="*,140">
+                            <TextBlock Text="Block size" VerticalAlignment="Center" />
+                            <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:NintendoSettingsViewModel.BlockSizes}"
+                                      SelectedItem="{Binding Settings.Nintendo.SelectedBlockSize}" HorizontalAlignment="Stretch" />
+                        </Grid>
+                        <CheckBox Content="Scrub unused data" IsChecked="{Binding Settings.Nintendo.Scrub}"
+                                  ToolTip.Tip="Saves little, and the result no longer matches Redump checksums." />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Both disc conversions -->
+                <StackPanel Spacing="4" IsVisible="{Binding IsChd}">
+                    <CheckBox Content="Verify each new CHD or RVZ" IsChecked="{Binding Settings.Chd.VerifyAfterCreate}" />
+                    <CheckBox Content="Remove the originals once the new file verifies" IsChecked="{Binding Settings.Output.RemoveOriginals}"
+                              ToolTip.Tip="Includes the bins, tracks and split parts that belong to it." />
+                </StackPanel>
+                <StackPanel Spacing="4" IsVisible="{Binding IsRvz}">
+                    <CheckBox Content="Verify each new CHD or RVZ" IsChecked="{Binding Settings.Chd.VerifyAfterCreate}" />
+                    <CheckBox Content="Remove the originals once the new file verifies" IsChecked="{Binding Settings.Output.RemoveOriginals}" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="Verify and remove are shared with Custom for CHD." />
+                </StackPanel>
+
+                <!-- Wii U → .wua -->
+                <CheckBox Content="Remove what the .wua was built from once it verifies" IsChecked="{Binding Settings.Output.RemoveWiiUOriginals}"
+                          IsVisible="{Binding IsWua}" ToolTip.Tip="Including update and DLC folders that went into it." />
+
+                <!-- 7z and zip -->
+                <StackPanel Spacing="4" IsVisible="{Binding IsArchive}">
+                    <TextBlock Text="Compression" />
+                    <ComboBox ItemsSource="{x:Static vm:ArchiveSettingsViewModel.Levels}"
+                              SelectedItem="{Binding Settings.Archives.SelectedLevel}" HorizontalAlignment="Stretch" />
+                    <CheckBox Content="Solid 7z archives (smaller, slower to open one file)" IsChecked="{Binding Settings.Archives.Solid}" />
+                    <CheckBox Content="Test each new archive" IsChecked="{Binding Settings.Archives.TestAfter}" />
+                    <TextBlock Text="Archives to make when packing" Margin="0,4,0,0" />
+                    <ComboBox ItemsSource="{x:Static vm:ArchiveSettingsViewModel.Groupings}"
+                              SelectedItem="{Binding Settings.Archives.SelectedGrouping}" HorizontalAlignment="Stretch" />
+                    <TextBox Text="{Binding Settings.Archives.SingleName}" PlaceholderText="Name of the combined archive"
+                             IsVisible="{Binding Settings.Archives.IsSingle}" />
+                    <CheckBox Content="Remove the originals once the archive tests OK" IsChecked="{Binding Settings.Output.RemoveArchiveOriginals}" />
+                </StackPanel>
+
+                <!-- CHD → disc image -->
+                <StackPanel Spacing="4" IsVisible="{Binding IsExtract}">
+                    <TextBlock Text="Extract to" />
+                    <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.ExtractFormats}"
+                              SelectedItem="{Binding Settings.Chd.SelectedExtractFormat}" HorizontalAlignment="Stretch" />
+                    <CheckBox Content="One .bin per track (cue/bin)" IsChecked="{Binding Settings.Chd.SplitBin}" />
+                </StackPanel>
+
+                <!-- Unpacking archives -->
+                <StackPanel Spacing="4" IsVisible="{Binding IsUnpack}">
+                    <CheckBox Content="Unpack each archive into its own folder" IsChecked="{Binding Settings.Archives.ExtractToOwnFolder}" />
+                    <CheckBox Content="Remove the archive once it's unpacked" IsChecked="{Binding Settings.Output.RemoveArchiveOriginals}" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="Remove is shared with Custom for 7z and zip." />
+                </StackPanel>
+
+                <!-- Verify & match -->
+                <StackPanel Spacing="4" IsVisible="{Binding IsVerify}">
+                    <CheckBox Content="Fix a CHD's wrong header SHA-1" IsChecked="{Binding Settings.Chd.FixHeaderSha1}"
+                              ToolTip.Tip="Rewrites the SHA-1 in the header when the data is intact but the stored hash is wrong (chdman verify --fix)." />
+                    <TextBlock Classes="hint" Text="Fixing changes the CHD file in place." IsVisible="{Binding Settings.Chd.FixHeaderSha1}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>
