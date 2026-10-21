@@ -89,7 +89,9 @@ public static class TargetResolver
         if (target.Container is TargetContainer.SevenZip or TargetContainer.Zip)
             return Packed(set, system, target, overridden, isArchive, members, ext, alternatives, settings.TargetFormats.NormalizeHeaders);
 
-        // Folder targets: ScummVM games are unpacked; PS3 folders can't be made yet.
+        // Folder targets: ScummVM games are unpacked; a PS3 game already in its folder is done, but can't be made yet.
+        if (set.Format == KnownFormats.Ps3Folder && target.Container == TargetContainer.Folder)
+            return Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
         if (!target.Producible) return NotYet(id, target, alternatives);
         return isArchive
             ? Plan(id, TargetStatus.Convert, TargetChoice.Files, "Convert → folder (unpack)", alternatives)

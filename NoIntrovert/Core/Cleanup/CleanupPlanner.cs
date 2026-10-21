@@ -58,7 +58,8 @@ public sealed class CleanupPlan(List<CleanupStep> steps)
 
 /// <summary>
 /// Turns games from the Library into the wizard's plan (FR-1): convert what
-/// isn't optimal, rename to the database name, move into the layout (FR-6),
+/// isn't optimal, rename to the database name, move into the layout (FR-6:
+/// ES-DE's roms/&lt;system&gt;/ folders, or where they are now),
 /// remove duplicates (FR-7). Only files Verify &amp; match has matched are
 /// touched; everything else is listed as untouched. Name clashes become
 /// steps that don't run (FR-5).
@@ -106,6 +107,17 @@ public static class CleanupPlanner
             return;
         }
 
+        // FR-6: games that have to be folders (Wii U titles, PS3 games) move whole into their system folder under
+        // their own name; there's no DAT entry to rename them by. They're never looked inside or flattened.
+        foreach (var i in items.Where(IsFolderGame).ToList())
+        {
+            if (settings.Library.Layout != LibraryLayout.EsDe || system.Esde is null) break;
+            items.Remove(i);
+            var target = Path.Combine(FolderFor(i, system, settings), FolderGameName(i));
+            if (SamePath(target, i.Path) && Path.GetFileName(target) == Path.GetFileName(i.Path)) continue;
+            steps.Add(Step(CleanupKind.Move, i, [i.Path], target, $"Moved whole into {RelativeFolder(i, target)}: this game is a folder"));
+        }
+
         // Only what Verify & match recognised is renamed or moved; the rest is listed.
         var matched = new List<(LibraryItem Item, string Name)>();
         foreach (var i in items)
@@ -120,26 +132,47 @@ public static class CleanupPlanner
             }));
         }
 
-        // FR-7 in R7 form: two or more discs to convert together, into hidden/ with an .m3u.
+        var esde = settings.Library.Layout == LibraryLayout.EsDe;
+
+        // FR-7 in R7 form: two or more discs to convert together, with an .m3u. In the ES-DE
+        // layout the discs and the playlist share a <Game>.m3u folder; otherwise the discs go in hidden/.
         var discs = matched.Where(d => d.Item.Disc.Length > 0 && d.Item.FormatStatus == TargetStatus.Convert && d.Item.Target is TargetKind.Chd or TargetKind.Rvz).ToList();
         if (discs.Select(d => d.Item.Disc).Distinct().Count() >= 2)
         {
             var first = discs[0].Item;
             var folder = FolderFor(first, system, settings);
             var ext = first.Target == TargetKind.Rvz ? ".rvz" : ".chd";
-            var step = Step(CleanupKind.Convert, first, discs.Select(d => d.Item.Path).ToList(), Path.Combine(folder, game.Title + ".m3u"),
-                $"{discs.Count} discs → {Folder(settings)}/{ext}, with a playlist", Estimate(discs.Sum(d => d.Item.Size), ext), first.Target);
+            var playlist = esde ? PlaylistIn(folder, game.Title) : Path.Combine(folder, game.Title + ".m3u");
+            var step = Step(CleanupKind.Convert, first, discs.Select(d => d.Item.Path).ToList(), playlist,
+                $"{discs.Count} discs → {ext}, {(esde ? $"in {game.Title}.m3u/ with its playlist" : "with a playlist")}",
+                Estimate(discs.Sum(d => d.Item.Size), ext), first.Target);
             foreach (var (item, name) in discs) step.Renames[Path.GetFileNameWithoutExtension(item.Path) + ext] = name + ext;
             steps.Add(step);
             foreach (var d in discs) handled.Add(d.Item);
         }
 
+        // ES-DE: discs already converted move together into their <Game>.m3u folder, whose playlist is written again.
+        var ready = matched.Where(d => !handled.Contains(d.Item) && d.Item.Disc.Length > 0 && d.Item.FormatStatus != TargetStatus.Convert
+                                       && d.Item.Members.Count == 1 && File.Exists(d.Item.Path)).ToList();
+        if (esde && ready.Select(d => d.Item.Disc).Distinct().Count() >= 2)
+        {
+            var first = ready[0].Item;
+            var playlist = PlaylistIn(FolderFor(first, system, settings), game.Title);
+            var folder = Path.GetDirectoryName(playlist)!;
+            var step = Step(CleanupKind.Move, first, ready.Select(d => d.Item.Path).ToList(), playlist, $"Into {game.Title}.m3u/ with its playlist");
+            foreach (var (item, name) in ready) step.Renames[Path.GetFileName(item.Path)] = Matcher.ExpectedName(item.Path, name);
+            foreach (var d in ready) handled.Add(d.Item);
+            var inPlace = ready.All(d => SamePath(Path.GetDirectoryName(d.Item.Path)!, folder)
+                                         && Path.GetFileName(d.Item.Path) == step.Renames[Path.GetFileName(d.Item.Path)]);
+            if (!(inPlace && File.Exists(playlist))) steps.Add(step);
+        }
+
         foreach (var (item, name) in matched.Where(d => !handled.Contains(d.Item)))
         {
             var folder = FolderFor(item, system, settings);
-            // R7: the discs of a multi-disc game live in the hidden folder beside its playlist.
-            if (settings.Library.Layout == LibraryLayout.EsDe && game.Discs >= 2 && item.Disc.Length > 0)
-                folder = Path.Combine(folder, MultiDiscFolder(settings));
+            // R7: the discs of a multi-disc game live beside their playlist.
+            if (esde && game.Discs >= 2 && item.Disc.Length > 0)
+                folder = Path.GetDirectoryName(PlaylistIn(folder, game.Title))!;
             if (item.FormatStatus == TargetStatus.Convert && ConvertedExtension(item.Target) is { } ext)
             {
                 steps.Add(Step(CleanupKind.Convert, item, [item.Path], Path.Combine(folder, name + ext),
@@ -157,23 +190,57 @@ public static class CleanupPlanner
         }
     }
 
-    /// <summary>FR-6: the system's ES-DE folder in the item's library folder, or where it is now.</summary>
+    /// <summary>The top-level folder of the ES-DE layout.</summary>
+    public const string RomsFolderName = "roms";
+
+    /// <summary>FR-6: <c>roms</c> in a library folder, or the library folder itself when it's called that already.</summary>
+    public static string RomsFolder(string root)
+    {
+        var trimmed = Path.TrimEndingDirectorySeparator(root);
+        return string.Equals(Path.GetFileName(trimmed), RomsFolderName, StringComparison.OrdinalIgnoreCase) ? trimmed : Path.Combine(trimmed, RomsFolderName);
+    }
+
+    /// <summary>FR-6: the system's ES-DE folder (<c>roms/psx</c>) in the item's library folder, or where it is now.</summary>
     public static string FolderFor(LibraryItem item, SystemInfo system, AppSettings settings) =>
         settings.Library.Layout == LibraryLayout.EsDe && system.Esde is { } esde
-            ? Path.Combine(item.Root, esde)
+            ? Path.Combine(RomsFolder(item.Root), esde)
             : Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(item.Path))!;
 
-    public static string MultiDiscFolder(AppSettings settings) =>
-        string.IsNullOrWhiteSpace(settings.TargetFormats.MultiDiscFolder) ? "hidden" : settings.TargetFormats.MultiDiscFolder.Trim();
+    /// <summary>
+    /// R7 in ES-DE form: a multi-disc game's playlist inside a folder of the
+    /// same name (<c>psx/Game.m3u/Game.m3u</c>), with its discs beside it.
+    /// ES-DE shows such a folder as one game ("directories interpreted as files").
+    /// </summary>
+    public static string PlaylistIn(string systemFolder, string title) => Path.Combine(systemFolder, title + ".m3u", title + ".m3u");
+
+    /// <summary>Whether <paramref name="playlist"/> is in a folder named after it (the ES-DE multi-disc folder).</summary>
+    public static bool IsPlaylistFolder(string playlist) =>
+        string.Equals(Path.GetFileName(Path.GetDirectoryName(playlist)), Path.GetFileName(playlist), PathNames.Comparison);
+
+    /// <summary>The games that are folders and stay folders: Wii U NUS titles and title folders, PS3 games.</summary>
+    public static bool IsFolderGame(LibraryItem item) =>
+        item.FormatId == KnownFormats.Nus.Id || item.FormatId == KnownFormats.WiiUFolder.Id || item.FormatId == KnownFormats.Ps3Folder.Id;
+
+    /// <summary>A folder game's name in its system folder: as it is, except that a PS3 game gets the .ps3 ES-DE needs.</summary>
+    private static string FolderGameName(LibraryItem item)
+    {
+        var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(item.Path));
+        return item.FormatId == KnownFormats.Ps3Folder.Id && !name.EndsWith(".ps3", StringComparison.OrdinalIgnoreCase) ? name + ".ps3" : name;
+    }
+
+    private static string RelativeFolder(LibraryItem item, string target) =>
+        Path.GetRelativePath(item.Root, Path.GetDirectoryName(target)!).Replace('\\', '/') + "/";
 
     /// <summary>Whether two paths name the same file or folder, as the OS compares them.</summary>
     public static bool SamePath(string a, string b) => PathNames.Same(a, b);
 
     private static bool InLayout(LibraryItem item, AppSettings settings) =>
         TargetFormats.ById(item.System) is { } system
-        && SamePath(Path.GetDirectoryName(item.Path)!, FolderFor(item, system, settings));
+        && FolderFor(item, system, settings) is var folder
+        && (SamePath(Path.GetDirectoryName(item.Path)!, folder)
+            || (item.Disc.Length > 0 && SamePath(Path.GetDirectoryName(item.Path)!, Path.GetDirectoryName(PlaylistIn(folder, item.Title))!)));
 
-    private static string? Folder(AppSettings settings) => settings.Library.Layout == LibraryLayout.EsDe ? "its system folder" : null;
+    private static string? Folder(AppSettings settings) => settings.Library.Layout == LibraryLayout.EsDe ? "its ES-DE system folder" : null;
 
     /// <summary>The extension a conversion's result has; null for targets the wizard leaves to the Convert page (unpacking, extracting).</summary>
     private static string? ConvertedExtension(TargetKind target) => target switch
