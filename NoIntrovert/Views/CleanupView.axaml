@@ -71,12 +71,12 @@
                             <StackPanel Spacing="2">
                                 <TextBlock Text="ES-DE format (recommended)" FontWeight="SemiBold" />
                                 <TextBlock Classes="hint" TextWrapping="Wrap"
-                                           Text="A roms folder in each Library folder, one folder per system named as ES-DE names it, and the games' files inside. Only games that have to be folders stay folders: Wii U titles, PS3 games, and a multi-disc game's Game.m3u folder." />
+                                           Text="A roms folder in each Library folder, one folder per system named as ES-DE names it, and the games' files inside. Only games that have to be folders stay folders (Wii U titles, PS3 games); a multi-disc game's .m3u sits in the system folder with its discs in hidden/." />
                             </StackPanel>
                         </RadioButton>
                         <Border Background="{DynamicResource RowAlt}" CornerRadius="4" Padding="8,6" Margin="28,0,0,4" IsVisible="{Binding EsDeLayout}">
                             <TextBlock FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace" FontSize="11" TextWrapping="NoWrap"
-                                       Text="roms/&#10;  nes/Super Mario Bros. (World).7z&#10;  psx/Crash Bandicoot (USA).chd&#10;  psx/Final Fantasy VII (USA).m3u/&#10;      Final Fantasy VII (USA).m3u&#10;      Final Fantasy VII (USA) (Disc 1).chd …&#10;  wiiu/Some NUS Title/&#10;  ps3/Gran Turismo 5.ps3/" />
+                                       Text="roms/&#10;  nes/Super Mario Bros. (World).7z&#10;  psx/Crash Bandicoot (USA).chd&#10;  psx/Final Fantasy VII (USA).m3u&#10;  psx/hidden/Final Fantasy VII (USA) (Disc 1).chd …&#10;  wiiu/Some NUS Title/&#10;  ps3/Gran Turismo 5.ps3/" />
                         </Border>
                         <RadioButton GroupName="CleanupLayout" IsChecked="{Binding KeepLayout}">
                             <StackPanel Spacing="2">

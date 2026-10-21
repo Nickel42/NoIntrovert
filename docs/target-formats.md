@@ -60,21 +60,21 @@ PlayStation/
 The `.m3u` lists the discs by relative path (`hidden/Final Fantasy VII (USA) (Disc 1).chd`), one
 per line, in disc order. The folder name can be changed in Settings.
 
-**In the Cleanup wizard's ES-DE format** (docs/requirements/cleanup-wizard.md, FR-6) the discs and
-the playlist share one folder named after the playlist, which ES-DE shows as a single game
-("directories interpreted as files"), inside `roms/<system>/`:
+**In the Cleanup wizard's ES-DE format** (docs/requirements/cleanup-wizard.md, FR-6) it's the same,
+in `roms/<system>/`: the `.m3u` directly in the system folder and the discs in `hidden/` there. An
+empty `noload.txt` in `hidden/` tells ES-DE to skip that folder, so the discs aren't listed as games
+of their own beside the playlist (ES-DE user guide, "noload.txt"):
 
 ```
 roms/
   psx/
-    Final Fantasy VII (USA).m3u/
-      Final Fantasy VII (USA).m3u
+    Final Fantasy VII (USA).m3u
+    hidden/
+      noload.txt
       Final Fantasy VII (USA) (Disc 1).chd
       Final Fantasy VII (USA) (Disc 2).chd
       Final Fantasy VII (USA) (Disc 3).chd
 ```
-
-There the `.m3u` lists the discs by file name only (`Final Fantasy VII (USA) (Disc 1).chd`).
 
 ## Decisions
 
