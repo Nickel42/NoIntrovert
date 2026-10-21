@@ -14,7 +14,7 @@ public sealed record Choice<T>(T Value, string Label)
 }
 
 /// <summary>
-/// The app's settings, one view model per section (General, Output,
+/// The app's settings, one view model per section (General, Presets, Output,
 /// Performance, CHD, GameCube/Wii, Archives, Keys, Diagnostics), each bound
 /// two-way and saved as it changes. Batches run on a snapshot
 /// (<see cref="Snapshot"/>), so edits during a run apply to the next one.
@@ -37,6 +37,7 @@ public partial class SettingsViewModel : ViewModelBase
         Library = new LibrarySettingsViewModel(settings);
         Dats = new DatSettingsViewModel(settings, dialogs);
         TargetFormats = new TargetFormatSettingsViewModel(settings, dialogs);
+        Presets = new PresetsViewModel(settings, this);
     }
 
     public GeneralSettingsViewModel General { get; }
@@ -50,9 +51,10 @@ public partial class SettingsViewModel : ViewModelBase
     public LibrarySettingsViewModel Library { get; }
     public DatSettingsViewModel Dats { get; }
     public TargetFormatSettingsViewModel TargetFormats { get; }
+    public PresetsViewModel Presets { get; }
 
     /// <summary>Every section, in the order the Settings page shows them.</summary>
-    public IReadOnlyList<SettingsSectionViewModel> Sections => [General, Library, Dats, Output, Performance, Chd, Nintendo, Archives, TargetFormats, Keys, Diagnostics];
+    public IReadOnlyList<SettingsSectionViewModel> Sections => [General, Presets, Library, Dats, Output, Performance, Chd, Nintendo, Archives, TargetFormats, Keys, Diagnostics];
 
     public AppSettings Snapshot() => _s.Clone();
     public void Save() => _s.Save();

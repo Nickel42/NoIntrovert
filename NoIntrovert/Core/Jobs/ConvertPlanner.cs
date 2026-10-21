@@ -1,5 +1,6 @@
 using NoIntrovert.Core.Archives;
 using NoIntrovert.Core.Formats;
+using NoIntrovert.Core.Presets;
 using NoIntrovert.Core.WiiU;
 
 namespace NoIntrovert.Core.Jobs;
@@ -21,12 +22,22 @@ public sealed record ConvertPlan(IReadOnlyList<PlannedJob> Jobs, IReadOnlyList<i
 /// per game for Wii U titles (base, update and DLC together), and one for the
 /// whole set when files are packed into a single archive. Each job runs with
 /// its row's own choice where the settings hold one global value (RVZ or CHD
-/// for GameCube/Wii, 7z or zip for packing and converting archives).
+/// for GameCube/Wii, 7z or zip for packing and converting archives), and
+/// with its action's chosen preset (issue #33). <paramref name="pin"/> runs
+/// after the preset, for values a caller must keep (Clean Up never removes originals).
 /// </summary>
 public static class ConvertPlanner
 {
-    public static ConvertPlan Plan(IReadOnlyList<PlanInput> rows, AppSettings settings, ILog log)
+    public static ConvertPlan Plan(IReadOnlyList<PlanInput> rows, AppSettings settings, ILog log, Action<AppSettings>? pin = null)
     {
+        // A copy of the settings as a job of this target runs with them, with one change on top for the row's choice.
+        AppSettings With(AppSettings s, TargetKind target, Action<AppSettings>? change = null)
+        {
+            var copy = SettingsFor(s, target, pin);
+            change?.Invoke(copy);
+            return copy;
+        }
+
         var jobs = new List<PlannedJob>();
         var left = new List<int>();
         var warnings = new List<string>();
@@ -43,7 +54,7 @@ public static class ConvertPlanner
             var sources = discs.Select(d => rows[d.Row].Path).ToList();
             var extension = target == TargetKind.Rvz ? ".rvz" : ".chd";
             jobs.Add(new($"{game} ({discs.Count} discs)", discs.Select(d => d.Row).ToList(), discs.Sum(d => rows[d.Row].Size),
-                c => RomJobs.MultiDisc(c.WithSettings(With(c.Settings, s => s.Nintendo.Target = nintendo)), sources, game, extension)));
+                c => RomJobs.MultiDisc(c.WithSettings(With(c.Settings, target, s => s.Nintendo.Target = nintendo)), sources, game, extension)));
         }
         var grouped = multiDisc.SelectMany(g => g.Discs.Select(d => d.Row)).ToHashSet();
 
@@ -60,27 +71,28 @@ public static class ConvertPlanner
                     break;
                 case TargetKind.Chd or TargetKind.Rvz:
                     var nintendo = row.Target == TargetKind.Rvz ? NintendoTarget.Rvz : NintendoTarget.Chd;
-                    jobs.Add(new(name, [i], row.Size, c => ChdJobs.Convert(c.WithSettings(With(c.Settings, s => s.Nintendo.Target = nintendo)), path)));
+                    var discTarget = row.Target;
+                    jobs.Add(new(name, [i], row.Size, c => ChdJobs.Convert(c.WithSettings(With(c.Settings, discTarget, s => s.Nintendo.Target = nintendo)), path)));
                     break;
                 case TargetKind.Iso:
                     jobs.Add(new(name, [i], row.Size, c => RvzJobs.Extract(c, path)));
                     break;
                 case TargetKind.DiscImage:
-                    jobs.Add(new(name, [i], row.Size, c => ChdJobs.Extract(c, path)));
+                    jobs.Add(new(name, [i], row.Size, c => ChdJobs.Extract(c.WithSettings(With(c.Settings, TargetKind.DiscImage)), path)));
                     break;
                 case TargetKind.Files:
-                    jobs.Add(new(name, [i], row.Size, c => ArchiveJobs.Extract(c, path)));
+                    jobs.Add(new(name, [i], row.Size, c => ArchiveJobs.Extract(c.WithSettings(With(c.Settings, TargetKind.Files)), path)));
                     break;
                 case TargetKind.Wua:
                     wiiu.Add(i);
                     break;
                 case TargetKind.SevenZip when ArchiveJobs.IsConvertible(path) && HoldsSeveralGames(path):
                     // R6: one 7z per game, each holding one ROM (D9).
-                    jobs.Add(new(name, [i], row.Size, c => RomJobs.Split(c.WithSettings(With(c.Settings, s => { s.Archives.Format = ArchiveFormat.SevenZip; SingleFile7z(s); })),
+                    jobs.Add(new(name, [i], row.Size, c => RomJobs.Split(c.WithSettings(With(c.Settings, TargetKind.SevenZip, s => { s.Archives.Format = ArchiveFormat.SevenZip; SingleFile7z(s); })),
                         path, OutputPaths.FolderFor(c.Settings, path))));
                     break;
                 case TargetKind.Zip when Directory.Exists(path) && VitaGame.IsGameFolder(path):
-                    jobs.Add(new(name, [i], row.Size, c => RomJobs.PackVita(c, path, OutputPaths.FolderFor(c.Settings, path))));
+                    jobs.Add(new(name, [i], row.Size, c => RomJobs.PackVita(c.WithSettings(With(c.Settings, TargetKind.Zip)), path, OutputPaths.FolderFor(c.Settings, path))));
                     break;
                 case TargetKind.SevenZip or TargetKind.Zip when ArchiveJobs.IsConvertible(path):
                     var to = row.Target == TargetKind.SevenZip ? ConvertTarget.ToSevenZip : ConvertTarget.ToZip;
@@ -92,9 +104,9 @@ public static class ConvertPlanner
                     }
                     // Asked for the format it already has: recompressed with a method RetroArch reads (R8).
                     if (Path.GetExtension(path).Equals(row.Target == TargetKind.SevenZip ? ".7z" : ".zip", StringComparison.OrdinalIgnoreCase))
-                        jobs.Add(new(name, [i], row.Size, c => ArchiveJobs.Recompress(c.WithSettings(With(c.Settings, Archive)), path)));
+                        jobs.Add(new(name, [i], row.Size, c => ArchiveJobs.Recompress(c.WithSettings(With(c.Settings, row.Target, Archive)), path)));
                     else
-                        jobs.Add(new(name, [i], row.Size, c => ArchiveJobs.Convert(c.WithSettings(With(c.Settings, Archive)), path)));
+                        jobs.Add(new(name, [i], row.Size, c => ArchiveJobs.Convert(c.WithSettings(With(c.Settings, row.Target, Archive)), path)));
                     break;
                 case TargetKind.SevenZip or TargetKind.Zip:
                     packs.Add(i);
@@ -102,13 +114,12 @@ public static class ConvertPlanner
             }
         }
 
-        PlanWiiU(rows, wiiu, settings, log, jobs);
-        var error = PlanPacking(rows, packs, settings, jobs);
+        PlanWiiU(rows, wiiu, settings, log, jobs, c => c.WithSettings(With(c.Settings, TargetKind.Wua)));
+        var error = PlanPacking(rows, packs, SettingsFor(settings, TargetKind.SevenZip, pin), jobs, (s, change) => With(s, TargetKind.SevenZip, change));
 
         if (rows.Any(r => Path.GetExtension(r.Path).ToLowerInvariant() is ".wbfs" or ".ciso" && r.Target != TargetKind.Leave))
             warnings.Add("WBFS and CISO images can't be converted (they don't record the disc's exact size); convert them to ISO first.");
-        var removes = rows.Where((r, i) => !left.Contains(i)).ToList();
-        if (removes.Count > 0 && (settings.Output.RemoveOriginals || settings.Output.RemoveArchiveOriginals || settings.Output.RemoveWiiUOriginals))
+        if (rows.Where((r, i) => !left.Contains(i)).Any(r => RemovesOriginals(SettingsFor(settings, r.Target, pin), r.Target)))
         {
             var fate = settings.Output.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently";
             warnings.Add($"Originals will be {fate} once each new file verifies or tests OK.");
@@ -122,7 +133,8 @@ public static class ConvertPlanner
     }
 
     /// <summary>Wii U rows: an archive builds on its own; everything else is grouped by game (base title ID).</summary>
-    private static void PlanWiiU(IReadOnlyList<PlanInput> rows, List<int> wiiu, AppSettings settings, ILog log, List<PlannedJob> jobs)
+    private static void PlanWiiU(IReadOnlyList<PlanInput> rows, List<int> wiiu, AppSettings settings, ILog log, List<PlannedJob> jobs,
+        Func<JobContext, JobContext> withPreset)
     {
         if (wiiu.Count == 0) return;
         var keys = WiiUKeys.Empty;
@@ -139,7 +151,7 @@ public static class ConvertPlanner
             var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
             if (KnownFormats.Archives.Any(f => f.HasExtension(path)))
             {
-                jobs.Add(new(name, [i], rows[i].Size, c => WuaJobs.BuildFromArchive(c, path)));
+                jobs.Add(new(name, [i], rows[i].Size, c => WuaJobs.BuildFromArchive(withPreset(c), path)));
                 continue;
             }
             if (WiiUTitles.UnsupportedReason(path) is { } reason)
@@ -167,13 +179,14 @@ public static class ConvertPlanner
         {
             var sources = game.Select(i => rows[i].Path).ToList();
             var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(sources[0])) + (game.Count > 1 ? $" (+{game.Count - 1})" : "");
-            jobs.Add(new(name, game, game.Sum(i => rows[i].Size), c => WuaJobs.Build(c, id, sources)));
+            jobs.Add(new(name, game, game.Sum(i => rows[i].Size), c => WuaJobs.Build(withPreset(c), id, sources)));
         }
         log.Info($"Wii U: {byGame.Count} game(s) to build from {wiiu.Count} item(s)");
     }
 
-    /// <summary>Files and folders packed into 7z or zip, by the archive grouping setting.</summary>
-    private static string? PlanPacking(IReadOnlyList<PlanInput> rows, List<int> packs, AppSettings settings, List<PlannedJob> jobs)
+    /// <summary>Files and folders packed into 7z or zip, by the archive grouping of <paramref name="settings"/> (with the 7z and zip preset).</summary>
+    private static string? PlanPacking(IReadOnlyList<PlanInput> rows, List<int> packs, AppSettings settings, List<PlannedJob> jobs,
+        Func<AppSettings, Action<AppSettings>, AppSettings> With)
     {
         if (packs.Count == 0) return null;
         foreach (var byFormat in packs.GroupBy(i => rows[i].Target))
@@ -229,11 +242,24 @@ public static class ConvertPlanner
         s.Archives.Solid = false;
     }
 
-    /// <summary>A copy of <paramref name="settings"/> with one change, so a row's choice never leaks into the shared snapshot.</summary>
-    private static AppSettings With(AppSettings settings, Action<AppSettings> change)
+    /// <summary>
+    /// A copy of <paramref name="settings"/> as a job making <paramref name="target"/>
+    /// runs with them: its action's preset applied, then <paramref name="pin"/>.
+    /// A copy, so a row's choice never leaks into the shared snapshot.
+    /// </summary>
+    public static AppSettings SettingsFor(AppSettings settings, TargetKind target, Action<AppSettings>? pin = null)
     {
-        var copy = settings.Clone();
-        change(copy);
+        var copy = ActionPresets.ForTarget(target) is { } action ? ActionPresets.Effective(settings, action) : settings.Clone();
+        pin?.Invoke(copy);
         return copy;
     }
+
+    /// <summary>Whether a job making <paramref name="target"/> with <paramref name="s"/> removes what it was made from.</summary>
+    private static bool RemovesOriginals(AppSettings s, TargetKind target) => target switch
+    {
+        TargetKind.Chd or TargetKind.Rvz => s.Output.RemoveOriginals,
+        TargetKind.Wua => s.Output.RemoveWiiUOriginals,
+        TargetKind.SevenZip or TargetKind.Zip or TargetKind.Files => s.Output.RemoveArchiveOriginals,
+        _ => false,
+    };
 }

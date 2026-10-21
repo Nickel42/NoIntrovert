@@ -8,6 +8,7 @@ using NoIntrovert.Core.Cd;
 using NoIntrovert.Core.Esde;
 using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.Jobs;
+using NoIntrovert.Core.Presets;
 using NoIntrovert.Tests;
 
 // ---------------------------------------------------------------------------
@@ -788,6 +789,136 @@ Test("Settings: every schema-1 setting has a home", () =>
     return lost.Count == 0 ? Note($"{typeof(SettingsV1).GetProperties().Length} settings mapped") : $"not carried over: {string.Join(", ", lost)}";
 });
 
+// ---- Presets (issue #33): one per action, parameters only under Custom ----
+
+Test("Presets: each action starts on its recommended preset, and ends with Custom", () =>
+{
+    var fresh = new AppSettings();
+    foreach (var action in ActionPresets.Actions)
+    {
+        var list = ActionPresets.For(action);
+        if (list.Count < 3) return $"{action} has {list.Count} presets";
+        if (ActionPresets.Selected(fresh, action) != ActionPresets.Preferred(action)) return $"{action} doesn't start on its preferred preset";
+        if (!list[^1].IsCustom || list.Take(list.Count - 1).Any(p => p.IsCustom)) return $"{action}: Custom isn't the last and only custom preset";
+        if (list.Select(p => p.Id).Distinct().Count() != list.Count) return $"{action} has two presets with one id";
+        // The defaults are the recommended values, so a new install behaves as before.
+        if (!ActionPresets.Preferred(action).Matches(fresh)) return $"{action}: the default settings aren't its recommended preset";
+        // A preset only writes its own action's values: applying it twice is the same as once.
+        foreach (var preset in list.Where(p => !p.IsCustom))
+        {
+            var once = fresh.Clone();
+            preset.Values!(once);
+            if (!preset.Matches(once)) return $"{action}/{preset.Id} doesn't match what it writes";
+        }
+    }
+    if (!ActionPresets.Preferred(PresetAction.Wua).Name.Contains("WUX")) return "Wii U's preferred preset isn't WUX → .wua";
+    if (!ActionPresets.Preferred(PresetAction.Chd).Label.EndsWith('★') || ActionPresets.For(PresetAction.Chd)[1].Label.Contains('★'))
+        return "only the preferred preset should be starred";
+    return fresh.Presets.Chosen.Count == 0 ? Note($"{ActionPresets.Actions.Count} actions") : "a new install writes down preset choices";
+});
+
+Test("Presets: a preset sets its action's values, and Custom keeps yours", () =>
+{
+    var s = new AppSettings { Chd = { Compression = "cdzs,cdfl", VerifyAfterCreate = false }, Output = { RemoveOriginals = true } };
+    var mine = s.ToJson();
+    var standard = ActionPresets.Effective(s, PresetAction.Chd); // nothing chosen yet: the recommended preset
+    if (standard.Chd.Compression != "" || !standard.Chd.VerifyAfterCreate || standard.Output.RemoveOriginals) return "Standard didn't set the CHD values";
+    if (s.ToJson() != mine) return "working out a job's settings changed the stored ones";
+
+    ActionPresets.Select(s, ActionPresets.For(PresetAction.Chd).Single(p => p.Id == "replace"));
+    if (!ActionPresets.Effective(s, PresetAction.Chd).Output.RemoveOriginals) return "Replace the originals doesn't remove them";
+    ActionPresets.Select(s, ActionPresets.For(PresetAction.Chd)[^1]);
+    var custom = ActionPresets.Effective(s, PresetAction.Chd);
+    if (custom.Chd.Compression != "cdzs,cdfl" || custom.Chd.VerifyAfterCreate || !custom.Output.RemoveOriginals) return "Custom lost your values";
+
+    ActionPresets.Select(s, ActionPresets.Preferred(PresetAction.Chd));
+    if (s.Presets.Chosen.ContainsKey("Chd")) return "choosing the recommended preset is written down";
+    s.Presets.Chosen["Chd"] = "gone";
+    return ActionPresets.Selected(s, PresetAction.Chd).IsPreferred ? null : "an unknown preset id isn't read as the recommended one";
+});
+
+Test("Presets: settings from before presets keep their behaviour", () =>
+{
+    var dir = Dir("settings-presets-upgrade");
+    var file = Path.Combine(dir, "settings.json");
+    var before = new AppSettings
+    {
+        Nintendo = { CompressionLevel = 19 },                      // = RVZ Smallest
+        Output = { RemoveWiiUOriginals = true },                   // = Wii U Replace the originals
+        Archives = { Level = ArchiveLevel.Maximum },               // no preset: Custom
+        Chd = { SplitBin = false },                                // = One .bin
+    };
+    var node = System.Text.Json.Nodes.JsonNode.Parse(before.ToJson())!.AsObject();
+    node.Remove("Presets");
+    File.WriteAllText(file, node.ToJsonString());
+    var previous = AppSettings.SettingsDirectoryOverride;
+    AppSettings.SettingsDirectoryOverride = dir;
+    try
+    {
+        var s = AppSettings.Load();
+        var expect = new Dictionary<PresetAction, string>
+        {
+            [PresetAction.Chd] = "standard", [PresetAction.Rvz] = "smallest", [PresetAction.Wua] = "replace",
+            [PresetAction.Archive] = ActionPreset.CustomId, [PresetAction.Extract] = "single-bin", [PresetAction.Unpack] = "own-folder",
+            [PresetAction.Verify] = "check",
+        };
+        foreach (var (action, id) in expect)
+            if (ActionPresets.Selected(s, action).Id != id) return $"{action} became {ActionPresets.Selected(s, action).Id}, expected {id}";
+        // Nothing behaves differently: every job's settings are the ones the file held.
+        foreach (var action in ActionPresets.Actions)
+            if (ActionPresets.Effective(s, action).ToJson() != s.ToJson()) return $"{action} runs with different values after the upgrade";
+        s.Save();
+        var again = AppSettings.Load();
+        return again.ToJson() == s.ToJson() ? null : "the presets didn't survive saving and loading";
+    }
+    finally { AppSettings.SettingsDirectoryOverride = previous; }
+});
+
+Test("Presets: the view model saves a real choice only, and shows parameters only for Custom", () =>
+{
+    var dir = Dir("settings-presets-vm");
+    var previous = AppSettings.SettingsDirectoryOverride;
+    AppSettings.SettingsDirectoryOverride = dir;
+    try
+    {
+        var file = Path.Combine(dir, "settings.json");
+        var vm = new NoIntrovert.ViewModels.SettingsViewModel(new AppSettings(), new NoDialogs());
+        var chd = vm.Presets.Chd;
+        if (vm.Presets.All.Count != ActionPresets.Actions.Count) return "not every action has a picker";
+        chd.Selected = chd.Selected;
+        if (File.Exists(file)) return "writing back the current preset saved the settings";
+        if (chd.IsCustom) return "the recommended preset shows the parameters";
+        var changed = new List<string?>();
+        chd.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        chd.Selected = chd.Presets[^1];
+        if (!chd.IsCustom || !changed.Contains(nameof(chd.IsCustom))) return "choosing Custom didn't show the parameters";
+        if (!File.Exists(file) || !File.ReadAllText(file).Contains("\"Chd\": \"custom\"")) return "choosing Custom wasn't saved";
+        return vm.Presets.Rvz.IsCustom ? "choosing Custom for CHD changed RVZ" : null;
+    }
+    finally { AppSettings.SettingsDirectoryOverride = previous; }
+});
+
+Test("Convert planner: each job runs with its own action's preset", () =>
+{
+    var s = new AppSettings();
+    ActionPresets.Select(s, ActionPresets.For(PresetAction.Chd).Single(p => p.Id == "replace"));
+    ActionPresets.Select(s, ActionPresets.For(PresetAction.Archive).Single(p => p.Id == "smallest"));
+    if (!ConvertPlanner.SettingsFor(s, TargetKind.Chd).Output.RemoveOriginals) return "the CHD job doesn't remove the originals";
+    if (ConvertPlanner.SettingsFor(s, TargetKind.Rvz).Output.RemoveOriginals) return "CHD's preset reached the RVZ job";
+    if (ConvertPlanner.SettingsFor(s, TargetKind.SevenZip).Archives.Level != ArchiveLevel.Ultra) return "the 7z job isn't at Ultra";
+    if (ConvertPlanner.SettingsFor(s, TargetKind.Iso).ToJson() != s.ToJson()) return "a target without presets got different settings";
+    if (ConvertPlanner.SettingsFor(s, TargetKind.Chd, x => x.Output.RemoveOriginals = false).Output.RemoveOriginals) return "a pin didn't win over the preset";
+
+    var dir = Dir("planner-presets");
+    var cue = Path.Combine(dir, "game.cue");
+    var gc = Path.Combine(dir, "game.gcm");
+    var warns = ConvertPlanner.Plan([new(cue, TargetKind.Chd)], s, log).Warnings;
+    if (!warns.Any(w => w.Contains("Originals"))) return "no warning that the CHD job removes originals";
+    if (ConvertPlanner.Plan([new(gc, TargetKind.Rvz)], s, log).Warnings.Any(w => w.Contains("Originals"))) return "warned about removing for an RVZ job that keeps them";
+    return ConvertPlanner.Plan([new(cue, TargetKind.Chd)], s, log, x => x.Output.RemoveOriginals = false).Warnings.Any(w => w.Contains("Originals"))
+        ? "Clean Up's pin still warns about removing originals" : null;
+});
+
 Test("RAR inputs are refused", () =>
 {
     foreach (var name in new[] { "g.rar", "g.part1.rar", "g.r00", "G.RAR" })
@@ -1449,6 +1580,7 @@ if (ArchiveEngine.IsAvailable(out _))
 
         // Everything into one archive: the packed rows of one format become a single job.
         var single = new AppSettings { Archives = { Grouping = ArchiveGrouping.Single, SingleName = "Bundle" } };
+        ActionPresets.Select(single, ActionPresets.For(PresetAction.Archive)[^1]); // a combined archive is a Custom choice
         var packRows = new List<PlanInput> { Row(Path.Combine(mixed, "notes.txt"), TargetKind.SevenZip), Row(packMe, TargetKind.SevenZip) };
         var bundled = ConvertPlanner.Plan(packRows, single, log);
         if (bundled.Jobs.Count != 1 || bundled.Jobs[0].Rows.Count != 2) return $"single-archive packing made {bundled.Jobs.Count} job(s)";

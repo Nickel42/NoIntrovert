@@ -92,10 +92,13 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         OnPropertyChanged(nameof(RunOptionsNote));
     }
 
-    /// <summary>The settings a run uses: the saved ones, with this tab's overrides on top.</summary>
+    /// <summary>The action whose preset this tab's runs use, when there's one for the whole tab (Verify).</summary>
+    protected virtual Core.Presets.PresetAction? RunPreset => null;
+
+    /// <summary>The settings a run uses: the saved ones, with this tab's preset and overrides on top.</summary>
     protected AppSettings RunSettings()
     {
-        var snapshot = Settings.Snapshot();
+        var snapshot = RunPreset is { } action ? Core.Presets.ActionPresets.Effective(Settings.Snapshot(), action) : Settings.Snapshot();
         if (_runFolder is not null) snapshot.Output.Folder = _runFolder;
         if (_runOverwrite is { } overwrite) snapshot.Output.Overwrite = overwrite;
         return snapshot;

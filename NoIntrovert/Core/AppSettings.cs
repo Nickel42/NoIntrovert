@@ -28,6 +28,9 @@ public sealed class AppSettings
     public DatSettings Dats { get; set; } = new();
     public TargetFormatSettings TargetFormats { get; set; } = new();
 
+    /// <summary>The preset chosen for each action (issue #33). A file from before presets gets them inferred when it loads.</summary>
+    public Presets.PresetSettings Presets { get; set; } = new();
+
     /// <summary>
     /// Where settings and the library index live: %AppData%\NoIntrovert, or
     /// NOINTROVERT_SETTINGS_DIR when set (tests, screenshots, a portable copy).
@@ -61,11 +64,16 @@ public sealed class AppSettings
             {
                 // Schema 1: keep the original, convert, and save the new layout.
                 var migrated = FromV1(JsonSerializer.Deserialize<SettingsV1>(json, JsonOptions) ?? new SettingsV1());
+                migrated.Presets = Core.Presets.ActionPresets.Infer(migrated);
                 if (!File.Exists(V1BackupPath)) File.Copy(SettingsPath, V1BackupPath);
                 migrated.Save();
                 return migrated;
             }
-            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+            var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+            // Before presets: pick the preset each action's values already equal, or Custom, so nothing changes.
+            if (JsonNode.Parse(json) is JsonObject loaded && !loaded.ContainsKey(nameof(Presets)))
+                settings.Presets = Core.Presets.ActionPresets.Infer(settings);
+            return settings;
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {

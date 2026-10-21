@@ -19,10 +19,7 @@
                     <Button Classes="tool" Content="Update now" Command="{Binding Settings.Dats.UpdateNowCommand}" HorizontalAlignment="Left"
                             ToolTip.Tip="Download newer databases from libretro-database for the systems in your Library" />
 
-                    <TextBlock Text="OPTIONS" Classes="section" />
-                    <CheckBox Content="Fix a CHD's wrong header SHA-1" IsChecked="{Binding Settings.Chd.FixHeaderSha1}"
-                              ToolTip.Tip="Rewrites the SHA-1 in the header when the data is intact but the stored hash is wrong (chdman verify --fix)." />
-                    <TextBlock Classes="hint" Text="Fixing changes the CHD file in place." IsVisible="{Binding Settings.Chd.FixHeaderSha1}" />
+                    <v:PresetPicker DataContext="{Binding Settings.Presets.Verify}" Margin="0,8,0,0" />
 
                     <Separator Margin="0,10" />
                     <v:RunOptions />

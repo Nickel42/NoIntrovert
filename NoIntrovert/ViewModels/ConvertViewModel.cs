@@ -2,36 +2,18 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NoIntrovert.Core;
-using NoIntrovert.Core.Archives;
 using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.Jobs;
 using NoIntrovert.Services;
 
 namespace NoIntrovert.ViewModels;
 
-/// <summary>A named set of compression choices the Convert page offers instead of every knob.</summary>
-public sealed record ConvertPreset(string Name, string Summary, string ChdCompression, LibDolphinRvz.RvzCompression RvzCompression,
-    int RvzLevel, ArchiveLevel ArchiveLevel)
-{
-    public static readonly ConvertPreset Balanced = new("Balanced", "Each format's usual default",
-        "", LibDolphinRvz.RvzCompression.Zstd, 5, ArchiveLevel.Normal);
-    public static readonly ConvertPreset Smallest = new("Smallest", "Slower, a little smaller",
-        "", LibDolphinRvz.RvzCompression.Zstd, 19, ArchiveLevel.Ultra);
-    public static readonly ConvertPreset Fastest = new("Fastest", "Quicker, a little bigger",
-        "", LibDolphinRvz.RvzCompression.Zstd, 1, ArchiveLevel.Fast);
-
-    public static IReadOnlyList<ConvertPreset> All { get; } = [Balanced, Smallest, Fastest];
-
-    public bool Matches(AppSettings s) =>
-        s.Chd.Compression == ChdCompression && s.Nintendo.Compression == RvzCompression &&
-        s.Nintendo.CompressionLevel == RvzLevel && s.Archives.Level == ArchiveLevel;
-}
-
 /// <summary>
 /// The one Convert page: every input the format registry recognises (disc
 /// images, CHDs, GameCube/Wii and Wii U games, archives) plus any other files
 /// and folders to pack. Each row picks its own target; the options panel
-/// shows only what the chosen targets need.
+/// shows a preset picker for each action the chosen targets use (issue #33),
+/// with parameters only under Custom.
 /// </summary>
 public partial class ConvertViewModel : BatchTabViewModel
 {
@@ -60,8 +42,6 @@ public partial class ConvertViewModel : BatchTabViewModel
                 }
             _sections.Request();
         };
-        foreach (var section in new INotifyPropertyChanged[] { settings.Chd, settings.Nintendo, settings.Archives, settings.Output })
-            section.PropertyChanged += (_, _) => RefreshPresets();
     }
 
     public override string Title => "Convert";
@@ -167,7 +147,7 @@ public partial class ConvertViewModel : BatchTabViewModel
         _sections.Request();
     }
 
-    // ---- Which option sections the current targets need ----
+    // ---- Which actions' presets the current targets need ----
 
     private bool Any(params TargetKind[] kinds) => Items.Any(i => i.Target is { } t && kinds.Contains(t.Kind));
 
@@ -175,10 +155,8 @@ public partial class ConvertViewModel : BatchTabViewModel
     public bool ShowsRvz => Any(TargetKind.Rvz);
     public bool ShowsExtract => Any(TargetKind.DiscImage);
     public bool ShowsWua => Any(TargetKind.Wua);
-    public bool ShowsArchives => Any(TargetKind.SevenZip, TargetKind.Zip, TargetKind.Files);
-    public bool ShowsPacking => Items.Any(i => i.Target?.Kind is TargetKind.SevenZip or TargetKind.Zip && !ArchiveJobs.IsConvertible(i.Path));
+    public bool ShowsArchives => Any(TargetKind.SevenZip, TargetKind.Zip);
     public bool ShowsUnpacking => Any(TargetKind.Files);
-    public bool ShowsCompression => ShowsChd || ShowsRvz || ShowsArchives;
 
     /// <summary>A one-line count of what the list will make, shown above the options.</summary>
     public string TargetSummary
@@ -196,60 +174,8 @@ public partial class ConvertViewModel : BatchTabViewModel
     private void RefreshSections()
     {
         foreach (var name in new[] { nameof(ShowsChd), nameof(ShowsRvz), nameof(ShowsExtract), nameof(ShowsWua), nameof(ShowsArchives),
-                     nameof(ShowsPacking), nameof(ShowsUnpacking), nameof(ShowsCompression), nameof(TargetSummary) })
+                     nameof(ShowsUnpacking), nameof(TargetSummary) })
             OnPropertyChanged(name);
-    }
-
-    // ---- Presets and the one "remove originals" switch ----
-
-    public IReadOnlyList<ConvertPreset> Presets => ConvertPreset.All;
-
-    /// <summary>The preset the current settings match, or null for "Custom"; picking one applies it.</summary>
-    public ConvertPreset? CurrentPreset
-    {
-        get => ConvertPreset.All.FirstOrDefault(p => p.Matches(Settings.Snapshot()));
-        set { if (value is not null && value != CurrentPreset) ApplyPreset(value); }
-    }
-
-    public string PresetNote => CurrentPreset is { } p ? p.Summary : "Custom: your own compression choices (see Advanced).";
-
-    [RelayCommand]
-    private void ApplyPreset(ConvertPreset preset)
-    {
-        Settings.Chd.SelectedCompression = ChdSettingsViewModel.CompressionChoices.First(c => c.Value == preset.ChdCompression);
-        Settings.Nintendo.SelectedCompression = NintendoSettingsViewModel.Compressions.First(c => c.Value == preset.RvzCompression);
-        Settings.Nintendo.CompressionLevel = preset.RvzLevel;
-        Settings.Archives.SelectedLevel = ArchiveSettingsViewModel.Levels.First(l => l.Value == preset.ArchiveLevel);
-        RefreshPresets();
-    }
-
-    private void RefreshPresets()
-    {
-        OnPropertyChanged(nameof(CurrentPreset));
-        OnPropertyChanged(nameof(PresetNote));
-        OnPropertyChanged(nameof(RemoveOriginals));
-    }
-
-    /// <summary>
-    /// Removes the inputs once each new file verifies or tests OK, whatever
-    /// the target. Settings keeps separate switches for discs, archives and
-    /// Wii U; this sets all three, and shows "mixed" when they differ.
-    /// </summary>
-    public bool? RemoveOriginals
-    {
-        get
-        {
-            var o = Settings.Output;
-            return o.RemoveOriginals == o.RemoveArchiveOriginals && o.RemoveOriginals == o.RemoveWiiUOriginals ? o.RemoveOriginals : null;
-        }
-        set
-        {
-            var on = value ?? false;
-            Settings.Output.RemoveOriginals = on;
-            Settings.Output.RemoveArchiveOriginals = on;
-            Settings.Output.RemoveWiiUOriginals = on;
-            OnPropertyChanged();
-        }
     }
 
     // ---- Running: the planner turns rows and targets into queue jobs ----

@@ -5,7 +5,8 @@ A desktop CHD and RVZ batch tool built with Avalonia, used as a test bench for
 binding (`chdman.dll`); `chdman.exe` is only run when you ask the Library tests
 tab to compare against it.
 
-Workflow on every tab: **pick files → choose options → run the batch → read the log.**
+Workflow on every tab: **pick files → choose a preset → run the batch → read the log.** Each action has a
+recommended preset; its individual options appear only under Custom ([presets](docs/requirements/presets.md)).
 
 | Tab | What it does |
 |---|---|

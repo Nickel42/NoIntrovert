@@ -24,6 +24,7 @@ public partial class VerifyViewModel(SettingsViewModel settings, LogViewModel lo
     protected override string FilterName => "Games";
     protected override IReadOnlyList<FormatInfo>? InputFormats => null;
     protected override bool Accepts(string path) => FormatRegistry.Default.Identify(path) is not null;
+    protected override Core.Presets.PresetAction? RunPreset => Core.Presets.PresetAction.Verify;
 
     /// <summary>A folder brings in every input the registry finds in it.</summary>
     protected override IEnumerable<string> ItemsForFolder(string folder) =>
