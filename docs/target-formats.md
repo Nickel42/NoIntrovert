@@ -32,7 +32,7 @@ That's why cartridges go in a .7z while disc images become bare CHD, RVZ or WUA.
 | R1 | One cartridge ROM (loose, or alone in a .zip/.7z) | A .7z holding just that ROM, with its canonical extension (`Game.nes` in `Game.7z`) |
 | R2 | A .zip/.7z holding a disc image (cue/bin, iso, img, gdi, ccd, mds) | Extract, then a bare `.chd` |
 | R3 | A .zip/.7z holding a Wii U image (.wux/.wud), or loose Wii U files | Extract, then a bare `.wua`, with the update and DLC merged in when present |
-| R4 | A GameCube/Wii image (.iso/.gcm/.wbfs/.ciso/.gcz/.wia), loose or archived | A bare `.rvz` (zstd level 5, 128 KiB blocks). An RVZ made from .wbfs/.ciso won't match Redump, because those formats drop data. |
+| R4 | A GameCube/Wii image (.iso/.gcm/.gcz/.wia/.tgc), loose or archived | A bare `.rvz` (zstd level 5, 128 KiB blocks). .wbfs and .ciso are left as is: they don't record the disc's exact size, so they can't be converted yet (see [Future.md](../Future.md)). |
 | R5 | An arcade romset (MAME, FBNeo, NAOMI, Atomiswave, Game & Watch) | Left as its .zip (TorrentZip). Never extracted or repacked; CHDs stay bare in the set folder. |
 | R6 | One archive holding several unrelated games | Split into one file per game |
 | R7 | A multi-disc game | One bare file per disc, plus an `.m3u` playlist; see [Multi-disc games](#multi-disc-games-r7) |
@@ -195,8 +195,8 @@ used in the settings file.
 | Jaguar CD | `jaguar-cd` | .chd (UNSURE) | bare | .cue/.bin → .chd | cue/bin (safest); .cdi | UNSURE: verify BigPEmu CHD support; cue/bin is the safe default. |
 | Playdia | `playdia` | .chd | bare | .cue/.bin → .chd | cue/bin | Not playable in mainstream emulators. |
 | Other Redump CD/DVD systems (FM Towns, PC-98 CD, Pippin, Mac, PC CD-ROM, arcade CDs) | `other-redump-cd-dvd-systems` | .chd | bare | .cue/.bin, .iso → .chd | cue/bin, iso | Many standalone emulators (e.g. Tsugaru) need cue/bin. |
-| GameCube | `gamecube` | .rvz | bare | .iso/.gcm/.ciso/.gcz/.wia → .rvz; .nkit.iso → restore to .iso with NKit first | bare .iso (Nintendont/Swiss on real hardware) | Nintendont/Swiss cannot read RVZ. NKit is lossy/irreversible without NKit tool - don't use as source. |
-| Wii (discs) | `wii` | .rvz | bare | .iso/.wbfs/.ciso/.gcz/.wia → .rvz | bare .wbfs/.iso (USB loaders) | .wbfs discards data (not reversible to Redump hash) - prefer converting from ISO. |
+| GameCube | `gamecube` | .rvz | bare | .iso/.gcm/.gcz/.wia/.tgc → .rvz; .ciso can't be converted; .nkit.iso → restore to .iso with NKit first | bare .iso (Nintendont/Swiss on real hardware) | Nintendont/Swiss cannot read RVZ. NKit is lossy/irreversible without NKit tool - don't use as source. |
+| Wii (discs) | `wii` | .rvz | bare | .iso/.gcz/.wia → .rvz; .wbfs/.ciso can't be converted | bare .wbfs/.iso (USB loaders) | .wbfs and .ciso don't record the disc's exact size, so lib-wii-gamecube-kit (like Dolphin) won't convert them and they're left as is. Convert from the ISO. |
 | WiiWare / Virtual Console (Wii digital) | `wiiware-virtual-console` | .wad | bare | - | 7z for cold storage only | Install to emulated NAND for save compatibility. |
 | Wii U | `wii-u` | .wua | bare | .wux/.wud (a .wux inside .7z must be extracted first) + update + DLC → one .wua; NUS/loadiine folder → .wua | .wux (disc-verifiable compressed image); loadiine folder | Converting encrypted .wud/.wux needs keys.txt/disc key. Cemu cannot launch from .7z. WUA is not Redump-verifiable - keep hash map or the .wux. |
 | Xbox | `xbox` | .iso (XISO game partition) | bare | Redump .iso → XISO | CCI (modded hardware only - not xemu) | xemu supports no compressed format. XISO is not Redump-verifiable - keep hash map. |
