@@ -141,8 +141,12 @@ matter. Personalised (console-bound) tickets aren't supported.
 Data is checked as it's decrypted (every hashed block against its H0 hash,
 NUS raw contents against their TMD hash), and every new `.wua` is reopened,
 its SHA-256 checked and every file compared with its source before it
-replaces anything. The ZArchive writer and reader are NoIntrovert's own C#
-(`NoIntrovert/Core/WiiU/`), checked in CI against Exzap's reference
+replaces anything. The Wii U code, ZArchive writer and reader included, is
+lib-wii-u-kit, a managed .NET library in its own repository
+([Nickel42/lib-wii-u-kit](https://github.com/Nickel42/lib-wii-u-kit)),
+checked out as a git submodule in `native/lib-wii-u-kit`; NoIntrovert adds
+its settings, output folders and "remove originals" on top
+(`NoIntrovert/Core/WiiU/WuaJobs.cs`). It is checked in CI against Exzap's reference
 `zarchive` tool in both directions. The encrypted-format tests use synthetic
 images with made-up keys, so try a real dump of your own before relying on
 it.
@@ -172,6 +176,8 @@ Needs the .NET 10 SDK and the native libraries built:
   `artifacts/native/<platform>`.
 - lib-7z-zip-kit, the archive engine, also a submodule (`native/lib-7z-zip-kit`),
   with its native build in its `artifacts/native/<platform>` (see "Archive engine" above).
+- lib-wii-u-kit, the Wii U library, also a submodule (`native/lib-wii-u-kit`).
+  It is managed code only, so it needs no build of its own.
 
 ```
 dotnet run --project NoIntrovert
@@ -222,7 +228,7 @@ the terms of the GNU General Public License, version 3 or (at your option) any
 later version, as published by the Free Software Foundation. See `LICENSE`.
 
 The bundled libraries keep their own licenses (all GPL-compatible): lib-chd-kit
-is BSD-3-Clause, lib-7z-zip-kit MIT, 7-Zip (built without RAR) LGPL-2.1+, bit7z MPL-2.0. See
+is BSD-3-Clause, lib-7z-zip-kit and lib-wii-u-kit MIT, 7-Zip (built without RAR) LGPL-2.1+, bit7z MPL-2.0. See
 `packaging/THIRD_PARTY_ARCHIVES.md` and lib-chd-kit's `THIRD_PARTY_NOTICES.md`.
 RAR archives aren't supported, because 7-Zip's RAR decoder is under the unRAR
 license restriction, which the GPL doesn't allow.

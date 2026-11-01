@@ -1,5 +1,4 @@
 using System.Text;
-using NoIntrovert.Core.WiiU;
 
 namespace NoIntrovert.Tests;
 

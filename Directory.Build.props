@@ -52,6 +52,16 @@
   </PropertyGroup>
 
   <!--
+    lib-wii-u-kit (Wii U titles to Cemu's .wua), its own repository, checked
+    out as a git submodule in native/lib-wii-u-kit. It is pure managed code, so
+    there is nothing to build first. Pass -p:LibWiiUKitRoot=... (ending in a
+    slash) to use another checkout.
+  -->
+  <PropertyGroup>
+    <LibWiiUKitRoot Condition="'$(LibWiiUKitRoot)' == ''">$(MSBuildThisFileDirectory)native/lib-wii-u-kit/</LibWiiUKitRoot>
+  </PropertyGroup>
+
+  <!--
     lib-wii-gamecube-kit (Dolphin's GameCube/Wii disc code), its own
     repository, checked out as a git submodule in native/lib-wii-gamecube-kit
     (run "git submodule update" with init after cloning). Its build scripts put the native library

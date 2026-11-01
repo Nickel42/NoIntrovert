@@ -4,3 +4,6 @@
 [submodule "native/lib-7z-zip-kit"]
 	path = native/lib-7z-zip-kit
 	url = https://github.com/Nickel42/lib-7z-zip-kit.git
+[submodule "native/lib-wii-u-kit"]
+	path = native/lib-wii-u-kit
+	url = https://github.com/Nickel42/lib-wii-u-kit.git

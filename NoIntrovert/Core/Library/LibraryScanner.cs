@@ -1,7 +1,6 @@
 using System.Text.RegularExpressions;
 using LibChdKit;
 using NoIntrovert.Core.Formats;
-using NoIntrovert.Core.WiiU;
 
 namespace NoIntrovert.Core.Library;
 
