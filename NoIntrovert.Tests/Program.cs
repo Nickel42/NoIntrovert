@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Formats.Tar;
 using System.IO.Compression;
-using LibChdman;
+using LibChdKit;
 using NoIntrovert.Core;
 using NoIntrovert.Core.Archives;
 using NoIntrovert.Core.Cd;
@@ -22,7 +22,7 @@ using NoIntrovert.Tests;
 var quick = args.Contains("--quick");
 var keep = args.Contains("--keep");
 var roms = ArgValue("--roms") ?? Environment.GetEnvironmentVariable("NOINTROVERT_TEST_ROMS") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "test-roms"));
-var upstream = ArgValue("--upstream") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "native", "libchdman", "build-x64", "Release", "chdman-upstream.exe"));
+var upstream = ArgValue("--upstream") ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "native", "lib-chd-kit", "build-x64", "Release", "chdman-upstream.exe"));
 var scratch = Path.Combine(Path.GetTempPath(), "NoIntrovert-tests", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
 Directory.CreateDirectory(scratch);
 var synthetic = args.Contains("--synthetic") || !Directory.Exists(roms);
@@ -50,7 +50,7 @@ if (Array.IndexOf(args, "--unpack-zar") is var zi and >= 0 && zi + 2 < args.Leng
     return 0;
 }
 
-Console.WriteLine($"libchdman {Chdman.Version} · roms {roms} · scratch {scratch}{(quick ? " · quick" : "")}{(synthetic ? " · synthetic discs" : "")}");
+Console.WriteLine($"lib-chd-kit {Chdman.Version} · roms {roms} · scratch {scratch}{(quick ? " · quick" : "")}{(synthetic ? " · synthetic discs" : "")}");
 
 string Rom(params string[] parts) => Path.Combine([roms, .. parts]);
 var crashBin = Rom("PS1", "Crash Bandicoot (USA)", "Crash Bandicoot (USA).bin");
@@ -641,7 +641,7 @@ Test("Settings: writing back the current values saves nothing", () =>
             Output = { Folder = @"D:\out", Overwrite = true, ScanSubfolders = false, RemoveArchiveOriginals = true },
             Performance = { ParallelJobs = 3, ThreadsPerJob = 2, TempFolder = @"D:\tmp" },
             Chd = { Compression = "cdzs,cdfl", HunkSize = 2048 * 8, IsoMode = IsoMode.Cd, ExtractFormat = ExtractFormat.Iso },
-            Nintendo = { Target = NintendoTarget.Chd, Compression = LibDolphinRvz.RvzCompression.Lzma2, CompressionLevel = 7, BlockSize = 0x80000, Scrub = true },
+            Nintendo = { Target = NintendoTarget.Chd, Compression = LibWiiGameCubeKit.RvzCompression.Lzma2, CompressionLevel = 7, BlockSize = 0x80000, Scrub = true },
             Archives = { Action = ArchiveAction.Convert, Format = ArchiveFormat.Zip, Level = ArchiveLevel.Ultra, Grouping = ArchiveGrouping.Single, ConvertTarget = ConvertTarget.ToZip, SingleName = "All" },
             Keys = { WiiUKeysPath = @"D:\keys.txt" },
         };
@@ -740,7 +740,7 @@ Test("Settings: a schema-1 file is converted once, keeping a copy", () =>
             ("remove originals", s.Output.RemoveOriginals), ("archive remove", s.Output.RemoveArchiveOriginals),
             ("Wii U remove", s.Output.RemoveWiiUOriginals), ("recycle bin", !s.Output.UseRecycleBin),
             ("compression", s.Chd.Compression == "cdzs,cdzl,cdfl"), ("ISO mode", s.Chd.IsoMode == IsoMode.Dvd), ("split bin", !s.Chd.SplitBin),
-            ("Nintendo target", s.Nintendo.Target == NintendoTarget.Chd), ("RVZ compression", s.Nintendo.Compression == LibDolphinRvz.RvzCompression.Lzma2),
+            ("Nintendo target", s.Nintendo.Target == NintendoTarget.Chd), ("RVZ compression", s.Nintendo.Compression == LibWiiGameCubeKit.RvzCompression.Lzma2),
             ("RVZ level", s.Nintendo.CompressionLevel == 9), ("archive action", s.Archives.Action == ArchiveAction.Extract),
             ("archive format", s.Archives.Format == ArchiveFormat.Zip), ("archive level", s.Archives.Level == ArchiveLevel.Maximum),
             ("own folder", !s.Archives.ExtractToOwnFolder), ("keys", s.Keys.WiiUKeysPath == @"E:\Cemu\keys.txt"),
@@ -1095,7 +1095,7 @@ File.WriteAllBytes(Path.Combine(archiveSrc, "empty.dat"), []);
 Directory.CreateDirectory(Path.Combine(archiveSrc, "Sub Folder"));
 File.WriteAllText(Path.Combine(archiveSrc, "Sub Folder", "日本語 é.txt"), "unicode name");
 
-if (!ArchiveEngine.IsAvailable(out var archiveProblem))
+if (!SevenZipEngine.IsAvailable(out var archiveProblem))
 {
     Test("Archive engine loads", () => archiveProblem);
 }
@@ -1108,7 +1108,7 @@ else
         {
             var dir = Dir("arc-" + ext.TrimStart('.'));
             var archive = Path.Combine(dir, "src" + ext);
-            using var engine = new ArchiveEngine();
+            using var engine = new SevenZipEngine();
             double last = 0;
             engine.Compress(format, ArchiveLevel.Normal, 0, solid: true, [archiveSrc], archive, contentsOnly: false, f => last = f, CancellationToken.None);
             engine.Test(archive, null, CancellationToken.None);
@@ -1134,14 +1134,14 @@ else
     Test("Archive: convert zip → 7z → zip keeps every file", () =>
     {
         var dir = Dir("arc-convert");
-        using (var engine = new ArchiveEngine())
+        using (var engine = new SevenZipEngine())
             engine.Compress(ArchiveFormat.Zip, ArchiveLevel.Fast, 0, false, [archiveSrc], Path.Combine(dir, "set.zip"), true, null, CancellationToken.None);
         var o = RunJob(c => ArchiveJobs.Convert(c, Path.Combine(dir, "set.zip")), s => s.Archives.ConvertTarget = ConvertTarget.Swap);
         if (o.Status != JobStatus.Succeeded || !File.Exists(Path.Combine(dir, "set.7z"))) return $"zip→7z: {o.Status} {o.Summary}";
         File.Delete(Path.Combine(dir, "set.zip"));
         o = RunJob(c => ArchiveJobs.Convert(c, Path.Combine(dir, "set.7z")), s => s.Archives.ConvertTarget = ConvertTarget.Swap);
         if (o.Status != JobStatus.Succeeded || !File.Exists(Path.Combine(dir, "set.zip"))) return $"7z→zip: {o.Status} {o.Summary}";
-        using (var engine = new ArchiveEngine())
+        using (var engine = new SevenZipEngine())
             engine.Extract(Path.Combine(dir, "set.zip"), Path.Combine(dir, "out"), null, CancellationToken.None);
         return SameTree(archiveSrc, Path.Combine(dir, "out"));
     });
@@ -1166,7 +1166,7 @@ else
         var outDir = Dir("arc-single");
         var o = RunJob(c => ArchiveJobs.CompressOne(c, [Path.Combine(archiveSrc, "notes.txt"), Path.Combine(archiveSrc, "Sub Folder")], "Combined", outDir));
         if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
-        using var engine = new ArchiveEngine();
+        using var engine = new SevenZipEngine();
         engine.Extract(Path.Combine(outDir, "Combined.7z"), Path.Combine(outDir, "x"), null, CancellationToken.None);
         return File.Exists(Path.Combine(outDir, "x", "notes.txt")) && File.Exists(Path.Combine(outDir, "x", "Sub Folder", "日本語 é.txt")) ? null : "missing entries";
     });
@@ -1195,7 +1195,7 @@ else
         var bytes = File.ReadAllBytes(damaged);
         for (var i = bytes.Length / 2; i < bytes.Length / 2 + 256; i++) bytes[i] ^= 0xA5;
         File.WriteAllBytes(damaged, bytes);
-        using var engine = new ArchiveEngine();
+        using var engine = new SevenZipEngine();
         try { engine.Test(damaged, null, CancellationToken.None); return "damaged archive passed its test"; }
         catch (ArchiveException ex) { return Note(ex.Message.Split('\n')[0]); }
     });
@@ -1409,7 +1409,7 @@ Test("Wii U: remove the originals once the .wua verifies", () =>
         ? null : $"{o.Status} {o.Summary}; folder still there: {Directory.Exists(game)}";
 });
 
-if (ArchiveEngine.IsAvailable(out _))
+if (SevenZipEngine.IsAvailable(out _))
 {
     Test("Archives: the registry sees what's inside without unpacking", () =>
     {
@@ -1431,7 +1431,7 @@ if (ArchiveEngine.IsAvailable(out _))
         Directory.CreateDirectory(wuxDir);
         File.WriteAllBytes(Path.Combine(wuxDir, "Game.wux"), new byte[4096]);
         var wux7z = Path.Combine(dir, "Game.7z");
-        using (var engine = new ArchiveEngine())
+        using (var engine = new SevenZipEngine())
             engine.Compress(ArchiveFormat.SevenZip, ArchiveLevel.Fast, 0, true, [Path.Combine(wuxDir, "Game.wux")], wux7z, false, null, CancellationToken.None);
 
         var cases = new (string Path, string Inside, bool Disc, bool WiiU)[]
@@ -1502,7 +1502,7 @@ if (ArchiveEngine.IsAvailable(out _))
     });
 }
 
-if (ArchiveEngine.IsAvailable(out _))
+if (SevenZipEngine.IsAvailable(out _))
 {
     // A folder of mixed inputs for the Convert page's targets and planner.
     var mixed = Dir("convert-mixed");
@@ -1721,7 +1721,7 @@ Test("Target formats: the guide's table and the registry agree on every system",
             ? Note($"{cases.Length} files") : "display names don't come from the registry";
     });
 
-    if (ArchiveEngine.IsAvailable(out _))
+    if (SevenZipEngine.IsAvailable(out _))
     {
         var acc = Dir("acceptance");
         string In(string rel) => Path.Combine([acc, .. rel.Split('/')]);
@@ -1732,7 +1732,7 @@ Test("Target formats: the guide's table and the registry agree on every system",
             File.WriteAllBytes(src, bytes);
             var path = In(rel);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            using var engine = new ArchiveEngine();
+            using var engine = new SevenZipEngine();
             engine.Compress(ArchiveFormat.SevenZip, ArchiveLevel.Normal, 0, false, [src], path, false, null, CancellationToken.None);
             return path;
         }
@@ -1880,7 +1880,7 @@ Test("Target formats: the guide's table and the registry agree on every system",
             if (RunDefault("NES/Stored.7z", "") is { } problem) return problem;
             if (HoldsOnly(path, "Stored.nes", "LZMA") is { } wrong) return wrong;
             var outDir = Dir("acceptance-out-recompressed");
-            using (var engine = new ArchiveEngine()) engine.Extract(path, outDir, null, CancellationToken.None);
+            using (var engine = new SevenZipEngine()) engine.Extract(path, outDir, null, CancellationToken.None);
             return File.ReadAllBytes(Path.Combine(outDir, "Stored.nes")).AsSpan().SequenceEqual(rom) ? null : "the ROM changed";
         });
 
@@ -1913,7 +1913,7 @@ Test("Target formats: the guide's table and the registry agree on every system",
 
 // ---- Target formats Phase 2: overrides (FR-12 to FR-14) ---------------------------
 
-if (ArchiveEngine.IsAvailable(out _))
+if (SevenZipEngine.IsAvailable(out _))
 {
     var ovr = Dir("overrides");
     string P(string rel) => Path.Combine([ovr, .. rel.Split('/')]);
@@ -2016,7 +2016,7 @@ if (ArchiveEngine.IsAvailable(out _))
 
 // ---- Target formats Phase 3: multi-disc, 3DS, PS Vita, hashes, header fixes, splitting ----
 
-if (ArchiveEngine.IsAvailable(out _))
+if (SevenZipEngine.IsAvailable(out _))
 {
     var p3 = Dir("phase3");
     string Q(string rel) => Path.Combine([p3, .. rel.Split('/')]);
@@ -2150,7 +2150,7 @@ if (ArchiveEngine.IsAvailable(out _))
         if (RunDefault3("N64 on/Game.v64", s => s.TargetFormats.NormalizeHeaders = true) is { } problem) return $"on: {problem}";
         if (Members3(Q("N64 on/Game.7z")) != "Game.z64") return $"on: holds {Members3(Q("N64 on/Game.7z"))}";
         var outDir = Dir("phase3-z64");
-        using (var engine = new ArchiveEngine()) engine.Extract(Q("N64 on/Game.7z"), outDir, null, CancellationToken.None);
+        using (var engine = new SevenZipEngine()) engine.Extract(Q("N64 on/Game.7z"), outDir, null, CancellationToken.None);
         if (!File.ReadAllBytes(Path.Combine(outDir, "Game.z64")).SequenceEqual(z64)) return "the .z64 isn't the big-endian ROM";
         // R11: the fixed ROM's archive keeps the hashes of the .v64 it came from.
         return NoIntrovert.Core.Dats.OriginalHashes.Default.Get(Q("N64 on/Game.7z"))?.Source == "Game.v64" ? null : "no original hashes recorded";
@@ -2466,7 +2466,7 @@ Test("Hashing: CRC32 and SHA-1 of the standard check string, and NES without its
         for (var i = bytes.Length / 2; i < bytes.Length / 2 + 64; i++) bytes[i] ^= 0xFF;
         File.WriteAllBytes(chd, bytes);
         var seven = Path.Combine(lib, "NES", "Broken.7z");
-        using (var engine = new ArchiveEngine())
+        using (var engine = new SevenZipEngine())
             engine.Compress(ArchiveFormat.SevenZip, ArchiveLevel.Normal, 0, false, [Path.Combine(lib, "NES", "Game (USA).nes")], seven, false, null, CancellationToken.None);
         var packed = File.ReadAllBytes(seven);
         for (var i = 64; i < 96; i++) packed[i] ^= 0xFF;
@@ -2498,7 +2498,7 @@ Test("Hashing: CRC32 and SHA-1 of the standard check string, and NES without its
 
 // ---- Cleanup wizard (M7) ------------------------------------------------------
 
-if (ArchiveEngine.IsAvailable(out _))
+if (SevenZipEngine.IsAvailable(out _))
 {
     var games7 = Dir("m7/Games");
     string G7(string rel) => Path.Combine([games7, .. rel.Split('/')]);
@@ -2531,7 +2531,7 @@ if (ArchiveEngine.IsAvailable(out _))
     File.WriteAllBytes(G7("roms/nes/Zelda (USA).7z"), [1, 2, 3]); // in the way of Zelda's target: a clash
     Directory.CreateDirectory(G7("Misc"));
     File.WriteAllBytes(G7("Misc/loose.bin"), new byte[4096]);
-    using (var engine = new ArchiveEngine())
+    using (var engine = new SevenZipEngine())
     {
         var src = Path.Combine(Dir("m7-src"), "Metroid.nes");
         File.WriteAllBytes(src, metroid);
@@ -3174,7 +3174,7 @@ Test("Wii U: the .wua is written next to the title's folder, not inside it", () 
 
 // ---- Wii U archives (R3): a .zip/.7z holding a WUX, WUD or NUS title ----------------
 
-if (ArchiveEngine.IsAvailable(out _))
+if (SevenZipEngine.IsAvailable(out _))
 {
     const string encWua = "Encrypted Game [0005000010303E00].wua";
 
@@ -3183,7 +3183,7 @@ if (ArchiveEngine.IsAvailable(out _))
     {
         var dir = Dir("wiiu-arc-" + label);
         var archive = Path.Combine(dir, archiveName);
-        using var engine = new ArchiveEngine();
+        using var engine = new SevenZipEngine();
         engine.Compress(archiveName.EndsWith(".zip") ? ArchiveFormat.Zip : ArchiveFormat.SevenZip, ArchiveLevel.Fastest, 0, false,
             members, archive, contentsOnly: false, null, CancellationToken.None);
         return archive;
@@ -3317,26 +3317,26 @@ if (ArchiveEngine.IsAvailable(out _))
     });
 }
 
-// ---- GameCube / Wii (libdolphinrvz) ---------------------------------------------
+// ---- GameCube / Wii (lib-wii-gamecube-kit) ---------------------------------------------
 
 var rvzProblem = (string?)null;
-try { rvzProblem = LibDolphinRvz.DolphinRvz.AbiVersion == 1 ? null : "unexpected libdolphinrvz ABI"; }
+try { rvzProblem = LibWiiGameCubeKit.WiiGameCubeKit.AbiVersion == 1 ? null : "unexpected lib-wii-gamecube-kit ABI"; }
 catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException) { rvzProblem = ex.Message; }
-Test("libdolphinrvz loads", () => rvzProblem);
+Test("lib-wii-gamecube-kit loads", () => rvzProblem);
 if (rvzProblem is null)
 {
     var gcIso = Path.Combine(Dir("gc"), "Test Game (USA).iso");
     NintendoDiscs.WriteGameCube(gcIso);
 
-    Test("libdolphinrvz structs match the C layout", () =>
-        LibDolphinRvz.DolphinRvz.StructSizes == LibDolphinRvz.DolphinRvz.ExpectedStructSizes
-            ? null : $"managed {LibDolphinRvz.DolphinRvz.StructSizes}, C {LibDolphinRvz.DolphinRvz.ExpectedStructSizes}");
+    Test("lib-wii-gamecube-kit structs match the C layout", () =>
+        LibWiiGameCubeKit.WiiGameCubeKit.StructSizes == LibWiiGameCubeKit.WiiGameCubeKit.ExpectedStructSizes
+            ? null : $"managed {LibWiiGameCubeKit.WiiGameCubeKit.StructSizes}, C {LibWiiGameCubeKit.WiiGameCubeKit.ExpectedStructSizes}");
 
     Test("Probe a GameCube ISO", () =>
     {
-        using var rvz = new LibDolphinRvz.DolphinRvz();
+        using var rvz = new LibWiiGameCubeKit.WiiGameCubeKit();
         var info = rvz.Probe(gcIso);
-        return info.Platform == LibDolphinRvz.DiscPlatform.GameCube && info.GameId == "GNIE01" && info.CanConvert
+        return info.Platform == LibWiiGameCubeKit.DiscPlatform.GameCube && info.GameId == "GNIE01" && info.CanConvert
             ? null : $"{info}";
     });
 
@@ -3358,8 +3358,8 @@ if (rvzProblem is null)
     {
         var dir = Dir("gc-rvz-chd");
         var rvzPath = Path.Combine(dir, "game.rvz");
-        using (var rvz = new LibDolphinRvz.DolphinRvz())
-            rvz.Convert(gcIso, rvzPath, new LibDolphinRvz.ConvertSettings());
+        using (var rvz = new LibWiiGameCubeKit.WiiGameCubeKit())
+            rvz.Convert(gcIso, rvzPath, new LibWiiGameCubeKit.ConvertSettings());
         var o = RunJob(c => ChdJobs.Convert(c, rvzPath), s => { s.Output.Folder = dir; s.Nintendo.Target = NintendoTarget.Chd; });
         if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
         var expected = CreateChd(new PreparedDisc("ref", DiscKind.Dvd, gcIso, "ref"), Path.Combine(dir, "ref.chd"));
@@ -3381,8 +3381,8 @@ if (rvzProblem is null)
     {
         var dir = Dir("gc-rvz-skip");
         var rvzPath = Path.Combine(dir, "game.rvz");
-        using (var rvz = new LibDolphinRvz.DolphinRvz())
-            rvz.Convert(gcIso, rvzPath, new LibDolphinRvz.ConvertSettings());
+        using (var rvz = new LibWiiGameCubeKit.WiiGameCubeKit())
+            rvz.Convert(gcIso, rvzPath, new LibWiiGameCubeKit.ConvertSettings());
         var o = RunJob(c => ChdJobs.Convert(c, rvzPath), s => s.Output.Folder = dir);
         return o.Status == JobStatus.Skipped ? null : $"{o.Status}: {o.Summary}";
     });

@@ -211,6 +211,6 @@ shows the recommendation with no Convert button, and each converter gets its own
 - **Q2 Vita launcher extension:** the default is `.psvita`, which is what ES-DE's PS Vita system
   expects (the review said `.vita`). It can be changed in Settings.
 - **Q3 WBFS/CISO → RVZ:** deferred. These containers don't record the disc's exact size, and
-  libdolphinrvz (like Dolphin) refuses to convert them, so for now they are *Left as is* with no
+  lib-wii-gamecube-kit (like Dolphin) refuses to convert them, so for now they are *Left as is* with no
   other choice. The plan for converting them, with a warning that the result won't match Redump,
   is in [Future.md](../../Future.md).

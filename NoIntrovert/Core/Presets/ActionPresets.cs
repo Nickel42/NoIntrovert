@@ -197,7 +197,7 @@ public static class ActionPresets
 
     private static void Rvz(AppSettings s, int level, bool remove)
     {
-        s.Nintendo.Compression = LibDolphinRvz.RvzCompression.Zstd;
+        s.Nintendo.Compression = LibWiiGameCubeKit.RvzCompression.Zstd;
         s.Nintendo.CompressionLevel = level;
         s.Nintendo.BlockSize = 0x20000;
         s.Nintendo.Scrub = false;

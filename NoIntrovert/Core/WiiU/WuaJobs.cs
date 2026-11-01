@@ -127,7 +127,7 @@ public static class WuaJobs
         c.Band(0, 0.3);
         c.Report.SetStage("Unpacking archive");
         c.Log.Info($"Unpacking {Path.GetFileName(archive)}...");
-        using (var engine = new Archives.ArchiveEngine())
+        using (var engine = new SevenZipEngine())
             engine.Extract(archive, work.Path, c.Report.SetProgress, c.Token);
 
         var sources = FormatRegistry.Default.Scan(work.Path, recursive: true, maxDepth: 6)

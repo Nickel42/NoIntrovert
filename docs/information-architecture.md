@@ -76,7 +76,7 @@ Who uses it, and for what, decides which structure wins. Four jobs, roughly in o
 | J1 | "Make my collection right": convert, rename, sort into ES-DE folders, drop duplicates | hundreds to 5,000 games | Library → Verify → Library → Cleanup |
 | J2 | "Convert these few files" someone dropped on the window | 1–20 files | Convert |
 | J3 | "Is this dump good, and what is it?" | one game or a folder | Verify & match |
-| J4 | "Look inside this CHD" / "test libchdman" | one file | CHD info / Library tests |
+| J4 | "Look inside this CHD" / "test lib-chd-kit" | one file | CHD info / Library tests |
 
 Constraints any structure must keep:
 

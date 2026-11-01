@@ -1,5 +1,3 @@
-using SharpCompress.Archives;
-
 namespace NoIntrovert.Core.Formats;
 
 /// <summary>
@@ -8,13 +6,6 @@ namespace NoIntrovert.Core.Formats;
 /// folders by the files that mark them. Lets the tabs tell a zip with an
 /// ISO in it from a zip of cartridge ROMs.
 /// </summary>
-/// <summary>
-/// One file in an archive, how it's compressed there and its CRC32 from the
-/// archive's headers (upper-case hex; null when the archive doesn't store one).
-/// See <see cref="ArchivePeek.Members"/>.
-/// </summary>
-public sealed record ArchiveMember(string Name, long Size, string Method, string? Crc = null);
-
 internal static class ArchivePeek
 {
     // What unchanged archives were seen to hold (seeded from the library index), so a rescan doesn't open them again.
@@ -48,38 +39,26 @@ internal static class ArchivePeek
     public static IReadOnlyList<ArchiveMember>? Members(string archive)
     {
         if (Listed.TryGetValue(archive, out var listed) && Unchanged(archive, listed.Size, listed.Ticks)) return listed.Members;
-        List<ArchiveMember> members;
         long size, ticks;
         try
         {
             var info = new FileInfo(archive);
             (size, ticks) = (info.Length, info.LastWriteTimeUtc.Ticks);
-            using var opened = ArchiveFactory.OpenArchive(archive);
-            members = opened.Entries.Where(e => !e.IsDirectory && e.Key is not null)
-                .Select(e => new ArchiveMember(e.Key!.Replace('\\', '/'), e.Size, MethodOf(e), e.Crc == 0 ? null : ((uint)e.Crc).ToString("X8")))
-                .ToList();
         }
-        catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return null; // damaged, password-protected header, or a type SharpCompress can't list
+            return null;
         }
-
-        // A plain .gz holds one stream, often without a stored name: "game.iso.gz" holds "game.iso".
-        if (Path.GetExtension(archive).Equals(".gz", StringComparison.OrdinalIgnoreCase) && members.Count <= 1)
-            members = [new ArchiveMember(Path.GetFileNameWithoutExtension(archive), members.FirstOrDefault()?.Size ?? 0, "GZip")];
+        // lib-7z-zip-kit's managed listing: null when the archive is damaged, has a
+        // password-protected header, or is a type it can't list. Methods are
+        // SharpCompress's names: "LZMA" (LZMA and LZMA2 alike), "Deflate", "None"
+        // (stored), "PPMd"... and "Unknown" for one it can't decode (a 7z made
+        // with zstd), which counts as not LZMA either way. A plain .gz lists its
+        // one stream by the archive's name: "game.iso.gz" holds "game.iso".
+        var members = ArchiveReader.TryList(archive);
+        if (members is null) return null;
         Listed[archive] = (size, ticks, members);
         return members;
-    }
-
-    /// <summary>
-    /// SharpCompress's name for a member's method: "LZMA" (LZMA and LZMA2 alike),
-    /// "Deflate", "None" (stored), "PPMd"… and "Unknown" for one it can't
-    /// decode (a 7z made with zstd), which counts as not LZMA either way.
-    /// </summary>
-    private static string MethodOf(IArchiveEntry entry)
-    {
-        try { return entry.CompressionType.ToString(); }
-        catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException)) { return "Unknown"; }
     }
 
     private static bool Unchanged(string path, long size, long ticks)

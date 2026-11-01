@@ -78,7 +78,7 @@ public static class RomJobs
         using var work = new WorkDirectory(s.Performance.EffectiveTempFolder);
         var contents = Path.Combine(work.Path, "contents");
         c.Report.SetStage("Extracting");
-        using (var engine = new ArchiveEngine()) engine.Extract(archive, contents, f => c.Report.SetProgress(f * 0.3), c.Token);
+        using (var engine = new SevenZipEngine()) engine.Extract(archive, contents, f => c.Report.SetProgress(f * 0.3), c.Token);
 
         var roms = Directory.EnumerateFiles(contents, "*", SearchOption.AllDirectories)
             .Where(f => KnownFormats.Cartridges.Any(k => k.HasExtension(f)))

@@ -52,7 +52,7 @@ public partial class MainWindow : Window, IDialogs
         if (!vm.IsAnyRunning || _closeConfirmed) return;
         e.Cancel = true;
         var dialog = new ConfirmDialog("A batch is still running",
-            "Closing now cancels it; libchdman deletes the CHD it was writing. Close anyway?", "Close", "Keep running");
+            "Closing now cancels it; lib-chd-kit deletes the CHD it was writing. Close anyway?", "Close", "Keep running");
         if (await dialog.ShowDialog<bool>(this))
         {
             vm.Queue.Queue.CancelAll();

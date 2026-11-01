@@ -1,4 +1,4 @@
-using LibChdman;
+using LibChdKit;
 using NoIntrovert.Core.Formats;
 
 namespace NoIntrovert.Core.Jobs;
@@ -8,9 +8,9 @@ public static class ChdJobs
 {
     /// <summary>
     /// Converts one input to one or more CHDs: prepare (unpack/decode/rebuild
-    /// a cue), create with libchdman, verify, then optionally remove the
+    /// a cue), create with lib-chd-kit, verify, then optionally remove the
     /// originals once every disc from this input verified. GameCube and Wii
-    /// discs become RVZ instead (libdolphinrvz), unless the CHD target is set.
+    /// discs become RVZ instead (lib-wii-gamecube-kit), unless the CHD target is set.
     /// </summary>
     public static JobOutcome Convert(JobContext c, string source)
     {
@@ -71,7 +71,7 @@ public static class ChdJobs
                 continue;
             }
 
-            // A GameCube/Wii disc in GCZ/WIA/RVZ/TGC is decoded to ISO first; libchdman stores it as a DVD.
+            // A GameCube/Wii disc in GCZ/WIA/RVZ/TGC is decoded to ISO first; lib-chd-kit stores it as a DVD.
             var compressStart = discStart;
             if (disc.IsNintendo)
             {

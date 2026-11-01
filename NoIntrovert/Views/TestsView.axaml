@@ -59,7 +59,7 @@
                 <StackPanel Spacing="4">
                     <TextBlock Text="LIBRARY TESTS" Classes="section" Margin="0,0,0,4" />
                     <TextBlock Classes="hint"
-                               Text="Checks libchdman against your own discs. Test files go in the temp folder and are deleted after each disc." />
+                               Text="Checks lib-chd-kit against your own discs. Test files go in the temp folder and are deleted after each disc." />
 
                     <TextBlock Text="TEST" Classes="section" />
                     <ComboBox ItemsSource="{x:Static vm:TestsViewModel.TestChoices}" SelectedItem="{Binding SelectedTest}"

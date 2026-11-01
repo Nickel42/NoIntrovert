@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
-using LibChdman;
+using LibChdKit;
 using NoIntrovert.Core.Cd;
 using NoIntrovert.Core.Formats;
 
@@ -15,7 +15,7 @@ public sealed record TestRecord(
     double LibMbps, double? ExeMbps, string Notes);
 
 /// <summary>
-/// Library test bench: compare libchdman's CHDs with the chdman executable's, and
+/// Library test bench: compare lib-chd-kit's CHDs with the chdman executable's, and
 /// check that create → verify → extract gives back the original data.
 /// </summary>
 public static class TestJobs
@@ -57,7 +57,7 @@ public static class TestJobs
         var settings = c.OutputSettings();
         settings.Force = true;
 
-        c.TrackChdman("libchdman: compressing");
+        c.TrackChdman("lib-chd-kit: compressing");
         var lib = ChdService.Create(c.Chdman, disc, libOut, settings, c.Token);
 
         c.Report.SetStage("chdman: compressing");
@@ -78,7 +78,7 @@ public static class TestJobs
         bool same = difference < 0;
         if (same)
         {
-            notes = $"byte-identical ({ChdJobs.Size(lib.OutputBytes)}); libchdman {lib.Elapsed.TotalSeconds:F1}s vs chdman {exeRun.Elapsed.TotalSeconds:F1}s";
+            notes = $"byte-identical ({ChdJobs.Size(lib.OutputBytes)}); lib-chd-kit {lib.Elapsed.TotalSeconds:F1}s vs chdman {exeRun.Elapsed.TotalSeconds:F1}s";
         }
         else
         {

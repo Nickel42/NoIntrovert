@@ -1,12 +1,12 @@
 using System.Diagnostics;
-using LibChdman;
+using LibChdKit;
 using NoIntrovert.Core.Cd;
 
 namespace NoIntrovert.Core;
 
 public enum ExtractFormat { Auto, CueBin, Gdi, Iso, Raw }
 
-/// <summary>Timing and size figures for one libchdman operation.</summary>
+/// <summary>Timing and size figures for one lib-chd-kit operation.</summary>
 public sealed record OperationStats(TimeSpan Elapsed, long InputBytes, long OutputBytes)
 {
     public double MegabytesPerSecond => Elapsed.TotalSeconds > 0 ? InputBytes / 1048576.0 / Elapsed.TotalSeconds : 0;
@@ -14,7 +14,7 @@ public sealed record OperationStats(TimeSpan Elapsed, long InputBytes, long Outp
 }
 
 /// <summary>
-/// The app's use of libchdman: create, verify, extract and inspect CHDs.
+/// The app's use of lib-chd-kit: create, verify, extract and inspect CHDs.
 /// Every call blocks and runs on one <see cref="Chdman"/> context, so give
 /// each parallel worker its own context.
 /// </summary>

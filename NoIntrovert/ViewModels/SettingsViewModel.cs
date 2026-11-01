@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using LibDolphinRvz;
+using LibWiiGameCubeKit;
 using NoIntrovert.Core;
 using NoIntrovert.Core.Archives;
 using NoIntrovert.Core.Jobs;
@@ -95,7 +95,7 @@ public sealed class GeneralSettingsViewModel(AppSettings settings) : SettingsSec
 {
     public override string Title => "General";
 
-    /// <summary>Shows Expert options, libchdman's own messages and the Library tests tab.</summary>
+    /// <summary>Shows Expert options, lib-chd-kit's own messages and the Library tests tab.</summary>
     public bool PowerUserMode { get => S.General.PowerUserMode; set => Set(value, (s, v) => s.General.PowerUserMode = v); }
 
     public bool VerboseLog { get => S.General.VerboseLog; set => Set(value, (s, v) => s.General.VerboseLog = v); }

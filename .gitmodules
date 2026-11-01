@@ -1,0 +1,6 @@
+[submodule "native/lib-wii-gamecube-kit"]
+	path = native/lib-wii-gamecube-kit
+	url = https://github.com/Nickel42/lib-wii-gamecube-kit.git
+[submodule "native/lib-7z-zip-kit"]
+	path = native/lib-7z-zip-kit
+	url = https://github.com/Nickel42/lib-7z-zip-kit..git

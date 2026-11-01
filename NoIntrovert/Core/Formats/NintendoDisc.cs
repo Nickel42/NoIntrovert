@@ -4,11 +4,11 @@ namespace NoIntrovert.Core.Formats;
 
 /// <summary>
 /// GameCube and Wii disc images: plain ones (.iso/.gcm, recognised by their
-/// header) and Dolphin's containers, which libdolphinrvz reads.
+/// header) and Dolphin's containers, which lib-wii-gamecube-kit reads.
 /// </summary>
 internal static class NintendoDisc
 {
-    /// <summary>Containers only libdolphinrvz can read. WBFS and CISO can be read but not converted.</summary>
+    /// <summary>Containers only lib-wii-gamecube-kit can read. WBFS and CISO can be read but not converted.</summary>
     public static readonly string[] Containers = [".gcm", ".gcz", ".wia", ".rvz", ".tgc", ".wbfs", ".ciso"];
 
     /// <summary>Compressed containers the Extract tab turns back into ISO.</summary>

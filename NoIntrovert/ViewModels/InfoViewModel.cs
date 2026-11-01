@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using LibChdman;
+using LibChdKit;
 using NoIntrovert.Core;
 using NoIntrovert.Core.Jobs;
 using NoIntrovert.Services;

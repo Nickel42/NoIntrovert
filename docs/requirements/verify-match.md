@@ -27,12 +27,12 @@ databases. The user never has to find, download or update a DAT.
 
 ## 3. Today's code (starting point)
 
-- The Verify page checks CHDs only (`ChdJobs.Verify`, libchdman's verify).
+- The Verify page checks CHDs only (`ChdJobs.Verify`, lib-chd-kit's verify).
 - The target-format registry (`TargetFormats.json`) gives each system an id, and
   `SystemDetector` finds each input's system.
-- `ArchivePeek` lists archive members without unpacking them, and `ArchiveEngine.Test` tests an
+- `ArchivePeek` lists archive members without unpacking them, and `SevenZipEngine.Test` (lib-7z-zip-kit) tests an
   archive.
-- libdolphinrvz can hash a decoded GameCube/Wii disc (`Hash`), from any container it reads.
+- lib-wii-gamecube-kit can hash a decoded GameCube/Wii disc (`Hash`), from any container it reads.
 
 ## 4. Functional requirements
 
@@ -71,7 +71,7 @@ databases. The user never has to find, download or update a DAT.
   | cue/bin, gdi, ccd/img | Each track file |
   | iso, bin, img | The file |
   | CHD | The tracks, extracted to the temp folder (cue/bin with one bin per track, or iso) |
-  | GameCube/Wii (iso, rvz, wia, gcz) | The decoded disc, through libdolphinrvz |
+  | GameCube/Wii (iso, rvz, wia, gcz) | The decoded disc, through lib-wii-gamecube-kit |
   | Wii U, CSO/ZSO, others | Not hashed ("can't be checked yet") |
 
   Size, CRC32 and SHA-1 are computed in one pass.
@@ -99,7 +99,7 @@ databases. The user never has to find, download or update a DAT.
   - For a converted file (CHD, RVZ), the match is on the decoded tracks, so a CHD of a good dump
     is Verified.
 - **FR-9 Integrity.** Before matching:
-  - CHDs are verified (libchdman), with the existing "fix a wrong header SHA-1" option.
+  - CHDs are verified (lib-chd-kit), with the existing "fix a wrong header SHA-1" option.
   - 7z and zip archives are tested (7-Zip checks every CRC).
   - GameCube/Wii containers are checked by decoding them.
 

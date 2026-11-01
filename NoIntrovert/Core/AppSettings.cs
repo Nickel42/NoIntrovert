@@ -180,7 +180,7 @@ public sealed class PerformanceSettings
     [JsonIgnore] public string EffectiveTempFolder => string.IsNullOrWhiteSpace(TempFolder) ? WorkPaths.DefaultTempRoot : TempFolder;
 }
 
-/// <summary>Creating, verifying and extracting CHDs (libchdman).</summary>
+/// <summary>Creating, verifying and extracting CHDs (lib-chd-kit).</summary>
 public sealed class ChdSettings
 {
     public string Compression { get; set; } = ""; // empty = chdman's default for the media type
@@ -192,11 +192,11 @@ public sealed class ChdSettings
     public bool FixHeaderSha1 { get; set; }
 }
 
-/// <summary>GameCube and Wii discs (libdolphinrvz); the defaults are Dolphin's.</summary>
+/// <summary>GameCube and Wii discs (lib-wii-gamecube-kit); the defaults are Dolphin's.</summary>
 public sealed class NintendoSettings
 {
     public Jobs.NintendoTarget Target { get; set; } = Jobs.NintendoTarget.Rvz;
-    public LibDolphinRvz.RvzCompression Compression { get; set; } = LibDolphinRvz.RvzCompression.Zstd;
+    public LibWiiGameCubeKit.RvzCompression Compression { get; set; } = LibWiiGameCubeKit.RvzCompression.Zstd;
     public int CompressionLevel { get; set; } = 5;
     public uint BlockSize { get; set; } = 0x20000;
     public bool Scrub { get; set; }
@@ -206,8 +206,8 @@ public sealed class NintendoSettings
 public sealed class ArchiveSettings
 {
     public Archives.ArchiveAction Action { get; set; } = Archives.ArchiveAction.Compress;
-    public Archives.ArchiveFormat Format { get; set; } = Archives.ArchiveFormat.SevenZip;
-    public Archives.ArchiveLevel Level { get; set; } = Archives.ArchiveLevel.Normal;
+    public ArchiveFormat Format { get; set; } = ArchiveFormat.SevenZip;
+    public ArchiveLevel Level { get; set; } = ArchiveLevel.Normal;
     public bool Solid { get; set; } = true;
     public Archives.ArchiveGrouping Grouping { get; set; } = Archives.ArchiveGrouping.PerItem;
     public string SingleName { get; set; } = "Archive";
@@ -289,7 +289,7 @@ public sealed class DatSettings
     public string OwnFolder { get; set; } = "";
 }
 
-/// <summary>Developer tools: the libchdman test bench.</summary>
+/// <summary>Developer tools: the lib-chd-kit test bench.</summary>
 public sealed class DiagnosticsSettings
 {
     public string ChdmanExePath { get; set; } = ""; // for the comparison tests only
@@ -308,7 +308,7 @@ internal sealed class SettingsV1
     public bool DeleteOriginals { get; set; }
     public bool UseRecycleBin { get; set; } = true;
     public Jobs.NintendoTarget NintendoTarget { get; set; } = Jobs.NintendoTarget.Rvz;
-    public LibDolphinRvz.RvzCompression RvzCompression { get; set; } = LibDolphinRvz.RvzCompression.Zstd;
+    public LibWiiGameCubeKit.RvzCompression RvzCompression { get; set; } = LibWiiGameCubeKit.RvzCompression.Zstd;
     public int RvzCompressionLevel { get; set; } = 5;
     public uint RvzBlockSize { get; set; } = 0x20000;
     public bool RvzScrub { get; set; }
@@ -316,8 +316,8 @@ internal sealed class SettingsV1
     public bool SplitBin { get; set; } = true;
     public bool FixHeaderSha1 { get; set; }
     public Archives.ArchiveAction ArchiveAction { get; set; } = Archives.ArchiveAction.Compress;
-    public Archives.ArchiveFormat ArchiveFormat { get; set; } = Archives.ArchiveFormat.SevenZip;
-    public Archives.ArchiveLevel ArchiveLevel { get; set; } = Archives.ArchiveLevel.Normal;
+    public ArchiveFormat ArchiveFormat { get; set; } = ArchiveFormat.SevenZip;
+    public ArchiveLevel ArchiveLevel { get; set; } = ArchiveLevel.Normal;
     public bool ArchiveSolid { get; set; } = true;
     public Archives.ArchiveGrouping ArchiveGrouping { get; set; } = Archives.ArchiveGrouping.PerItem;
     public string ArchiveSingleName { get; set; } = "Archive";

@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using LibDolphinRvz;
+using LibWiiGameCubeKit;
 using NoIntrovert.Core.Formats;
 
 namespace NoIntrovert.Core.Jobs;
@@ -8,7 +8,7 @@ namespace NoIntrovert.Core.Jobs;
 public enum NintendoTarget { Rvz, Chd }
 
 /// <summary>
-/// GameCube/Wii work through libdolphinrvz (Dolphin's own disc code): disc →
+/// GameCube/Wii work through lib-wii-gamecube-kit (Dolphin's own disc code): disc →
 /// RVZ on the Convert tab, a container → ISO before making a CHD, and
 /// RVZ/WIA/GCZ → ISO on the Extract tab.
 /// </summary>
@@ -43,7 +43,7 @@ public static class RvzJobs
             return (DiscResult.Skipped, output, null);
         }
         if (!info.CanConvert)
-            throw new DolphinRvzException(DrvzStatus.Unsupported,
+            throw new WiiGameCubeKitException(WiiGameCubeKitStatus.Unsupported,
                 $"{info.Container} images can't be converted: the container doesn't record the disc's exact size. Convert it to ISO with the tool that made it first.");
         if (File.Exists(output) && !s.Output.Overwrite)
         {
@@ -88,7 +88,7 @@ public static class RvzJobs
 
     /// <summary>
     /// A disc in one of Dolphin's containers (GCZ, WIA, RVZ, TGC) decoded to a plain
-    /// ISO in the work folder, for libchdman to make a CHD from. Plain images pass through.
+    /// ISO in the work folder, for lib-chd-kit to make a CHD from. Plain images pass through.
     /// </summary>
     internal static PreparedDisc DecodeForChd(JobContext c, PreparedDisc disc, string workFolder, string discLabel)
     {
@@ -97,7 +97,7 @@ public static class RvzJobs
             return disc;
         var info = c.Rvz.Probe(disc.InputPath, c.Token);
         if (!info.CanConvert)
-            throw new DolphinRvzException(DrvzStatus.Unsupported,
+            throw new WiiGameCubeKitException(WiiGameCubeKitStatus.Unsupported,
                 $"{info.Container} images can't be converted: the container doesn't record the disc's exact size.");
         var iso = Path.Combine(workFolder, disc.OutputName + ".iso");
         c.Log.Info($"Decoding {Path.GetFileName(disc.InputPath)} to a temporary ISO...");

@@ -10,7 +10,7 @@ public enum IsoMode { Auto, Dvd, Cd }
 /// <summary>
 /// A disc ready for converting: what to call the output, which create call to
 /// use, and its input file. IsNintendo marks a GameCube/Wii disc (plain or in
-/// one of Dolphin's containers), which goes through libdolphinrvz.
+/// one of Dolphin's containers), which goes through lib-wii-gamecube-kit.
 /// </summary>
 public sealed record PreparedDisc(string OutputName, DiscKind Kind, string InputPath, string Note, bool IsNintendo = false);
 
@@ -25,7 +25,7 @@ internal sealed class PreparedInput(WorkDirectory work) : IDisposable
 /// <summary>
 /// Turns any supported input (cue/gdi/toc/nrg/iso directly; ccd, mds, cso,
 /// zso, isz, pbp, ecm, loose bin/img, archives and split files through a
-/// conversion step) into discs libchdman can create a CHD from.
+/// conversion step) into discs lib-chd-kit can create a CHD from.
 /// </summary>
 internal sealed class InputPreparer(string tempRoot, IsoMode isoMode, ILog log)
 {
