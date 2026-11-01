@@ -30,7 +30,6 @@
     <!-- Also used directly (IszDecoder's BZip2Stream); lib-7z-zip-kit brings the same version. -->
     <PackageReference Include="SharpCompress" Version="0.50.5" />
     <PackageReference Include="System.IO.Hashing" Version="10.0.0" />
-    <PackageReference Include="ZstdSharp.Port" Version="0.8.6" />
     <PackageReference Include="K4os.Compression.LZ4" Version="1.3.8" />
   </ItemGroup>
 
@@ -38,6 +37,7 @@
     <ProjectReference Include="$(LibChdKitRoot)/bindings/csharp/LibChdKit/LibChdKit.csproj" />
     <ProjectReference Include="$(LibWiiGameCubeKitRoot)/bindings/csharp/LibWiiGameCubeKit/LibWiiGameCubeKit.csproj" />
     <ProjectReference Include="$(Lib7zZipKitRoot)src/lib-7z-zip-kit/lib-7z-zip-kit.csproj" />
+    <ProjectReference Include="$(LibWiiUKitRoot)src/lib-wii-u-kit/lib-wii-u-kit.csproj" />
   </ItemGroup>
 
   <ItemGroup>

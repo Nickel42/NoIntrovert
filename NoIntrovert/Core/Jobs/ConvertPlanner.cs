@@ -140,7 +140,7 @@ public static class ConvertPlanner
         var keys = WiiUKeys.Empty;
         if (wiiu.Any(i => WiiUEncrypted.IsNusFolder(rows[i].Path) || WiiUEncrypted.IsDiscImage(rows[i].Path)))
         {
-            keys = WiiUKeys.Load(settings.Keys.WiiUKeysPath);
+            keys = WuaJobs.LoadKeys(settings.Keys.WiiUKeysPath);
             log.Info($"Wii U: {keys.Describe()}");
             foreach (var p in keys.Problems) log.Warn($"Wii U: {p}");
         }
@@ -171,7 +171,7 @@ public static class ConvertPlanner
             catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException
                                            or KeyNotFoundException or NotSupportedException)
             {
-                var message = ex.Message;
+                var message = ex is WiiUKeysMissingException ? WuaJobs.NoKeysMessage : ex.Message;
                 jobs.Add(new(name, [i], rows[i].Size, _ => JobOutcome.Failed(message)));
             }
         }

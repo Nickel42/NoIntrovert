@@ -43,7 +43,7 @@ if (ArgValue("--wua-sample") is { } wuaSampleDir) return WriteWuaSample(Path.Get
 // --unpack-zar ARCHIVE DIR: checks an archive's SHA-256 and unpacks it with NoIntrovert's reader (CI reads the official tool's output with this).
 if (Array.IndexOf(args, "--unpack-zar") is var zi and >= 0 && zi + 2 < args.Length)
 {
-    using (var zr = NoIntrovert.Core.WiiU.ZArchiveReader.Open(args[zi + 1]))
+    using (var zr = ZArchiveReader.Open(args[zi + 1]))
         if (!zr.CheckIntegrity()) { Console.WriteLine($"FAIL  {args[zi + 1]}: SHA-256 doesn't match"); return 1; }
     WiiUSample.Unpack(args[zi + 1], args[zi + 2]);
     Console.WriteLine($"unpacked {args[zi + 1]} to {args[zi + 2]}");
@@ -1293,7 +1293,7 @@ Test("ZArchive: writer and reader round trip", () =>
         ["big/many.bin"] = TextBytes(17 * 65536 + 123),                // more than 16 blocks: two offset records
     };
     for (var i = 0; i < 40; i++) files[$"many/f{i:00}.bin"] = RandomBytes(rng, rng.Next(0, 5000));
-    using (var w = new NoIntrovert.Core.WiiU.ZArchiveWriter(archive))
+    using (var w = new ZArchiveWriter(archive))
     {
         foreach (var (path, data) in files)
         {
@@ -1304,7 +1304,7 @@ Test("ZArchive: writer and reader round trip", () =>
         w.AddDirectory("emptyfolder");
         w.Finish();
     }
-    using var r = NoIntrovert.Core.WiiU.ZArchiveReader.Open(archive);
+    using var r = ZArchiveReader.Open(archive);
     if (!r.CheckIntegrity()) return "SHA-256 doesn't match";
     var rootNames = r.Children(r.Root).Select(e => e.Name).ToList();
     if (!rootNames.SequenceEqual(["a.txt", "b", "big", "emptyfolder", "many"])) return $"root order {string.Join(",", rootNames)}";
@@ -1326,7 +1326,7 @@ Test("ZArchive: damage is caught by the integrity check", () =>
     var bytes = File.ReadAllBytes(src);
     bytes[1000] ^= 0x40;
     File.WriteAllBytes(bad, bytes);
-    using var r = NoIntrovert.Core.WiiU.ZArchiveReader.Open(bad);
+    using var r = ZArchiveReader.Open(bad);
     return r.CheckIntegrity() ? "damaged archive passed" : null;
 });
 
@@ -1337,8 +1337,8 @@ var dlcTitle = WiiUSample.MakeTitle(Path.Combine(wiiuDir, "DLC"), 0x0005000C1010
 
 Test("Wii U: title folders are recognised", () =>
 {
-    var t = NoIntrovert.Core.WiiU.WiiUTitles.FromFolder(updateTitle);
-    return t.TitleId == 0x0005000E10101C00 && t.Version == 32 && t.Kind == NoIntrovert.Core.WiiU.WiiUTitleKind.Update
+    var t = WiiUTitles.FromFolder(updateTitle);
+    return t.TitleId == 0x0005000E10101C00 && t.Version == 32 && t.Kind == WiiUTitleKind.Update
         && t.BaseId == 0x0005000010101C00 && t.ArchiveFolder == "0005000e10101c00_v32" && t.Name == "Test Game"
         ? null : t.ToString();
 });
@@ -1368,7 +1368,7 @@ Test("Wii U: a newer update is merged into an existing .wua", () =>
     var newer = WiiUSample.MakeTitle(Path.Combine(dir, "Update v48"), 0x0005000E10101C00, 48, "Test Game", 4);
     var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [wua, newer]), s => s.Output.Folder = dir);
     if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
-    var titles = NoIntrovert.Core.WiiU.WiiUTitles.FromWua(wua).Select(t => t.ArchiveFolder).OrderBy(n => n).ToList();
+    var titles = WiiUTitles.FromWua(wua).Select(t => t.ArchiveFolder).OrderBy(n => n).ToList();
     var want = new[] { "0005000010101c00_v0", "0005000c10101c00_v16", "0005000e10101c00_v48" };
     if (!titles.SequenceEqual(want)) return $"titles {string.Join(", ", titles)}";
     var unpacked = Path.Combine(dir, "unpacked");
@@ -1385,7 +1385,7 @@ Test("Wii U: an existing .wua is skipped unless Overwrite is on", () =>
 
 Test("Wii U: folder scan finds titles and .wua files, not folders inside titles", () =>
 {
-    var found = NoIntrovert.Core.WiiU.WiiUTitles.FindSources(wiiuDir, recursive: true).Select(Path.GetFileName).OrderBy(n => n).ToList();
+    var found = NoIntrovert.Core.WiiU.WuaJobs.FindSources(wiiuDir, recursive: true).Select(Path.GetFileName).OrderBy(n => n).ToList();
     return found.SequenceEqual(["DLC", "Game", "Update v32"]) ? null : string.Join(", ", found);
 });
 
@@ -1395,8 +1395,8 @@ Test("Wii U: inputs it can't use are named, not guessed at", () =>
     var nus = Directory.CreateDirectory(Path.Combine(dir, "nus-without-ticket")).FullName;
     File.WriteAllBytes(Path.Combine(nus, "title.tmd"), [0]);
     File.WriteAllBytes(Path.Combine(dir, "app.wuhb"), [0]);
-    var a = NoIntrovert.Core.WiiU.WiiUTitles.UnsupportedReason(nus);
-    var b = NoIntrovert.Core.WiiU.WiiUTitles.UnsupportedReason(Path.Combine(dir, "app.wuhb"));
+    var a = WiiUTitles.UnsupportedReason(nus);
+    var b = WiiUTitles.UnsupportedReason(Path.Combine(dir, "app.wuhb"));
     return a is not null && b is not null && a.Contains("title.tik") && b.Contains("WUHB") ? null : $"{a} / {b}";
 });
 
@@ -3022,7 +3022,7 @@ Test("Wii U keys.txt: comments, separators and bad lines", () =>
     var path = Path.Combine(encDir, "keys-format.txt");
     File.WriteAllText(path, $"# comment\n{Convert.ToHexString(encKeys.Common).ToLowerInvariant()} # common\n\n" +
         $"{string.Join("-", Convert.ToHexString(encKeys.Disc).Chunk(8).Select(c => new string(c)))} ; disc\nnot-a-key\n");
-    var k = NoIntrovert.Core.WiiU.WiiUKeys.Load(path);
+    var k = WiiUKeys.Load(path);
     return k.Keys.Count == 2 && k.Problems.Count == 1 ? null : $"{k.Keys.Count} keys, {k.Problems.Count} problems";
 });
 
@@ -3049,7 +3049,7 @@ Test("Wii U WUD: a dump split into parts", () =>
     var half = wudBytes.Length / 2 / EncryptedSample.Sector * EncryptedSample.Sector;
     File.WriteAllBytes(Path.Combine(dir, "game_part1.wud"), wudBytes[..half]);
     File.WriteAllBytes(Path.Combine(dir, "game_part2.wud"), wudBytes[half..]);
-    var found = NoIntrovert.Core.WiiU.WiiUTitles.FindSources(dir, true).Select(Path.GetFileName).ToList();
+    var found = NoIntrovert.Core.WiiU.WuaJobs.FindSources(dir, true).Select(Path.GetFileName).ToList();
     if (!found.SequenceEqual(["game_part1.wud"])) return $"scan found {string.Join(", ", found)}";
     return EncryptedBuild("split", [Path.Combine(dir, "game_part1.wud")], null, ("0005000010303e00_v0", encTree));
 });

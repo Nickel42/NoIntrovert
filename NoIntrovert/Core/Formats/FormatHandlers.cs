@@ -1,5 +1,4 @@
 using NoIntrovert.Core.Archives;
-using NoIntrovert.Core.WiiU;
 
 namespace NoIntrovert.Core.Formats;
 
