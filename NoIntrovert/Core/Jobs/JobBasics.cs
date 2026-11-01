@@ -1,5 +1,5 @@
-using LibChdman;
-using LibDolphinRvz;
+using LibChdKit;
+using LibWiiGameCubeKit;
 
 namespace NoIntrovert.Core.Jobs;
 
@@ -20,19 +20,19 @@ public sealed record JobOutcome(JobStatus Status, string Summary, OperationStats
 }
 
 /// <summary>
-/// What a job gets to work with: its worker's libchdman context (and
-/// libdolphinrvz context, made the first time a job needs it), the settings
+/// What a job gets to work with: its worker's lib-chd-kit context (and
+/// lib-wii-gamecube-kit context, made the first time a job needs it), the settings
 /// snapshot and the log.
 /// </summary>
 public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJobReport report, CancellationToken token,
-    Lazy<DolphinRvz>? rvz = null)
+    Lazy<WiiGameCubeKit>? rvz = null)
 {
     public Chdman Chdman { get; } = chdman;
 
-    /// <summary>The worker's libdolphinrvz context, shared by its jobs (one runs at a time).</summary>
-    internal Lazy<DolphinRvz> RvzSource { get; } = rvz ?? new Lazy<DolphinRvz>(() => new DolphinRvz(settings.Performance.ThreadsPerJob));
+    /// <summary>The worker's lib-wii-gamecube-kit context, shared by its jobs (one runs at a time).</summary>
+    internal Lazy<WiiGameCubeKit> RvzSource { get; } = rvz ?? new Lazy<WiiGameCubeKit>(() => new WiiGameCubeKit(settings.Performance.ThreadsPerJob));
 
-    public DolphinRvz Rvz
+    public WiiGameCubeKit Rvz
     {
         get
         {
@@ -41,9 +41,9 @@ public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJ
             {
                 switch (level)
                 {
-                    case DrvzLogLevel.Error: Log.Error("libdolphinrvz: " + message); break;
-                    case DrvzLogLevel.Warning: Log.Warn("libdolphinrvz: " + message); break;
-                    default: if (Settings.General.VerboseLog) Log.Debug("libdolphinrvz: " + message.TrimEnd()); break;
+                    case WiiGameCubeKitLogLevel.Error: Log.Error("lib-wii-gamecube-kit: " + message); break;
+                    case WiiGameCubeKitLogLevel.Warning: Log.Warn("lib-wii-gamecube-kit: " + message); break;
+                    default: if (Settings.General.VerboseLog) Log.Debug("lib-wii-gamecube-kit: " + message.TrimEnd()); break;
                 }
             };
             return r;
@@ -73,7 +73,7 @@ public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJ
     }
     public CancellationToken Token { get; } = token;
 
-    /// <summary>Routes libchdman's progress callbacks to the job's progress bar for one operation.</summary>
+    /// <summary>Routes lib-chd-kit's progress callbacks to the job's progress bar for one operation.</summary>
     public void TrackChdman(string stage)
     {
         Report.SetStage(stage);
@@ -91,14 +91,14 @@ public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJ
         });
     }
 
-    /// <summary>Routes libdolphinrvz's progress callbacks to the job's progress bar for one operation.</summary>
+    /// <summary>Routes lib-wii-gamecube-kit's progress callbacks to the job's progress bar for one operation.</summary>
     public void TrackRvz(string stage)
     {
         Report.SetStage(stage);
         Report.SetProgress(0);
         var verbose = Settings.General.LogProgress;
         var lastLogged = -1;
-        Rvz.Progress = new InlineProgress<DrvzProgress>(p =>
+        Rvz.Progress = new InlineProgress<WiiGameCubeKitProgress>(p =>
         {
             Report.SetProgress(p.Fraction);
             if (!verbose) return;
@@ -133,9 +133,9 @@ public static class OutputPaths
     public static string Describe(Exception ex) => ex switch
     {
         ChdmanException ce => $"{ce.Message} ({ce.Status})",
-        DolphinRvzException de => $"{de.Message} ({de.Status})",
-        DllNotFoundException when ex.Message.Contains("dolphinrvz") =>
-            "libdolphinrvz isn't next to the app, so GameCube/Wii images can't be handled. Build native/libdolphinrvz.",
+        WiiGameCubeKitException de => $"{de.Message} ({de.Status})",
+        DllNotFoundException when ex.Message.Contains("lib-wii-gamecube-kit") =>
+            "lib-wii-gamecube-kit isn't next to the app, so GameCube/Wii images can't be handled. Build native/lib-wii-gamecube-kit (a git submodule) with its scripts/.",
         _ => ex.Message,
     };
 }

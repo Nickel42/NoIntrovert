@@ -1,5 +1,5 @@
-using LibChdman;
-using LibDolphinRvz;
+using LibChdKit;
+using LibWiiGameCubeKit;
 
 namespace NoIntrovert.Core.Jobs;
 
@@ -99,7 +99,7 @@ public sealed class JobGroup
 /// <summary>
 /// The app's one job queue. Every tab submits into it; a single concurrency
 /// budget decides how many jobs run at once. Each worker keeps its own
-/// libchdman (and, when a job needs it, libdolphinrvz) context while it has
+/// lib-chd-kit (and, when a job needs it, lib-wii-gamecube-kit) context while it has
 /// work, since a context runs one operation at a time.
 /// </summary>
 public sealed class JobQueue
@@ -222,7 +222,7 @@ public sealed class JobQueue
     {
         Chdman? chdman = null;
         var chdmanThreads = -1;
-        Lazy<DolphinRvz>? rvz = null;
+        Lazy<WiiGameCubeKit>? rvz = null;
         try
         {
             while (true)
@@ -258,7 +258,7 @@ public sealed class JobQueue
                     chdmanThreads = settings.Performance.ThreadsPerJob;
                     if (rvz?.IsValueCreated == true) rvz.Value.Dispose();
                     var threads = settings.Performance.ThreadsPerJob;
-                    rvz = new Lazy<DolphinRvz>(() => new DolphinRvz(threads));
+                    rvz = new Lazy<WiiGameCubeKit>(() => new WiiGameCubeKit(threads));
                 }
                 Run(index, job, chdman, rvz!);
             }
@@ -271,7 +271,7 @@ public sealed class JobQueue
         }
     }
 
-    private void Run(int index, QueuedJob job, Chdman chdman, Lazy<DolphinRvz> rvz)
+    private void Run(int index, QueuedJob job, Chdman chdman, Lazy<WiiGameCubeKit> rvz)
     {
         var settings = job.Group.Settings;
         var log = Concurrency > 1 ? new PrefixedLog(job.Group.Log, $"[{index + 1}] ") : job.Group.Log;
@@ -279,9 +279,9 @@ public sealed class JobQueue
         {
             switch (level)
             {
-                case ChdmanLogLevel.Error: log.Error("libchdman: " + message); break;
-                case ChdmanLogLevel.Warning: log.Warn("libchdman: " + message); break;
-                default: if (settings.General.VerboseLog) log.Debug("libchdman: " + message.TrimEnd()); break;
+                case ChdmanLogLevel.Error: log.Error("lib-chd-kit: " + message); break;
+                case ChdmanLogLevel.Warning: log.Warn("lib-chd-kit: " + message); break;
+                default: if (settings.General.VerboseLog) log.Debug("lib-chd-kit: " + message.TrimEnd()); break;
             }
         };
         chdman.Progress = null;
@@ -303,7 +303,7 @@ public sealed class JobQueue
         {
             outcome = new JobOutcome(JobStatus.Cancelled, "Cancelled");
         }
-        catch (DolphinRvzException ex) when (ex.Status == DrvzStatus.Cancelled)
+        catch (WiiGameCubeKitException ex) when (ex.Status == WiiGameCubeKitStatus.Cancelled)
         {
             outcome = new JobOutcome(JobStatus.Cancelled, "Cancelled");
         }

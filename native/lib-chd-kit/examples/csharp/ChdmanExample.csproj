@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Example app using the LibChdKit binding (bindings/csharp/LibChdKit).
+      dotnet run -p:ChdmanLibDir=<dir containing chdkit.dll or libchdkit.dylib>
+    An app using the NuGet package instead needs only
+      <PackageReference Include="LibChdKit" Version="1.0.0" />
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../bindings/csharp/LibChdKit/LibChdKit.csproj" />
+  </ItemGroup>
+
+  <Import Project="../../bindings/csharp/ChdmanNativeCopy.targets" />
+
+</Project>

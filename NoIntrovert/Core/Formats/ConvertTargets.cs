@@ -77,7 +77,7 @@ public static class ConvertTargets
         var nintendoDefault = settings.Nintendo.Target == Jobs.NintendoTarget.Rvz ? TargetChoice.Rvz : TargetChoice.Chd;
 
         if (f == OtherFile || f == PackedFolder || KnownFormats.Cartridges.Contains(f))
-            return Make(settings.Archives.Format == Archives.ArchiveFormat.Zip ? TargetChoice.Zip : TargetChoice.SevenZip,
+            return Make(settings.Archives.Format == ArchiveFormat.Zip ? TargetChoice.Zip : TargetChoice.SevenZip,
                 TargetChoice.SevenZip, TargetChoice.Zip, TargetChoice.Leave);
 
         if (KnownFormats.WiiUInputs.Contains(f))

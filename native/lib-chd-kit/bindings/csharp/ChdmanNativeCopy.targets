@@ -1,0 +1,16 @@
+<Project>
+  <!--
+    For projects that reference LibChdKit.csproj directly (rather than the
+    NuGet package): copy the locally built native library next to the
+    executable. Pass -p:ChdmanLibDir=<dir containing chdkit.dll or
+    libchdkit.dylib>; with the Visual Studio generator that is
+    <build dir>/Release.
+  -->
+  <PropertyGroup>
+    <ChdmanLibDir Condition="'$(ChdmanLibDir)' == ''">$(MSBuildThisFileDirectory)../../build</ChdmanLibDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(ChdmanLibDir)/chdkit.dll" Condition="Exists('$(ChdmanLibDir)/chdkit.dll')" CopyToOutputDirectory="PreserveNewest" Link="chdkit.dll" Visible="false" />
+    <None Include="$(ChdmanLibDir)/libchdkit.dylib" Condition="Exists('$(ChdmanLibDir)/libchdkit.dylib')" CopyToOutputDirectory="PreserveNewest" Link="libchdkit.dylib" Visible="false" />
+  </ItemGroup>
+</Project>

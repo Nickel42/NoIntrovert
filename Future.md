@@ -9,11 +9,11 @@ Features to develop later. Work that already has a requirement (for example Phas
 nothing else for them.
 
 **Why:** WBFS and CISO keep only the parts of the disc that hold data, so they don't record the
-disc's exact size. Dolphin's converters require an exact size, and libdolphinrvz refuses these
-images (`drvz_capi.cpp`: "the container doesn't record the disc's exact size").
+disc's exact size. Dolphin's converters require an exact size, and lib-wii-gamecube-kit refuses these
+images (`lib-wii-gamecube-kit.cpp`: "the container doesn't record the disc's exact size").
 
 **What it takes:**
-- libdolphinrvz: an option to convert an image whose size is only an upper bound, treating it as
+- lib-wii-gamecube-kit: an option to convert an image whose size is only an upper bound, treating it as
   the standard disc size (for example 4,699,979,776 bytes for a single-layer Wii disc) and filling
   the dropped areas with zeros.
 - NoIntrovert:

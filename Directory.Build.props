@@ -1,22 +1,22 @@
 <Project>
   <!--
-    Where libchdman lives and which native build of it to ship.
+    Where lib-chd-kit lives and which native build of it to ship.
 
-    LibChdmanRoot defaults to native/libchdman in this repository (pass
-    -p:LibChdmanRoot=... to use another checkout). The native library is taken from
-    $(LibChdmanRoot)/artifacts/native/<dir>, where <dir> follows the
+    LibChdKitRoot defaults to native/lib-chd-kit in this repository (pass
+    -p:LibChdKitRoot=... to use another checkout). The native library is taken from
+    $(LibChdKitRoot)/artifacts/native/<dir>, where <dir> follows the
     RuntimeIdentifier being built or published:
 
-      win-x64    -> win-x64/chdman.dll
-      win-arm64  -> win-arm64/chdman.dll
-      osx-*      -> osx/libchdman.dylib   (universal arm64 + x86_64)
-      linux-x64  -> linux-x64/libchdman.so
+      win-x64    -> win-x64/chdkit.dll
+      win-arm64  -> win-arm64/chdkit.dll
+      osx-*      -> osx/libchdkit.dylib   (universal arm64 + x86_64)
+      linux-x64  -> linux-x64/libchdkit.so
 
     With no RuntimeIdentifier, the machine doing the build decides.
     Pass -p:ChdmanLibDir=<dir> to point at any other build.
   -->
   <PropertyGroup>
-    <LibChdmanRoot Condition="'$(LibChdmanRoot)' == ''">$(MSBuildThisFileDirectory)native/libchdman</LibChdmanRoot>
+    <LibChdKitRoot Condition="'$(LibChdKitRoot)' == ''">$(MSBuildThisFileDirectory)native/lib-chd-kit</LibChdKitRoot>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(ChdmanNativeDir)' == ''">
@@ -34,32 +34,37 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <ChdmanLibDir Condition="'$(ChdmanLibDir)' == ''">$(LibChdmanRoot)/artifacts/native/$(ChdmanNativeDir)</ChdmanLibDir>
+    <ChdmanLibDir Condition="'$(ChdmanLibDir)' == ''">$(LibChdKitRoot)/artifacts/native/$(ChdmanNativeDir)</ChdmanLibDir>
   </PropertyGroup>
 
   <!--
-    The archive engine: 7-Zip's library and noi_archive (our C interface over
-    bit7z), built by native/build-win.cmd, native/build-mac.sh or
-    native/build-linux.sh into native/out/<dir>, using the same <dir> names as above:
-      win-*      -> 7z.dll + noi_archive.dll
-      osx        -> 7z.so + libnoi_archive.dylib (universal)
-      linux-x64  -> 7z.so + libnoi_archive.so
-    Pass -p:NoiArchiveLibDir=<dir> to use another build.
+    lib-7z-zip-kit (7z and zip archives through 7-Zip's engine, plus a managed
+    reader), its own repository, checked out as a git submodule in
+    native/lib-7z-zip-kit. Its scripts (fetch-sources.sh, then build-win.cmd,
+    build-mac.sh or build-linux.sh) put 7-Zip's library and sevenzipkit in
+    $(Lib7zZipKitRoot)artifacts/native/<dir>, and its
+    build/lib-7z-zip-kit.Native.targets (imported by NoIntrovert.csproj) copies
+    them next to the app. Pass -p:Lib7zZipKitRoot=... (ending in a slash) to use
+    another checkout, or -p:SevenZipKitLibDir=<dir> to use another build.
   -->
   <PropertyGroup>
-    <NoiArchiveLibDir Condition="'$(NoiArchiveLibDir)' == ''">$(MSBuildThisFileDirectory)native/out/$(ChdmanNativeDir)</NoiArchiveLibDir>
+    <Lib7zZipKitRoot Condition="'$(Lib7zZipKitRoot)' == ''">$(MSBuildThisFileDirectory)native/lib-7z-zip-kit/</Lib7zZipKitRoot>
   </PropertyGroup>
 
   <!--
-    libdolphinrvz (Dolphin's GameCube/Wii disc code, native/libdolphinrvz),
-    built into native/out/<dir> next to the archive engine:
-      win-*      -> dolphinrvz.dll
-      osx        -> libdolphinrvz.dylib (universal)
-      linux-x64  -> libdolphinrvz.so
-    Pass -p:DolphinRvzLibDir=<dir> to use another build.
+    lib-wii-gamecube-kit (Dolphin's GameCube/Wii disc code), its own
+    repository, checked out as a git submodule in native/lib-wii-gamecube-kit
+    (run "git submodule update" with init after cloning). Its build scripts put the native library
+    in $(LibWiiGameCubeKitRoot)/artifacts/native/<dir>, with the same <dir> names as above:
+      win-*      -> lib-wii-gamecube-kit.dll
+      osx        -> lib-wii-gamecube-kit.dylib (universal)
+      linux-x64  -> lib-wii-gamecube-kit.so
+    Its build/lib-wii-gamecube-kit.Native.targets (imported by NoIntrovert.csproj) copies
+    it next to the app. Pass -p:LibWiiGameCubeKitRoot=... to use another checkout, or
+    -p:LibWiiGameCubeKitLibDir=<dir> to use another build.
   -->
   <PropertyGroup>
-    <DolphinRvzRoot>$(MSBuildThisFileDirectory)native/libdolphinrvz</DolphinRvzRoot>
-    <DolphinRvzLibDir Condition="'$(DolphinRvzLibDir)' == ''">$(MSBuildThisFileDirectory)native/out/$(ChdmanNativeDir)</DolphinRvzLibDir>
+    <LibWiiGameCubeKitRoot Condition="'$(LibWiiGameCubeKitRoot)' == ''">$(MSBuildThisFileDirectory)native/lib-wii-gamecube-kit</LibWiiGameCubeKitRoot>
+    <LibWiiGameCubeKitNativeDir Condition="'$(LibWiiGameCubeKitNativeDir)' == ''">$(ChdmanNativeDir)</LibWiiGameCubeKitNativeDir>
   </PropertyGroup>
 </Project>

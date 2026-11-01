@@ -1,4 +1,4 @@
-using LibChdman;
+using LibChdKit;
 using NoIntrovert.Core.Archives;
 using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.Jobs;
@@ -97,7 +97,7 @@ public static class VerifyJobs
             c.Report.SetStage("Testing");
             try
             {
-                using var engine = new ArchiveEngine();
+                using var engine = new SevenZipEngine();
                 engine.Test(set.Primary, c.Report.SetProgress, c.Token);
             }
             catch (ArchiveException ex) { return $"Damaged: {ex.Message}"; }
@@ -129,7 +129,7 @@ public static class VerifyJobs
                 .Select(m => new HashedFile(Path.GetFileName(m.Name), m.Size, m.Crc!, null))
                 .ToList();
 
-        // GameCube/Wii: the decoded disc, from any container libdolphinrvz reads.
+        // GameCube/Wii: the decoded disc, from any container lib-wii-gamecube-kit reads.
         if (ext is ".rvz" or ".wia" or ".gcz" or ".gcm" || (ext == ".iso" && NintendoDisc.IsPlainDisc(path)))
         {
             c.TrackRvz("Hashing the disc");

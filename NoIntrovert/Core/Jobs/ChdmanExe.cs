@@ -5,7 +5,7 @@ namespace NoIntrovert.Core.Jobs;
 
 /// <summary>
 /// Runs a chdman executable chosen by the user, for side-by-side comparisons with
-/// libchdman. Only the Library tests tab uses this.
+/// lib-chd-kit. Only the Library tests tab uses this.
 /// </summary>
 internal static class ChdmanExe
 {

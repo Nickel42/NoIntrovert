@@ -1,5 +1,0 @@
-/* Linux: export only the C interface from libnoi_archive.so. */
-{
-  global: noi_*;
-  local: *;
-};

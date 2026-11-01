@@ -157,7 +157,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <!-- The first CHD's header, from libchdman -->
+                        <!-- The first CHD's header, from lib-chd-kit -->
                         <StackPanel Spacing="4" IsVisible="{Binding $parent[UserControl].((vm:LibraryViewModel)DataContext).ShowsChdInfo}">
                             <TextBlock Text="CHD" Classes="section" />
                             <TextBlock Text="{Binding $parent[UserControl].((vm:LibraryViewModel)DataContext).ChdInfo.Headline}" Classes="hint" TextWrapping="Wrap" />

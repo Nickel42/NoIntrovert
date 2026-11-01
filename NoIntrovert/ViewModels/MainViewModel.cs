@@ -67,23 +67,23 @@ public partial class MainViewModel : ViewModelBase
 
         try
         {
-            LibraryVersion = $"{LibChdman.Chdman.Version} · ABI {LibChdman.Chdman.AbiVersion}";
+            LibraryVersion = $"{LibChdKit.Chdman.Version} · ABI {LibChdKit.Chdman.AbiVersion}";
             Log.Info($"Loaded {LibraryVersion}");
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
         {
-            LibraryVersion = "libchdman not loaded";
-            Log.Error($"chdman.dll could not be loaded: {ex.Message}. Build libchdman and rebuild this app.");
+            LibraryVersion = "lib-chd-kit not loaded";
+            Log.Error($"chdkit.dll could not be loaded: {ex.Message}. Build lib-chd-kit and rebuild this app.");
         }
         try
         {
-            RvzLibraryVersion = $"{LibDolphinRvz.DolphinRvz.Version} · ABI {LibDolphinRvz.DolphinRvz.AbiVersion}";
+            RvzLibraryVersion = $"{LibWiiGameCubeKit.WiiGameCubeKit.Version} · ABI {LibWiiGameCubeKit.WiiGameCubeKit.AbiVersion}";
             Log.Info($"Loaded {RvzLibraryVersion}");
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
         {
-            RvzLibraryVersion = "libdolphinrvz not loaded";
-            Log.Warn($"libdolphinrvz could not be loaded ({ex.Message}); GameCube/Wii images can't be converted.");
+            RvzLibraryVersion = "lib-wii-gamecube-kit not loaded";
+            Log.Warn($"lib-wii-gamecube-kit could not be loaded ({ex.Message}); GameCube/Wii images can't be converted.");
         }
         Settings.Diagnostics.LibraryVersions = $"{LibraryVersion}\n{RvzLibraryVersion}";
 

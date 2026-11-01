@@ -4,9 +4,9 @@ using System.Text;
 namespace NoIntrovert.Tests;
 
 /// <summary>
-/// Small stand-in GameCube discs for the libdolphinrvz tests: a real disc
+/// Small stand-in GameCube discs for the lib-wii-gamecube-kit tests: a real disc
 /// header and FST with two files, and pseudo-random padding elsewhere.
-/// (libdolphinrvz's own tests cover Wii partitions and junk-data packing.)
+/// (lib-wii-gamecube-kit's own tests cover Wii partitions and junk-data packing.)
 /// </summary>
 internal static class NintendoDiscs
 {
@@ -46,7 +46,7 @@ internal static class NintendoDiscs
         File.WriteAllBytes(path, d);
     }
 
-    /// <summary>The start of a WBFS file: enough for libdolphinrvz to see what it is.</summary>
+    /// <summary>The start of a WBFS file: enough for lib-wii-gamecube-kit to see what it is.</summary>
     public static byte[] FakeWbfsHeader()
     {
         var d = new byte[0x10000];

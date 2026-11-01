@@ -125,7 +125,7 @@ public static class ConvertPlanner
             warnings.Add($"Originals will be {fate} once each new file verifies or tests OK.");
         }
         if (jobs.Count > 0 && rows.Any(r => r.Target is TargetKind.SevenZip or TargetKind.Zip or TargetKind.Files)
-            && !ArchiveEngine.IsAvailable(out var problem))
+            && !SevenZipEngine.IsAvailable(out var problem))
             error ??= problem;
 
         jobs.Sort((a, b) => a.Rows[0].CompareTo(b.Rows[0]));

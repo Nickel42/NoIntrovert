@@ -44,7 +44,7 @@ public partial class TestsViewModel : BatchTabViewModel
     public override string EmptyHint =>
         "Drop disc images here (any format the Convert tab takes).\n" +
         "Round trip: create → verify → extract, then compare with the original data.\n" +
-        "Compare: create with libchdman and a chdman executable, then compare the CHDs byte for byte.";
+        "Compare: create with lib-chd-kit and a chdman executable, then compare the CHDs byte for byte.";
     protected override string FilterName => "Disc images and archives";
     protected override IReadOnlyList<FormatInfo> InputFormats => KnownFormats.DiscInputs;
     protected override bool Takes(FileSet set) => KnownFormats.TakesDisc(set);
@@ -76,7 +76,7 @@ public partial class TestsViewModel : BatchTabViewModel
         if (NeedsChdman)
         {
             ChdmanVersion = ChdmanExe.Version(Settings.Diagnostics.ChdmanExePath);
-            Log.Info($"Comparing libchdman {LibChdman.Chdman.Version} with {(ChdmanVersion.Length > 0 ? ChdmanVersion : Settings.Diagnostics.ChdmanExePath)}");
+            Log.Info($"Comparing lib-chd-kit {LibChdKit.Chdman.Version} with {(ChdmanVersion.Length > 0 ? ChdmanVersion : Settings.Diagnostics.ChdmanExePath)}");
         }
         return true;
     }
@@ -100,7 +100,7 @@ public partial class TestsViewModel : BatchTabViewModel
     private async Task ExportCsv()
     {
         if (Records.Count == 0) { Log.Warn("No test results to export yet."); return; }
-        var path = await Dialogs.SaveFileAsync("Export test results", $"libchdman-tests-{DateTime.Now:yyyyMMdd-HHmm}.csv", "CSV file", "*.csv");
+        var path = await Dialogs.SaveFileAsync("Export test results", $"lib-chd-kit-tests-{DateTime.Now:yyyyMMdd-HHmm}.csv", "CSV file", "*.csv");
         if (path is null) return;
         await File.WriteAllTextAsync(path, TestJobs.ToCsv(Records));
         Log.Info($"Test results saved to {path}");

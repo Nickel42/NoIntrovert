@@ -8,7 +8,7 @@
     <!-- The .exe's own icon; Windows only (macOS uses packaging/macos/NoIntrovert.icns). -->
     <ApplicationIcon Condition="'$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('win'))">Assets/nointrovert.ico</ApplicationIcon>
     <AssemblyTitle>NoIntrovert</AssemblyTitle>
-    <Product>NoIntrovert - libchdman and libdolphinrvz test bench</Product>
+    <Product>NoIntrovert - lib-chd-kit, lib-wii-gamecube-kit and lib-7z-zip-kit test bench</Product>
     <!-- Release builds get the version from the git tag (release.yml passes -p:Version). -->
     <Version>0.5.0</Version>
   </PropertyGroup>
@@ -27,6 +27,7 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <!-- Also used directly (IszDecoder's BZip2Stream); lib-7z-zip-kit brings the same version. -->
     <PackageReference Include="SharpCompress" Version="0.50.5" />
     <PackageReference Include="System.IO.Hashing" Version="10.0.0" />
     <PackageReference Include="ZstdSharp.Port" Version="0.8.6" />
@@ -34,8 +35,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(LibChdmanRoot)/bindings/csharp/LibChdman/LibChdman.csproj" />
-    <ProjectReference Include="$(DolphinRvzRoot)/bindings/csharp/LibDolphinRvz/LibDolphinRvz.csproj" />
+    <ProjectReference Include="$(LibChdKitRoot)/bindings/csharp/LibChdKit/LibChdKit.csproj" />
+    <ProjectReference Include="$(LibWiiGameCubeKitRoot)/bindings/csharp/LibWiiGameCubeKit/LibWiiGameCubeKit.csproj" />
+    <ProjectReference Include="$(Lib7zZipKitRoot)src/lib-7z-zip-kit/lib-7z-zip-kit.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -49,71 +51,53 @@
     <EmbeddedResource Include="Core/Esde/es_systems.json" LogicalName="NoIntrovert.es_systems.json" />
   </ItemGroup>
 
-  <Import Project="$(LibChdmanRoot)/bindings/csharp/ChdmanNativeCopy.targets" />
+  <Import Project="$(LibChdKitRoot)/bindings/csharp/ChdmanNativeCopy.targets" />
 
   <!--
-    The archive engine's native libraries (see Directory.Build.props). They stay
-    next to the executable even in a single-file publish: bit7z loads 7-Zip's
-    library by its path, which must be a real file beside the app.
+    lib-7z-zip-kit's native engine (7-Zip's library + sevenzipkit), copied next to
+    the executable even in a single-file publish (see Directory.Build.props).
   -->
-  <ItemGroup>
-    <None Include="$(NoiArchiveLibDir)/7z.dll" Condition="Exists('$(NoiArchiveLibDir)/7z.dll')" Link="7z.dll"
-          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
-    <None Include="$(NoiArchiveLibDir)/noi_archive.dll" Condition="Exists('$(NoiArchiveLibDir)/noi_archive.dll')" Link="noi_archive.dll"
-          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
-    <None Include="$(NoiArchiveLibDir)/7z.so" Condition="Exists('$(NoiArchiveLibDir)/7z.so')" Link="7z.so"
-          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
-    <None Include="$(NoiArchiveLibDir)/libnoi_archive.dylib" Condition="Exists('$(NoiArchiveLibDir)/libnoi_archive.dylib')" Link="libnoi_archive.dylib"
-          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
-    <None Include="$(NoiArchiveLibDir)/libnoi_archive.so" Condition="Exists('$(NoiArchiveLibDir)/libnoi_archive.so')" Link="libnoi_archive.so"
-          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
-  </ItemGroup>
-
-  <!-- libdolphinrvz's native library, beside the executable like the archive engine. -->
-  <ItemGroup>
-    <None Include="$(DolphinRvzLibDir)/dolphinrvz.dll" Condition="Exists('$(DolphinRvzLibDir)/dolphinrvz.dll')" Link="dolphinrvz.dll"
-          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
-    <None Include="$(DolphinRvzLibDir)/libdolphinrvz.dylib" Condition="Exists('$(DolphinRvzLibDir)/libdolphinrvz.dylib')" Link="libdolphinrvz.dylib"
-          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
-    <None Include="$(DolphinRvzLibDir)/libdolphinrvz.so" Condition="Exists('$(DolphinRvzLibDir)/libdolphinrvz.so')" Link="libdolphinrvz.so"
-          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
-  </ItemGroup>
-
-  <Target Name="WarnMissingDolphinRvzNative" BeforeTargets="Build"
-          Condition="!Exists('$(DolphinRvzLibDir)/dolphinrvz.dll') And !Exists('$(DolphinRvzLibDir)/libdolphinrvz.dylib') And !Exists('$(DolphinRvzLibDir)/libdolphinrvz.so')">
-    <Warning Text="No libdolphinrvz in $(DolphinRvzLibDir); GameCube/Wii conversion won't work. Build it with native/libdolphinrvz/scripts/build-win.cmd, build-mac.sh or build-linux.sh." />
-  </Target>
-  <Target Name="RequireDolphinRvzNativeForPublish" BeforeTargets="PrepareForPublish"
-          Condition="'$(RuntimeIdentifier)' != '' And !Exists('$(DolphinRvzLibDir)/dolphinrvz.dll') And !Exists('$(DolphinRvzLibDir)/libdolphinrvz.dylib') And !Exists('$(DolphinRvzLibDir)/libdolphinrvz.so')">
-    <Error Text="Can't publish for $(RuntimeIdentifier): libdolphinrvz is missing from $(DolphinRvzLibDir)." />
+  <Import Project="$(Lib7zZipKitRoot)build/lib-7z-zip-kit.Native.targets"
+          Condition="Exists('$(Lib7zZipKitRoot)build/lib-7z-zip-kit.Native.targets')" />
+  <Target Name="RequireLib7zZipKitSubmodule" BeforeTargets="PrepareForBuild"
+          Condition="!Exists('$(Lib7zZipKitRoot)src/lib-7z-zip-kit/lib-7z-zip-kit.csproj')">
+    <Error Text="lib-7z-zip-kit isn't checked out in $(Lib7zZipKitRoot). Run: git submodule update --init" />
   </Target>
 
   <!--
-    libchdman's ChdmanNativeCopy.targets copies chdman.dll / libchdman.dylib;
-    the Linux build, libchdman.so, is copied here.
+    lib-wii-gamecube-kit's native library, beside the executable like the
+    archive engine: its targets file copies it (and warns when it's missing,
+    or fails a publish for a platform).
+  -->
+  <Import Project="$(LibWiiGameCubeKitRoot)/bindings/csharp/LibWiiGameCubeKit/build/lib-wii-gamecube-kit.Native.targets"
+          Condition="Exists('$(LibWiiGameCubeKitRoot)/bindings/csharp/LibWiiGameCubeKit/build/lib-wii-gamecube-kit.Native.targets')" />
+  <Target Name="RequireLibWiiGameCubeKitSubmodule" BeforeTargets="Build"
+          Condition="!Exists('$(LibWiiGameCubeKitRoot)/bindings/csharp/LibWiiGameCubeKit/LibWiiGameCubeKit.csproj')">
+    <Error Text="lib-wii-gamecube-kit isn't checked out in $(LibWiiGameCubeKitRoot). Run: git submodule update --init" />
+  </Target>
+
+  <!--
+    lib-chd-kit's ChdmanNativeCopy.targets copies chdkit.dll / libchdkit.dylib;
+    the Linux build, libchdkit.so, is copied here.
   -->
   <ItemGroup>
-    <None Include="$(ChdmanLibDir)/libchdman.so" Condition="Exists('$(ChdmanLibDir)/libchdman.so')" Link="libchdman.so"
+    <None Include="$(ChdmanLibDir)/libchdkit.so" Condition="Exists('$(ChdmanLibDir)/libchdkit.so')" Link="libchdkit.so"
           CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
-  <Target Name="WarnMissingArchiveNative" BeforeTargets="Build"
-          Condition="!Exists('$(NoiArchiveLibDir)/noi_archive.dll') And !Exists('$(NoiArchiveLibDir)/libnoi_archive.dylib') And !Exists('$(NoiArchiveLibDir)/libnoi_archive.so')">
-    <Warning Text="No archive engine in $(NoiArchiveLibDir); the Archive tab won't work. Build it with native/build-win.cmd, native/build-mac.sh or native/build-linux.sh." />
-  </Target>
   <Target Name="RequireArchiveNativeForPublish" BeforeTargets="PrepareForPublish"
-          Condition="'$(RuntimeIdentifier)' != '' And !(Exists('$(NoiArchiveLibDir)/noi_archive.dll') And Exists('$(NoiArchiveLibDir)/7z.dll')) And !(Exists('$(NoiArchiveLibDir)/libnoi_archive.dylib') And Exists('$(NoiArchiveLibDir)/7z.so')) And !(Exists('$(NoiArchiveLibDir)/libnoi_archive.so') And Exists('$(NoiArchiveLibDir)/7z.so'))">
-    <Error Text="Can't publish for $(RuntimeIdentifier): the archive engine (7-Zip library + noi_archive) is missing from $(NoiArchiveLibDir)." />
+          Condition="'$(RuntimeIdentifier)' != '' And !(Exists('$(SevenZipKitLibDir)/sevenzipkit.dll') And Exists('$(SevenZipKitLibDir)/7z.dll')) And !(Exists('$(SevenZipKitLibDir)/libsevenzipkit.dylib') And Exists('$(SevenZipKitLibDir)/7z.so')) And !(Exists('$(SevenZipKitLibDir)/libsevenzipkit.so') And Exists('$(SevenZipKitLibDir)/7z.so'))">
+    <Error Text="Can't publish for $(RuntimeIdentifier): lib-7z-zip-kit's native engine (7-Zip's library + sevenzipkit) is missing from $(SevenZipKitLibDir)." />
   </Target>
 
-  <!-- A plain build may run without libchdman (with a warning); a publish for a platform must include it. -->
+  <!-- A plain build may run without lib-chd-kit (with a warning); a publish for a platform must include it. -->
   <Target Name="WarnMissingChdmanNative" BeforeTargets="Build"
-          Condition="!Exists('$(ChdmanLibDir)/chdman.dll') And !Exists('$(ChdmanLibDir)/libchdman.dylib') And !Exists('$(ChdmanLibDir)/libchdman.so')">
-    <Warning Text="No libchdman native library in $(ChdmanLibDir); the app builds but can't run CHD operations. Build libchdman for $(ChdmanNativeDir) first." />
+          Condition="!Exists('$(ChdmanLibDir)/chdkit.dll') And !Exists('$(ChdmanLibDir)/libchdkit.dylib') And !Exists('$(ChdmanLibDir)/libchdkit.so')">
+    <Warning Text="No lib-chd-kit native library in $(ChdmanLibDir); the app builds but can't run CHD operations. Build lib-chd-kit for $(ChdmanNativeDir) first." />
   </Target>
   <Target Name="RequireChdmanNativeForPublish" BeforeTargets="PrepareForPublish"
-          Condition="'$(RuntimeIdentifier)' != '' And !Exists('$(ChdmanLibDir)/chdman.dll') And !Exists('$(ChdmanLibDir)/libchdman.dylib') And !Exists('$(ChdmanLibDir)/libchdman.so')">
-    <Error Text="Can't publish for $(RuntimeIdentifier): no libchdman native library in $(ChdmanLibDir)." />
+          Condition="'$(RuntimeIdentifier)' != '' And !Exists('$(ChdmanLibDir)/chdkit.dll') And !Exists('$(ChdmanLibDir)/libchdkit.dylib') And !Exists('$(ChdmanLibDir)/libchdkit.so')">
+    <Error Text="Can't publish for $(RuntimeIdentifier): no lib-chd-kit native library in $(ChdmanLibDir)." />
   </Target>
 
   <!-- SkiaSharp and HarfBuzz ship ~100 MB of native .pdb files; release downloads don't need them. -->

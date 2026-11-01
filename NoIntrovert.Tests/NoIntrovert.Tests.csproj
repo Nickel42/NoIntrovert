@@ -2,9 +2,9 @@
 
   <!--
     Self-checking test program (no test framework), in the style of
-    LibChdman.Tests. Builds sample images in every input format from the
+    LibChdKit.Tests. Builds sample images in every input format from the
     discs in ..\..\test-roms, converts them through the app's code and
-    libchdman, and checks the CHD data against the original.
+    lib-chd-kit, and checks the CHD data against the original.
 
     Run with: dotnet run -c Release, followed by the program's own options:
     quick (skip the full-disc round trips), roms DIR, upstream CHDMAN.EXE,
@@ -22,5 +22,5 @@
     <ProjectReference Include="..\NoIntrovert\NoIntrovert.csproj" />
   </ItemGroup>
 
-  <Import Project="$(LibChdmanRoot)/bindings/csharp/ChdmanNativeCopy.targets" />
+  <Import Project="$(LibChdKitRoot)/bindings/csharp/ChdmanNativeCopy.targets" />
 </Project>

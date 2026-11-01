@@ -1,8 +1,8 @@
 # NoIntrovert
 
 A desktop CHD and RVZ batch tool built with Avalonia, used as a test bench for
-[libchdman](native/libchdman) and [libdolphinrvz](native/libdolphinrvz). Every CHD operation goes through the LibChdman .NET
-binding (`chdman.dll`); `chdman.exe` is only run when you ask the Library tests
+[lib-chd-kit](native/lib-chd-kit) and [lib-wii-gamecube-kit](native/lib-wii-gamecube-kit). Every CHD operation goes through the LibChdKit .NET
+binding (`chdkit.dll`); `chdman.exe` is only run when you ask the Library tests
 tab to compare against it.
 
 Workflow on every tab: **pick files → choose a preset → run the batch → read the log.** Each action has a
@@ -20,7 +20,7 @@ recommended preset; its individual options appear only under Custom ([presets](d
 
 ## Input formats
 
-Read by libchdman directly: cue/bin (any number of bins), gdi, toc, nrg, iso, hard disk img.
+Read by lib-chd-kit directly: cue/bin (any number of bins), gdi, toc, nrg, iso, hard disk img.
 
 Converted first, in the temp folder:
 
@@ -39,7 +39,7 @@ Converted first, in the temp folder:
 ### GameCube and Wii
 
 GameCube and Wii discs (iso and gcm, recognised by their disc header; gcz,
-wia, rvz and tgc) go through libdolphinrvz, which is Dolphin's own disc code
+wia, rvz and tgc) go through lib-wii-gamecube-kit, which is Dolphin's own disc code
 (the same as `DolphinTool convert`). By default they become **RVZ**, Dolphin's
 format: Zstandard level 5 with 128 KiB blocks, as in Dolphin's convert dialog,
 and adjustable on the Convert tab. Wii partitions are stored decrypted, and
@@ -48,7 +48,7 @@ still decodes to the exact original disc. Verifying an RVZ decodes it again
 and compares its SHA-1 with the source. Choose CHD instead to store them as
 DVD CHDs (a gcz/wia/rvz is decoded to ISO first).
 
-WBFS and CISO images can't be converted: like Dolphin, libdolphinrvz only
+WBFS and CISO images can't be converted: like Dolphin, lib-wii-gamecube-kit only
 converts images whose container records the disc's exact size. NKit images
 convert, but stay NKit.
 
@@ -91,24 +91,30 @@ It runs on X11 or XWayland and uses the libraries any desktop install has
 (ICU, fontconfig, libX11, libICE, libSM); on a minimal system such as a fresh
 WSL Ubuntu, install `libicu`, `libfontconfig1`, `libice6` and `libsm6` first.
 
-The workflow builds libchdman and libdolphinrvz from source on each
-platform (and runs their tests on x64 Windows, macOS and Linux, plus the app's
-own quick self-test on Linux). Everything it builds is in this repository.
+The workflow builds lib-chd-kit, lib-wii-gamecube-kit and lib-7z-zip-kit from
+source on each platform (and runs their tests on x64 Windows, macOS and Linux,
+plus the app's own quick self-test on Linux). Everything it builds is in this
+repository, except lib-wii-gamecube-kit and lib-7z-zip-kit, which it checks out
+as submodules.
 
 ## Archive engine
 
 The Archive tab uses 7-Zip's own library (`7z.dll` / `7z.so`, built from
 7-Zip 26.04's source, without RAR support) through [bit7z](https://github.com/rikyoz/bit7z) 4.1.0,
-wrapped in a small C library, `native/archive` (noi_archive), that the C# code
-calls. To build it locally:
+by way of lib-7z-zip-kit, its own repository
+([Nickel42/lib-7z-zip-kit.](https://github.com/Nickel42/lib-7z-zip-kit.)), checked
+out as a git submodule in `native/lib-7z-zip-kit`. Its small C library,
+sevenzipkit, is what the C# code calls; its managed reader (SharpCompress)
+unpacks and lists archives for the other tabs. To build the native engine locally:
 
 ```
-bash native/fetch-sources.sh
-native\build-win.cmd x64 native\_deps\7zip-src native\_deps\bit7z-src
+bash native/lib-7z-zip-kit/scripts/fetch-sources.sh
+native\lib-7z-zip-kit\scripts\build-win.cmd x64
 ```
 
-(`bash native/build-mac.sh` on a Mac, `bash native/build-linux.sh` on Linux,
-which needs gcc, make and CMake.) The results go in `native/out/<platform>`,
+(`bash native/lib-7z-zip-kit/scripts/build-mac.sh` on a Mac,
+`bash native/lib-7z-zip-kit/scripts/build-linux.sh` on Linux, which needs gcc,
+make and CMake.) The results go in `native/lib-7z-zip-kit/artifacts/native/<platform>`,
 which the app build copies next to the executable. `fetch-sources.sh` pins
 both downloads by SHA-256. See `packaging/THIRD_PARTY_ARCHIVES.md` for their
 licenses.
@@ -153,12 +159,19 @@ unpacked folder to add NoIntrovert to the app menu with its icon
 
 Needs the .NET 10 SDK and the native libraries built:
 
-- libchdman (`native/libchdman`, see its README) with its native library in
-  `native/libchdman/artifacts/native/win-x64`, `win-arm64`, `osx` or
+- lib-chd-kit (`native/lib-chd-kit`, see its README) with its native library in
+  `native/lib-chd-kit/artifacts/native/win-x64`, `win-arm64`, `osx` or
   `linux-x64` (see `Directory.Build.props`). On Linux, copy its
-  `build/libchdman.so` (with `cp -L`, as it is a symlink) there.
-- the archive engine and libdolphinrvz into `native/out/<platform>` (see
-  "Archive engine" above and `native/libdolphinrvz/README.md`).
+  `build/libchdkit.so` (with `cp -L`, as it is a symlink) there.
+- lib-wii-gamecube-kit, the GameCube/Wii library. It is its own repository
+  ([Nickel42/lib-wii-gamecube-kit](https://github.com/Nickel42/lib-wii-gamecube-kit)),
+  checked out as a git submodule in `native/lib-wii-gamecube-kit`: run
+  `git submodule update --init` after cloning, then its build script
+  (`scriptsuild-win.cmd x64`, `scripts/build-mac.sh` or
+  `scripts/build-linux.sh`), which puts the native library in its
+  `artifacts/native/<platform>`.
+- lib-7z-zip-kit, the archive engine, also a submodule (`native/lib-7z-zip-kit`),
+  with its native build in its `artifacts/native/<platform>` (see "Archive engine" above).
 
 ```
 dotnet run --project NoIntrovert
@@ -181,10 +194,10 @@ Settings live in `%AppData%\NoIntrovert\settings.json` (macOS and Linux:
 
 `NoIntrovert.Tests` is a self-checking console program. It reads discs from
 `..\test-roms` (never writing there), builds a sample of every input format in
-a scratch folder, converts each through the app's own code and libchdman, and
+a scratch folder, converts each through the app's own code and lib-chd-kit, and
 checks the CHD's data SHA-1 against a CHD made from the original. It also
 checks verify, extract, cancel, overwrite and delete-originals behaviour, and
-compares output with `native\libchdman\build-x64\Release\chdman-upstream.exe` when
+compares output with `native\lib-chd-kit\build-x64\Release\chdman-upstream.exe` when
 that exists.
 
 ```
@@ -208,8 +221,8 @@ NoIntrovert is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 3 or (at your option) any
 later version, as published by the Free Software Foundation. See `LICENSE`.
 
-The bundled libraries keep their own licenses (all GPL-compatible): libchdman
-is BSD-3-Clause, 7-Zip (built without RAR) LGPL-2.1+, bit7z MPL-2.0. See
-`packaging/THIRD_PARTY_ARCHIVES.md` and libchdman's `THIRD_PARTY_NOTICES.md`.
+The bundled libraries keep their own licenses (all GPL-compatible): lib-chd-kit
+is BSD-3-Clause, lib-7z-zip-kit MIT, 7-Zip (built without RAR) LGPL-2.1+, bit7z MPL-2.0. See
+`packaging/THIRD_PARTY_ARCHIVES.md` and lib-chd-kit's `THIRD_PARTY_NOTICES.md`.
 RAR archives aren't supported, because 7-Zip's RAR decoder is under the unRAR
 license restriction, which the GPL doesn't allow.

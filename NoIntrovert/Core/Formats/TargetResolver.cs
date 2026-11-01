@@ -143,7 +143,7 @@ public static class TargetResolver
                 ? Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (unsupported Wii U input)")
                 : Plan(id, TargetStatus.Convert, choice, "Convert → .wua", alternatives);
 
-        // WBFS and CISO don't record the disc's exact size, which libdolphinrvz needs (see Future.md).
+        // WBFS and CISO don't record the disc's exact size, which lib-wii-gamecube-kit needs (see Future.md).
         if (ext is ".wbfs" or ".ciso")
             return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, $"Left as is ({ext} can't be converted yet)");
 

@@ -42,11 +42,11 @@
                         <TextBlock Text="GENERAL" Classes="section" Margin="0,0,0,4" />
                         <CheckBox Content="Power-user mode" IsChecked="{Binding PowerUserMode}" />
                         <TextBlock Classes="hint" TextWrapping="Wrap"
-                                   Text="Shows Expert options (hunk size, threads, temp folder, block sizes), libchdman's own log messages and the Library tests tab." />
+                                   Text="Shows Expert options (hunk size, threads, temp folder, block sizes), lib-chd-kit's own log messages and the Library tests tab." />
                         <StackPanel Spacing="4" IsVisible="{Binding PowerUserMode}">
                             <TextBlock Text="EXPERT" Classes="section" />
-                            <CheckBox Content="Log libchdman's messages" IsChecked="{Binding VerboseLog}"
-                                      ToolTip.Tip="Every message libchdman sends, shown as debug lines." />
+                            <CheckBox Content="Log lib-chd-kit's messages" IsChecked="{Binding VerboseLog}"
+                                      ToolTip.Tip="Every message lib-chd-kit sends, shown as debug lines." />
                             <CheckBox Content="Log progress every 10%" IsChecked="{Binding LogProgress}" />
                         </StackPanel>
                     </StackPanel>
@@ -276,7 +276,7 @@
                     <TextBlock Text="DIAGNOSTICS" Classes="section" Margin="0,0,0,4" />
                     <TextBlock Classes="hint" Text="{Binding LibraryVersions}" TextWrapping="Wrap" />
                     <TextBlock Classes="hint" TextWrapping="Wrap" Margin="0,0,0,6"
-                               Text="The Library tests page (in the rail) compares libchdman with chdman and round-trips discs." />
+                               Text="The Library tests page (in the rail) compares lib-chd-kit with chdman and round-trips discs." />
                     <TextBlock Text="chdman executable (for the Library tests' comparison)" TextWrapping="Wrap" />
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                         <TextBox Text="{Binding ChdmanExePath}" PlaceholderText="Path to chdman" />

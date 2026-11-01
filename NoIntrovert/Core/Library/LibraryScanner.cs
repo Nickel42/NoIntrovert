@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using LibChdman;
+using LibChdKit;
 using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.WiiU;
 

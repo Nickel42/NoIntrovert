@@ -74,7 +74,7 @@ public static class ArchiveJobs
 
         c.Log.Info($"Compressing {Describe(inputs)} → {Path.GetFileName(output)} ({FormatName(s.Archives.Format)}, {level})");
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        using var engine = new ArchiveEngine();
+        using var engine = new SevenZipEngine();
         c.Report.SetStage(level == ArchiveLevel.Store ? "Storing" : "Compressing");
         engine.Compress(s.Archives.Format, level, s.Performance.ThreadsPerJob, s.Archives.Solid, inputs, output,
             contentsOnly: false, c.Report.SetProgress, c.Token);
@@ -149,7 +149,7 @@ public static class ArchiveJobs
         Directory.CreateDirectory(s.Performance.EffectiveTempFolder);
         using var work = new WorkDirectory(s.Performance.EffectiveTempFolder);
         var contents = Path.Combine(work.Path, "contents");
-        using var engine = new ArchiveEngine();
+        using var engine = new SevenZipEngine();
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
         c.Log.Info($"Converting {Path.GetFileName(archive)} → {Path.GetFileName(output)}");
@@ -189,7 +189,7 @@ public static class ArchiveJobs
         using var work = new WorkDirectory(s.Performance.EffectiveTempFolder);
         var contents = Path.Combine(work.Path, "contents");
         var packed = Path.Combine(work.Path, Path.GetFileName(archive));
-        using var engine = new ArchiveEngine();
+        using var engine = new SevenZipEngine();
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
         c.Log.Info($"Recompressing {Path.GetFileName(archive)} ({FormatName(format)}, {s.Archives.Level})");
@@ -251,7 +251,7 @@ public static class ArchiveJobs
         c.Log.Info($"Extracting {Path.GetFileName(archive)} → {destination}");
         try
         {
-            using (var engine = new ArchiveEngine())
+            using (var engine = new SevenZipEngine())
             {
                 c.Report.SetStage("Extracting");
                 engine.Extract(archive, staging, c.Report.SetProgress, c.Token);
@@ -331,7 +331,7 @@ public static class ArchiveJobs
     }
 
     /// <summary>Tests a new archive (always, when originals are to be removed), then removes them.</summary>
-    private static JobOutcome AfterWrite(JobContext c, ArchiveEngine engine, string output, IReadOnlyList<string> originals,
+    private static JobOutcome AfterWrite(JobContext c, SevenZipEngine engine, string output, IReadOnlyList<string> originals,
         long inputBytes, TimeSpan elapsed)
     {
         var s = c.Settings;
