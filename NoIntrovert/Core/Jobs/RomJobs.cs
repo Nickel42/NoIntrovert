@@ -25,9 +25,14 @@ public static class RomJobs
         if (fixedExt is null) return ArchiveJobs.CompressOne(c, [rom], archiveName, outputFolder);
 
         var member = Path.GetFileNameWithoutExtension(rom) + fixedExt;
-        var removeOriginal = s.Output.RemoveArchiveOriginals;
+        var removeOriginal = s.Output.ReplacesOriginals;
+        // The archive's name, " (2)" when taken, worked out here so the hashes below find it.
+        var wanted = Path.Combine(outputFolder, archiveName + ArchiveJobs.Extension(s.Archives.Format));
+        archiveName = Path.GetFileNameWithoutExtension(OutputPaths.Available(wanted, s.Output.Overwrite));
         var keep = s.Clone();
-        keep.Output.RemoveArchiveOriginals = false; // the original goes only once the archive of its fixed copy tests OK
+        // The original goes only once the archive of its fixed copy tests OK, below.
+        if (removeOriginal) keep.Output.SaveTo = SaveTo.NextToOriginals;
+        keep.Archives.TestAfter |= removeOriginal;
         var inner = c.WithSettings(keep);
         JobOutcome outcome;
         string? archive = null;
@@ -85,7 +90,11 @@ public static class RomJobs
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
         if (roms.Count == 0) return JobOutcome.Skipped("No game files inside");
         var keep = s.Clone();
-        keep.Output.RemoveArchiveOriginals = false;
+        if (keep.Output.ReplacesOriginals)
+        {
+            keep.Output.SaveTo = SaveTo.NextToOriginals; // the ROMs are temporary copies; the archive goes below,
+            keep.Archives.TestAfter = true;              // once every new archive tests OK
+        }
         int done = 0, failed = 0;
         for (var i = 0; i < roms.Count; i++)
         {
@@ -94,7 +103,7 @@ public static class RomJobs
             if (o.Status is JobStatus.Succeeded or JobStatus.Warning) done++; else failed++;
         }
         c.Log.Info($"{Path.GetFileName(archive)}: split into {done} archive(s)");
-        if (failed == 0 && s.Output.RemoveArchiveOriginals) FileRemover.Remove([archive], s.Output.UseRecycleBin, c.Log);
+        if (failed == 0 && s.Output.ReplacesOriginals) FileRemover.Remove([archive], s.Output.UseRecycleBin, c.Log);
         return new JobOutcome(failed > 0 ? JobStatus.Failed : JobStatus.Succeeded, $"{done} game(s)" + (failed > 0 ? $", {failed} failed" : ""));
     }
 
@@ -133,16 +142,21 @@ public static class RomJobs
         var hiddenName = string.IsNullOrWhiteSpace(s.TargetFormats.MultiDiscFolder) ? "hidden" : s.TargetFormats.MultiDiscFolder.Trim();
         var hidden = Path.Combine(folder, hiddenName);
         Directory.CreateDirectory(hidden);
-        var into = s.Clone();
-        into.Output.Folder = hidden;
         var lines = new List<string>();
         var failed = 0;
         for (var i = 0; i < discs.Count; i++)
         {
             var sub = new ArchiveJobs.SubReport(c.Report, (double)i / discs.Count, 1.0 / discs.Count, $"Disc {i + 1}/{discs.Count}: ");
-            var o = ChdJobs.Convert(new JobContext(c.Chdman, into, c.Log, sub, c.Token, c.RvzSource), discs[i]);
-            if (o.Status is not (JobStatus.Succeeded or JobStatus.Warning or JobStatus.Skipped)) failed++;
             var made = Path.GetFileNameWithoutExtension(discs[i]) + extension;
+            // A disc already in the hidden folder (an earlier run) is listed as it is, not converted again as " (2)".
+            if (File.Exists(Path.Combine(hidden, made)) && !s.Output.Overwrite)
+            {
+                c.Log.Info($"  {hiddenName}/{made} is already there; kept");
+                lines.Add($"{hiddenName}/{made}");
+                continue;
+            }
+            var o = ChdJobs.Convert(new JobContext(c.Chdman, s, c.Log, sub, c.Token, c.RvzSource), discs[i], hidden);
+            if (o.Status is not (JobStatus.Succeeded or JobStatus.Warning or JobStatus.Skipped)) failed++;
             if (File.Exists(Path.Combine(hidden, made))) lines.Add($"{hiddenName}/{made}");
         }
         if (lines.Count > 0)

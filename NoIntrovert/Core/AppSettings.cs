@@ -73,9 +73,14 @@ public sealed class AppSettings
                 return migrated;
             }
             var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
-            // Before presets: pick the preset each action's values already equal, or Custom, so nothing changes.
-            if (JsonNode.Parse(json) is JsonObject loaded && !loaded.ContainsKey(nameof(Presets)))
-                settings.Presets = Core.Presets.ActionPresets.Infer(settings);
+            if (JsonNode.Parse(json) is JsonObject loaded)
+            {
+                // Before presets: pick the preset each action's values already equal, or Custom, so nothing changes.
+                if (!loaded.ContainsKey(nameof(Presets)))
+                    settings.Presets = Core.Presets.ActionPresets.Infer(settings);
+                // Before Save to: the old "remove originals" switches and presets, and the output folder.
+                OutputSettings.Migrate(loaded, settings);
+            }
             return settings;
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
@@ -114,9 +119,10 @@ public sealed class AppSettings
         },
         Output = new()
         {
-            Folder = v.OutputFolder, Overwrite = v.Overwrite, ScanSubfolders = v.ScanSubfolders,
-            RemoveOriginals = v.DeleteOriginals, RemoveArchiveOriginals = v.ArchiveDeleteOriginals,
-            RemoveWiiUOriginals = v.WiiUDeleteOriginals, UseRecycleBin = v.UseRecycleBin,
+            Folder = v.OutputFolder, Overwrite = v.Overwrite, ScanSubfolders = v.ScanSubfolders, UseRecycleBin = v.UseRecycleBin,
+            SaveTo = v.DeleteOriginals || v.ArchiveDeleteOriginals || v.WiiUDeleteOriginals ? SaveTo.ReplaceOriginals
+                : string.IsNullOrWhiteSpace(v.OutputFolder) ? SaveTo.NextToOriginals : SaveTo.Folder,
+            ReplaceConfirmed = v.DeleteOriginals || v.ArchiveDeleteOriginals || v.WiiUDeleteOriginals,
         },
         Performance = new() { ParallelJobs = v.ParallelJobs, ThreadsPerJob = v.ThreadsPerJob, TempFolder = v.TempFolder },
         Chd = new()
@@ -189,19 +195,46 @@ public sealed class OutputSettings
     public bool ReplaceConfirmed { get; set; }
 
     public string Folder { get; set; } = ""; // the folder for SaveTo.Folder; the last one used
+
+    /// <summary>Replace a file that's in the way; off, a taken name gets " (2)" (see <see cref="Jobs.OutputPaths.Available"/>).</summary>
     public bool Overwrite { get; set; }
     public bool ScanSubfolders { get; set; } = true;
 
-    /// <summary>Disc images, after their CHD or RVZ verifies.</summary>
-    public bool RemoveOriginals { get; set; }
-
-    /// <summary>The Archive tab's inputs, after the archive tests OK (or the archive, after it extracts).</summary>
-    public bool RemoveArchiveOriginals { get; set; }
-
-    /// <summary>The Wii U tab's inputs, after the .wua verifies.</summary>
-    public bool RemoveWiiUOriginals { get; set; }
-
     public bool UseRecycleBin { get; set; } = true;
+
+    /// <summary>Where jobs write: <see cref="Folder"/> when Save to is Folder (and one is chosen), otherwise null for each source's own folder.</summary>
+    [JsonIgnore] public string? TargetFolder => SaveTo == SaveTo.Folder && !string.IsNullOrWhiteSpace(Folder) ? Folder : null;
+
+    /// <summary>Whether jobs remove each original once its new file verifies (or its archive tests OK).</summary>
+    [JsonIgnore] public bool ReplacesOriginals => SaveTo == SaveTo.ReplaceOriginals;
+
+    /// <summary>
+    /// A settings file from before Save to: "Remove the originals" (any of the
+    /// three switches, or a "Replace the originals" preset) becomes Replace the
+    /// originals, already confirmed, and a chosen output folder becomes Folder.
+    /// Those presets go back to each action's preferred one.
+    /// </summary>
+    internal static void Migrate(JsonObject root, AppSettings settings)
+    {
+        if (root[nameof(AppSettings.Output)] is JsonObject output && output.ContainsKey(nameof(SaveTo))) return;
+        var removed = root[nameof(AppSettings.Output)] is JsonObject o &&
+                      LegacyRemoveSwitches.Any(k => o[k] is JsonValue v && v.TryGetValue<bool>(out var on) && on);
+        foreach (var (action, id) in LegacyReplacePresets)
+            if (settings.Presets.Chosen.TryGetValue(action, out var chosen) && chosen == id)
+            {
+                settings.Presets.Chosen.Remove(action);
+                removed = true;
+            }
+        settings.Output.SaveTo = removed ? SaveTo.ReplaceOriginals : !string.IsNullOrWhiteSpace(settings.Output.Folder) ? SaveTo.Folder : SaveTo.NextToOriginals;
+        if (removed) settings.Output.ReplaceConfirmed = true;
+    }
+
+    /// <summary>The old Output switches that removed originals.</summary>
+    internal static readonly string[] LegacyRemoveSwitches = ["RemoveOriginals", "RemoveArchiveOriginals", "RemoveWiiUOriginals"];
+
+    /// <summary>The old presets that removed originals, by action.</summary>
+    internal static readonly (string Action, string Id)[] LegacyReplacePresets =
+        [("Chd", "replace"), ("Rvz", "replace"), ("Wua", "replace"), ("Archive", "replace"), ("Unpack", "remove")];
 }
 
 /// <summary>How much of the machine the queue uses.</summary>

@@ -122,13 +122,53 @@ public delegate JobOutcome JobWork(JobContext context);
 
 public static class OutputPaths
 {
-    /// <summary>The folder results for <paramref name="source"/> go in: the chosen output folder, or the source's own.</summary>
+    /// <summary>The folder results for <paramref name="source"/> go in: the Save to folder, or the source's own.</summary>
     public static string FolderFor(AppSettings settings, string source)
     {
-        var folder = string.IsNullOrWhiteSpace(settings.Output.Folder) ? Path.GetDirectoryName(source)! : settings.Output.Folder;
+        var folder = settings.Output.TargetFolder ?? Path.GetDirectoryName(source)!;
         Directory.CreateDirectory(folder);
         return folder;
     }
+
+    /// <summary>
+    /// The path to write <paramref name="path"/> to: itself when nothing is
+    /// there or <paramref name="overwrite"/> is on, otherwise the first free
+    /// "name (2).ext", "name (3).ext"… A folder's name is numbered whole
+    /// (<paramref name="isFolder"/>), since dots in it aren't an extension.
+    /// </summary>
+    public static string Available(string path, bool overwrite, bool isFolder = false)
+    {
+        if (overwrite || !Taken(path)) return path;
+        var folder = Path.GetDirectoryName(path) ?? "";
+        var name = isFolder ? Path.GetFileName(path) : Path.GetFileNameWithoutExtension(path);
+        var ext = isFolder ? "" : Path.GetExtension(path);
+        for (var i = 2; ; i++)
+        {
+            var candidate = Path.Combine(folder, $"{name} ({i}){ext}");
+            if (!Taken(candidate)) return candidate;
+        }
+    }
+
+    /// <summary>
+    /// The name (no extension) to write several files under, such as a cue and
+    /// its bins: <paramref name="name"/> when none of <paramref name="extensions"/>
+    /// is taken under it in <paramref name="folder"/> (or <paramref name="overwrite"/>
+    /// is on), otherwise "name (2)", "name (3)"…
+    /// </summary>
+    public static string AvailableName(string folder, string name, IReadOnlyList<string> extensions, bool overwrite)
+    {
+        bool Free(string n) => !extensions.Any(e => Taken(Path.Combine(folder, n + e)))
+                               && !(Directory.Exists(folder) && Directory.EnumerateFiles(folder, n + " (Track *").Any());
+        if (overwrite || Free(name)) return name;
+        for (var i = 2; ; i++)
+            if (Free($"{name} ({i})")) return $"{name} ({i})";
+    }
+
+    private static bool Taken(string path) => File.Exists(path) || Directory.Exists(path);
+
+    /// <summary>How a log line names a result that got a number because its name was taken.</summary>
+    public static string Renamed(string wanted, string actual) =>
+        $"  {Path.GetFileName(wanted)} already exists, so this one is {Path.GetFileName(actual)}";
 
     public static string Describe(Exception ex) => ex switch
     {

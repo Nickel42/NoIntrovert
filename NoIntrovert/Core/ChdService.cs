@@ -61,13 +61,13 @@ internal static class ChdService
         _ => requested,
     };
 
-    /// <summary>Extracts a CHD and returns the files written.</summary>
+    /// <summary>Extracts a CHD and returns the files written, named <paramref name="outputName"/> (by default the CHD's own name).</summary>
     public static (List<string> Files, OperationStats Stats) Extract(Chdman chdman, string chdPath, string outputDirectory,
-        ExtractFormat requested, bool splitBin, bool overwrite, ILog log, CancellationToken token)
+        ExtractFormat requested, bool splitBin, bool overwrite, ILog log, CancellationToken token, string? outputName = null)
     {
         var info = chdman.Info(chdPath, cancellationToken: token);
         var format = ResolveFormat(info, requested);
-        var name = Path.GetFileNameWithoutExtension(chdPath);
+        var name = outputName ?? Path.GetFileNameWithoutExtension(chdPath);
         var sw = Stopwatch.StartNew();
         var files = new List<string>();
 

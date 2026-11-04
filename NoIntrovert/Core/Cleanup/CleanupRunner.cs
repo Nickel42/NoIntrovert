@@ -129,7 +129,7 @@ public sealed class CleanupRunner
             // Whatever the presets say: verified or tested, originals kept (the run moves them to its trash itself).
             static void Safe(AppSettings x)
             {
-                x.Output.RemoveOriginals = x.Output.RemoveArchiveOriginals = x.Output.RemoveWiiUOriginals = false;
+                x.Output.SaveTo = SaveTo.Folder; // the staging folder, and never Replace the originals
                 x.Chd.VerifyAfterCreate = true;
                 x.Archives.TestAfter = true;
             }

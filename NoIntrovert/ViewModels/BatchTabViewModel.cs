@@ -34,73 +34,112 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             _summary.Request();
             _visible.Request();
         };
-        settings.Output.PropertyChanged += (_, _) => RefreshRunOptions();
+        settings.Output.PropertyChanged += (_, _) => RefreshSaveTo();
         _progressTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(400), DispatcherPriority.Background, (_, _) => RefreshProgress());
     }
 
-    // ---- This run: the Output defaults from Settings, optionally overridden for this tab's runs ----
+    // ---- Save to: the run bar's choice of where results go, starting from the Settings default ----
 
-    private string? _runFolder;
-    private bool? _runOverwrite;
+    private SaveTo? _runSaveTo;
 
     /// <summary>Asks the window to show the Settings page (set by the main view model).</summary>
     public Action? OpenSettingsRequested { get; set; }
 
-    public string RunFolderText => _runFolder ?? Settings.Output.FolderText;
-    public bool HasRunOverrides => _runFolder is not null || _runOverwrite is not null;
-
-    public string RunOptionsNote => HasRunOverrides
-        ? "Changed for this tab's runs only; the defaults in Settings are untouched."
-        : "The defaults from Settings.";
-
-    /// <summary>Overwrite for this tab's runs: the Settings default until it's changed here.</summary>
-    public bool RunOverwrite
-    {
-        get => _runOverwrite ?? Settings.Output.Overwrite;
-        set
-        {
-            _runOverwrite = value == Settings.Output.Overwrite ? null : value;
-            RefreshRunOptions();
-        }
-    }
-
-    [RelayCommand]
-    private async Task ChooseRunFolder()
-    {
-        var folder = await Dialogs.PickFolderAsync($"Where {Title} results go (this tab only)");
-        if (folder is null) return;
-        _runFolder = folder;
-        RefreshRunOptions();
-    }
-
-    [RelayCommand]
-    private void ResetRunOptions()
-    {
-        _runFolder = null;
-        _runOverwrite = null;
-        RefreshRunOptions();
-    }
-
     [RelayCommand]
     private void OpenSettings() => OpenSettingsRequested?.Invoke();
 
-    private void RefreshRunOptions()
+    /// <summary>
+    /// Asks the user to confirm Replace the originals the first time it's
+    /// chosen (set by the run bar's view). Without it, Replace can't be chosen
+    /// until it has been confirmed once.
+    /// </summary>
+    public Func<Task<bool>>? ConfirmReplace { get; set; }
+
+    /// <summary>Whether this page writes new files, so its run bar shows Save to (Convert does; Verify and Tests don't).</summary>
+    public virtual bool ShowsSaveTo => false;
+
+    /// <summary>This page's Save to choice: the Settings default until it's changed in the run bar.</summary>
+    public SaveTo RunSaveTo => _runSaveTo ?? Settings.Output.SaveTo;
+
+    // The three radio buttons. A button that's unchecked writes false, which changes nothing.
+    public bool SaveNextToOriginals { get => RunSaveTo == SaveTo.NextToOriginals; set { if (value) _ = ChooseSaveToAsync(SaveTo.NextToOriginals); } }
+    public bool SaveInFolder { get => RunSaveTo == SaveTo.Folder; set { if (value) _ = ChooseSaveToAsync(SaveTo.Folder); } }
+    public bool SaveReplacingOriginals { get => RunSaveTo == SaveTo.ReplaceOriginals; set { if (value) _ = ChooseSaveToAsync(SaveTo.ReplaceOriginals); } }
+
+    /// <summary>The last folder used for Save to, or a hint when there isn't one yet.</summary>
+    public string SaveFolderText => string.IsNullOrWhiteSpace(Settings.Output.Folder) ? "none chosen yet" : Settings.Output.Folder;
+
+    /// <summary>
+    /// Makes <paramref name="choice"/> this page's Save to, after what it needs:
+    /// a folder for Folder, and the one-time confirmation for Replace. When
+    /// that's refused, the run bar goes back to the previous choice.
+    /// </summary>
+    public async Task ChooseSaveToAsync(SaveTo choice)
     {
-        OnPropertyChanged(nameof(RunFolderText));
-        OnPropertyChanged(nameof(RunOverwrite));
-        OnPropertyChanged(nameof(HasRunOverrides));
-        OnPropertyChanged(nameof(RunOptionsNote));
+        if (choice == RunSaveTo) return;
+        var ok = choice switch
+        {
+            SaveTo.Folder => !string.IsNullOrWhiteSpace(Settings.Output.Folder) || await PickSaveFolderAsync(),
+            SaveTo.ReplaceOriginals => Settings.Output.ReplaceConfirmed || await ConfirmReplaceOnceAsync(),
+            _ => true,
+        };
+        if (ok) _runSaveTo = choice == Settings.Output.SaveTo ? null : choice;
+        RefreshSaveTo();
+        // The radio button the user clicked has already checked itself; undo that after the click is done.
+        if (!ok) Dispatcher.UIThread.Post(RefreshSaveTo);
     }
+
+    private async Task<bool> ConfirmReplaceOnceAsync()
+    {
+        if (ConfirmReplace is null || !await ConfirmReplace()) return false;
+        Settings.Output.ReplaceConfirmed = true;
+        return true;
+    }
+
+    /// <summary>Change… beside Folder: picks the folder (remembered as the last one used) and chooses Folder.</summary>
+    [RelayCommand]
+    private async Task ChangeSaveFolder()
+    {
+        if (await PickSaveFolderAsync()) await ChooseSaveToAsync(SaveTo.Folder);
+    }
+
+    private async Task<bool> PickSaveFolderAsync()
+    {
+        var folder = await Dialogs.PickFolderAsync($"Where {Title} saves its results");
+        if (folder is null) return false;
+        Settings.Output.Folder = folder;
+        return true;
+    }
+
+    private void RefreshSaveTo()
+    {
+        OnPropertyChanged(nameof(RunSaveTo));
+        OnPropertyChanged(nameof(SaveNextToOriginals));
+        OnPropertyChanged(nameof(SaveInFolder));
+        OnPropertyChanged(nameof(SaveReplacingOriginals));
+        OnPropertyChanged(nameof(SaveFolderText));
+    }
+
+    /// <summary>The run log's description of a Save to choice.</summary>
+    public static string DescribeSaveTo(OutputSettings output) => output.SaveTo switch
+    {
+        SaveTo.Folder when output.TargetFolder is { } folder => $"saving to {folder}",
+        SaveTo.ReplaceOriginals => "saving next to the originals and replacing them: each original is " +
+                                   (output.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently") +
+                                   " once its new file verifies",
+        _ => "saving next to the originals",
+    } + (output.Overwrite ? ", overwriting files in the way" : "");
 
     /// <summary>The action whose preset this tab's runs use, when there's one for the whole tab (Verify).</summary>
     protected virtual Core.Presets.PresetAction? RunPreset => null;
 
-    /// <summary>The settings a run uses: the saved ones, with this tab's preset and overrides on top.</summary>
+    /// <summary>The settings a run uses: the saved ones, with this tab's preset and Save to choice on top.</summary>
     protected AppSettings RunSettings()
     {
         var snapshot = RunPreset is { } action ? Core.Presets.ActionPresets.Effective(Settings.Snapshot(), action) : Settings.Snapshot();
-        if (_runFolder is not null) snapshot.Output.Folder = _runFolder;
-        if (_runOverwrite is { } overwrite) snapshot.Output.Overwrite = overwrite;
+        // A page without Save to never removes originals, and Folder without a folder is next to the originals.
+        snapshot.Output.SaveTo = ShowsSaveTo ? RunSaveTo : SaveTo.NextToOriginals;
+        if (snapshot.Output.SaveTo == SaveTo.Folder && snapshot.Output.TargetFolder is null) snapshot.Output.SaveTo = SaveTo.NextToOriginals;
         return snapshot;
     }
 
@@ -359,8 +398,8 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         if (!BeforeStart(pending)) return;
 
         var snapshot = RunSettings();
-        if (HasRunOverrides)
-            Log.Info($"{Title}: for this run, saving to {(string.IsNullOrWhiteSpace(snapshot.Output.Folder) ? "each source's folder" : snapshot.Output.Folder)}, overwrite {(snapshot.Output.Overwrite ? "on" : "off")}");
+        if (ShowsSaveTo)
+            Log.Info($"{Title}: for this run, {DescribeSaveTo(snapshot.Output)}");
         foreach (var item in pending) item.Reset();
         IsRunning = true;
         OverallProgress = 0;

@@ -47,6 +47,7 @@ public partial class ConvertViewModel : BatchTabViewModel
     public override string Title => "Convert";
     public override string StartLabel => "Convert";
     public override bool ShowsTargets => true;
+    public override bool ShowsSaveTo => true;
 
     public override string EmptyHint =>
         "Drop disc images, GameCube/Wii and Wii U games, or archives here — or any files and folders to pack into 7z or zip.\n" +
