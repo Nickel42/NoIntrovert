@@ -26,19 +26,38 @@ public sealed partial class DefaultPresetsViewModel : SettingsSectionViewModel
     public PresetSettings Current => S.Presets;
 
     /// <summary>One dropdown per system that has a choice, most common first.</summary>
-    [ObservableProperty] public partial IReadOnlyList<SystemDefaultViewModel> Systems { get; private set; } = [];
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(VisibleSystems), nameof(HasMoreSystems), nameof(MoreSystemsText))]
+    public partial IReadOnlyList<SystemDefaultViewModel> Systems { get; private set; } = [];
+
+    /// <summary>How many systems the card shows until Show more is clicked.</summary>
+    public const int FirstSystems = 6;
+
+    /// <summary>Whether every system is shown, not just the first <see cref="FirstSystems"/>.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(VisibleSystems), nameof(MoreSystemsText))]
+    public partial bool ShowsAllSystems { get; set; }
+
+    /// <summary>The systems on the card: the most common ones, or all of them.</summary>
+    public IReadOnlyList<SystemDefaultViewModel> VisibleSystems => ShowsAllSystems ? Systems : Systems.Take(FirstSystems).ToList();
+
+    public bool HasMoreSystems => Systems.Count > FirstSystems;
+
+    /// <summary>"Show 9 more systems" or "Show fewer systems".</summary>
+    public string MoreSystemsText => ShowsAllSystems ? "Show fewer systems"
+        : Systems.Count - FirstSystems == 1 ? "Show 1 more system" : $"Show {Systems.Count - FirstSystems} more systems";
+
+    [RelayCommand]
+    private void ToggleAllSystems() => ShowsAllSystems = !ShowsAllSystems;
 
     public ObservableCollection<SavedPresetItemViewModel> Saved { get; } = [];
 
     public bool HasSaved => Saved.Count > 0;
 
-    /// <summary>"No saved presets yet." or "2 saved presets".</summary>
-    public string SavedSummary => Saved.Count switch
-    {
-        0 => "None yet. Save one from Custom on the Convert page.",
-        1 => "1 saved preset",
-        var n => $"{n} saved presets",
-    };
+    /// <summary>"1 saved: My CHD · Zstandard", or how to save one when there are none.</summary>
+    public string SavedSummary => Saved.Count == 0
+        ? "None yet. Save one from Custom on the Convert page."
+        : $"{Saved.Count} saved: {string.Join(", ", Saved.Select(p => p.Name))}";
 
     /// <summary>Whether the saved presets are shown for renaming and deleting.</summary>
     [ObservableProperty] public partial bool IsManaging { get; set; }
@@ -98,6 +117,7 @@ public sealed partial class DefaultPresetsViewModel : SettingsSectionViewModel
     {
         name = name.Trim();
         if (name.Length == 0 || !Change(_ => preset.Name = name)) return;
+        OnPropertyChanged(nameof(SavedSummary));
         RebuildSystems();
         Changed?.Invoke();
     }
