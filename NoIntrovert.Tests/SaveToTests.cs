@@ -18,15 +18,21 @@ internal static class SaveToTests
         test("Save to: settings from before it keep their behaviour", () =>
         {
             // Each case: the Output section (and presets) of an old file, and the Save to it loads as.
+            // Replace is never confirmed by a migration: the first run asks.
             var cases = new (string What, string Output, string? Presets, SaveTo Expect, bool Confirmed)[]
             {
                 ("nothing removed", """{ "Folder": "", "RemoveOriginals": false }""", null, SaveTo.NextToOriginals, false),
                 ("an output folder", """{ "Folder": "D:\\Out" }""", null, SaveTo.Folder, false),
-                ("disc originals removed", """{ "Folder": "D:\\Out", "RemoveOriginals": true }""", null, SaveTo.ReplaceOriginals, true),
-                ("archive originals removed", """{ "RemoveArchiveOriginals": true }""", null, SaveTo.ReplaceOriginals, true),
-                ("Wii U originals removed", """{ "RemoveWiiUOriginals": true }""", null, SaveTo.ReplaceOriginals, true),
-                ("a Replace preset", """{ }""", """{ "Chosen": { "Chd": "replace", "Rvz": "smallest" } }""", SaveTo.ReplaceOriginals, true),
-                ("Unpack and remove", """{ }""", """{ "Chosen": { "Unpack": "remove" } }""", SaveTo.ReplaceOriginals, true),
+                // Before presets, the switches always counted.
+                ("disc originals removed", """{ "Folder": "D:\\Out", "RemoveOriginals": true }""", null, SaveTo.ReplaceOriginals, false),
+                ("archive originals removed", """{ "RemoveArchiveOriginals": true }""", null, SaveTo.ReplaceOriginals, false),
+                ("Wii U originals removed", """{ "RemoveWiiUOriginals": true }""", null, SaveTo.ReplaceOriginals, false),
+                ("a Replace preset", """{ }""", """{ "Chosen": { "Chd": "replace", "Rvz": "smallest" } }""", SaveTo.ReplaceOriginals, false),
+                ("Unpack and remove", """{ }""", """{ "Chosen": { "Unpack": "remove" } }""", SaveTo.ReplaceOriginals, false),
+                // With presets, a switch counted only under its action's Custom: a stale one left from Custom did nothing.
+                ("a stale switch under Standard", """{ "RemoveOriginals": true, "RemoveArchiveOriginals": true }""", """{ "Chosen": { "Rvz": "smallest" } }""", SaveTo.NextToOriginals, false),
+                ("a stale switch, another action on Custom", """{ "Folder": "D:\\Out", "RemoveOriginals": true }""", """{ "Chosen": { "Archive": "custom" } }""", SaveTo.Folder, false),
+                ("Custom with its switch on", """{ "RemoveArchiveOriginals": true }""", """{ "Chosen": { "Archive": "custom" } }""", SaveTo.ReplaceOriginals, false),
                 // A file that already has Save to is left as it is, whatever its folder.
                 ("already has Save to", """{ "SaveTo": "NextToOriginals", "Folder": "D:\\Out" }""", null, SaveTo.NextToOriginals, false),
             };
@@ -43,7 +49,7 @@ internal static class SaveToTests
                     var s = AppSettings.Load();
                     if (s.Output.SaveTo != expect || s.Output.ReplaceConfirmed != confirmed)
                         return $"{what}: loaded as {s.Output.SaveTo}, confirmed {s.Output.ReplaceConfirmed}";
-                    if (presets is not null)
+                    if (presets is not null && presets.Contains("replace") || presets?.Contains("remove") == true)
                     {
                         if (!ActionPresets.Selected(s, PresetAction.Chd).IsPreferred || !ActionPresets.Selected(s, PresetAction.Unpack).IsPreferred)
                             return $"{what}: the removed preset wasn't replaced by the preferred one";

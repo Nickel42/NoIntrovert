@@ -45,7 +45,12 @@ public static class ArchiveJobs
         if (inputs.Any(i => Path.GetFullPath(i).Equals(Path.GetFullPath(output), StringComparison.OrdinalIgnoreCase)))
             return JobOutcome.Failed($"{Path.GetFileName(output)} would overwrite one of its own inputs.");
         if (output != wanted) c.Log.Info(OutputPaths.Renamed(wanted, output));
-        if (File.Exists(output)) File.Delete(output); // Overwrite is on
+        if (File.Exists(output))
+        {
+            // Available only gives a taken name when Overwrite is on; otherwise something else made it meanwhile.
+            if (!s.Output.Overwrite) return JobOutcome.Failed($"{Path.GetFileName(output)} appeared while this job was starting; nothing was overwritten.");
+            File.Delete(output);
+        }
 
         var inputBytes = inputs.Sum(SizeOf);
 
@@ -132,7 +137,12 @@ public static class ArchiveJobs
         var wanted = Path.Combine(outputFolder, Path.GetFileNameWithoutExtension(archive) + Extension(target));
         var output = OutputPaths.Available(wanted, s.Output.Overwrite);
         if (output != wanted) c.Log.Info(OutputPaths.Renamed(wanted, output));
-        if (File.Exists(output)) File.Delete(output); // Overwrite is on
+        if (File.Exists(output))
+        {
+            // Available only gives a taken name when Overwrite is on; otherwise something else made it meanwhile.
+            if (!s.Output.Overwrite) return JobOutcome.Failed($"{Path.GetFileName(output)} appeared while this job was starting; nothing was overwritten.");
+            File.Delete(output);
+        }
 
         Directory.CreateDirectory(s.Performance.EffectiveTempFolder);
         using var work = new WorkDirectory(s.Performance.EffectiveTempFolder);

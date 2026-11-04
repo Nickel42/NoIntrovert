@@ -171,8 +171,10 @@ public partial class ConvertViewModel : BatchTabViewModel
 
     protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
     {
-        // Each row runs with its own preset's values (its Custom values when it's on Custom).
-        var rows = pending.Select(i => new PlanInput(i.Path, i.Target?.Kind ?? TargetKind.Leave, i.SizeBytes, i.Values)).ToList();
+        // Each row runs with its own preset's values (its Custom values when it's on Custom). Whether new files are
+        // checked is Settings' choice, except in Custom and saved presets, which carry the user's own.
+        var rows = pending.Select(i => new PlanInput(i.Path, i.Target?.Kind ?? TargetKind.Leave, i.SizeBytes, i.Values,
+            OwnChecks: i.Preset is { IsCustom: true } or { IsSaved: true })).ToList();
         _plan = ConvertPlanner.Plan(rows, RunSettings(), Log);
         if (_plan.Error is { } error)
         {

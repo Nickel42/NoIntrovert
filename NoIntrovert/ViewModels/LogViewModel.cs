@@ -51,6 +51,9 @@ public partial class LogViewModel : ViewModelBase, ILog
         ShowDebug = settings.General.VerboseLog;
         IsExpanded = settings.General.LogExpanded;
         SessionLogFile.DeleteOld(AppSettings.LogDirectory, settings.General.KeepLogsDays, DateTime.Now);
+        // Logs from before they moved to the settings folder get the same rule, so they don't stay forever.
+        if (SessionLogFile.LegacyDirectory is { } legacy)
+            SessionLogFile.DeleteOld(legacy, settings.General.KeepLogsDays, DateTime.Now, SessionLogFile.LegacyPattern);
         _file = SessionLogFile.Start(AppSettings.LogDirectory, DateTime.Now);
 
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
@@ -152,6 +155,19 @@ public partial class LogViewModel : ViewModelBase, ILog
 internal sealed class SessionLogFile
 {
     private const string Prefix = "NoIntrovert-";
+
+    /// <summary>Older versions' session logs: session-yyyyMMdd-HHmmss.log in <see cref="LegacyDirectory"/>.</summary>
+    public const string LegacyPattern = "session-*.log";
+
+    /// <summary>
+    /// Where older versions saved session logs (%LocalAppData%\NoIntrovert\logs),
+    /// or null when the settings folder is moved (tests, a portable copy), so
+    /// those never touch the user's own files.
+    /// </summary>
+    public static string? LegacyDirectory =>
+        AppSettings.SettingsDirectoryOverride is null && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NOINTROVERT_SETTINGS_DIR"))
+            ? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NoIntrovert", "logs")
+            : null;
     private readonly StreamWriter _writer;
 
     private SessionLogFile(string path, StreamWriter writer)
@@ -194,16 +210,17 @@ internal sealed class SessionLogFile
     /// <summary>
     /// Deletes session logs last written more than <paramref name="keepDays"/>
     /// days before <paramref name="now"/>; 0 or less keeps them all. Only files
-    /// named like a session log are touched. Returns how many were deleted.
+    /// named like a session log (<paramref name="pattern"/>, by default this
+    /// version's names) are touched. Returns how many were deleted.
     /// </summary>
-    public static int DeleteOld(string directory, int keepDays, DateTime now)
+    public static int DeleteOld(string directory, int keepDays, DateTime now, string pattern = Prefix + "*.log")
     {
         if (keepDays <= 0 || !Directory.Exists(directory)) return 0;
         var cutoff = now - TimeSpan.FromDays(keepDays);
         var deleted = 0;
         try
         {
-            foreach (var file in Directory.EnumerateFiles(directory, Prefix + "*.log"))
+            foreach (var file in Directory.EnumerateFiles(directory, pattern))
             {
                 try
                 {

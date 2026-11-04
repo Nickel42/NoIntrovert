@@ -404,6 +404,8 @@ public static class FormatPresets
                     if (!match.Recommended) p.DefaultBySystem[system.Id] = match.Id;
                     continue;
                 }
+                // One saved preset per set of values: reuse one already there (a migration run before), never add a twin.
+                saved ??= p.Saved.FirstOrDefault(x => x.System.Length == 0 && Same(x.Values, values));
                 if (saved is null)
                 {
                     saved = new SavedPreset { Name = $"My {FormatOf(kind)} settings", Values = values };

@@ -434,6 +434,12 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             Log.Warn(Items.Count == 0 ? $"{Title}: add some files first." : $"{Title}: everything in the list is already done. Clear it or add more files.");
             return;
         }
+        // Replace the originals can arrive as the default without having been confirmed (a migrated settings file): ask now.
+        if (ShowsSaveTo && RunSaveTo == SaveTo.ReplaceOriginals && !Settings.Output.ReplaceConfirmed && !await ConfirmReplaceOnceAsync())
+        {
+            Log.Warn($"{Title}: not started. Replace the originals wasn't confirmed; choose where to save in the run bar.");
+            return;
+        }
         if (!BeforeStart(pending)) return;
 
         var snapshot = RunSettings();

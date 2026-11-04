@@ -135,17 +135,23 @@ public static class OutputPaths
     /// there or <paramref name="overwrite"/> is on, otherwise the first free
     /// "name (2).ext", "name (3).ext"… A folder's name is numbered whole
     /// (<paramref name="isFolder"/>), since dots in it aren't an extension.
+    /// Inside a running job (<see cref="WithClaims{T}"/>) the name is claimed
+    /// until the job ends, so a job running alongside never gets the same one,
+    /// even with Overwrite on.
     /// </summary>
     public static string Available(string path, bool overwrite, bool isFolder = false)
     {
-        if (overwrite || !Taken(path)) return path;
-        var folder = Path.GetDirectoryName(path) ?? "";
-        var name = isFolder ? Path.GetFileName(path) : Path.GetFileNameWithoutExtension(path);
-        var ext = isFolder ? "" : Path.GetExtension(path);
-        for (var i = 2; ; i++)
+        lock (ClaimsGate)
         {
-            var candidate = Path.Combine(folder, $"{name} ({i}){ext}");
-            if (!Taken(candidate)) return candidate;
+            if ((overwrite || !Taken(path)) && !ClaimedByAnother(path)) return Claim(path);
+            var folder = Path.GetDirectoryName(path) ?? "";
+            var name = isFolder ? Path.GetFileName(path) : Path.GetFileNameWithoutExtension(path);
+            var ext = isFolder ? "" : Path.GetExtension(path);
+            for (var i = 2; ; i++)
+            {
+                var candidate = Path.Combine(folder, $"{name} ({i}){ext}");
+                if (!Taken(candidate) && !ClaimedByAnother(candidate)) return Claim(candidate);
+            }
         }
     }
 
@@ -153,18 +159,63 @@ public static class OutputPaths
     /// The name (no extension) to write several files under, such as a cue and
     /// its bins: <paramref name="name"/> when none of <paramref name="extensions"/>
     /// is taken under it in <paramref name="folder"/> (or <paramref name="overwrite"/>
-    /// is on), otherwise "name (2)", "name (3)"…
+    /// is on), otherwise "name (2)", "name (3)"… Claimed like <see cref="Available"/>.
     /// </summary>
     public static string AvailableName(string folder, string name, IReadOnlyList<string> extensions, bool overwrite)
     {
+        bool Claimed(string n) => extensions.Any(e => ClaimedByAnother(Path.Combine(folder, n + e)));
         bool Free(string n) => !extensions.Any(e => Taken(Path.Combine(folder, n + e)))
                                && !(Directory.Exists(folder) && Directory.EnumerateFiles(folder, n + " (Track *").Any());
-        if (overwrite || Free(name)) return name;
-        for (var i = 2; ; i++)
-            if (Free($"{name} ({i})")) return $"{name} ({i})";
+        string ClaimAll(string n)
+        {
+            foreach (var e in extensions) Claim(Path.Combine(folder, n + e));
+            return n;
+        }
+        lock (ClaimsGate)
+        {
+            if ((overwrite || Free(name)) && !Claimed(name)) return ClaimAll(name);
+            for (var i = 2; ; i++)
+                if (Free($"{name} ({i})") && !Claimed($"{name} ({i})")) return ClaimAll($"{name} ({i})");
+        }
     }
 
     private static bool Taken(string path) => File.Exists(path) || Directory.Exists(path);
+
+    // ---- Names claimed by running jobs, so parallel jobs that map to the same name don't both pick it ----
+
+    private static readonly object ClaimsGate = new();
+    private static readonly Dictionary<string, object> Claims = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly AsyncLocal<object?> Owner = new();
+
+    /// <summary>
+    /// Runs one job's <paramref name="work"/> as the owner of the output names
+    /// it picks; they're released when it returns or throws (by then a result
+    /// exists, so its name is taken anyway, or it failed and the name is free).
+    /// </summary>
+    public static T WithClaims<T>(Func<T> work)
+    {
+        var previous = Owner.Value;
+        var owner = new object();
+        Owner.Value = owner;
+        try { return work(); }
+        finally
+        {
+            Owner.Value = previous;
+            lock (ClaimsGate)
+                foreach (var key in Claims.Where(kv => kv.Value == owner).Select(kv => kv.Key).ToList())
+                    Claims.Remove(key);
+        }
+    }
+
+    private static bool ClaimedByAnother(string path) =>
+        Claims.TryGetValue(Path.GetFullPath(path), out var owner) && owner != Owner.Value;
+
+    /// <summary>Claims <paramref name="path"/> for the running job; outside a job nothing is claimed.</summary>
+    private static string Claim(string path)
+    {
+        if (Owner.Value is { } owner) Claims[Path.GetFullPath(path)] = owner;
+        return path;
+    }
 
     /// <summary>How a log line names a result that got a number because its name was taken.</summary>
     public static string Renamed(string wanted, string actual) =>

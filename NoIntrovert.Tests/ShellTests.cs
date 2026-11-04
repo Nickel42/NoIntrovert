@@ -70,6 +70,17 @@ internal static class ShellTests
             if (deleted != 1 || File.Exists(old)) return $"expected the 31-day-old log deleted, deleted {deleted}";
             if (!File.Exists(recent) || !File.Exists(other)) return "deleted a recent log or a file that isn't a session log";
 
+            // The old folder's session-*.log files get the same rule; nothing else there is touched.
+            var legacyOld = Path.Combine(dir, "session-20260901-120000.log");
+            var legacyRecent = Path.Combine(dir, "session-20261101-120000.log");
+            foreach (var f in new[] { legacyOld, legacyRecent }) File.WriteAllText(f, "x");
+            File.SetLastWriteTime(legacyOld, now.AddDays(-31));
+            File.SetLastWriteTime(legacyRecent, now.AddDays(-3));
+            deleted = SessionLogFile.DeleteOld(dir, 30, now, SessionLogFile.LegacyPattern);
+            if (deleted != 1 || File.Exists(legacyOld) || !File.Exists(legacyRecent) || !File.Exists(other))
+                return $"old-style logs: deleted {deleted}, expected only the 31-day-old one";
+            if (SessionLogFile.LegacyDirectory is not null) return "the old log folder is pruned although the settings folder is moved (tests)";
+
             var file = SessionLogFile.Start(dir, now);
             if (file is null) return "couldn't start the session log";
             if (Path.GetFileName(file.Path) != "NoIntrovert-20261104-093015.log") return $"unexpected name {Path.GetFileName(file.Path)}";

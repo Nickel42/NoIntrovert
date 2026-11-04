@@ -76,14 +76,23 @@ public sealed class AppSettings
             var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
             if (JsonNode.Parse(json) is JsonObject loaded)
             {
+                var migrated = false;
                 // Before presets: pick the preset each action's values already equal, or Custom, so nothing changes.
                 if (!loaded.ContainsKey(nameof(Presets)))
+                {
                     settings.Presets = Core.Presets.ActionPresets.Infer(settings);
+                    migrated = true;
+                }
                 // Before Save to: the old "remove originals" switches and presets, and the output folder.
-                OutputSettings.Migrate(loaded, settings);
+                migrated |= OutputSettings.Migrate(loaded, settings);
                 // Before format presets: each action's chosen preset seeds the systems' defaults.
                 if (loaded[nameof(Presets)] is not JsonObject presets || !presets.ContainsKey(nameof(Core.Presets.PresetSettings.DefaultBySystem)))
+                {
                     Core.Presets.FormatPresets.Migrate(settings);
+                    migrated = true;
+                }
+                // Saved straight away, so a migration runs once rather than on every start.
+                if (migrated) settings.Save();
             }
             return settings;
         }
@@ -131,9 +140,9 @@ public sealed class AppSettings
         Output = new()
         {
             Folder = v.OutputFolder, Overwrite = v.Overwrite, ScanSubfolders = v.ScanSubfolders, UseRecycleBin = v.UseRecycleBin,
+            // Schema 1 had no presets, so a switch that was on removed originals. Replace stays, but is asked before its first run.
             SaveTo = v.DeleteOriginals || v.ArchiveDeleteOriginals || v.WiiUDeleteOriginals ? SaveTo.ReplaceOriginals
                 : string.IsNullOrWhiteSpace(v.OutputFolder) ? SaveTo.NextToOriginals : SaveTo.Folder,
-            ReplaceConfirmed = v.DeleteOriginals || v.ArchiveDeleteOriginals || v.WiiUDeleteOriginals,
         },
         Performance = new() { ParallelJobs = v.ParallelJobs, ThreadsPerJob = v.ThreadsPerJob, TempFolder = v.TempFolder },
         Chd = new()
@@ -220,32 +229,46 @@ public sealed class OutputSettings
     [JsonIgnore] public bool ReplacesOriginals => SaveTo == SaveTo.ReplaceOriginals;
 
     /// <summary>
-    /// A settings file from before Save to: "Remove the originals" (any of the
-    /// three switches, or a "Replace the originals" preset) becomes Replace the
-    /// originals, already confirmed, and a chosen output folder becomes Folder.
-    /// Those presets go back to each action's preferred one.
+    /// A settings file from before Save to: when the user really had originals
+    /// removed, Save to becomes Replace the originals, not yet confirmed (so the
+    /// first run asks); otherwise a chosen output folder becomes Folder.
+    /// "Really" means an action's chosen preset was a Replace one (Unpack's
+    /// "remove"), or it was Custom with that action's "Remove the originals"
+    /// switch on: every other preset wrote the switches off, so a switch left on
+    /// from Custom did nothing. Before presets the switches always counted.
+    /// The Replace presets go back to each action's preferred one.
     /// </summary>
-    internal static void Migrate(JsonObject root, AppSettings settings)
+    /// <returns>Whether anything was migrated (false for a file that already has Save to).</returns>
+    internal static bool Migrate(JsonObject root, AppSettings settings)
     {
-        if (root[nameof(AppSettings.Output)] is JsonObject output && output.ContainsKey(nameof(SaveTo))) return;
-        var removed = root[nameof(AppSettings.Output)] is JsonObject o &&
-                      LegacyRemoveSwitches.Any(k => o[k] is JsonValue v && v.TryGetValue<bool>(out var on) && on);
-        foreach (var (action, id) in LegacyReplacePresets)
-            if (settings.Presets.Chosen.TryGetValue(action, out var chosen) && chosen == id)
+        if (root[nameof(AppSettings.Output)] is JsonObject output && output.ContainsKey(nameof(SaveTo))) return false;
+        var o = root[nameof(AppSettings.Output)] as JsonObject;
+        bool On(string key) => o?[key] is JsonValue v && v.TryGetValue<bool>(out var on) && on;
+        var hadPresets = root.ContainsKey(nameof(AppSettings.Presets));
+        var removed = !hadPresets && LegacyRemoveSwitches.Any(On);
+        foreach (var (action, id, @switch) in LegacyReplacePresets)
+        {
+            if (!settings.Presets.Chosen.TryGetValue(action, out var chosen)) continue;
+            if (chosen == id)
             {
                 settings.Presets.Chosen.Remove(action);
                 removed = true;
             }
+            else if (chosen == Core.Presets.ActionPreset.CustomId && On(@switch)) removed = true;
+        }
         settings.Output.SaveTo = removed ? SaveTo.ReplaceOriginals : !string.IsNullOrWhiteSpace(settings.Output.Folder) ? SaveTo.Folder : SaveTo.NextToOriginals;
-        if (removed) settings.Output.ReplaceConfirmed = true;
+        return true;
     }
 
     /// <summary>The old Output switches that removed originals.</summary>
     internal static readonly string[] LegacyRemoveSwitches = ["RemoveOriginals", "RemoveArchiveOriginals", "RemoveWiiUOriginals"];
 
-    /// <summary>The old presets that removed originals, by action.</summary>
-    internal static readonly (string Action, string Id)[] LegacyReplacePresets =
-        [("Chd", "replace"), ("Rvz", "replace"), ("Wua", "replace"), ("Archive", "replace"), ("Unpack", "remove")];
+    /// <summary>The old presets that removed originals, by action, and the switch that action's Custom used.</summary>
+    internal static readonly (string Action, string Id, string Switch)[] LegacyReplacePresets =
+    [
+        ("Chd", "replace", "RemoveOriginals"), ("Rvz", "replace", "RemoveOriginals"), ("Wua", "replace", "RemoveWiiUOriginals"),
+        ("Archive", "replace", "RemoveArchiveOriginals"), ("Unpack", "remove", "RemoveArchiveOriginals"),
+    ];
 }
 
 /// <summary>How much of the machine the queue uses.</summary>

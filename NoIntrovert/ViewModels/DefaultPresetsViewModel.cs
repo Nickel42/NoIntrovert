@@ -83,6 +83,17 @@ public sealed partial class DefaultPresetsViewModel : SettingsSectionViewModel
         return saved!;
     }
 
+    /// <summary>
+    /// After emulator data is updated: forgets the cached "N of M" counts and
+    /// rebuilds the lists, so open rows and the side panel count again.
+    /// </summary>
+    public void EmulatorDataChanged()
+    {
+        FormatPresets.ForgetCounts();
+        RebuildSystems();
+        Changed?.Invoke();
+    }
+
     internal void Rename(SavedPreset preset, string name)
     {
         name = name.Trim();

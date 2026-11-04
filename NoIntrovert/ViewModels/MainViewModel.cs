@@ -171,7 +171,11 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             var result = await Task.Run(() => Core.Emulators.EmulatorCatalog.CheckNowAsync());
-            if (result.Updated) Log.Info($"Emulator data: updated ({result.Source}).");
+            if (result.Updated)
+            {
+                Log.Info($"Emulator data: updated ({result.Source}).");
+                Settings.DefaultPresets.EmulatorDataChanged(); // the "N of M" counts were worked out from the old data
+            }
             else if (result.Problem is null) Log.Info($"Emulator data: already up to date ({result.Source}).");
             if (result.Problem is { } problem) Log.Warn($"Emulator data: couldn't check for updates ({problem}); using the data already here.");
             Settings.Library.RefreshEmulatorDataStatus(result.Source, result.Problem);

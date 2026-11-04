@@ -737,7 +737,8 @@ Test("Settings: a schema-1 file is converted once, keeping a copy", () =>
         var checks = new (string What, bool Ok)[]
         {
             ("output folder", s.Output.Folder == @"D:\CHD"), ("overwrite", s.Output.Overwrite), ("subfolders", !s.Output.ScanSubfolders),
-            ("remove originals", s.Output.SaveTo == SaveTo.ReplaceOriginals && s.Output.ReplaceConfirmed), ("recycle bin", !s.Output.UseRecycleBin),
+            // Removal was on, so Replace stays, but it's asked before the first run (never confirmed by a migration).
+            ("remove originals", s.Output.SaveTo == SaveTo.ReplaceOriginals && !s.Output.ReplaceConfirmed), ("recycle bin", !s.Output.UseRecycleBin),
             ("compression", s.Chd.Compression == "cdzs,cdzl,cdfl"), ("ISO mode", s.Chd.IsoMode == IsoMode.Dvd), ("split bin", !s.Chd.SplitBin),
             ("Nintendo target", s.Nintendo.Target == NintendoTarget.Chd), ("RVZ compression", s.Nintendo.Compression == LibWiiGameCubeKit.RvzCompression.Lzma2),
             ("RVZ level", s.Nintendo.CompressionLevel == 9), ("archive action", s.Archives.Action == ArchiveAction.Extract),
@@ -906,6 +907,7 @@ Test("Presets: the view model saves a real choice only, and shows parameters onl
 
 SettingsPageTests.Run(Test, Dir);
 WiringTests.Run(Test, Dir);
+ReviewFixTests.Run(Test, Dir, log);
 FormatPresetTests.Run(Test, Dir, log);
 EmulatorTests.Run(Test);
 

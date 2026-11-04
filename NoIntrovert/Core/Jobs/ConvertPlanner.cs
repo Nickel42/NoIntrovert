@@ -9,8 +9,11 @@ namespace NoIntrovert.Core.Jobs;
 /// One row to convert: its path, what it becomes, its size (which weights
 /// progress) and its format preset's values. Without values a job uses its
 /// action's preset (<see cref="ActionPresets"/>), as Organize does.
+/// <paramref name="OwnChecks"/>: the values' Verify and Test settings are the
+/// user's own (Custom or a saved preset); otherwise Settings › "Check each file
+/// after converting" decides, as presets don't.
 /// </summary>
-public sealed record PlanInput(string Path, TargetKind Target, long Size = 0, PresetValues? Preset = null);
+public sealed record PlanInput(string Path, TargetKind Target, long Size = 0, PresetValues? Preset = null, bool OwnChecks = false);
 
 /// <summary>One queue job: the rows it covers (indexes into the inputs) and its work.</summary>
 public sealed record PlannedJob(string Name, IReadOnlyList<int> Rows, long Cost, JobWork Work);
@@ -37,7 +40,7 @@ public static class ConvertPlanner
         // A copy of the settings as row i's job runs with them, with one change on top for the row's choice.
         AppSettings With(AppSettings s, int i, Action<AppSettings>? change = null)
         {
-            var copy = SettingsFor(s, rows[i].Target, pin, rows[i].Preset);
+            var copy = SettingsFor(s, rows[i].Target, pin, rows[i].Preset, rows[i].OwnChecks);
             change?.Invoke(copy);
             return copy;
         }
@@ -202,7 +205,7 @@ public static class ConvertPlanner
         Func<AppSettings, int, Action<AppSettings>?, AppSettings> With)
     {
         if (packs.Count == 0) return null;
-        AppSettings RowSettings(int i) => SettingsFor(settings, rows[i].Target, pin, rows[i].Preset);
+        AppSettings RowSettings(int i) => SettingsFor(settings, rows[i].Target, pin, rows[i].Preset, rows[i].OwnChecks);
         foreach (var byFormat in packs.GroupBy(i => (rows[i].Target, Single: RowSettings(i).Archives.Grouping == ArchiveGrouping.Single)))
         {
             var format = byFormat.Key.Target == TargetKind.Zip ? ArchiveFormat.Zip : ArchiveFormat.SevenZip;
@@ -264,9 +267,13 @@ public static class ConvertPlanner
     /// A copy of <paramref name="settings"/> as a job making <paramref name="target"/>
     /// runs with them: the row's format preset <paramref name="preset"/> applied
     /// (or, without one, its action's preset), then <paramref name="pin"/>.
+    /// A preset doesn't decide whether new files are checked: that stays the
+    /// settings' own (Settings › "Check each file after converting") unless
+    /// <paramref name="ownChecks"/> says the values are the user's (Custom, a
+    /// saved preset). Replace the originals checks regardless (in the jobs).
     /// A copy, so a row's choice never leaks into the shared snapshot.
     /// </summary>
-    public static AppSettings SettingsFor(AppSettings settings, TargetKind target, Action<AppSettings>? pin = null, PresetValues? preset = null)
+    public static AppSettings SettingsFor(AppSettings settings, TargetKind target, Action<AppSettings>? pin = null, PresetValues? preset = null, bool ownChecks = false)
     {
         AppSettings copy;
         if (preset is not null)
@@ -275,6 +282,11 @@ public static class ConvertPlanner
             preset.ApplyTo(copy);
         }
         else copy = ActionPresets.ForTarget(target) is { } action ? ActionPresets.Effective(settings, action) : settings.Clone();
+        if (!ownChecks)
+        {
+            copy.Chd.VerifyAfterCreate = settings.Chd.VerifyAfterCreate;
+            copy.Archives.TestAfter = settings.Archives.TestAfter;
+        }
         pin?.Invoke(copy);
         return copy;
     }
