@@ -49,6 +49,9 @@
     <EmbeddedResource Include="Core/Formats/TargetFormats.json" LogicalName="NoIntrovert.TargetFormats.json" />
     <!-- ES-DE's system folders as of its latest release (Core/Esde, docs/requirements/cleanup-wizard.md). -->
     <EmbeddedResource Include="Core/Esde/es_systems.json" LogicalName="NoIntrovert.es_systems.json" />
+    <!-- The File section's hand-checked system facts and format paragraphs (Core/Systems, docs/requirements/ui-redesign.md). -->
+    <EmbeddedResource Include="Core/Systems/SystemFacts.json" LogicalName="NoIntrovert.SystemFacts.json" />
+    <EmbeddedResource Include="Core/Systems/SystemFormats.json" LogicalName="NoIntrovert.SystemFormats.json" />
   </ItemGroup>
 
   <Import Project="$(LibChdKitRoot)/bindings/csharp/ChdmanNativeCopy.targets" />

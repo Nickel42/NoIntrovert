@@ -3444,6 +3444,7 @@ Test("Round trip test job (cue/bin)", () =>
 });
 
 ShellTests.Run(Test, scratch);
+FileFactsTests.Run(Test, scratch);
 
 // ---- Full discs from test-roms ------------------------------------------------
 
