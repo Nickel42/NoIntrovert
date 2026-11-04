@@ -4,77 +4,124 @@
              x:Class="NoIntrovert.Views.PresetSettingsPanel"
              x:DataType="vm:PresetSettingsViewModel">
     <!--
-        Preset settings (Custom only): Target format first, then every setting
-        of that format, then Save as a preset. Warnings sit under the setting
-        that causes them.
+        Preset settings (Custom only): a note with Reset, Target format, then
+        every setting of that format, then Save as a preset. Warnings sit in
+        orange-bordered boxes under the setting that causes them.
     -->
-    <StackPanel Spacing="4">
-        <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Text="PRESET SETTINGS" Classes="section" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Classes="tool" Content="{Binding ResetLabel}" Command="{Binding ResetCommand}" IsVisible="{Binding CanReset}" />
-        </Grid>
-        <TextBlock Classes="hint" TextWrapping="Wrap" Text="Changes apply to this file. Use Apply to N selected to share them." />
+    <UserControl.Styles>
+        <!-- Reset: an outlined button in the note box -->
+        <Style Selector="Button.outline">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource OutlineButton}" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Foreground" Value="{DynamicResource PanelHeadText}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="12,7" />
+        </Style>
+        <Style Selector="StackPanel.field">
+            <Setter Property="Spacing" Value="6" />
+            <Setter Property="Margin" Value="0,10,0,0" />
+        </Style>
+    </UserControl.Styles>
 
-        <TextBlock Text="Target format" Margin="0,6,0,0" />
-        <ComboBox ItemsSource="{Binding Formats}" SelectedItem="{Binding SelectedFormat}" HorizontalAlignment="Stretch">
-            <ComboBox.Styles>
-                <Style Selector="ComboBoxItem" x:DataType="vm:FormatChoice">
-                    <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
-                </Style>
-            </ComboBox.Styles>
-        </ComboBox>
+    <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="Auto,*">
+            <TextBlock Text="PRESET SETTINGS" Classes="head" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="Editable · Custom" Classes="aside" FontSize="12" />
+        </Grid>
+
+        <!-- Where the changes go, and the way back to the preset Custom was copied from -->
+        <Border Background="{DynamicResource PanelTile}" CornerRadius="8" Padding="12,10" Margin="0,6,0,0">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <TextBlock Text="{Binding Note}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="outline" Command="{Binding ResetCommand}" IsVisible="{Binding CanReset}"
+                        VerticalAlignment="Center" MaxWidth="150" ToolTip.Tip="{Binding ResetLabel}">
+                    <TextBlock Text="{Binding ResetLabel}" TextWrapping="Wrap" TextAlignment="Center" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <StackPanel Classes="field">
+            <Grid ColumnDefinitions="Auto,*">
+                <TextBlock Text="Target format" Classes="label" />
+                <TextBlock Grid.Column="1" Text="Any format for this system" Classes="aside" />
+            </Grid>
+            <ComboBox ItemsSource="{Binding Formats}" SelectedItem="{Binding SelectedFormat}" HorizontalAlignment="Stretch">
+                <ComboBox.Styles>
+                    <Style Selector="ComboBoxItem" x:DataType="vm:FormatChoice">
+                        <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
+                    </Style>
+                </ComboBox.Styles>
+            </ComboBox>
+        </StackPanel>
 
         <!-- CHD -->
-        <StackPanel Spacing="4" IsVisible="{Binding IsChd}" Margin="0,4,0,0">
-            <TextBlock Text="Compression" />
-            <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.CompressionChoices}"
-                      SelectedItem="{Binding Chd.SelectedCompression}" HorizontalAlignment="Stretch" />
-            <TextBox Text="{Binding Chd.CustomCompression}" PlaceholderText="e.g. cdzs,cdzl,cdfl (up to four codecs)"
-                     IsVisible="{Binding Chd.IsCustomCompression}" />
-            <TextBlock Classes="hint" TextWrapping="Wrap" IsVisible="{Binding UsesZstandard}"
-                       Text="{x:Static vm:PresetSettingsViewModel.ZstandardNote}" />
-            <TextBlock Text="ISO images" Margin="0,4,0,0" />
-            <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.IsoModes}"
-                      SelectedItem="{Binding Chd.SelectedIsoMode}" HorizontalAlignment="Stretch" />
-            <TextBlock Text="Hunk size" Margin="0,4,0,0" />
-            <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.HunkSizes}"
-                      SelectedItem="{Binding Chd.SelectedHunkSize}" HorizontalAlignment="Stretch" />
-            <Border BorderBrush="#F5A524" BorderThickness="1" CornerRadius="4" Padding="8,6">
-                <TextBlock TextWrapping="Wrap" FontSize="12" Text="{x:Static vm:PresetSettingsViewModel.HunkWarning}" />
-            </Border>
-            <CheckBox Content="Verify each CHD after it's written" IsChecked="{Binding Chd.VerifyAfterCreate}" />
+        <StackPanel IsVisible="{Binding IsChd}">
+            <StackPanel Classes="field">
+                <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Text="Compression" Classes="label" />
+                    <TextBlock Grid.Column="1" Text="{Binding CodecsText}" Classes="aside"
+                               ToolTip.Tip="The CHD codecs this setting uses" />
+                </Grid>
+                <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.CompressionChoices}"
+                          SelectedItem="{Binding Chd.SelectedCompression}" HorizontalAlignment="Stretch" />
+                <TextBox Text="{Binding Chd.CustomCompression}" PlaceholderText="e.g. cdzs,cdzl,cdfl (up to four codecs)"
+                         IsVisible="{Binding Chd.IsCustomCompression}" />
+                <Border Classes="warning" IsVisible="{Binding UsesZstandard}">
+                    <TextBlock Text="{x:Static vm:PresetSettingsViewModel.ZstandardNote}" />
+                </Border>
+            </StackPanel>
+            <StackPanel Classes="field">
+                <TextBlock Text="ISO images" Classes="label" />
+                <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.IsoModes}"
+                          SelectedItem="{Binding Chd.SelectedIsoMode}" HorizontalAlignment="Stretch" />
+            </StackPanel>
+            <StackPanel Classes="field">
+                <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Text="Hunk size" Classes="label" />
+                    <TextBlock Grid.Column="1" Text="Custom only" Classes="aside" />
+                </Grid>
+                <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.HunkSizes}"
+                          SelectedItem="{Binding Chd.SelectedHunkSize}" HorizontalAlignment="Stretch" />
+                <Border Classes="warning">
+                    <TextBlock Text="{x:Static vm:PresetSettingsViewModel.HunkWarning}" />
+                </Border>
+            </StackPanel>
+            <CheckBox Content="Verify each CHD after it is written" IsChecked="{Binding Chd.VerifyAfterCreate}" Margin="0,10,0,0" />
         </StackPanel>
 
         <!-- RVZ -->
-        <StackPanel Spacing="4" IsVisible="{Binding IsRvz}" Margin="0,4,0,0">
-            <TextBlock Text="Compression" />
+        <StackPanel Classes="field" IsVisible="{Binding IsRvz}">
+            <TextBlock Text="Compression" Classes="label" />
             <ComboBox ItemsSource="{x:Static vm:NintendoSettingsViewModel.Compressions}"
                       SelectedItem="{Binding Nintendo.SelectedCompression}" HorizontalAlignment="Stretch" />
             <Grid ColumnDefinitions="*,110" IsEnabled="{Binding Nintendo.HasLevel}">
-                <TextBlock Text="Level" VerticalAlignment="Center" />
+                <TextBlock Text="Level" Classes="label" />
                 <NumericUpDown Grid.Column="1" Value="{Binding Nintendo.CompressionLevel}"
                                Minimum="{Binding Nintendo.LevelMinimum}" Maximum="{Binding Nintendo.LevelMaximum}"
                                Increment="1" FormatString="0" />
             </Grid>
             <Grid ColumnDefinitions="*,140">
-                <TextBlock Text="Block size" VerticalAlignment="Center" />
+                <TextBlock Text="Block size" Classes="label" />
                 <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:NintendoSettingsViewModel.BlockSizes}"
                           SelectedItem="{Binding Nintendo.SelectedBlockSize}" HorizontalAlignment="Stretch" />
             </Grid>
             <CheckBox Content="Scrub unused data" IsChecked="{Binding Nintendo.Scrub}" />
-            <TextBlock Classes="hint" TextWrapping="Wrap" IsVisible="{Binding Nintendo.Scrub}"
-                       Text="{x:Static vm:PresetSettingsViewModel.ScrubWarning}" />
-            <CheckBox Content="Verify each RVZ after it's written" IsChecked="{Binding Chd.VerifyAfterCreate}" />
+            <Border Classes="warning" IsVisible="{Binding Nintendo.Scrub}">
+                <TextBlock Text="{x:Static vm:PresetSettingsViewModel.ScrubWarning}" />
+            </Border>
+            <CheckBox Content="Verify each RVZ after it is written" IsChecked="{Binding Chd.VerifyAfterCreate}" />
         </StackPanel>
 
         <!-- 7z and zip -->
-        <StackPanel Spacing="4" IsVisible="{Binding IsArchive}" Margin="0,4,0,0">
-            <TextBlock Text="Compression" />
+        <StackPanel Classes="field" IsVisible="{Binding IsArchive}">
+            <TextBlock Text="Compression" Classes="label" />
             <ComboBox ItemsSource="{x:Static vm:ArchiveSettingsViewModel.Levels}"
                       SelectedItem="{Binding Archives.SelectedLevel}" HorizontalAlignment="Stretch" />
             <CheckBox Content="Solid archive (smaller, slower to open one file)" IsChecked="{Binding Archives.Solid}" IsVisible="{Binding IsSevenZip}" />
             <CheckBox Content="Test each new archive" IsChecked="{Binding Archives.TestAfter}" />
-            <TextBlock Text="Archives to make when packing" Margin="0,4,0,0" />
+            <TextBlock Text="Archives to make when packing" Classes="label" Margin="0,6,0,0" />
             <ComboBox ItemsSource="{x:Static vm:ArchiveSettingsViewModel.Groupings}"
                       SelectedItem="{Binding Archives.SelectedGrouping}" HorizontalAlignment="Stretch" />
             <TextBox Text="{Binding Archives.SingleName}" PlaceholderText="Name of the combined archive"
@@ -82,27 +129,33 @@
         </StackPanel>
 
         <!-- CHD → disc image -->
-        <StackPanel Spacing="4" IsVisible="{Binding IsExtract}" Margin="0,4,0,0">
-            <TextBlock Text="Extract to" />
+        <StackPanel Classes="field" IsVisible="{Binding IsExtract}">
+            <TextBlock Text="Extract to" Classes="label" />
             <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.ExtractFormats}"
                       SelectedItem="{Binding Chd.SelectedExtractFormat}" HorizontalAlignment="Stretch" />
             <CheckBox Content="One .bin per track (cue/bin)" IsChecked="{Binding Chd.SplitBin}" />
         </StackPanel>
 
         <!-- Unpacking -->
-        <StackPanel Spacing="4" IsVisible="{Binding IsUnpack}" Margin="0,4,0,0">
+        <StackPanel Classes="field" IsVisible="{Binding IsUnpack}">
             <CheckBox Content="Unpack each archive into its own folder" IsChecked="{Binding Archives.ExtractToOwnFolder}" />
         </StackPanel>
 
-        <TextBlock Classes="hint" Text="Nothing to set for this format." IsVisible="{Binding HasNothingToSet}" Margin="0,4,0,0" />
+        <TextBlock Classes="hint" Text="Nothing to set for this format." IsVisible="{Binding HasNothingToSet}" Margin="0,10,0,0" />
 
-        <!-- Save as a preset (optional) -->
-        <TextBlock Text="Save as a preset" Margin="0,10,0,0" />
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-            <TextBox Text="{Binding SaveName}" PlaceholderText="Name it, e.g. My CHD · Zstandard" />
-            <Button Grid.Column="1" Classes="tool" Content="Save preset" Command="{Binding SavePresetCommand}" />
-        </Grid>
-        <TextBlock Classes="hint" FontSize="11" TextWrapping="Wrap"
-                   Text="Optional. Saved presets appear in every file's Preset list for this system." />
+        <!-- Save as a preset (optional): the name box with Save preset inside it -->
+        <StackPanel Classes="field" Margin="0,14,0,0">
+            <Grid ColumnDefinitions="Auto,*">
+                <TextBlock Text="Save as a preset" Classes="label" />
+                <TextBlock Grid.Column="1" Text="Optional · reuse it on other files" Classes="aside" FontWeight="SemiBold"
+                           ToolTip.Tip="Saved presets appear in every file's Preset list for this system." />
+            </Grid>
+            <TextBox Text="{Binding SaveName}" PlaceholderText="Name it, e.g. &quot;My CHD · Zstandard&quot;" MinHeight="40"
+                     VerticalContentAlignment="Center">
+                <TextBox.InnerRightContent>
+                    <Button Classes="tool" Content="Save preset" Command="{Binding SavePresetCommand}" Margin="4" />
+                </TextBox.InnerRightContent>
+            </TextBox>
+        </StackPanel>
     </StackPanel>
 </UserControl>

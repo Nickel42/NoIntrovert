@@ -120,9 +120,28 @@ public sealed partial class SidePanelViewModel : ViewModelBase
         HasRow = row is not null && row.HasPresets;
         CanChoose = focused is not null && focused.HasPresets;
         var count = row?.PresetOptions.Count(i => i.IsPreset && !i.Preset!.IsLeave) ?? 0;
-        PresetCount = row is null ? "" : $"{count} presets for {(row.SystemId is null ? "this file" : Core.Systems.SystemFacts.ForOrFallback(row.SystemId).Short)}";
+        PresetCount = row is null ? "" : PresetCountText(count, row.SystemId);
         RefreshPreset();
     }
+
+    /// <summary>"6 presets for PlayStation discs", "4 presets for Game Boy cartridges", "3 presets for this file".</summary>
+    public static string PresetCountText(int count, string? systemId)
+    {
+        var what = count == 1 ? "1 preset" : $"{count} presets";
+        if (systemId is null) return $"{what} for this file";
+        var facts = Core.Systems.SystemFacts.ForOrFallback(systemId);
+        return $"{what} for {facts.Short}{MediaNoun(facts.Media)}";
+    }
+
+    /// <summary>" discs" for CD, DVD, GD-ROM, UMD and Blu-ray systems, " cartridges" for cartridges, otherwise nothing.</summary>
+    private static string MediaNoun(string? media) => media switch
+    {
+        null => "",
+        _ when media.Contains("Cartridge", StringComparison.OrdinalIgnoreCase) => " cartridges",
+        _ when media.Contains("disc", StringComparison.OrdinalIgnoreCase) && !media.Contains("Floppy", StringComparison.OrdinalIgnoreCase)
+               || media is "CD-ROM" or "DVD" or "Mini DVD" or "GD-ROM" or "UMD" or "Blu-ray" => " discs",
+        _ => "",
+    };
 
     private void Watch(JobItemViewModel? row)
     {
@@ -187,6 +206,7 @@ public sealed partial class SidePanelViewModel : ViewModelBase
         {
             CanApply = false;
             ApplyLabel = ApplyHint = "";
+            Custom?.SetApplyLabel(null);
             return;
         }
         var preset = focused!.Preset!;
@@ -199,5 +219,6 @@ public sealed partial class SidePanelViewModel : ViewModelBase
             : different == others.Count ? $"The other {others.Count} selected rows use a different preset."
             : $"{different} of the other {others.Count} selected rows use a different preset.";
         CanApply = different > 0;
+        Custom?.SetApplyLabel(ApplyLabel);
     }
 }

@@ -6,12 +6,90 @@
              x:Class="NoIntrovert.Views.ConvertView"
              x:DataType="vm:ConvertViewModel"
              v:Responsive.Below="compact:1250,narrow:1000,tight:860">
+    <UserControl.Resources>
+        <!-- The side panel's own colours (the Penpot design); neutrals come from the app theme. -->
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="PanelHeadText" Color="#B4B5DA" />
+                    <SolidColorBrush x:Key="PanelGroupText" Color="#8D8CA6" />
+                    <SolidColorBrush x:Key="PanelTile" Color="#2E2E40" />
+                    <SolidColorBrush x:Key="PanelTileBorder" Color="#3B3C58" />
+                    <SolidColorBrush x:Key="TagGeneration" Color="#3B3C58" />
+                    <SolidColorBrush x:Key="TagMedia" Color="#5A5272" />
+                    <SolidColorBrush x:Key="TagText" Color="#E2E1F0" />
+                    <SolidColorBrush x:Key="WarningFill" Color="#3A2A22" />
+                    <SolidColorBrush x:Key="WarningText" Color="#FFD2B3" />
+                    <SolidColorBrush x:Key="OutlineButton" Color="#9C9DC8" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="PanelHeadText" Color="#55568A" />
+                    <SolidColorBrush x:Key="PanelGroupText" Color="#6E6D88" />
+                    <SolidColorBrush x:Key="PanelTile" Color="#F1F1F8" />
+                    <SolidColorBrush x:Key="PanelTileBorder" Color="#D9D9EA" />
+                    <SolidColorBrush x:Key="TagGeneration" Color="#E3E3F2" />
+                    <SolidColorBrush x:Key="TagMedia" Color="#E9E0F2" />
+                    <SolidColorBrush x:Key="TagText" Color="#2B2B3D" />
+                    <SolidColorBrush x:Key="WarningFill" Color="#FFF1E6" />
+                    <SolidColorBrush x:Key="WarningText" Color="#7A3A10" />
+                    <SolidColorBrush x:Key="OutlineButton" Color="#7C7EA6" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
     <UserControl.Styles>
         <!-- The side panel: 440 px on a wide page, down to 280 px on the smallest window -->
         <Style Selector="Border.sidepanel"><Setter Property="Width" Value="440" /></Style>
         <Style Selector="v|ConvertView.compact Border.sidepanel"><Setter Property="Width" Value="360" /></Style>
         <Style Selector="v|ConvertView.narrow Border.sidepanel"><Setter Property="Width" Value="320" /></Style>
         <Style Selector="v|ConvertView.tight Border.sidepanel"><Setter Property="Width" Value="280" /></Style>
+
+        <!-- The panel's text: section heads ("PRESET"), the note at their right ("For this file"), field labels -->
+        <Style Selector="Border.sidepanel TextBlock.head">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource PanelHeadText}" />
+        </Style>
+        <Style Selector="Border.sidepanel TextBlock.group">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource PanelGroupText}" />
+        </Style>
+        <Style Selector="Border.sidepanel TextBlock.aside">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="Margin" Value="8,0,0,0" />
+        </Style>
+        <Style Selector="Border.sidepanel TextBlock.label">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.sidepanel Border.divider">
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Background" Value="{DynamicResource PanelBorder}" />
+            <Setter Property="Margin" Value="0,14" />
+        </Style>
+        <Style Selector="Border.sidepanel ComboBox">
+            <Setter Property="MinHeight" Value="40" />
+        </Style>
+        <!-- A setting's warning: an orange-bordered box under it -->
+        <Style Selector="Border.sidepanel Border.warning">
+            <Setter Property="Background" Value="{DynamicResource WarningFill}" />
+            <Setter Property="BorderBrush" Value="#FF8C42" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,4,0,2" />
+        </Style>
+        <Style Selector="Border.sidepanel Border.warning > TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource WarningText}" />
+        </Style>
     </UserControl.Styles>
     <!--
         One page for every conversion. Each row in the list has its own preset
@@ -24,28 +102,26 @@
 
         <Border Grid.Column="1" Classes="card sidepanel" Padding="0">
             <ScrollViewer DataContext="{Binding Panel}" x:DataType="vm:SidePanelViewModel" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Spacing="6" Margin="14,12">
+                <StackPanel Spacing="6" Margin="20,18">
 
                     <!-- File -->
-                    <Grid ColumnDefinitions="Auto,*">
-                        <TextBlock Text="SELECTED FILE" Classes="section" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="{Binding Header}" Classes="hint" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"
-                                   HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Header}" />
+                    <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,8">
+                        <TextBlock Text="SELECTED FILE" Classes="head" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding Header}" Classes="aside" FontSize="12" ToolTip.Tip="{Binding Header}" />
                     </Grid>
                     <v:FileFacts DataContext="{Binding File}" />
 
                     <!-- Preset -->
-                    <Border Height="1" Background="{DynamicResource PanelBorder}" Margin="0,8,0,4" />
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="PRESET" Classes="section" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="For this file" Classes="hint" FontSize="11" VerticalAlignment="Center"
-                                   IsVisible="{Binding CanChoose}" />
+                    <Border Classes="divider" />
+                    <Grid ColumnDefinitions="Auto,*">
+                        <TextBlock Text="PRESET" Classes="head" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="For this file" Classes="aside" FontSize="12" IsVisible="{Binding CanChoose}" />
                     </Grid>
                     <TextBlock Classes="hint" Text="Add files to choose how they're converted." IsVisible="{Binding !HasRow}" />
                     <StackPanel Spacing="6" IsVisible="{Binding HasRow}">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="Preset (format + settings)" VerticalAlignment="Center" TextWrapping="Wrap" />
-                            <TextBlock Grid.Column="1" Text="{Binding PresetCount}" Classes="hint" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0" />
+                        <Grid ColumnDefinitions="Auto,*" Margin="0,4,0,0">
+                            <TextBlock Text="Preset (format + settings)" Classes="label" />
+                            <TextBlock Grid.Column="1" Text="{Binding PresetCount}" Classes="aside" ToolTip.Tip="{Binding PresetCount}" />
                         </Grid>
                         <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" IsEnabled="{Binding CanChoose}"
                                   HorizontalAlignment="Stretch" MaxDropDownHeight="520">
@@ -61,32 +137,33 @@
                             </ComboBox.ItemTemplate>
                             <ComboBox.SelectionBoxItemTemplate>
                                 <DataTemplate x:DataType="presets:PresetListItem">
-                                    <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                 </DataTemplate>
                             </ComboBox.SelectionBoxItemTemplate>
                         </ComboBox>
                         <TextBlock Classes="hint" FontSize="11" Text="Select a row to change its preset." IsVisible="{Binding !CanChoose}" />
 
-                        <!-- Apply to N selected -->
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding ShowsApply}">
-                            <TextBlock Text="{Binding ApplyHint}" Classes="hint" TextWrapping="Wrap" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Classes="tool" Content="{Binding ApplyLabel}" Command="{Binding ApplyToSelectedCommand}" />
+                        <!-- Apply to N selected: the hint and the button side by side -->
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding ShowsApply}" Margin="0,4,0,0">
+                            <TextBlock Text="{Binding ApplyHint}" Classes="hint" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Classes="tool" Content="{Binding ApplyLabel}" Command="{Binding ApplyToSelectedCommand}"
+                                    VerticalAlignment="Center" />
                         </Grid>
 
                         <!-- Works with: the focused row's system and this preset's output -->
-                        <v:WorksWithList DataContext="{Binding WorksWith}" Margin="0,8,0,0" />
+                        <v:WorksWithList DataContext="{Binding WorksWith}" Margin="0,12,0,0" />
                     </StackPanel>
 
                     <!-- Preset settings, only for Custom -->
                     <StackPanel IsVisible="{Binding Custom, Converter={x:Static ObjectConverters.IsNotNull}}">
-                        <Border Height="1" Background="{DynamicResource PanelBorder}" Margin="0,8,0,8" />
+                        <Border Classes="divider" />
                         <v:PresetSettingsPanel DataContext="{Binding Custom}" />
                     </StackPanel>
 
                     <!-- Wii U: encrypted titles and discs need the user's own keys (also in Settings › Advanced › Keys) -->
                     <StackPanel Spacing="4" IsVisible="{Binding ShowsWiiUKeys}">
-                        <Border Height="1" Background="{DynamicResource PanelBorder}" Margin="0,8,0,4" />
-                        <TextBlock Text="WII U KEYS" Classes="section" />
+                        <Border Classes="divider" />
+                        <TextBlock Text="WII U KEYS" Classes="head" />
                         <TextBlock Classes="hint" Text="{Binding Settings.Keys.WiiUKeysSummary}" TextWrapping="Wrap" />
                         <WrapPanel Orientation="Horizontal">
                             <Button Classes="tool" Content="Choose keys.txt…" Command="{Binding Settings.Keys.BrowseWiiUKeysCommand}" Margin="0,0,6,6" />

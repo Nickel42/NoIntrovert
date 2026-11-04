@@ -18,6 +18,10 @@ public partial class FileFacts : UserControl
     private static readonly Dictionary<string, Bitmap?> Pictures = new(StringComparer.OrdinalIgnoreCase);
     private FileFactsViewModel? _model;
 
+    /// <summary>Section heads are capitals: "FORMATS FOR PLAYSTATION".</summary>
+    public static readonly Avalonia.Data.Converters.IValueConverter Upper =
+        new Avalonia.Data.Converters.FuncValueConverter<string?, string>(s => (s ?? "").ToUpperInvariant());
+
     public FileFacts()
     {
         InitializeComponent();

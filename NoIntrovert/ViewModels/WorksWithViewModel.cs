@@ -44,6 +44,15 @@ public partial class WorksWithViewModel : ViewModelBase
     /// <summary>The footer, e.g. "From libretro core info and ES-DE · 4 Nov 2026".</summary>
     [ObservableProperty] public partial string Source { get; private set; } = "";
 
+    /// <summary>The heading's count: "7 of 9 play it", plus "· 1 not confirmed" when some are unknown.</summary>
+    [ObservableProperty] public partial string PlayCount { get; private set; } = "";
+
+    /// <summary>The footer, e.g. "Cores: libretro · Standalone: ES-DE · 2 Nov 2026".</summary>
+    [ObservableProperty] public partial string Footer { get; private set; } = "";
+
+    /// <summary>Where Learn more goes: the libretro core documentation.</summary>
+    public Uri LearnMoreUri { get; } = new("https://docs.libretro.com/");
+
     public ObservableCollection<WorksWithItem> Cores { get; } = [];
     public ObservableCollection<WorksWithItem> Standalone { get; } = [];
 
@@ -81,6 +90,7 @@ public partial class WorksWithViewModel : ViewModelBase
         {
             var data = catalog();
             Source = data.SourceText;
+            Footer = FooterFor(data);
             entries = EmulatorSupport.For(data, SystemId, OutputExtension, Codecs);
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.Text.Json.JsonException or IOException)
@@ -93,6 +103,30 @@ public partial class WorksWithViewModel : ViewModelBase
         HasCores = Cores.Count > 0;
         HasStandalone = Standalone.Count > 0;
         HasAny = HasCores || HasStandalone;
+        PlayCount = CountText(entries.Select(e => e.State).ToList());
+    }
+
+    /// <summary>"7 of 9 play it · 1 not confirmed" (empty for no emulators).</summary>
+    public static string CountText(IReadOnlyCollection<SupportState> states)
+    {
+        if (states.Count == 0) return "";
+        var works = states.Count(s => s == SupportState.Works);
+        var unknown = states.Count(s => s == SupportState.Unknown);
+        return $"{works} of {states.Count} play it" + (unknown > 0 ? $" · {unknown} not confirmed" : "");
+    }
+
+    /// <summary>"Cores: libretro · Standalone: ES-DE · 2 Nov 2026": where each group comes from, and the data's date.</summary>
+    public static string FooterFor(EmulatorCatalog data)
+    {
+        var sources = data.Snapshot.Sources;
+        string? Named(string id) => sources.FirstOrDefault(s => s.Id == id)?.Name is { Length: > 0 } n ? n : null;
+        var parts = new List<string>();
+        if (Named("libretro-core-info") is not null) parts.Add("Cores: libretro");
+        if (Named("es-de") is { } es) parts.Add("Standalone: " + es);
+        foreach (var other in sources.Where(s => s.Id is not ("libretro-core-info" or "es-de") && s.Name.Length > 0)) parts.Add(other.Name);
+        if (parts.Count == 0) parts.Add("Bundled emulator list");
+        parts.Add(EmulatorCatalog.FormatDate(data.Snapshot.Generated));
+        return string.Join(" · ", parts);
     }
 
     private static void Fill(ObservableCollection<WorksWithItem> list, IEnumerable<EmulatorSupportEntry> entries)

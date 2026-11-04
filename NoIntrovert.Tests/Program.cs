@@ -3481,6 +3481,7 @@ Test("Round trip test job (cue/bin)", () =>
 
 ShellTests.Run(Test, scratch);
 FileFactsTests.Run(Test, scratch);
+ConvertDesignTests.Run(Test);
 
 // ---- Full discs from test-roms ------------------------------------------------
 
