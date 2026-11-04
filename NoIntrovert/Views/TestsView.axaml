@@ -81,9 +81,6 @@
                              IsVisible="{Binding Settings.Chd.IsCustomCompression}" />
                     <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.IsoModes}"
                               SelectedItem="{Binding Settings.Chd.SelectedIsoMode}" HorizontalAlignment="Stretch" Margin="0,4,0,0" />
-
-                    <Separator Margin="0,10" />
-                    <v:RunOptions />
                 </StackPanel>
             </Border>
         </ScrollViewer>

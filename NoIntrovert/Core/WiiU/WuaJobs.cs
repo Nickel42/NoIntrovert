@@ -9,7 +9,7 @@ namespace NoIntrovert.Core.WiiU;
 /// extracted title folders and existing .wua files, holding the base game,
 /// its newest update and its DLC. The building itself is lib-wii-u-kit's
 /// <see cref="WuaBuilder"/>; this adds NoIntrovert's settings, output
-/// folders, overwrite rule, logging and "remove originals".
+/// folders, overwrite rule, logging and Replace the originals.
 /// </summary>
 public static class WuaJobs
 {
@@ -42,7 +42,7 @@ public static class WuaJobs
     /// moved into place (replacing an input .wua of the same name if needed).
     /// </summary>
     /// <param name="outputFolder">Where the .wua goes; by default the output folder setting or the first source's folder.</param>
-    /// <param name="removeSources">Whether "remove originals" may remove <paramref name="sources"/> (not when they were unpacked from an archive).</param>
+    /// <param name="removeSources">Whether Replace the originals may remove <paramref name="sources"/> (not when they were unpacked from an archive).</param>
     public static JobOutcome Build(JobContext c, ulong baseId, IReadOnlyList<string> sources, string? outputFolder = null, bool removeSources = true)
     {
         try { return BuildGame(c, baseId, sources, outputFolder, removeSources); }
@@ -64,10 +64,11 @@ public static class WuaJobs
         Directory.CreateDirectory(outputFolder);
         var output = Path.Combine(outputFolder, WiiUTitles.WuaFileName(baseId, WuaBuilder.GameName(chosen)));
         var replacesInput = sources.Any(p => Path.GetFullPath(p).Equals(Path.GetFullPath(output), StringComparison.OrdinalIgnoreCase));
-        if (File.Exists(output) && !replacesInput && !s.Output.Overwrite)
+        if (!replacesInput)
         {
-            log.Warn($"  {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
-            return JobOutcome.Skipped("Archive already exists");
+            var wanted = output;
+            output = OutputPaths.Available(wanted, s.Output.Overwrite);
+            if (output != wanted) log.Info(OutputPaths.Renamed(wanted, output));
         }
 
         log.Info($"Building {Path.GetFileName(output)}: {string.Join(", ", chosen.Select(t => $"{t.KindText} v{t.Version}"))}");
@@ -83,7 +84,7 @@ public static class WuaJobs
         var stats = new OperationStats(result.Elapsed, result.InputBytes, result.OutputBytes);
         log.Info($"  wrote {Path.GetFileName(output)}: {result.FileCount} files, {ChdJobs.Size(stats.InputBytes)} → {ChdJobs.Size(stats.OutputBytes)} ({stats.Ratio:P1}) in {result.Elapsed:mm\\:ss\\.f}");
 
-        if (s.Output.RemoveWiiUOriginals && removeSources)
+        if (s.Output.ReplacesOriginals && removeSources)
         {
             c.Report.SetStage("Removing originals");
             var originals = sources.Where(p => !Path.GetFullPath(p).Equals(Path.GetFullPath(output), StringComparison.OrdinalIgnoreCase))
@@ -99,7 +100,7 @@ public static class WuaJobs
     /// <summary>
     /// A zip, 7z or tar holding Wii U games (a .wux, a .wua, title or NUS
     /// folders): unpacked into the temp folder, then one .wua per game, written
-    /// next to the archive. "Remove originals" removes the archive once every
+    /// next to the archive. Replace the originals removes the archive once every
     /// game in it is built and verified.
     /// </summary>
     public static JobOutcome BuildFromArchive(JobContext c, string archive)
@@ -138,7 +139,7 @@ public static class WuaJobs
         }
 
         var built = outcomes.Where(o => o.Status is JobStatus.Succeeded or JobStatus.Warning).ToList();
-        if (s.Output.RemoveWiiUOriginals && built.Count == outcomes.Count)
+        if (s.Output.ReplacesOriginals && built.Count == outcomes.Count)
         {
             c.Report.SetStage("Removing the archive");
             FileRemover.Remove([archive], s.Output.UseRecycleBin, c.Log);

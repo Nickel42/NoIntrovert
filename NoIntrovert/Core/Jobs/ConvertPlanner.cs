@@ -24,7 +24,7 @@ public sealed record ConvertPlan(IReadOnlyList<PlannedJob> Jobs, IReadOnlyList<i
 /// its row's own choice where the settings hold one global value (RVZ or CHD
 /// for GameCube/Wii, 7z or zip for packing and converting archives), and
 /// with its action's chosen preset (issue #33). <paramref name="pin"/> runs
-/// after the preset, for values a caller must keep (Clean Up never removes originals).
+/// after the preset, for values a caller must keep (Clean Up saves to its staging folder, so never removes originals).
 /// </summary>
 public static class ConvertPlanner
 {
@@ -119,11 +119,14 @@ public static class ConvertPlanner
 
         if (rows.Any(r => Path.GetExtension(r.Path).ToLowerInvariant() is ".wbfs" or ".ciso" && r.Target != TargetKind.Leave))
             warnings.Add("WBFS and CISO images can't be converted (they don't record the disc's exact size); convert them to ISO first.");
-        if (rows.Where((r, i) => !left.Contains(i)).Any(r => RemovesOriginals(SettingsFor(settings, r.Target, pin), r.Target)))
+        var converted = rows.Where((r, i) => !left.Contains(i)).ToList();
+        if (converted.Any(r => RemovesOriginals(SettingsFor(settings, r.Target, pin), r.Target)))
         {
             var fate = settings.Output.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently";
             warnings.Add($"Originals will be {fate} once each new file verifies or tests OK.");
         }
+        if (SettingsFor(settings, TargetKind.Iso, pin).Output.ReplacesOriginals && converted.Any(r => r.Target is TargetKind.Iso or TargetKind.DiscImage))
+            warnings.Add("Disc images extracted from a CHD, RVZ, WIA or GCZ keep their originals: there's nothing to verify the new files against.");
         if (jobs.Count > 0 && rows.Any(r => r.Target is TargetKind.SevenZip or TargetKind.Zip or TargetKind.Files)
             && !SevenZipEngine.IsAvailable(out var problem))
             error ??= problem;
@@ -215,7 +218,7 @@ public static class ConvertPlanner
                     var archiveName = names[k];
                     var label = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
                     if (settings.Archives.Grouping == ArchiveGrouping.PerEntryInFolders && Directory.Exists(path))
-                        jobs.Add(new(label, [i], rows[i].Size, c => ArchiveJobs.CompressEntries(c.WithSettings(With(c.Settings, UseFormat)), path, c.Settings.Output.Folder)));
+                        jobs.Add(new(label, [i], rows[i].Size, c => ArchiveJobs.CompressEntries(c.WithSettings(With(c.Settings, UseFormat)), path, c.Settings.Output.TargetFolder ?? "")));
                     else if (File.Exists(path))
                         // One file: under its canonical name (.3ds → .cci, R12 fixes), and as a D9 7z.
                         jobs.Add(new(label, [i], rows[i].Size, c => RomJobs.Pack(
@@ -254,12 +257,12 @@ public static class ConvertPlanner
         return copy;
     }
 
-    /// <summary>Whether a job making <paramref name="target"/> with <paramref name="s"/> removes what it was made from.</summary>
-    private static bool RemovesOriginals(AppSettings s, TargetKind target) => target switch
-    {
-        TargetKind.Chd or TargetKind.Rvz => s.Output.RemoveOriginals,
-        TargetKind.Wua => s.Output.RemoveWiiUOriginals,
-        TargetKind.SevenZip or TargetKind.Zip or TargetKind.Files => s.Output.RemoveArchiveOriginals,
-        _ => false,
-    };
+    /// <summary>
+    /// Whether a job making <paramref name="target"/> with <paramref name="s"/>
+    /// removes what it was made from: with Replace the originals, every target
+    /// that's verified or tested (an extracted disc image has nothing to check against).
+    /// </summary>
+    private static bool RemovesOriginals(AppSettings s, TargetKind target) =>
+        s.Output.ReplacesOriginals && target is TargetKind.Chd or TargetKind.Rvz or TargetKind.Wua
+            or TargetKind.SevenZip or TargetKind.Zip or TargetKind.Files;
 }

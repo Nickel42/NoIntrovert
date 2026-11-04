@@ -6,18 +6,23 @@ namespace NoIntrovert.Core.Jobs;
 /// <summary>The convert, verify and extract jobs behind the first three tabs.</summary>
 public static class ChdJobs
 {
+    /// <summary>Tests only: runs on each new CHD just before it's verified (to damage it, say).</summary>
+    internal static Action<string>? BeforeVerifyForTests { get; set; }
+
     /// <summary>
     /// Converts one input to one or more CHDs: prepare (unpack/decode/rebuild
-    /// a cue), create with lib-chd-kit, verify, then optionally remove the
-    /// originals once every disc from this input verified. GameCube and Wii
+    /// a cue), create with lib-chd-kit, verify, then, with Save to set to
+    /// Replace the originals, remove the originals once every disc from this
+    /// input verified (Replace always verifies). GameCube and Wii
     /// discs become RVZ instead (lib-wii-gamecube-kit), unless the CHD target is set.
     /// </summary>
-    public static JobOutcome Convert(JobContext c, string source)
+    public static JobOutcome Convert(JobContext c, string source, string? outputFolder = null)
     {
         var s = c.Settings;
         var log = c.Log;
         var name = Path.GetFileName(source);
-        var outputFolder = OutputPaths.FolderFor(s, source);
+        outputFolder ??= OutputPaths.FolderFor(s, source);
+        Directory.CreateDirectory(outputFolder);
         Directory.CreateDirectory(s.Performance.EffectiveTempFolder);
 
         log.Info($"Converting {name}");
@@ -39,7 +44,8 @@ public static class ChdJobs
         var created = new List<(string Path, OperationStats Stats)>();
         var skipped = 0;
         var verifyFailed = false;
-        var mustVerify = s.Chd.VerifyAfterCreate || s.Output.RemoveOriginals;
+        var replace = s.Output.ReplacesOriginals;
+        var mustVerify = s.Chd.VerifyAfterCreate || replace;
 
         for (var i = 0; i < prepared.Discs.Count; i++)
         {
@@ -62,14 +68,9 @@ public static class ChdJobs
                 continue;
             }
 
-            var output = Path.Combine(outputFolder, disc.OutputName + ".chd");
-
-            if (File.Exists(output) && !s.Output.Overwrite)
-            {
-                log.Warn($"  {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
-                skipped++;
-                continue;
-            }
+            var wanted = Path.Combine(outputFolder, disc.OutputName + ".chd");
+            var output = OutputPaths.Available(wanted, s.Output.Overwrite);
+            if (output != wanted) log.Info(OutputPaths.Renamed(wanted, output));
 
             // A GameCube/Wii disc in GCZ/WIA/RVZ/TGC is decoded to ISO first; lib-chd-kit stores it as a DVD.
             var compressStart = discStart;
@@ -94,6 +95,7 @@ public static class ChdJobs
             {
                 c.Band(compressStart + compressShare, discStart + discShare - compressStart - compressShare);
                 c.TrackChdman($"Verifying{discLabel}");
+                BeforeVerifyForTests?.Invoke(output);
                 var (result, _) = ChdService.Verify(c.Chdman, output, fix: false, c.Token);
                 if (result.Outcome != ChdVerifyOutcome.Ok)
                 {
@@ -109,14 +111,15 @@ public static class ChdJobs
         }
 
         if (verifyFailed)
-            return new JobOutcome(JobStatus.Failed, "Created, but verification failed", Combine(created));
+            return new JobOutcome(JobStatus.Failed,
+                replace ? "Verification failed, so the original was kept" : "Created, but verification failed", Combine(created));
         if (created.Count == 0)
-            return JobOutcome.Skipped(skipped > 0 ? "Output already exists" : "Nothing to convert");
+            return JobOutcome.Skipped(skipped > 0 ? "Already RVZ" : "Nothing to convert");
 
         if (originals is not null)
             foreach (var (made, _) in created) Dats.OriginalHashes.Default.Set(made, source, originals);
 
-        if (s.Output.RemoveOriginals && skipped == 0)
+        if (replace && skipped == 0)
         {
             c.Report.SetStage("Removing originals");
             FileRemover.Remove(DiscFiles.SetFiles(source), s.Output.UseRecycleBin, log);
@@ -157,9 +160,13 @@ public static class ChdJobs
     {
         var name = Path.GetFileName(chdPath);
         var folder = OutputPaths.FolderFor(c.Settings, chdPath);
+        // A cue and its bins share the name, so the whole set gets " (2)" when any of it is taken.
+        var wanted = Path.GetFileNameWithoutExtension(chdPath);
+        var stem = OutputPaths.AvailableName(folder, wanted, [".cue", ".gdi", ".iso", ".img", ".raw", ".bin"], c.Settings.Output.Overwrite);
+        if (stem != wanted) c.Log.Info($"  {wanted} already exists, so this one is {stem}");
         c.TrackChdman("Extracting");
         var (files, stats) = ChdService.Extract(c.Chdman, chdPath, folder, c.Settings.Chd.ExtractFormat, c.Settings.Chd.SplitBin,
-            c.Settings.Output.Overwrite, c.Log, c.Token);
+            c.Settings.Output.Overwrite, c.Log, c.Token, stem);
         c.Log.Success($"{name}: wrote {files.Count} file(s) ({Size(stats.OutputBytes)}) in {stats.Elapsed:mm\\:ss\\.f}");
         var first = Path.GetFileName(files[0]);
         return new JobOutcome(JobStatus.Succeeded, files.Count == 1 ? first : $"{first} + {files.Count - 1} file(s)", stats);

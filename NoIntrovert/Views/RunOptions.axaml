@@ -3,20 +3,19 @@
              xmlns:vm="using:NoIntrovert.ViewModels"
              x:Class="NoIntrovert.Views.RunOptions"
              x:DataType="vm:BatchTabViewModel">
-    <!-- Where this tab's results go: the Settings defaults, which can be changed for this tab's runs only. -->
-    <StackPanel Spacing="4">
-        <TextBlock Text="THIS RUN" Classes="section" Margin="0,0,0,4" />
-        <TextBlock Text="Saving to" />
-        <TextBlock Classes="hint" Text="{Binding RunFolderText}" TextTrimming="LeadingCharacterEllipsis"
-                   ToolTip.Tip="{Binding RunFolderText}" />
-        <WrapPanel Orientation="Horizontal" Margin="0,2,0,0">
-            <Button Classes="tool" Content="Another folder…" Command="{Binding ChooseRunFolderCommand}" Margin="0,0,6,6"
-                    ToolTip.Tip="Use a different folder for this tab's runs, without changing the default." />
-            <Button Classes="tool" Content="Use the defaults" Command="{Binding ResetRunOptionsCommand}" Margin="0,0,6,6"
-                    IsVisible="{Binding HasRunOverrides}" />
-        </WrapPanel>
-        <CheckBox Content="Overwrite existing files" IsChecked="{Binding RunOverwrite}" />
-        <TextBlock Classes="hint" Text="{Binding RunOptionsNote}" TextWrapping="Wrap" />
-        <Button Classes="tool" Content="Change the defaults in Settings…" Command="{Binding OpenSettingsCommand}" Margin="0,4,0,0" />
+    <!-- Save to, in the run bar just left of Cancel / Convert: where this page's results go.
+         The radio buttons follow the view model, which keeps exactly one of them on. -->
+    <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+        <RadioButton Content="Next to the originals" IsChecked="{Binding SaveNextToOriginals}" VerticalAlignment="Center" />
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <RadioButton IsChecked="{Binding SaveInFolder}" VerticalAlignment="Center" ToolTip.Tip="{Binding SaveFolderText}">
+                <TextBlock Text="{Binding SaveFolderText, StringFormat='Folder: {0}'}" MaxWidth="240"
+                           TextTrimming="LeadingCharacterEllipsis" />
+            </RadioButton>
+            <TextBlock Text="·" Classes="hint" VerticalAlignment="Center" />
+            <Button Classes="tool" Content="Change…" Command="{Binding ChangeSaveFolderCommand}" VerticalAlignment="Center" />
+        </StackPanel>
+        <RadioButton Content="Replace the originals ⚠" IsChecked="{Binding SaveReplacingOriginals}" VerticalAlignment="Center"
+                     ToolTip.Tip="Each original is removed only after its new file verifies. If verification fails, the original stays and the row shows why." />
     </StackPanel>
 </UserControl>

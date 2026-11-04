@@ -61,20 +61,14 @@
                 </StackPanel>
 
                 <!-- Both disc conversions -->
+                <!-- Replace the originals (Save to, in the run bar) verifies whatever this says. -->
                 <StackPanel Spacing="4" IsVisible="{Binding IsChd}">
                     <CheckBox Content="Verify each new CHD or RVZ" IsChecked="{Binding Settings.Chd.VerifyAfterCreate}" />
-                    <CheckBox Content="Remove the originals once the new file verifies" IsChecked="{Binding Settings.Output.RemoveOriginals}"
-                              ToolTip.Tip="Includes the bins, tracks and split parts that belong to it." />
                 </StackPanel>
                 <StackPanel Spacing="4" IsVisible="{Binding IsRvz}">
                     <CheckBox Content="Verify each new CHD or RVZ" IsChecked="{Binding Settings.Chd.VerifyAfterCreate}" />
-                    <CheckBox Content="Remove the originals once the new file verifies" IsChecked="{Binding Settings.Output.RemoveOriginals}" />
-                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="Verify and remove are shared with Custom for CHD." />
+                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="Verify is shared with Custom for CHD." />
                 </StackPanel>
-
-                <!-- Wii U → .wua -->
-                <CheckBox Content="Remove what the .wua was built from once it verifies" IsChecked="{Binding Settings.Output.RemoveWiiUOriginals}"
-                          IsVisible="{Binding IsWua}" ToolTip.Tip="Including update and DLC folders that went into it." />
 
                 <!-- 7z and zip -->
                 <StackPanel Spacing="4" IsVisible="{Binding IsArchive}">
@@ -88,7 +82,6 @@
                               SelectedItem="{Binding Settings.Archives.SelectedGrouping}" HorizontalAlignment="Stretch" />
                     <TextBox Text="{Binding Settings.Archives.SingleName}" PlaceholderText="Name of the combined archive"
                              IsVisible="{Binding Settings.Archives.IsSingle}" />
-                    <CheckBox Content="Remove the originals once the archive tests OK" IsChecked="{Binding Settings.Output.RemoveArchiveOriginals}" />
                 </StackPanel>
 
                 <!-- CHD → disc image -->
@@ -102,8 +95,6 @@
                 <!-- Unpacking archives -->
                 <StackPanel Spacing="4" IsVisible="{Binding IsUnpack}">
                     <CheckBox Content="Unpack each archive into its own folder" IsChecked="{Binding Settings.Archives.ExtractToOwnFolder}" />
-                    <CheckBox Content="Remove the archive once it's unpacked" IsChecked="{Binding Settings.Output.RemoveArchiveOriginals}" />
-                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="Remove is shared with Custom for 7z and zip." />
                 </StackPanel>
 
                 <!-- Verify & match -->

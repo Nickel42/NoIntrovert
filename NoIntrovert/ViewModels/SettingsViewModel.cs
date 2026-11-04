@@ -121,9 +121,11 @@ public sealed partial class OutputSettingsViewModel(AppSettings settings, IDialo
 
     public bool Overwrite { get => S.Output.Overwrite; set => Set(value, (s, v) => s.Output.Overwrite = v); }
     public bool ScanSubfolders { get => S.Output.ScanSubfolders; set => Set(value, (s, v) => s.Output.ScanSubfolders = v); }
-    public bool RemoveOriginals { get => S.Output.RemoveOriginals; set => Set(value, (s, v) => s.Output.RemoveOriginals = v); }
-    public bool RemoveArchiveOriginals { get => S.Output.RemoveArchiveOriginals; set => Set(value, (s, v) => s.Output.RemoveArchiveOriginals = v); }
-    public bool RemoveWiiUOriginals { get => S.Output.RemoveWiiUOriginals; set => Set(value, (s, v) => s.Output.RemoveWiiUOriginals = v); }
+    /// <summary>The run bar's default Save to choice; the run bar changes it for its own runs only.</summary>
+    public SaveTo SaveTo { get => S.Output.SaveTo; set => Set(value, (s, v) => s.Output.SaveTo = v); }
+
+    /// <summary>Set once Replace the originals has been confirmed, so it's asked only the first time.</summary>
+    public bool ReplaceConfirmed { get => S.Output.ReplaceConfirmed; set => Set(value, (s, v) => s.Output.ReplaceConfirmed = v); }
     public bool UseRecycleBin { get => S.Output.UseRecycleBin; set => Set(value, (s, v) => s.Output.UseRecycleBin = v); }
     public string RecycleBinLabel => $"Removed files go to the {FileRemover.BinName} (not deleted permanently)";
     public bool CanUseRecycleBin => FileRemover.CanUseBin;

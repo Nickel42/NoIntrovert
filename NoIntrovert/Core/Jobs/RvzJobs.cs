@@ -33,7 +33,8 @@ public static class RvzJobs
         var s = c.Settings;
         var log = c.Log;
         var rvz = c.Rvz;
-        var output = Path.Combine(outputFolder, disc.OutputName + ".rvz");
+        var wanted = Path.Combine(outputFolder, disc.OutputName + ".rvz");
+        var output = wanted;
 
         var info = rvz.Probe(disc.InputPath, c.Token);
         log.Debug($"  {Platform(info)} {info.GameId} \"{info.InternalName}\" in {info.Container}");
@@ -45,11 +46,8 @@ public static class RvzJobs
         if (!info.CanConvert)
             throw new WiiGameCubeKitException(WiiGameCubeKitStatus.Unsupported,
                 $"{info.Container} images can't be converted: the container doesn't record the disc's exact size. Convert it to ISO with the tool that made it first.");
-        if (File.Exists(output) && !s.Output.Overwrite)
-        {
-            log.Warn($"  {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
-            return (DiscResult.Skipped, output, null);
-        }
+        output = OutputPaths.Available(wanted, s.Output.Overwrite);
+        if (output != wanted) log.Info(OutputPaths.Renamed(wanted, output));
         if (info.IsNKit)
             log.Warn($"  {Path.GetFileName(disc.InputPath)} is an NKit image: the RVZ will be NKit too, not a Redump-identical dump.");
 
@@ -111,12 +109,9 @@ public static class RvzJobs
     {
         var name = Path.GetFileName(path);
         var folder = OutputPaths.FolderFor(c.Settings, path);
-        var output = Path.Combine(folder, Path.GetFileNameWithoutExtension(path) + ".iso");
-        if (File.Exists(output) && !c.Settings.Output.Overwrite)
-        {
-            c.Log.Warn($"{name}: {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
-            return JobOutcome.Skipped("Output already exists");
-        }
+        var wanted = Path.Combine(folder, Path.GetFileNameWithoutExtension(path) + ".iso");
+        var output = OutputPaths.Available(wanted, c.Settings.Output.Overwrite);
+        if (output != wanted) c.Log.Info(OutputPaths.Renamed(wanted, output));
         var sw = Stopwatch.StartNew();
         c.TrackRvz("Decoding to ISO");
         c.Rvz.Convert(path, output, new ConvertSettings { Format = RvzFormat.Iso, Overwrite = c.Settings.Output.Overwrite }, c.Token);
