@@ -1,0 +1,125 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             x:Class="NoIntrovert.Views.FileFacts"
+             x:DataType="vm:FileFactsViewModel">
+    <!-- The side panel's File section (docs/requirements/ui-redesign.md, "1. File section"). -->
+    <UserControl.Styles>
+        <Style Selector="Border.tag">
+            <Setter Property="Background" Value="{DynamicResource PanelBorder}" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="7,2" />
+            <Setter Property="Margin" Value="0,0,6,6" />
+        </Style>
+        <Style Selector="Border.tag > TextBlock">
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+        <Style Selector="Button.verified">
+            <Setter Property="Background" Value="#F2C230" />
+            <Setter Property="Foreground" Value="#1E1A08" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="7,2" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Margin" Value="0,0,6,6" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.verified:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#F7D25E" />
+            <Setter Property="Foreground" Value="#1E1A08" />
+        </Style>
+        <Style Selector="Button.verified:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#E0B020" />
+            <Setter Property="Foreground" Value="#1E1A08" />
+        </Style>
+        <Style Selector="TextBlock.factLabel">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+        </Style>
+        <Style Selector="TextBlock.factValue">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </UserControl.Styles>
+
+    <Panel>
+        <!-- Nothing focused. -->
+        <TextBlock Classes="hint" Text="{x:Static vm:FileFactsViewModel.EmptyText}" IsVisible="{Binding IsEmpty}" Margin="0,4" />
+
+        <!-- Rows from several systems. -->
+        <StackPanel IsVisible="{Binding IsSystems}" Spacing="4">
+            <TextBlock Text="{Binding SystemsHeading}" FontSize="16" FontWeight="SemiBold" />
+            <ItemsControl ItemsSource="{Binding SystemLines}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:SystemLine">
+                        <TextBlock Text="{Binding Text}" FontSize="12" Margin="0,2" TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding Text}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+
+        <!-- One file. -->
+        <StackPanel IsVisible="{Binding IsFile}" Spacing="10">
+            <Grid ColumnDefinitions="Auto,*">
+                <!-- System picture on a tile; a neutral tile with the system's short name when there's no picture. -->
+                <Border Width="88" Height="88" CornerRadius="10" VerticalAlignment="Top"
+                        Background="{DynamicResource RowAlt}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1"
+                        ClipToBounds="True">
+                    <Panel>
+                        <TextBlock x:Name="TileFallback" Text="{Binding TileText}" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SubtleText}" TextWrapping="Wrap" TextAlignment="Center"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6" />
+                        <Image x:Name="TileImage" Stretch="Uniform" IsVisible="False"
+                               RenderOptions.BitmapInterpolationMode="HighQuality" />
+                    </Panel>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="14,0,0,0" Spacing="2" VerticalAlignment="Top">
+                    <TextBlock Text="{Binding Title}" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" FontSize="12"
+                               Foreground="{DynamicResource SubtleText}" TextWrapping="Wrap" />
+                    <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <Border Classes="tag" IsVisible="{Binding HasGeneration}">
+                            <TextBlock Text="{Binding Generation}" />
+                        </Border>
+                        <Border Classes="tag" IsVisible="{Binding HasMedia}">
+                            <TextBlock Text="{Binding Media}" />
+                        </Border>
+                        <Button x:Name="VerifiedBadge" Classes="verified" Content="Verified ✓" IsVisible="{Binding IsVerified}"
+                                AutomationProperties.Name="Verified">
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="TransientWithDismissOnPointerMoveAway">
+                                    <StackPanel MaxWidth="300" Spacing="6">
+                                        <TextBlock Text="Verified ✓" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding VerifiedTip}" TextWrapping="Wrap" FontSize="12" />
+                                        <HyperlinkButton Content="{Binding LearnMoreText}" NavigateUri="{Binding LearnMoreUri}"
+                                                         Padding="0" FontSize="12" />
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </WrapPanel>
+                </StackPanel>
+            </Grid>
+
+            <!-- Facts: two rows only. -->
+            <Border Background="{DynamicResource RowAlt}" CornerRadius="6" Padding="12,8">
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="6">
+                    <TextBlock Classes="factLabel" Text="Filename" />
+                    <SelectableTextBlock Grid.Column="1" FontSize="12" TextWrapping="Wrap" Text="{Binding FileName}"
+                                         ToolTip.Tip="{Binding Path}" />
+                    <TextBlock Grid.Row="1" Classes="factLabel" Text="About file" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Classes="factValue" Text="{Binding AboutFile}" />
+                </Grid>
+            </Border>
+
+            <!-- Formats for <system>. -->
+            <StackPanel IsVisible="{Binding HasFormats}" Spacing="2">
+                <TextBlock Classes="section" Text="{Binding FormatsHeading}" Margin="0,0,0,2" />
+                <TextBlock FontSize="12" TextWrapping="Wrap" LineHeight="18" Text="{Binding FormatsText}" />
+            </StackPanel>
+        </StackPanel>
+    </Panel>
+</UserControl>

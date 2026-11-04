@@ -3441,6 +3441,8 @@ Test("Round trip test job (cue/bin)", () =>
     return o.Status == JobStatus.Succeeded ? Note(records[0].Notes) : string.Join("; ", records.Select(r => r.Notes));
 });
 
+FileFactsTests.Run(Test, scratch);
+
 // ---- Full discs from test-roms ------------------------------------------------
 
 if (!quick)
