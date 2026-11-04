@@ -103,6 +103,33 @@ static class LayoutTests
             return title is null ? "no game row" : title.Bounds.Width >= 260 ? null : $"the game column is {title.Bounds.Width:F0} px wide";
         }));
 
+        test("Layout: the title bar's moon/sun flips the Theme setting and the lilac follows the theme", () => Dispatch(() =>
+        {
+            var app = Avalonia.Application.Current!;
+            var before = f.Settings.General.Theme;
+            try
+            {
+                if (f.Find<Button>(b => b.Name == "ThemeToggle") is not { IsEffectivelyVisible: true }) return "no theme toggle in the title bar";
+                app.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
+                f.Window.ToggleTheme();
+                if (f.Settings.General.Theme != AppTheme.Light) return $"from dark the toggle chose {f.Settings.General.Theme}, not Light";
+                app.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Light;
+                if (!app.TryGetResource("SukiPrimaryColor", null, out var light) || light is not Avalonia.Media.Color { R: 0x61, G: 0x62, B: 0x83 })
+                    return $"the light theme's primary is {light}, not #616283";
+                f.Window.ToggleTheme();
+                if (f.Settings.General.Theme != AppTheme.Dark) return $"from light the toggle chose {f.Settings.General.Theme}, not Dark";
+                app.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
+                if (!app.TryGetResource("SukiPrimaryColor", null, out var dark) || dark is not Avalonia.Media.Color { R: 0x7C, G: 0x7E, B: 0xA6 })
+                    return $"the dark theme's primary is {dark}, not #7C7EA6";
+                return null;
+            }
+            finally
+            {
+                f.Settings.General.Theme = before;
+                app.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
+            }
+        }));
+
         Dispatch(() => { f.Window.Close(); return null; });
     }
 

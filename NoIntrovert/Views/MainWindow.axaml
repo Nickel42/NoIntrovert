@@ -1,4 +1,5 @@
-<Window xmlns="https://github.com/avaloniaui"
+<suki:SukiWindow xmlns="https://github.com/avaloniaui"
+        xmlns:suki="https://github.com/kikipoulet/SukiUI"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:NoIntrovert.ViewModels"
         xmlns:core="using:NoIntrovert.Core"
@@ -9,41 +10,118 @@
         Title="NoIntrovert"
         MinWidth="900" MinHeight="600"
         Background="{DynamicResource AppBackground}"
+        BackgroundStyle="Flat" BackgroundAnimationEnabled="False" BackgroundTransitionsEnabled="False"
+        ShowTitlebarBackground="False" ShowBottomBorder="False"
+        TitleFontSize="14" TitleFontWeight="Bold" TitleBarControlSize="12"
         DragDrop.AllowDrop="True">
 
+    <!-- The design's title bar: the app icon and name at the left; the theme toggle, minimize, maximize and close at the right. -->
+    <suki:SukiWindow.LogoContent>
+        <Border Width="24" Height="24" CornerRadius="6" ClipToBounds="True">
+            <Image Source="/Assets/nointrovert-64.png" RenderOptions.BitmapInterpolationMode="HighQuality" />
+        </Border>
+    </suki:SukiWindow.LogoContent>
+    <suki:SukiWindow.RightWindowTitleBarControls>
+        <Button x:Name="ThemeToggle" Classes="WindowControlsButton themetoggle" Click="OnThemeToggleClick"
+                ToolTip.Tip="{DynamicResource ThemeToggleTip}">
+            <Path Data="{DynamicResource ThemeToggleIcon}" Width="16" Height="16" Stretch="Uniform"
+                  Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" />
+        </Button>
+    </suki:SukiWindow.RightWindowTitleBarControls>
+
     <Window.Resources>
+        <ResourceDictionary>
+        <ResourceDictionary.ThemeDictionaries>
+            <!-- The toggle shows the moon on the dark theme and the sun on the light one, as in the design. -->
+            <ResourceDictionary x:Key="Dark">
+                <StreamGeometry x:Key="ThemeToggleIcon">M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z</StreamGeometry>
+                <x:String x:Key="ThemeToggleTip">Switch to the light theme</x:String>
+            </ResourceDictionary>
+            <ResourceDictionary x:Key="Light">
+                <StreamGeometry x:Key="ThemeToggleIcon">M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4</StreamGeometry>
+                <x:String x:Key="ThemeToggleTip">Switch to the dark theme</x:String>
+            </ResourceDictionary>
+        </ResourceDictionary.ThemeDictionaries>
         <!-- One rail button: icon, title, and an optional line of small text under the title -->
         <DataTemplate x:Key="RailButton" x:DataType="vm:PageViewModel">
-            <Button Classes="rail" Classes.selected="{Binding IsSelected}" IsVisible="{Binding IsVisible}" ToolTip.Tip="{Binding Title}"
+            <Button Classes="rail" Classes.selected="{Binding IsSelected}" Classes.featured="{Binding HasSubtitle}" IsVisible="{Binding IsVisible}" ToolTip.Tip="{Binding Title}"
                     Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectPageCommand}" CommandParameter="{Binding}"
-                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,4">
-                <Grid ColumnDefinitions="Auto,*" Margin="0,7">
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center" Margin="0,0,0,4">
+                <Grid ColumnDefinitions="Auto,*" Margin="0,10">
                     <Path Data="{Binding Icon, Converter={x:Static v:Palette.Geometry}}" Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Top"
-                          Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Classes="railicon" />
+                          StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Classes="railicon" />
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Classes="railtext">
                         <TextBlock Text="{Binding Title}" />
-                        <TextBlock Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" FontSize="11" FontWeight="Normal"
-                                   Foreground="{DynamicResource SubtleText}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                        <TextBlock Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" FontSize="11" FontWeight="Medium"
+                                   Foreground="{DynamicResource SubtleText}" TextWrapping="Wrap" Margin="0,1,0,0" />
                     </StackPanel>
                 </Grid>
             </Button>
         </DataTemplate>
+        </ResourceDictionary>
     </Window.Resources>
 
     <Window.Styles>
-        <!-- The log's counts turn red once there's an error, so it's noticed while the log is collapsed -->
-        <Style Selector="TextBlock.counts.error">
-            <Setter Property="Foreground" Value="{x:Static v:Palette.Bad}" />
+        <!-- Title bar: the rail's colour, with round 28 px window buttons; close is red on a red tint. -->
+        <Style Selector="Button.WindowControlsButton">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Background" Value="{DynamicResource WindowButtonBackground}" />
+            <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
         </Style>
-        <Style Selector="TextBlock.railsection">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+        <Style Selector="Button.WindowControlsButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
+        </Style>
+        <Style Selector="Button.WindowControlsButton.Close">
+            <Setter Property="Background" Value="{DynamicResource DangerTint}" />
+            <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
+        </Style>
+        <Style Selector="Button.WindowControlsButton.Close:pointerover">
+            <Setter Property="Background" Value="#E02B27" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.WindowControlsButton.themetoggle">
+            <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
-            <Setter Property="Margin" Value="12,6,0,6" />
+            <Setter Property="Margin" Value="0,0,7,0" />
+        </Style>
+        <Style Selector="Button.WindowControlsButton.themetoggle:pointerover">
+            <Setter Property="Background" Value="{DynamicResource WindowButtonBackground}" />
+            <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
         </Style>
 
+        <!-- The log's counts turn red once there's an error, so it's noticed while the log is collapsed -->
+        <Style Selector="TextBlock.counts">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="Medium" />
+        </Style>
+        <Style Selector="TextBlock.counts.error">
+            <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
+        </Style>
+        <Style Selector="TextBlock.railsection">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource SectionText}" />
+            <Setter Property="Margin" Value="12,8,0,4" />
+        </Style>
+
+        <!-- Rail icons are muted, white on the selected page's lilac pill -->
         <Style Selector="Path.railicon">
-            <Setter Property="Margin" Value="0,1,10,0" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="Stroke" Value="{DynamicResource SubtleText}" />
+        </Style>
+        <Style Selector="Button.rail.selected Path.railicon">
+            <Setter Property="Stroke" Value="White" />
+        </Style>
+        <!-- A page with a line of small text under its name (Optimize) sits on a card of its own -->
+        <Style Selector="Button.rail.featured:not(.selected) /template/ Border">
+            <Setter Property="Background" Value="{DynamicResource RowAlt}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PrimaryTint}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Button.rail.featured:not(.selected):pointerover /template/ Border">
+            <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
         </Style>
         <Style Selector="Border.railpane">
             <Setter Property="Width" Value="190" />
@@ -75,25 +153,29 @@
             <Setter Property="Opacity" Value="0" />
             <Setter Property="Height" Value="8" />
         </Style>
+
+        <Style Selector="Border.statusbar TextBlock">
+            <Setter Property="FontSize" Value="14" />
+        </Style>
     </Window.Styles>
 
     <!-- Navigation rail | the page with the log and queue under it; the status bar spans the bottom. -->
-    <Grid ColumnDefinitions="Auto,*" RowDefinitions="*,Auto" Classes="shell" v:Responsive.Below="compact:1100">
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="*,Auto" Classes="shell" v:Responsive.Below="compact:1100" Background="{DynamicResource AppBackground}">
 
         <!-- Navigation rail: the logo, then LIBRARY and FILES, with Settings at the bottom below a divider -->
         <Border Grid.Column="0" Classes="railpane" Background="{DynamicResource HeaderBackground}">
             <DockPanel>
-                <Image DockPanel.Dock="Top" Classes="logo" Source="/Assets/nointrovert-logo.png" Stretch="Uniform" Margin="0,0,0,12"
+                <Image DockPanel.Dock="Top" Classes="logo" Source="/Assets/nointrovert-logo.png" Stretch="Uniform" Margin="0,0,0,10"
                        RenderOptions.BitmapInterpolationMode="HighQuality" />
                 <StackPanel DockPanel.Dock="Bottom">
-                    <Border Height="1" Background="{DynamicResource PanelBorder}" Margin="4,8,4,8" />
+                    <Border Height="1" Background="{DynamicResource PrimaryTint}" Margin="0,4,0,10" />
                     <ItemsControl ItemsSource="{Binding BottomPages}" ItemTemplate="{StaticResource RailButton}" />
                 </StackPanel>
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <TextBlock Text="LIBRARY" Classes="railsection" />
                         <ItemsControl ItemsSource="{Binding LibraryPages}" ItemTemplate="{StaticResource RailButton}" />
-                        <TextBlock Text="FILES" Classes="railsection" Margin="12,14,0,6" />
+                        <TextBlock Text="FILES" Classes="railsection" Margin="12,14,0,4" />
                         <ItemsControl ItemsSource="{Binding FilePages}" ItemTemplate="{StaticResource RailButton}" />
                     </StackPanel>
                 </ScrollViewer>
@@ -113,23 +195,23 @@
                 <Grid RowDefinitions="Auto,*">
                     <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,6">
                         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="Log" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Text="Log" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
                             <TextBlock Classes="hint counts" Classes.error="{Binding Log.HasErrors}" VerticalAlignment="Center">
                                 <Run Text="{Binding Log.ErrorCount}" /><Run Text=" errors · " /><Run Text="{Binding Log.WarningCount}" /><Run Text=" warnings" />
                             </TextBlock>
                         </StackPanel>
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding Log.IsExpanded}">
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
+                            <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Log.IsExpanded}">
                             <CheckBox Content="Show debug" IsChecked="{Binding Log.ShowDebug}" />
                             <CheckBox Content="lib-chd-kit messages" IsChecked="{Binding Settings.General.VerboseLog}" IsVisible="{Binding Settings.General.PowerUserMode}"
                                       ToolTip.Tip="Log every message lib-chd-kit sends (shown as debug lines)." />
                             <CheckBox Content="Progress" IsChecked="{Binding Settings.General.LogProgress}" IsVisible="{Binding Settings.General.PowerUserMode}"
                                       ToolTip.Tip="Log lib-chd-kit progress reports every 10% (debug lines)." />
-                            <Button Classes="tool" Content="Copy" Command="{Binding Log.CopyCommand}" />
-                            <Button Classes="tool" Content="Save…" Command="{Binding Log.SaveCommand}" />
-                            <Button Classes="tool" Content="Clear" Command="{Binding Log.ClearCommand}" />
+                            <Button Content="Copy" Command="{Binding Log.CopyCommand}" />
+                            <Button Content="Save…" Command="{Binding Log.SaveCommand}" />
+                            <Button Content="Clear" Command="{Binding Log.ClearCommand}" />
                             </StackPanel>
-                            <Button Classes="tool" Content="{Binding Log.ToggleText}" Command="{Binding Log.ToggleExpandedCommand}" MinWidth="84" />
+                            <Button Content="{Binding Log.ToggleText}" Command="{Binding Log.ToggleExpandedCommand}" MinWidth="84" />
                         </StackPanel>
                     </Grid>
                     <ListBox Grid.Row="1" x:Name="LogList" ItemsSource="{Binding Log.Entries}" IsVisible="{Binding Log.IsExpanded}"
@@ -143,10 +225,10 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="core:LogEntry">
                                 <Grid ColumnDefinitions="64,34,*" Opacity="{Binding Level, Converter={x:Static v:Palette.LevelOpacity}}">
-                                    <TextBlock Text="{Binding TimeText}" FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace" FontSize="12" Classes="hint" />
+                                    <TextBlock Text="{Binding TimeText}" FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace" FontSize="12" FontWeight="Normal" Classes="hint" />
                                     <Border Grid.Column="1" Width="4" Height="12" CornerRadius="2" HorizontalAlignment="Left"
                                             Background="{Binding Level, Converter={x:Static v:Palette.LevelBrush}}" />
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Message}" FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace"
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Message}" FontWeight="Normal" FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace"
                                                          FontSize="12" TextWrapping="Wrap" />
                                 </Grid>
                             </DataTemplate>
@@ -159,7 +241,7 @@
             <Border Grid.Row="3" Classes="card" Margin="12,0,12,8" Padding="0" IsVisible="{Binding Queue.IsOpen}">
                 <Grid RowDefinitions="Auto,*">
                     <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,6">
-                        <TextBlock Text="Queue" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Text="Queue" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="1" Text="Every job from every page, in the order it was added." Classes="hint"
                                    VerticalAlignment="Center" Margin="10,0,0,0" />
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
@@ -197,16 +279,16 @@
 
         <!-- Status bar: the queue summary, then the whole queue's progress (by item) filling the space up to Show queue.
              An empty queue reads only "Queue empty". -->
-        <Border Grid.Row="1" Grid.ColumnSpan="2" Background="{DynamicResource HeaderBackground}" Padding="18,6">
+        <Border Grid.Row="1" Grid.ColumnSpan="2" Classes="statusbar" Background="{DynamicResource HeaderBackground}" Padding="18,6">
             <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
-                <TextBlock Text="Queue" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" IsVisible="{Binding Queue.HasRows}" />
-                <TextBlock Grid.Column="1" Text="{Binding Queue.StatusText}" VerticalAlignment="Center" Margin="0,0,16,0" />
-                <ProgressBar Grid.Column="2" Value="{Binding Queue.OverallPercent}" Minimum="0" Maximum="100" Height="8" MinWidth="0"
+                <TextBlock Text="Queue" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0" IsVisible="{Binding Queue.HasRows}" />
+                <TextBlock Grid.Column="1" Text="{Binding Queue.StatusText}" Foreground="{DynamicResource SubtleText}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <ProgressBar Grid.Column="2" Value="{Binding Queue.OverallPercent}" Minimum="0" Maximum="100" Height="6" MinWidth="0" Margin="12,0,0,0"
                              VerticalAlignment="Center" IsVisible="{Binding Queue.ShowsProgress}" />
-                <TextBlock Grid.Column="3" Text="{Binding Queue.OverallPercent, StringFormat={}{0:F0}%}" VerticalAlignment="Center"
-                           Margin="10,0" MinWidth="34" TextAlignment="Right" IsVisible="{Binding Queue.ShowsProgress}" />
-                <Button Grid.Column="4" Classes="tool" Content="{Binding Queue.ToggleText}" Command="{Binding Queue.ToggleCommand}" />
+                <TextBlock Grid.Column="3" Text="{Binding Queue.OverallPercent, StringFormat={}{0:F0}%}" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Margin="10,0,24,0" MinWidth="34" TextAlignment="Right" IsVisible="{Binding Queue.ShowsProgress}" />
+                <Button Grid.Column="4" Content="{Binding Queue.ToggleText}" Command="{Binding Queue.ToggleCommand}" />
             </Grid>
         </Border>
     </Grid>
-</Window>
+</suki:SukiWindow>
