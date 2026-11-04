@@ -69,7 +69,7 @@
                             <TextBlock Classes="hint" IsVisible="{Binding Output.ReplacesOriginals}"
                                        Text="⚠ Each original is removed once its new file checks out." />
                             <CheckBox Content="Overwrite existing files" IsChecked="{Binding Output.Overwrite}" Margin="0,4,0,0" />
-                            <TextBlock Classes="hint" Text="Off: a file that's already there is skipped." />
+                            <TextBlock Classes="hint" Text="Off: a taken name gets &quot; (2)&quot;." />
                             <TextBlock Text="Working folder for unpacking" Margin="0,6,0,0" />
                             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                                 <TextBlock Classes="hint" Text="{Binding Performance.TempFolderHint}" VerticalAlignment="Center"

@@ -69,7 +69,6 @@ public sealed class ActionPresetViewModel(PresetsViewModel owner, SettingsViewMo
     // Which parameters the Custom panel shows.
     public bool IsChd => Action == PresetAction.Chd;
     public bool IsRvz => Action == PresetAction.Rvz;
-    public bool IsWua => Action == PresetAction.Wua;
     public bool IsArchive => Action == PresetAction.Archive;
     public bool IsExtract => Action == PresetAction.Extract;
     public bool IsUnpack => Action == PresetAction.Unpack;

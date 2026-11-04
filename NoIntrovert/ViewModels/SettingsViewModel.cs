@@ -483,7 +483,6 @@ public sealed class ArchiveSettingsViewModel(AppSettings settings) : SettingsSec
             OnPropertyChanged(nameof(IsConvert));
             OnPropertyChanged(nameof(IsExtract));
             OnPropertyChanged(nameof(IsWriting));
-            OnPropertyChanged(nameof(RemoveLabel));
         }
     }
 
@@ -493,8 +492,6 @@ public sealed class ArchiveSettingsViewModel(AppSettings settings) : SettingsSec
 
     /// <summary>Compressing and converting write archives; extracting only reads them.</summary>
     public bool IsWriting => !IsExtract;
-
-    public string RemoveLabel => IsExtract ? "Remove each archive after it extracts" : "Remove the originals";
 
     public bool ExtractToOwnFolder { get => S.Archives.ExtractToOwnFolder; set => Set(value, (s, v) => s.Archives.ExtractToOwnFolder = v); }
 
