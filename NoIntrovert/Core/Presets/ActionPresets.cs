@@ -212,8 +212,19 @@ public static class ActionPresets
     }
 }
 
-/// <summary>The preset chosen for each action, by action name; an action not listed uses its preferred preset.</summary>
+/// <summary>
+/// The presets the user chose: each system's default format preset, the
+/// presets saved from Custom, and (from before format presets) the preset
+/// chosen for each action, which only Verify still uses.
+/// </summary>
 public sealed class PresetSettings
 {
+    /// <summary>The action presets by action name; an action not listed uses its preferred preset. Convert rows use format presets instead.</summary>
     public Dictionary<string, string> Chosen { get; set; } = [];
+
+    /// <summary>The format preset id new rows of each system start on (a system not listed starts on its recommended one).</summary>
+    public Dictionary<string, string> DefaultBySystem { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Presets saved from Custom, in the order they were saved.</summary>
+    public List<SavedPreset> Saved { get; set; } = [];
 }

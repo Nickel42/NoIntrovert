@@ -59,11 +59,10 @@ public partial class SettingsViewModel : ViewModelBase
     public LogSettingsViewModel Log { get; }
     public AboutViewModel About { get; }
 
-    /// <summary>
-    /// The Default presets card's content: one preset per system, filled in by
-    /// the presets work. Null until then, and the card shows a hint instead.
-    /// </summary>
-    public object? DefaultPresets => null;
+    /// <summary>The Default presets card: one preset per system, then the saved presets with Manage….</summary>
+    public DefaultPresetsViewModel DefaultPresets => _defaultPresets ??= new DefaultPresetsViewModel(_s);
+
+    private DefaultPresetsViewModel? _defaultPresets;
 
     /// <summary>Every section, in the order the Settings page shows them.</summary>
     public IReadOnlyList<SettingsSectionViewModel> Sections => [General, Output, Performance, Log, Library, Presets, Nintendo, Archives, Dats, TargetFormats, Keys, Chd, Diagnostics];

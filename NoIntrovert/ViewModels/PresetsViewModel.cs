@@ -4,9 +4,10 @@ using NoIntrovert.Core.Presets;
 namespace NoIntrovert.ViewModels;
 
 /// <summary>
-/// The preset chosen for each action (issue #33). One picker per action,
-/// shared by the Convert, Verify and Settings pages, so a choice made on one
-/// shows on the others.
+/// The preset chosen for each action (issue #33). Only the Verify page shows
+/// one now (Verify's); Convert rows have their own format presets
+/// (<see cref="Core.Presets.FormatPresets"/>), and Organize still runs with
+/// these action presets.
 /// </summary>
 public sealed class PresetsViewModel : SettingsSectionViewModel
 {

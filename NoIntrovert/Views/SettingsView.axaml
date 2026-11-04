@@ -112,13 +112,39 @@
 
                 <StackPanel Grid.Column="1">
 
-                    <!-- Default presets: filled in by the presets work -->
-                    <Border Classes="card">
+                    <!-- Default presets: the preset each system's rows start on, then the saved presets -->
+                    <Border Classes="card" DataContext="{Binding DefaultPresets}" x:DataType="vm:DefaultPresetsViewModel">
                         <StackPanel Spacing="6">
                             <TextBlock Text="DEFAULT PRESETS" Classes="section" Margin="0,0,0,4" />
-                            <ContentControl Content="{Binding DefaultPresets}" />
-                            <TextBlock Classes="hint" Text="Choose a preset for each system on the Convert page."
-                                       IsVisible="{Binding DefaultPresets, Converter={x:Static ObjectConverters.IsNull}}" />
+                            <ItemsControl ItemsSource="{Binding Systems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SystemDefaultViewModel">
+                                        <Grid ColumnDefinitions="*,220" ColumnSpacing="8" Margin="0,0,0,6">
+                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                                            <ComboBox Grid.Column="1" ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,6,0,0">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Saved presets" />
+                                    <TextBlock Classes="hint" Text="{Binding SavedSummary}" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Classes="tool" Content="Manage…" Command="{Binding ManageCommand}" IsEnabled="{Binding HasSaved}"
+                                        VerticalAlignment="Center" />
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding Saved}" IsVisible="{Binding IsManaging}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SavedPresetItemViewModel">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,0,0,6">
+                                            <TextBox Text="{Binding Name}" ToolTip.Tip="Rename the preset" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Detail}" Classes="hint" VerticalAlignment="Center" />
+                                            <Button Grid.Column="2" Classes="tool" Content="Delete" Command="{Binding DeleteCommand}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
                     </Border>
 
@@ -185,30 +211,11 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- Presets (issue #33): how each action is done; parameters only under Custom -->
-                            <Border Classes="card quiet" DataContext="{Binding Presets}" x:DataType="vm:PresetsViewModel">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="HOW EACH ACTION IS DONE" Classes="section" Margin="0,0,0,4" />
-                                    <TextBlock Classes="hint"
-                                               Text="The recommended preset suits most libraries; choose Custom to set the details yourself. The Convert and Verify pages show the same choices." />
-                                    <ItemsControl ItemsSource="{Binding All}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="vm:ActionPresetViewModel">
-                                                <v:PresetPicker />
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </Border>
-
                             <!-- Default targets: what a GameCube/Wii disc and a new archive become -->
                             <Border Classes="card quiet">
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="DEFAULT TARGETS" Classes="section" Margin="0,0,0,4" />
-                                    <TextBlock Text="GameCube and Wii discs become" />
-                                    <ComboBox ItemsSource="{x:Static vm:NintendoSettingsViewModel.Targets}" SelectedItem="{Binding Nintendo.SelectedTarget}"
-                                              HorizontalAlignment="Stretch" />
-                                    <TextBlock Text="New archives are" Margin="0,4,0,0" />
+                                    <TextBlock Text="New archives are" />
                                     <ComboBox ItemsSource="{x:Static vm:ArchiveSettingsViewModel.Formats}" SelectedItem="{Binding Archives.SelectedFormat}"
                                               HorizontalAlignment="Stretch" />
                                     <TextBlock Classes="hint" Text="Each row on the Convert page can still choose its own target." />

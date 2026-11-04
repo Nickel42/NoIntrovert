@@ -905,6 +905,7 @@ Test("Presets: the view model saves a real choice only, and shows parameters onl
 });
 
 SettingsPageTests.Run(Test, Dir);
+FormatPresetTests.Run(Test, Dir, log);
 EmulatorTests.Run(Test);
 
 Test("Convert planner: each job runs with its own action's preset", () =>
