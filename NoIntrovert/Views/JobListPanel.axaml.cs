@@ -22,7 +22,14 @@ public partial class JobListPanel : UserControl
             if (e.Key == Key.Delete && DataContext is BatchTabViewModel vm)
                 vm.RemoveSelectedCommand.Execute(null);
         };
-        List.SelectionChanged += (_, _) => (DataContext as BatchTabViewModel)?.NotifySelectionChanged();
+        // The page reads the list's own SelectedItems. (A {Binding} of SelectedItems left the page's
+        // copy null, so the summary and the panel said "0 selected" with rows ticked.)
+        DataContextChanged += (_, _) => ShareSelection();
+        List.SelectionChanged += (_, _) =>
+        {
+            ShareSelection();
+            (DataContext as BatchTabViewModel)?.NotifySelectionChanged();
+        };
         // Any focus inside a row (the row itself, its Preset dropdown) makes it the focused row.
         List.AddHandler(GotFocusEvent, OnRowFocused, RoutingStrategies.Bubble, handledEventsToo: true);
         SelectAll.Click += (_, _) =>
@@ -34,12 +41,23 @@ public partial class JobListPanel : UserControl
         };
     }
 
+    private void ShareSelection()
+    {
+        if (DataContext is BatchTabViewModel vm && !ReferenceEquals(vm.SelectedItems, List.SelectedItems))
+        {
+            vm.SelectedItems = List.SelectedItems;
+            vm.NotifySelectionChanged();
+        }
+    }
+
     private void OnRowFocused(object? sender, FocusChangedEventArgs e)
     {
         if (DataContext is not BatchTabViewModel vm || e.Source is not Visual source) return;
         var container = source as ListBoxItem ?? source.FindAncestorOfType<ListBoxItem>();
         if (container?.DataContext is not JobItemViewModel row) return;
         vm.FocusedItem = row;
-        if (!container.IsSelected) container.IsSelected = true;
+        // A click selects through the list itself (Ctrl-click toggles, so selecting here first would undo it);
+        // the keyboard moves focus without selecting, so select here.
+        if (e.NavigationMethod != NavigationMethod.Pointer && !container.IsSelected) container.IsSelected = true;
     }
 }

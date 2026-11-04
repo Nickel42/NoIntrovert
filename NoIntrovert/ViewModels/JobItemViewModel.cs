@@ -30,6 +30,9 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
     [ObservableProperty] public partial string Details { get; set; } = "";
 
     public bool IsRunning => Status == JobStatus.Running;
+
+    /// <summary>A failed row's Result is its reason, shown in red.</summary>
+    public bool IsFailed => Status == JobStatus.Failed;
     public string StatusText => Status switch
     {
         JobStatus.Queued => "Queued",
@@ -172,6 +175,25 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
         var kind = Values?.Target ?? Core.Formats.TargetKind.Leave;
         Target = Targets.FirstOrDefault(t => t.Kind == kind) ?? Core.Formats.TargetChoice.Leave;
         OnPropertyChanged(nameof(Values));
+        OnPropertyChanged(nameof(PresetNote));
+    }
+
+    /// <summary>
+    /// The line under the row's Preset dropdown: "Convert → .chd" for the
+    /// row's preset, or for Leave as is, "Optimal" when the file is already in
+    /// its best format ("Left as is" when it isn't). Off the Convert page, the
+    /// format status.
+    /// </summary>
+    public string PresetNote => NoteFor(Preset, CustomValues, SystemId, PlannedTarget, FormatStatus);
+
+    /// <summary><see cref="PresetNote"/>'s rule.</summary>
+    public static string NoteFor(FormatPreset? preset, PresetValues? customValues, string? systemId,
+        Core.Formats.TargetKind planned, string formatStatus)
+    {
+        if (preset is null) return formatStatus;
+        if (preset.IsLeave) return planned == Core.Formats.TargetKind.Leave && formatStatus.Length > 0 ? formatStatus : "Left as is";
+        var extension = preset.IsCustom ? customValues?.OutputExtension(systemId) : preset.OutputExtension(systemId);
+        return extension is { Length: > 0 } ext ? $"Convert → {(ext.StartsWith('.') ? ext : "." + ext)}" : formatStatus;
     }
 
     /// <summary>Rebuilds the dropdown (saved presets changed), keeping the row's choice when it's still there.</summary>
@@ -187,6 +209,7 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
     partial void OnStatusChanged(JobStatus value)
     {
         OnPropertyChanged(nameof(IsRunning));
+        OnPropertyChanged(nameof(IsFailed));
         OnPropertyChanged(nameof(StatusText));
     }
 
@@ -213,7 +236,7 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
     {
         _elapsed.Stop();
         Status = outcome.Status;
-        Result = outcome.Summary;
+        Result = ResultText(outcome);
         Details = outcome.Details ?? "";
         Stage = "";
         Progress = outcome.Status is JobStatus.Succeeded or JobStatus.Warning ? 100 : Progress;
@@ -248,6 +271,17 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
             ElapsedText = FormatElapsed(_elapsed.Elapsed);
         });
     }
+
+    /// <summary>
+    /// A row's Result: the outcome's summary, with how big the new file is
+    /// next to the original ("Game.rvz · 41%") when the job made a file and
+    /// its summary doesn't already say so.
+    /// </summary>
+    public static string ResultText(JobOutcome outcome) =>
+        outcome is { Status: JobStatus.Succeeded or JobStatus.Warning, Stats: { InputBytes: > 0, OutputBytes: > 0 } s }
+        && !outcome.Summary.Contains('%') && System.IO.Path.HasExtension(outcome.Summary)
+            ? $"{outcome.Summary} · {s.Ratio:P0}"
+            : outcome.Summary;
 
     private static string FormatElapsed(TimeSpan t) =>
         t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");

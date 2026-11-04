@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NoIntrovert.Core;
+using NoIntrovert.Core.Presets;
 using NoIntrovert.ViewModels;
 using NoIntrovert.Views;
 
@@ -93,6 +94,29 @@ static class LayoutTests
                 });
             }
         }
+
+        test("Convert: rows ticked in the list reach the summary and the panel header", () => Dispatch(() =>
+        {
+            f.Resize(1366, 768);
+            f.Show("convert");
+            f.Layout();
+            var tab = f.Vm.Convert;
+            var list = f.Find<ListBox>(l => l.Name == "List" && l.IsEffectivelyVisible);
+            if (list is null) return "no job list";
+            list.SelectedItems!.Clear();
+            list.SelectedItems.Add(tab.Items[0]);
+            list.SelectedItems.Add(tab.Items[1]);
+            tab.FocusedItem = tab.Items[1];
+            f.Layout();
+            var summary = tab.Summary;
+            var header = tab.Panel.Header;
+            list.SelectedItems.Clear();
+            tab.FocusedItem = null;
+            f.Layout();
+            if (tab.SelectedCount != 0) return "clearing the list's selection left rows selected on the page";
+            return summary.StartsWith("2 selected · ") && header == $"Focused: row 2 of {tab.Items.Count} · 2 selected"
+                ? null : $"summary '{summary}', header '{header}'";
+        }));
 
         test("Layout 1366×768: the Library's game titles get a readable width", () => Dispatch(() =>
         {
@@ -275,6 +299,7 @@ static class LayoutTests
                 f.Vm.Log.IsExpanded = true;
                 f.Vm.Queue.IsOpen = true;
             }, f => { f.Vm.Log.IsExpanded = false; f.Vm.Queue.IsOpen = false; }),
+            new("Convert with a PlayStation row on Custom (Zstandard) and others selected", "convert-custom", f => f.ShowCustom(), f => f.ResetCustom()),
             new("Verify with a row focused", "verify", f => { f.Show("verify"); f.FocusRow(f.Vm.Verify); }, _ => { }),
             new("Organize", "organize", f => f.Show("cleanup"), _ => { }),
             new("Settings", "settings", f => f.Show("settings"), _ => { }),
@@ -322,7 +347,62 @@ static class LayoutTests
                 File.WriteAllBytes(Path.Combine(nesFolder, name + ".nes"), rom);
                 File.WriteAllBytes(Path.Combine(filesFolder, name + ".nes"), rom);
             }
+            WritePlayStationDisc(filesFolder, "Final Fantasy VII (USA) (Disc 3)");
             File.WriteAllBytes(Path.Combine(filesFolder, "A Very Long Game Title That Goes On And On - Special Collector's Edition (USA) (Rev 2).iso"), new byte[64 * 1024]);
+        }
+
+        /// <summary>A raw Mode 2 cue/bin whose volume descriptor says PLAYSTATION, so it's read as a PS1 disc.</summary>
+        private static void WritePlayStationDisc(string folder, string name)
+        {
+            const int sectors = 40, size = 2352;
+            var data = new byte[sectors * size];
+            for (var i = 0; i < sectors; i++)
+            {
+                data.AsSpan(i * size + 1, 10).Fill(0xFF);
+                data[i * size + 15] = 2;
+            }
+            var pvd = 16 * size + 24;
+            data[pvd] = 1;
+            "CD001"u8.CopyTo(data.AsSpan(pvd + 1));
+            "PLAYSTATION"u8.CopyTo(data.AsSpan(pvd + 8));
+            File.WriteAllBytes(Path.Combine(folder, name + ".bin"), data);
+            File.WriteAllText(Path.Combine(folder, name + ".cue"), string.Join(Environment.NewLine,
+                $"FILE \"{name}.bin\" BINARY", "  TRACK 01 MODE2/2352", "    INDEX 01 00:00:00", ""));
+        }
+
+        private PresetListItem? _customWas;
+
+        /// <summary>Convert with the PlayStation row focused and on Custom with Zstandard, so every CHD setting and warning shows, and two more rows selected.</summary>
+        public void ShowCustom()
+        {
+            Show("convert");
+            var tab = Vm.Convert;
+            var row = tab.Items.First(i => i.SystemId == "playstation");
+            var list = Window.GetVisualDescendants().OfType<ListBox>().First(l => l.Name == "List" && l.IsEffectivelyVisible);
+            list.SelectedItems!.Clear();
+            foreach (var other in tab.Items.Where(i => i != row).Take(2)) list.SelectedItems.Add(other);
+            list.SelectedItems.Add(row);
+            tab.FocusedItem = row;
+            _customWas = row.PresetChoice;
+            row.PresetChoice = row.PresetOptions.First(o => o.IsPreset && o.Preset!.IsCustom);
+            Layout();
+            var custom = tab.Panel.Custom!;
+            custom.Chd.SelectedCompression = ChdSettingsViewModel.CompressionChoices.First(c => c.Value == "cdzs,cdzl,cdfl");
+            custom.Pull();
+            Layout();
+            // Show the end of the panel, where the settings are.
+            Window.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault(v => v.DataContext is SidePanelViewModel)?.ScrollToEnd();
+            Layout();
+        }
+
+        public void ResetCustom()
+        {
+            var tab = Vm.Convert;
+            var row = tab.Items.First(i => i.SystemId == "playstation");
+            if (_customWas is not null) row.PresetChoice = _customWas;
+            Window.GetVisualDescendants().OfType<ListBox>().First(l => l.Name == "List" && l.IsEffectivelyVisible).SelectedItems!.Clear();
+            Window.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault(v => v.DataContext is SidePanelViewModel)?.ScrollToHome();
+            Layout();
         }
 
         public void Show(string page) => Vm.SelectedPage = Vm.Pages.First(p => p.Id == page);

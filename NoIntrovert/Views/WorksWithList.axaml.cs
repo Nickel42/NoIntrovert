@@ -35,6 +35,23 @@ public static class WorksWithConverters
         _ => Palette.Muted,
     });
 
+    private static readonly IBrush RedFill = new SolidColorBrush(Color.Parse("#FF3C38"));
+    private static readonly IBrush UnknownFill = new SolidColorBrush(Color.Parse("#4A4A60"));
+    private static readonly IBrush DarkGlyph = new SolidColorBrush(Color.Parse("#191923"));
+    private static readonly IBrush LightGlyph = new SolidColorBrush(Color.Parse("#E2E1F0"));
+
+    /// <summary>The icon's round tile: green, red, or grey for not confirmed.</summary>
+    public static readonly IValueConverter Fill = new FuncValueConverter<SupportState, IBrush>(s => s switch
+    {
+        SupportState.Works => WorksBrush,
+        SupportState.DoesNot => RedFill,
+        _ => UnknownFill,
+    });
+
+    /// <summary>The glyph on the tile: dark on green and red, light on grey.</summary>
+    public static readonly IValueConverter GlyphBrush = new FuncValueConverter<SupportState, IBrush>(s =>
+        s == SupportState.Unknown ? LightGlyph : DarkGlyph);
+
     /// <summary>An emulator that can't open the output has its name dimmed.</summary>
     public static readonly IValueConverter NameOpacity = new FuncValueConverter<SupportState, double>(s => s == SupportState.DoesNot ? 0.5 : 1.0);
 }

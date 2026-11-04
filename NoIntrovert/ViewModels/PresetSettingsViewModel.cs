@@ -25,7 +25,7 @@ public sealed record FormatChoice(string Format, TargetKind? Kind, bool IsEnable
 public sealed partial class PresetSettingsViewModel : ViewModelBase
 {
     public const string HunkWarning = "⚠ Advanced. A non-default hunk size can make CHDs larger, slower to load or unreadable in some emulators. Leave it unless you understand the risks.";
-    public const string ZstandardNote = "ⓘ Zstandard CHDs need an emulator built after early 2024 (chdman 0.262 or later). Older ones can't open them.";
+    public const string ZstandardNote = "Zstandard CHDs need a reader from 2024 or later (chdman 0.262+). Older emulators can’t open them.";
     public const string ScrubWarning = "⚠ Scrubbing removes padding, so the original Redump checksum can't be restored.";
 
     private readonly JobItemViewModel _row;
@@ -69,6 +69,23 @@ public sealed partial class PresetSettingsViewModel : ViewModelBase
     public bool IsUnpack => Values.Target == TargetKind.Files;
     public bool HasNothingToSet => Values.Target is TargetKind.Iso or TargetKind.Wua;
     public bool UsesZstandard => Values.UsesZstandard;
+
+    /// <summary>Compression's codecs, at the right of its label: "cdzs, cdzl, cdfl", or "Default codecs".</summary>
+    public string CodecsText => CodecsFor(Values);
+
+    /// <summary><see cref="CodecsText"/>'s rule.</summary>
+    public static string CodecsFor(PresetValues values) =>
+        values.Codecs is { Count: > 0 } codecs ? string.Join(", ", codecs) : "Default codecs";
+
+    /// <summary>The note at the top: "Changes apply to this file. Use “Apply to 3 selected” to share them."</summary>
+    [ObservableProperty] public partial string Note { get; private set; } = NoteFor(null);
+
+    /// <summary>Sets <see cref="Note"/> from the panel's Apply button label (null when no other row is selected).</summary>
+    public void SetApplyLabel(string? applyLabel) => Note = NoteFor(applyLabel);
+
+    public static string NoteFor(string? applyLabel) => applyLabel is { Length: > 0 }
+        ? $"Changes apply to this file. Use “{applyLabel}” to share them."
+        : "Changes apply to this file. Select other rows to share them.";
 
     /// <summary>"Reset to CHD · Standard".</summary>
     public string ResetLabel => _row.CustomBase is { } p ? $"Reset to {p.Label}" : "";
@@ -154,7 +171,7 @@ public sealed partial class PresetSettingsViewModel : ViewModelBase
     private void RaiseAll()
     {
         foreach (var name in new[] { nameof(SelectedFormat), nameof(IsChd), nameof(IsRvz), nameof(IsArchive), nameof(IsSevenZip), nameof(IsExtract),
-                     nameof(IsUnpack), nameof(HasNothingToSet), nameof(UsesZstandard), nameof(ResetLabel), nameof(CanReset) })
+                     nameof(IsUnpack), nameof(HasNothingToSet), nameof(UsesZstandard), nameof(CodecsText), nameof(ResetLabel), nameof(CanReset) })
             OnPropertyChanged(name);
     }
 }
