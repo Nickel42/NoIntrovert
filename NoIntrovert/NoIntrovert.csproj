@@ -52,6 +52,9 @@
     <!-- The File section's hand-checked system facts and format paragraphs (Core/Systems, docs/requirements/ui-redesign.md). -->
     <EmbeddedResource Include="Core/Systems/SystemFacts.json" LogicalName="NoIntrovert.SystemFacts.json" />
     <EmbeddedResource Include="Core/Systems/SystemFormats.json" LogicalName="NoIntrovert.SystemFormats.json" />
+    <!-- Emulator data for "Works with" (Core/Emulators; scripts/refresh-emulator-data.py writes emulators.json). -->
+    <EmbeddedResource Include="Core/Emulators/Data/emulators.json" LogicalName="NoIntrovert.Emulators.emulators.json" />
+    <EmbeddedResource Include="Core/Emulators/Data/emulator-facts.json" LogicalName="NoIntrovert.Emulators.emulator-facts.json" />
   </ItemGroup>
 
   <Import Project="$(LibChdKitRoot)/bindings/csharp/ChdmanNativeCopy.targets" />
