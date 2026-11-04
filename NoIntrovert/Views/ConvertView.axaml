@@ -4,24 +4,33 @@
              xmlns:v="using:NoIntrovert.Views"
              xmlns:presets="using:NoIntrovert.Core.Presets"
              x:Class="NoIntrovert.Views.ConvertView"
-             x:DataType="vm:ConvertViewModel">
+             x:DataType="vm:ConvertViewModel"
+             v:Responsive.Below="compact:1250,narrow:1000,tight:860">
+    <UserControl.Styles>
+        <!-- The side panel: 440 px on a wide page, down to 280 px on the smallest window -->
+        <Style Selector="Border.sidepanel"><Setter Property="Width" Value="440" /></Style>
+        <Style Selector="v|ConvertView.compact Border.sidepanel"><Setter Property="Width" Value="360" /></Style>
+        <Style Selector="v|ConvertView.narrow Border.sidepanel"><Setter Property="Width" Value="320" /></Style>
+        <Style Selector="v|ConvertView.tight Border.sidepanel"><Setter Property="Width" Value="280" /></Style>
+    </UserControl.Styles>
     <!--
         One page for every conversion. Each row in the list has its own preset
         (a format plus its settings); the side panel, 440 px and as tall as the
         page, describes the focused row: File, Preset, then Preset settings
         when the row is on Custom. It scrolls as one panel.
     -->
-    <Grid ColumnDefinitions="*,440" ColumnSpacing="12" Margin="0,10,0,0">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,10,0,0">
         <v:JobListPanel />
 
-        <Border Grid.Column="1" Classes="card" Padding="0">
+        <Border Grid.Column="1" Classes="card sidepanel" Padding="0">
             <ScrollViewer DataContext="{Binding Panel}" x:DataType="vm:SidePanelViewModel" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Spacing="6" Margin="14,12">
 
                     <!-- File -->
-                    <Grid ColumnDefinitions="*,Auto">
+                    <Grid ColumnDefinitions="Auto,*">
                         <TextBlock Text="SELECTED FILE" Classes="section" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="{Binding Header}" Classes="hint" FontSize="11" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding Header}" Classes="hint" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"
+                                   HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Header}" />
                     </Grid>
                     <v:FileFacts DataContext="{Binding File}" />
 
@@ -35,8 +44,8 @@
                     <TextBlock Classes="hint" Text="Add files to choose how they're converted." IsVisible="{Binding !HasRow}" />
                     <StackPanel Spacing="6" IsVisible="{Binding HasRow}">
                         <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="Preset (format + settings)" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1" Text="{Binding PresetCount}" Classes="hint" FontSize="11" VerticalAlignment="Center" />
+                            <TextBlock Text="Preset (format + settings)" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            <TextBlock Grid.Column="1" Text="{Binding PresetCount}" Classes="hint" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0" />
                         </Grid>
                         <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" IsEnabled="{Binding CanChoose}"
                                   HorizontalAlignment="Stretch" MaxDropDownHeight="520">

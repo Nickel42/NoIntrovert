@@ -3,11 +3,16 @@
              xmlns:vm="using:NoIntrovert.ViewModels"
              xmlns:v="using:NoIntrovert.Views"
              x:Class="NoIntrovert.Views.VerifyView"
-             x:DataType="vm:VerifyViewModel">
-    <Grid ColumnDefinitions="*,310" ColumnSpacing="12" Margin="0,10,0,0">
+             x:DataType="vm:VerifyViewModel"
+             v:Responsive.Below="narrow:1000">
+    <UserControl.Styles>
+        <Style Selector="ScrollViewer.sidepanel"><Setter Property="Width" Value="310" /></Style>
+        <Style Selector="v|VerifyView.narrow ScrollViewer.sidepanel"><Setter Property="Width" Value="270" /></Style>
+    </UserControl.Styles>
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,10,0,0">
         <v:JobListPanel />
 
-        <ScrollViewer Grid.Column="1">
+        <ScrollViewer Grid.Column="1" Classes="sidepanel" HorizontalScrollBarVisibility="Disabled">
             <Border Classes="card">
                 <StackPanel Spacing="4">
                     <TextBlock Text="VERIFY &amp; MATCH" Classes="section" Margin="0,0,0,4" />

@@ -14,13 +14,13 @@
     <Window.Resources>
         <!-- One rail button: icon, title, and an optional line of small text under the title -->
         <DataTemplate x:Key="RailButton" x:DataType="vm:PageViewModel">
-            <Button Classes="rail" Classes.selected="{Binding IsSelected}" IsVisible="{Binding IsVisible}"
+            <Button Classes="rail" Classes.selected="{Binding IsSelected}" IsVisible="{Binding IsVisible}" ToolTip.Tip="{Binding Title}"
                     Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectPageCommand}" CommandParameter="{Binding}"
                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,4">
                 <Grid ColumnDefinitions="Auto,*" Margin="0,7">
                     <Path Data="{Binding Icon, Converter={x:Static v:Palette.Geometry}}" Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Top"
-                          Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Margin="0,1,10,0" />
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                          Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Classes="railicon" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Classes="railtext">
                         <TextBlock Text="{Binding Title}" />
                         <TextBlock Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" FontSize="11" FontWeight="Normal"
                                    Foreground="{DynamicResource SubtleText}" TextWrapping="Wrap" Margin="0,2,0,0" />
@@ -41,15 +41,49 @@
             <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
             <Setter Property="Margin" Value="12,6,0,6" />
         </Style>
+
+        <Style Selector="Path.railicon">
+            <Setter Property="Margin" Value="0,1,10,0" />
+        </Style>
+        <Style Selector="Border.railpane">
+            <Setter Property="Width" Value="190" />
+            <Setter Property="Padding" Value="10,14" />
+        </Style>
+        <Style Selector="Image.logo">
+            <Setter Property="Width" Value="170" />
+        </Style>
+
+        <!-- A small window (under 1100 px): the rail shows only icons, each named in its tooltip, and the logo shrinks -->
+        <Style Selector="Grid.shell.compact Border.railpane">
+            <Setter Property="Width" Value="64" />
+            <Setter Property="Padding" Value="8,14" />
+        </Style>
+        <Style Selector="Grid.shell.compact Image.logo">
+            <Setter Property="Width" Value="46" />
+        </Style>
+        <Style Selector="Grid.shell.compact StackPanel.railtext">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="Grid.shell.compact Path.railicon">
+            <Setter Property="Margin" Value="0" />
+        </Style>
+        <Style Selector="Grid.shell.compact Button.rail">
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+        <!-- The section names give way to a small gap -->
+        <Style Selector="Grid.shell.compact TextBlock.railsection">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="Height" Value="8" />
+        </Style>
     </Window.Styles>
 
     <!-- Navigation rail | the page with the log and queue under it; the status bar spans the bottom. -->
-    <Grid ColumnDefinitions="Auto,*" RowDefinitions="*,Auto">
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="*,Auto" Classes="shell" v:Responsive.Below="compact:1100">
 
         <!-- Navigation rail: the logo, then LIBRARY and FILES, with Settings at the bottom below a divider -->
-        <Border Grid.Column="0" Background="{DynamicResource HeaderBackground}" Width="190" Padding="10,14">
+        <Border Grid.Column="0" Classes="railpane" Background="{DynamicResource HeaderBackground}">
             <DockPanel>
-                <Image DockPanel.Dock="Top" Source="/Assets/nointrovert-logo.png" Width="170" Stretch="Uniform" Margin="0,0,0,12"
+                <Image DockPanel.Dock="Top" Classes="logo" Source="/Assets/nointrovert-logo.png" Stretch="Uniform" Margin="0,0,0,12"
                        RenderOptions.BitmapInterpolationMode="HighQuality" />
                 <StackPanel DockPanel.Dock="Bottom">
                     <Border Height="1" Background="{DynamicResource PanelBorder}" Margin="4,8,4,8" />
@@ -133,7 +167,7 @@
                             <Button Classes="tool" Content="Cancel all" Command="{Binding Queue.CancelAllCommand}" IsEnabled="{Binding Queue.IsBusy}" />
                         </StackPanel>
                     </Grid>
-                    <ListBox Grid.Row="1" MaxHeight="220" ItemsSource="{Binding Queue.Rows}" Margin="12,0,12,8" Background="Transparent">
+                    <ListBox Grid.Row="1" x:Name="QueueList" MaxHeight="220" ItemsSource="{Binding Queue.Rows}" Margin="12,0,12,8" Background="Transparent">
                             <ListBox.Styles>
                                 <Style Selector="ListBoxItem">
                                     <Setter Property="Padding" Value="0" />

@@ -52,6 +52,13 @@ if (Array.IndexOf(args, "--unpack-zar") is var zi and >= 0 && zi + 2 < args.Leng
 
 Console.WriteLine($"lib-chd-kit {Chdman.Version} · roms {roms} · scratch {scratch}{(quick ? " · quick" : "")}{(synthetic ? " · synthetic discs" : "")}");
 
+// --layout: only the layout tests (the main window at common desktop sizes); --screenshots DIR also saves a PNG of each.
+if (args.Contains("--layout"))
+{
+    LayoutTests.Run(Test, Dir, ArgValue("--screenshots"));
+    goto Summary;
+}
+
 string Rom(params string[] parts) => Path.Combine([roms, .. parts]);
 var crashBin = Rom("PS1", "Crash Bandicoot (USA)", "Crash Bandicoot (USA).bin");
 var roarAudio = Rom("PS1", "Bloody Roar (USA)", "Bloody Roar (USA) (Track 2).bin");
@@ -910,6 +917,7 @@ WiringTests.Run(Test, Dir);
 ReviewFixTests.Run(Test, Dir, log);
 FormatPresetTests.Run(Test, Dir, log);
 EmulatorTests.Run(Test);
+LayoutTests.Run(Test, Dir, ArgValue("--screenshots"));
 
 Test("Convert planner: each job runs with its own action's preset", () =>
 {
@@ -3507,6 +3515,7 @@ if (!quick)
 
 // ---- Summary -------------------------------------------------------------------
 
+Summary:
 Console.WriteLine();
 Console.WriteLine($"{passes} passed, {failures.Count} failed in {total.Elapsed:mm\\:ss}");
 foreach (var f in failures) Console.WriteLine($"  FAILED: {f}");

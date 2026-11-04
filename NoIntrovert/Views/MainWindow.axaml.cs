@@ -17,6 +17,27 @@ public partial class MainWindow : Window, IDialogs
         InitializeComponent();
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        BodyGrid.SizeChanged += (_, _) => FitDrawers();
+    }
+
+    /// <summary>
+    /// On a short window the log and the queue drawer give up height first, so
+    /// the page above them keeps room for its list and run bar: each takes at
+    /// most about a quarter of the body (never under a few rows).
+    /// </summary>
+    private void FitDrawers()
+    {
+        var height = BodyGrid.Bounds.Height;
+        if (height <= 0) return;
+        QueueList.MaxHeight = Math.Clamp(height * 0.2, 48, 220);
+        var row = BodyGrid.RowDefinitions[2];
+        if (Vm?.Log.IsExpanded == true && row.Height.IsAbsolute)
+        {
+            // A height the splitter set is the one wanted; it comes back when the window grows again.
+            if (Math.Abs(row.Height.Value - _fittedLogHeight) > 0.5) _expandedLogRow = row.Height;
+            _fittedLogHeight = Math.Min(_expandedLogRow.Value, Math.Max(110, height * 0.3));
+            row.Height = new GridLength(_fittedLogHeight);
+        }
     }
 
     private MainViewModel? Vm => DataContext as MainViewModel;
@@ -37,6 +58,7 @@ public partial class MainWindow : Window, IDialogs
 
     private const double ExpandedLogHeight = 230;
     private GridLength _expandedLogRow = new(ExpandedLogHeight);
+    private double _fittedLogHeight = ExpandedLogHeight;
 
     /// <summary>
     /// Collapsed, the log's row fits just its bar and the page takes the rest;
@@ -48,11 +70,13 @@ public partial class MainWindow : Window, IDialogs
         if (vm.Log.IsExpanded)
         {
             row.Height = _expandedLogRow;
+            _fittedLogHeight = _expandedLogRow.Value;
+            FitDrawers();
             ScrollLogToEnd(vm);
         }
         else
         {
-            if (row.Height.IsAbsolute && row.Height.Value > 60) _expandedLogRow = row.Height;
+            if (row.Height.IsAbsolute && row.Height.Value > 60 && Math.Abs(row.Height.Value - _fittedLogHeight) > 0.5) _expandedLogRow = row.Height;
             row.Height = GridLength.Auto;
         }
     }

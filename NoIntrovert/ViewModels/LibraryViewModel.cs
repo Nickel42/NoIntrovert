@@ -107,6 +107,20 @@ public partial class LibraryViewModel : ViewModelBase
     public IReadOnlyList<string> Folders => _settings.Library.Folders;
     public bool HasFolders => Folders.Count > 0;
 
+    /// <summary>
+    /// The "add the folders where you keep your games" message: only for an empty
+    /// Library, never over a list of games (the index can outlive its folders).
+    /// </summary>
+    public bool ShowsEmptyMessage => !HasFolders && _games.Count == 0;
+
+    /// <summary>Tells the page the folder list changed (added, removed, or edited in Settings).</summary>
+    public void RefreshFolders()
+    {
+        OnPropertyChanged(nameof(Folders));
+        OnPropertyChanged(nameof(HasFolders));
+        OnPropertyChanged(nameof(ShowsEmptyMessage));
+    }
+
     public BulkObservableCollection<GameRowViewModel> VisibleGames { get; } = [];
     private List<GameRowViewModel> _games = [];
 
@@ -169,8 +183,7 @@ public partial class LibraryViewModel : ViewModelBase
     public async Task AddFoldersAsync(IReadOnlyList<string> folders)
     {
         var added = _settings.Library.AddFolders(folders.Where(Directory.Exists));
-        OnPropertyChanged(nameof(Folders));
-        OnPropertyChanged(nameof(HasFolders));
+        RefreshFolders();
         if (added.Count == 0) return;
         _log.Info($"Library: added {string.Join(", ", added)}");
         await RescanAsync();
@@ -180,8 +193,7 @@ public partial class LibraryViewModel : ViewModelBase
     private async Task RemoveFolder(string folder)
     {
         _settings.Library.RemoveFolder(folder);
-        OnPropertyChanged(nameof(Folders));
-        OnPropertyChanged(nameof(HasFolders));
+        RefreshFolders();
         await RescanAsync();
     }
 
@@ -243,6 +255,7 @@ public partial class LibraryViewModel : ViewModelBase
         IndexShown?.Invoke(index);
         var keep = SelectedGame?.Game.Key;
         _games = index.Games().Select(g => new GameRowViewModel(g)).ToList();
+        OnPropertyChanged(nameof(ShowsEmptyMessage));
         Systems = [AllSystems, .. _games.Select(g => g.System).Distinct().Order(StringComparer.OrdinalIgnoreCase)];
         if (!Systems.Contains(SelectedSystem)) SelectedSystem = AllSystems;
         MissingNote = index.MissingFolders.Count == 0 ? "" : $"Not reachable at the last scan: {string.Join(", ", index.MissingFolders)}";
