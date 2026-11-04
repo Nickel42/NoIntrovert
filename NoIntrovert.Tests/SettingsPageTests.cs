@@ -18,8 +18,7 @@ static class SettingsPageTests
         test("Settings page: theme, start page, save to and log choices save as they change", () => WithSettings(dir("settings-page"), (vm, file) =>
         {
             if (vm.DefaultPresets is not null) return "Default presets isn't empty yet";
-            var ids = string.Join(",", GeneralSettingsViewModel.StartPages.Select(p => p.Value));
-            if (ids != ",library,convert,verify,cleanup") return $"start pages are {ids}";
+            vm.General.StartPages = [new("", "Automatic"), new("library", "Optimize"), new("verify", "Verify")];
 
             var changed = new List<string?>();
             vm.General.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
@@ -28,7 +27,7 @@ static class SettingsPageTests
             if (!File.Exists(file) || !File.ReadAllText(file).Contains("\"Theme\": \"Light\"")) return "the theme wasn't saved";
             if (App.VariantFor(AppTheme.System) != Avalonia.Styling.ThemeVariant.Default) return "System doesn't follow the OS";
 
-            vm.General.SelectedStartPage = GeneralSettingsViewModel.StartPages.First(p => p.Value == "verify");
+            vm.General.SelectedStartPage = vm.General.StartPages.First(p => p.Id == "verify");
             if (!File.ReadAllText(file).Contains("\"StartPage\": \"verify\"")) return "the start page wasn't saved";
 
             vm.Output.SelectedSaveTo = OutputSettingsViewModel.SaveToChoices.First(c => c.Value == SaveTo.Folder);

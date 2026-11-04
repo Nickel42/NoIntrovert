@@ -32,6 +32,8 @@ public partial class MainViewModel : ViewModelBase
         Settings.Dats.EsdeCheckRequested = () => CheckEsdeAsync(startup: false);
         Settings.Library.AddFoldersRequested = Library.AddFoldersAsync;
         Settings.Library.RemoveFolderRequested = Library.RemoveFolderCommand.ExecuteAsync;
+        Settings.Library.EmulatorDataCheckRequested = CheckEmulatorDataAsync;
+        Settings.Library.CanCheckEmulatorData = true;
 
         // The one place pages are listed: the rail, --page and drops all follow it.
         Pages =
@@ -54,7 +56,8 @@ public partial class MainViewModel : ViewModelBase
         LibraryPages = Pages.Where(p => p.Section == RailSection.Library).ToList();
         FilePages = Pages.Where(p => p.Section == RailSection.Files).ToList();
         BottomPages = Pages.Where(p => p.Section == RailSection.Bottom).ToList();
-        StartPages = [new("", "Automatic"), .. Pages.Where(p => p.Id is not ("settings" or "tests")).Select(p => new StartPageOption(p.Id, p.Title))];
+        StartPages = StartPagesFor(Pages);
+        Settings.General.StartPages = StartPages;
         foreach (var tab in new BatchTabViewModel[] { Convert, Verify, Tests })
             tab.OpenSettingsRequested = () => Show("settings");
 
@@ -157,6 +160,28 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Settings › Library › Check now: downloads newer emulator data (Works
+    /// with's cores and emulators) if there is any, and logs what happened.
+    /// </summary>
+    private async Task CheckEmulatorDataAsync()
+    {
+        if (Settings.Library.IsCheckingEmulatorData) return;
+        Settings.Library.IsCheckingEmulatorData = true;
+        try
+        {
+            var result = await Task.Run(() => Core.Emulators.EmulatorCatalog.CheckNowAsync());
+            if (result.Updated) Log.Info($"Emulator data: updated ({result.Source}).");
+            else if (result.Problem is null) Log.Info($"Emulator data: already up to date ({result.Source}).");
+            if (result.Problem is { } problem) Log.Warn($"Emulator data: couldn't check for updates ({problem}); using the data already here.");
+            Settings.Library.RefreshEmulatorDataStatus(result.Source, result.Problem);
+        }
+        finally
+        {
+            Settings.Library.IsCheckingEmulatorData = false;
+        }
+    }
+
     /// <summary>The shared job queue, shown in the status bar and the queue drawer.</summary>
     public QueueViewModel Queue { get; }
     public LibraryViewModel Library { get; }
@@ -181,6 +206,10 @@ public partial class MainViewModel : ViewModelBase
     /// "Automatic" (id "") first, then every page but Settings and Library tests.
     /// </summary>
     public IReadOnlyList<StartPageOption> StartPages { get; }
+
+    /// <summary>Automatic, then every page in <paramref name="pages"/> a user can start on (not Settings or Library tests).</summary>
+    internal static IReadOnlyList<StartPageOption> StartPagesFor(IEnumerable<PageViewModel> pages) =>
+        [new("", "Automatic"), .. pages.Where(p => p.Id is not ("settings" or "tests")).Select(p => new StartPageOption(p.Id, p.Title))];
 
     /// <summary>
     /// The page to open on: the chosen start page when it's one a user can

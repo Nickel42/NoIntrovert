@@ -1,8 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Avalonia.Threading;
 using LibWiiGameCubeKit;
 using NoIntrovert.Core;
 using NoIntrovert.Core.Archives;
+using NoIntrovert.Core.Emulators;
 using NoIntrovert.Core.Jobs;
 using NoIntrovert.Services;
 
@@ -123,20 +125,28 @@ public sealed class GeneralSettingsViewModel(AppSettings settings) : SettingsSec
 
     public AppTheme Theme => S.General.Theme;
 
-    /// <summary>The pages the app can open on, by page id; "" picks Optimize once the library has folders, otherwise Convert.</summary>
-    public static IReadOnlyList<Choice<string>> StartPages { get; } =
-    [
-        new("", "Automatic"),
-        new("library", "Optimize"),
-        new("convert", "Convert"),
-        new("verify", "Verify"),
-        new("cleanup", "Organize"),
-    ];
+    private IReadOnlyList<StartPageOption> _startPages = [new("", "Automatic")];
 
-    public Choice<string> SelectedStartPage
+    /// <summary>
+    /// The pages the app can open on, by page id; "" (Automatic) picks Optimize
+    /// once the library has folders, otherwise Convert. The main window fills
+    /// it from its page list (<see cref="MainViewModel.StartPages"/>), so the
+    /// names match the rail.
+    /// </summary>
+    public IReadOnlyList<StartPageOption> StartPages
     {
-        get => StartPages.FirstOrDefault(p => p.Value == S.General.StartPage) ?? StartPages[0];
-        set { if (value is not null) Set(value.Value, (s, v) => s.General.StartPage = v); }
+        get => _startPages;
+        set
+        {
+            if (!SetProperty(ref _startPages, value)) return;
+            OnPropertyChanged(nameof(SelectedStartPage));
+        }
+    }
+
+    public StartPageOption SelectedStartPage
+    {
+        get => StartPages.FirstOrDefault(p => p.Id == S.General.StartPage) ?? StartPages[0];
+        set { if (value is not null) Set(value.Id, (s, v) => s.General.StartPage = v); }
     }
 
     /// <summary>Shows Expert options, lib-chd-kit's own messages and the Library tests tab.</summary>
@@ -174,12 +184,40 @@ public sealed partial class OutputSettingsViewModel(AppSettings settings, IDialo
     public Choice<SaveTo> SelectedSaveTo
     {
         get => SaveToChoices.FirstOrDefault(c => c.Value == S.Output.SaveTo) ?? SaveToChoices[0];
-        set
+        set { if (value is not null) _ = ChooseSaveToAsync(value.Value); }
+    }
+
+    /// <summary>
+    /// Asks the user to confirm Replace the originals the first time it's
+    /// chosen, as the run bar does (set by the Settings view). Without it,
+    /// Replace can't be chosen until it has been confirmed once.
+    /// </summary>
+    public Func<Task<bool>>? ConfirmReplace { get; set; }
+
+    /// <summary>
+    /// Makes <paramref name="choice"/> the default Save to, after the one-time
+    /// confirmation for Replace (shared with the run bar through
+    /// <see cref="ReplaceConfirmed"/>). When that's refused, the dropdown goes
+    /// back to the previous choice.
+    /// </summary>
+    public async Task ChooseSaveToAsync(SaveTo choice)
+    {
+        var ok = choice != SaveTo.ReplaceOriginals || S.Output.ReplaceConfirmed || await ConfirmReplaceOnceAsync();
+        if (ok && Set(choice, (s, v) => s.Output.SaveTo = v, nameof(SaveTo)))
         {
-            if (value is null || !Set(value.Value, (s, v) => s.Output.SaveTo = v)) return;
+            OnPropertyChanged(nameof(SelectedSaveTo));
             OnPropertyChanged(nameof(SavesToFolder));
             OnPropertyChanged(nameof(ReplacesOriginals));
         }
+        // The dropdown has already shown the refused choice; put it back after the selection is done.
+        if (!ok) Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(SelectedSaveTo)));
+    }
+
+    private async Task<bool> ConfirmReplaceOnceAsync()
+    {
+        if (ConfirmReplace is null || !await ConfirmReplace()) return false;
+        ReplaceConfirmed = true;
+        return true;
     }
 
     public bool SavesToFolder => S.Output.SaveTo == SaveTo.Folder;
@@ -203,7 +241,9 @@ public sealed partial class OutputSettingsViewModel(AppSettings settings, IDialo
     private async Task BrowseFolder()
     {
         var folder = await dialogs.PickFolderAsync("Choose where results go");
-        if (folder is not null) Folder = folder;
+        if (folder is null) return;
+        Folder = folder;
+        await ChooseSaveToAsync(SaveTo.Folder);
     }
 
     [RelayCommand]
@@ -665,17 +705,39 @@ public sealed partial class LibrarySettingsViewModel(AppSettings settings, IDial
         else RemoveFolder(folder);
     }
 
-    /// <summary>"Emulator data: bundled": where the emulator data comes from and how fresh it is; set by the emulator data source.</summary>
-    [ObservableProperty] public partial string EmulatorDataStatus { get; set; } = "Emulator data: bundled";
+    /// <summary>"Emulator data: from libretro core info and ES-DE · 4 Nov 2026": where Works with's data comes from and how fresh it is.</summary>
+    [ObservableProperty] public partial string EmulatorDataStatus { get; set; } = DescribeEmulatorData(EmulatorCatalog.Current.SourceText);
 
     /// <summary>Whether Check now can run: false until there is an emulator data source to check.</summary>
     [ObservableProperty, NotifyCanExecuteChangedFor(nameof(CheckEmulatorDataCommand))]
     public partial bool CanCheckEmulatorData { get; set; }
 
-    /// <summary>Checks the emulator data source for an update; set by whoever provides it.</summary>
+    /// <summary>True while Check now is downloading; the button is disabled meanwhile.</summary>
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(CheckEmulatorDataCommand))]
+    public partial bool IsCheckingEmulatorData { get; set; }
+
+    partial void OnIsCheckingEmulatorDataChanged(bool value)
+    {
+        if (value) EmulatorDataStatus = CheckingEmulatorData;
+        else if (EmulatorDataStatus == CheckingEmulatorData) RefreshEmulatorDataStatus(EmulatorCatalog.Current.SourceText);
+    }
+
+    private const string CheckingEmulatorData = "Emulator data: checking for an update…";
+
+    /// <summary>Checks the emulator data source for an update; set by the main window.</summary>
     public Func<Task>? EmulatorDataCheckRequested { get; set; }
 
-    [RelayCommand(CanExecute = nameof(CanCheckEmulatorData))]
+    /// <summary>Shows the catalog's source and date, and why the last check failed if it did.</summary>
+    public void RefreshEmulatorDataStatus(string sourceText, string? problem = null) =>
+        EmulatorDataStatus = DescribeEmulatorData(sourceText) + (problem is null ? "" : $" Last check failed: {problem}");
+
+    /// <summary>"From libretro core info · 4 Nov 2026" becomes "Emulator data: from libretro core info · 4 Nov 2026".</summary>
+    internal static string DescribeEmulatorData(string sourceText) =>
+        "Emulator data: " + (sourceText.StartsWith("From ", StringComparison.Ordinal) ? "from " + sourceText[5..] : sourceText);
+
+    private bool CanCheckEmulatorDataNow => CanCheckEmulatorData && !IsCheckingEmulatorData;
+
+    [RelayCommand(CanExecute = nameof(CanCheckEmulatorDataNow))]
     private async Task CheckEmulatorData()
     {
         if (EmulatorDataCheckRequested is not null) await EmulatorDataCheckRequested();

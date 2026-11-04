@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using NoIntrovert.ViewModels;
 
 namespace NoIntrovert.Views;
 
@@ -14,6 +15,14 @@ public partial class SettingsView : UserControl
     {
         InitializeComponent();
         SizeChanged += (_, e) => Arrange(e.NewSize.Width >= TwoColumnWidth);
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        // Choosing Replace the originals as the default asks once, like the run bar.
+        if (DataContext is SettingsViewModel vm)
+            vm.Output.ConfirmReplace = () => ConfirmDialog.ConfirmReplaceOriginalsAsync(this, vm.Output.UseRecycleBin);
     }
 
     /// <summary>Puts each two-column grid's second column beside the first, or under it.</summary>

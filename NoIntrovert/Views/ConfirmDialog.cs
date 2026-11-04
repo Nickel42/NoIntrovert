@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using NoIntrovert.Core.Jobs;
 
 namespace NoIntrovert.Views;
 
@@ -41,5 +42,21 @@ public sealed class ConfirmDialog : Window
                 },
             },
         };
+    }
+
+    /// <summary>
+    /// The one-time "Replace the originals?" question, asked by the run bar
+    /// and by Settings › Output the first time Replace the originals is chosen.
+    /// False when the user cancels or <paramref name="anchor"/> isn't in a window.
+    /// </summary>
+    public static async Task<bool> ConfirmReplaceOriginalsAsync(Visual anchor, bool useRecycleBin)
+    {
+        if (TopLevel.GetTopLevel(anchor) is not Window owner) return false;
+        var fate = useRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently";
+        var dialog = new ConfirmDialog("Replace the originals?",
+            $"Each original is {fate} once its new file verifies. If verification fails, the original stays and the row shows why. " +
+            "You're asked only this once.",
+            "Replace the originals", "Cancel");
+        return await dialog.ShowDialog<bool>(owner);
     }
 }
