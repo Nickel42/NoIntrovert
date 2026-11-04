@@ -1,14 +1,18 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
+using NoIntrovert.Core;
 using NoIntrovert.Services;
 using NoIntrovert.ViewModels;
+using SukiUI.Controls;
 
 namespace NoIntrovert.Views;
 
-public partial class MainWindow : Window, IDialogs
+public partial class MainWindow : SukiWindow, IDialogs
 {
     private bool _closeConfirmed;
 
@@ -41,6 +45,20 @@ public partial class MainWindow : Window, IDialogs
     }
 
     private MainViewModel? Vm => DataContext as MainViewModel;
+
+    private void OnThemeToggleClick(object? sender, RoutedEventArgs e) => ToggleTheme();
+
+    /// <summary>
+    /// The title bar's moon/sun: flips between Dark and Light (from System too, by what's showing)
+    /// through Settings › General › Theme, so the setting, the saved file and the colours stay in step.
+    /// </summary>
+    public void ToggleTheme()
+    {
+        if (Vm is not { } vm) return;
+        var showingDark = (Application.Current?.ActualThemeVariant ?? ActualThemeVariant) == ThemeVariant.Dark;
+        var next = showingDark ? AppTheme.Light : AppTheme.Dark;
+        vm.Settings.General.SelectedTheme = GeneralSettingsViewModel.Themes.First(t => t.Value == next);
+    }
 
     protected override void OnDataContextChanged(EventArgs e)
     {

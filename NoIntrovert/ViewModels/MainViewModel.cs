@@ -38,7 +38,7 @@ public partial class MainViewModel : ViewModelBase
         // The one place pages are listed: the rail, --page and drops all follow it.
         Pages =
         [
-            new("library", "Optimize", "M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7-4.7-1.8 4.7-1.8zM18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z", Library, async p =>
+            new("library", "Optimize", "M4 5h4v14H4zM10 5h4v14h-4zM16 6l3.5-1 3 13.5-3.5 1z", Library, async p =>
             {
                 // Folders become library folders; loose files go to Convert, which is where they'd be used.
                 var folders = p.Where(Directory.Exists).ToList();
@@ -48,7 +48,7 @@ public partial class MainViewModel : ViewModelBase
             }, RailSection.Library, "Verify, Rename, Convert, Organize"),
             new("convert", "Convert", "M4 8h13l-3-3M20 16H7l3 3", Convert, p => { Convert.AddPaths(p); return Task.CompletedTask; }),
             new("verify", "Verify", "M5 12l4 4L19 6", Verify, p => { Verify.AddPaths(p); return Task.CompletedTask; }),
-            new("cleanup", "Organize", "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", Cleanup),
+            new("cleanup", "Organize", "M4 6a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 10h16", Cleanup),
             new("tests", "Library tests", "M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3", Tests, p => { Tests.AddPaths(p); return Task.CompletedTask; }),
             new("settings", "Settings", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4", Settings,
                 section: RailSection.Bottom),
