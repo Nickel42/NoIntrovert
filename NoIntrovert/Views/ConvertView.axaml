@@ -2,45 +2,91 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NoIntrovert.ViewModels"
              xmlns:v="using:NoIntrovert.Views"
+             xmlns:presets="using:NoIntrovert.Core.Presets"
              x:Class="NoIntrovert.Views.ConvertView"
              x:DataType="vm:ConvertViewModel">
     <!--
-        One page for every conversion. The list gives each row its own target
-        (what it becomes); the panel shows a preset for each action those
-        targets use (how), and an action's parameters only under Custom.
+        One page for every conversion. Each row in the list has its own preset
+        (a format plus its settings); the side panel, 440 px and as tall as the
+        page, describes the focused row: File, Preset, then Preset settings
+        when the row is on Custom. It scrolls as one panel.
     -->
-    <Grid ColumnDefinitions="*,320" ColumnSpacing="12" Margin="0,10,0,0">
+    <Grid ColumnDefinitions="*,440" ColumnSpacing="12" Margin="0,10,0,0">
         <v:JobListPanel />
 
-        <ScrollViewer Grid.Column="1">
-            <Border Classes="card">
-                <StackPanel Spacing="4">
-                    <TextBlock Text="CONVERT" Classes="section" Margin="0,0,0,4" />
-                    <TextBlock Classes="hint" Text="{Binding TargetSummary}" TextWrapping="Wrap" />
-                    <Button Classes="tool" Content="Pack a folder…" Command="{Binding PackFolderCommand}" HorizontalAlignment="Left" Margin="0,4,0,0"
-                            ToolTip.Tip="Add a folder as one row, to pack whole into 7z or zip without looking inside it." />
+        <Border Grid.Column="1" Classes="card" Padding="0">
+            <ScrollViewer DataContext="{Binding Panel}" x:DataType="vm:SidePanelViewModel" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="6" Margin="14,12">
 
-                    <!-- One preset per action the rows' targets use; parameters only under Custom (issue #33) -->
-                    <StackPanel Spacing="4" Margin="0,8,0,0">
-                        <Panel IsVisible="{Binding ShowsChd}"><v:PresetPicker DataContext="{Binding Settings.Presets.Chd}" /></Panel>
-                        <Panel IsVisible="{Binding ShowsRvz}"><v:PresetPicker DataContext="{Binding Settings.Presets.Rvz}" /></Panel>
-                        <StackPanel Spacing="4" IsVisible="{Binding ShowsWua}">
-                            <v:PresetPicker DataContext="{Binding Settings.Presets.Wua}" />
-                            <!-- Encrypted titles and discs need the user's own keys -->
-                            <TextBlock Text="WII U KEYS" Classes="section" />
-                            <TextBlock Classes="hint" Text="{Binding Settings.Keys.WiiUKeysSummary}" TextWrapping="Wrap" />
-                            <WrapPanel Orientation="Horizontal">
-                                <Button Classes="tool" Content="Choose keys.txt…" Command="{Binding Settings.Keys.BrowseWiiUKeysCommand}" Margin="0,0,6,6" />
-                                <Button Classes="tool" Content="Find automatically" Command="{Binding Settings.Keys.FindWiiUKeysAutomaticallyCommand}" Margin="0,0,6,6" />
-                                <Button Classes="tool" Content="Refresh" Command="{Binding Settings.Keys.RefreshWiiUKeysCommand}" Margin="0,0,6,6" />
-                            </WrapPanel>
-                        </StackPanel>
-                        <Panel IsVisible="{Binding ShowsArchives}"><v:PresetPicker DataContext="{Binding Settings.Presets.Archive}" /></Panel>
-                        <Panel IsVisible="{Binding ShowsExtract}"><v:PresetPicker DataContext="{Binding Settings.Presets.Extract}" /></Panel>
-                        <Panel IsVisible="{Binding ShowsUnpacking}"><v:PresetPicker DataContext="{Binding Settings.Presets.Unpack}" /></Panel>
+                    <!-- File -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="SELECTED FILE" Classes="section" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding Header}" Classes="hint" FontSize="11" VerticalAlignment="Center" />
+                    </Grid>
+                    <v:FileFacts DataContext="{Binding File}" />
+
+                    <!-- Preset -->
+                    <Border Height="1" Background="{DynamicResource PanelBorder}" Margin="0,8,0,4" />
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="PRESET" Classes="section" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="For this file" Classes="hint" FontSize="11" VerticalAlignment="Center"
+                                   IsVisible="{Binding CanChoose}" />
+                    </Grid>
+                    <TextBlock Classes="hint" Text="Add files to choose how they're converted." IsVisible="{Binding !HasRow}" />
+                    <StackPanel Spacing="6" IsVisible="{Binding HasRow}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Preset (format + settings)" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding PresetCount}" Classes="hint" FontSize="11" VerticalAlignment="Center" />
+                        </Grid>
+                        <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" IsEnabled="{Binding CanChoose}"
+                                  HorizontalAlignment="Stretch" MaxDropDownHeight="520">
+                            <ComboBox.Styles>
+                                <Style Selector="ComboBoxItem" x:DataType="presets:PresetListItem">
+                                    <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
+                                </Style>
+                            </ComboBox.Styles>
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="presets:PresetListItem">
+                                    <v:PresetOptionView />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                            <ComboBox.SelectionBoxItemTemplate>
+                                <DataTemplate x:DataType="presets:PresetListItem">
+                                    <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                </DataTemplate>
+                            </ComboBox.SelectionBoxItemTemplate>
+                        </ComboBox>
+                        <TextBlock Classes="hint" FontSize="11" Text="Select a row to change its preset." IsVisible="{Binding !CanChoose}" />
+
+                        <!-- Apply to N selected -->
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding ShowsApply}">
+                            <TextBlock Text="{Binding ApplyHint}" Classes="hint" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Classes="tool" Content="{Binding ApplyLabel}" Command="{Binding ApplyToSelectedCommand}" />
+                        </Grid>
+
+                        <!-- Works with: the focused row's system and this preset's output -->
+                        <v:WorksWithList DataContext="{Binding WorksWith}" Margin="0,8,0,0" />
+                    </StackPanel>
+
+                    <!-- Preset settings, only for Custom -->
+                    <StackPanel IsVisible="{Binding Custom, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <Border Height="1" Background="{DynamicResource PanelBorder}" Margin="0,8,0,8" />
+                        <v:PresetSettingsPanel DataContext="{Binding Custom}" />
+                    </StackPanel>
+
+                    <!-- Wii U: encrypted titles and discs need the user's own keys (also in Settings › Advanced › Keys) -->
+                    <StackPanel Spacing="4" IsVisible="{Binding ShowsWiiUKeys}">
+                        <Border Height="1" Background="{DynamicResource PanelBorder}" Margin="0,8,0,4" />
+                        <TextBlock Text="WII U KEYS" Classes="section" />
+                        <TextBlock Classes="hint" Text="{Binding Settings.Keys.WiiUKeysSummary}" TextWrapping="Wrap" />
+                        <WrapPanel Orientation="Horizontal">
+                            <Button Classes="tool" Content="Choose keys.txt…" Command="{Binding Settings.Keys.BrowseWiiUKeysCommand}" Margin="0,0,6,6" />
+                            <Button Classes="tool" Content="Find automatically" Command="{Binding Settings.Keys.FindWiiUKeysAutomaticallyCommand}" Margin="0,0,6,6" />
+                            <Button Classes="tool" Content="Refresh" Command="{Binding Settings.Keys.RefreshWiiUKeysCommand}" Margin="0,0,6,6" />
+                        </WrapPanel>
                     </StackPanel>
                 </StackPanel>
-            </Border>
-        </ScrollViewer>
+            </ScrollViewer>
+        </Border>
     </Grid>
 </UserControl>

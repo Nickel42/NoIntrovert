@@ -17,7 +17,7 @@ static class SettingsPageTests
 
         test("Settings page: theme, start page, save to and log choices save as they change", () => WithSettings(dir("settings-page"), (vm, file) =>
         {
-            if (vm.DefaultPresets is not null) return "Default presets isn't empty yet";
+            if (vm.DefaultPresets.Systems.Count == 0) return "Default presets has no systems";
             vm.General.StartPages = [new("", "Automatic"), new("library", "Optimize"), new("verify", "Verify")];
 
             var changed = new List<string?>();

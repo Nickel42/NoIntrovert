@@ -33,6 +33,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         {
             _summary.Request();
             _visible.Request();
+            if (FocusedItem is { } focused && !Items.Contains(focused)) FocusedItem = null;
         };
         settings.Output.PropertyChanged += (_, _) => RefreshSaveTo();
         _progressTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(400), DispatcherPriority.Background, (_, _) => RefreshProgress());
@@ -227,6 +228,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         bool Match(JobItemViewModel i) => words.All(w =>
             i.Name.Contains(w, StringComparison.OrdinalIgnoreCase) || i.Folder.Contains(w, StringComparison.OrdinalIgnoreCase) ||
             (i.Target?.Label.Contains(w, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            i.PresetLabel.Contains(w, StringComparison.OrdinalIgnoreCase) ||
             i.StatusText.Contains(w, StringComparison.OrdinalIgnoreCase) || i.TypeText.Contains(w, StringComparison.OrdinalIgnoreCase));
         VisibleItems.ReplaceAll(Items.Where(Match));
         OnPropertyChanged(nameof(NoMatches));
@@ -237,6 +239,43 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     [RelayCommand]
     private void ClearFilter() => Filter = "";
     [ObservableProperty] public partial System.Collections.IList? SelectedItems { get; set; }
+
+    // ---- Selection and focus: the checkboxes select, the panel follows the focused row ----
+
+    /// <summary>The row the side panel describes: the last one clicked or moved to with the keyboard (null when none).</summary>
+    [ObservableProperty] public partial JobItemViewModel? FocusedItem { get; set; }
+
+    partial void OnFocusedItemChanged(JobItemViewModel? oldValue, JobItemViewModel? newValue)
+    {
+        if (oldValue is not null) oldValue.IsFocusedRow = false;
+        if (newValue is not null) newValue.IsFocusedRow = true;
+        OnFocusChanged();
+    }
+
+    /// <summary>The selected rows, in list order.</summary>
+    public IReadOnlyList<JobItemViewModel> Selected =>
+        SelectedItems is { Count: > 0 } list ? Items.Where(new HashSet<JobItemViewModel>(list.OfType<JobItemViewModel>()).Contains).ToList() : [];
+
+    public int SelectedCount => SelectedItems?.Count ?? 0;
+
+    /// <summary>The select-all checkbox: true when every shown row is selected, false when none, null (–) when some.</summary>
+    public bool? AllSelected => SelectedCount == 0 ? false : SelectedCount >= VisibleItems.Count ? true : null;
+
+    /// <summary>Called by the list whenever its selection changes.</summary>
+    public void NotifySelectionChanged()
+    {
+        OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(AllSelected));
+        OnPropertyChanged(nameof(Selected));
+        _summary.Request();
+        OnSelectionChanged();
+    }
+
+    /// <summary>For pages whose side panel follows the selection.</summary>
+    protected virtual void OnSelectionChanged() { }
+
+    /// <summary>For pages whose side panel follows the focused row.</summary>
+    protected virtual void OnFocusChanged() { }
 
     [ObservableProperty, NotifyPropertyChangedFor(nameof(IsIdle)), NotifyCanExecuteChangedFor(nameof(StartCommand), nameof(CancelCommand))]
     public partial bool IsRunning { get; set; }
@@ -474,6 +513,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasItems));
         var done = Items.Count(i => i.Status is JobStatus.Succeeded or JobStatus.Warning);
         var failed = Items.Count(i => i.Status == JobStatus.Failed);
-        Summary = Items.Count == 0 ? "" : $"{Items.Count} item(s) · {done} done · {failed} failed";
+        var selected = SelectedCount > 0 ? $"{SelectedCount} selected · " : "";
+        Summary = Items.Count == 0 ? "" : $"{selected}{Items.Count} {(Items.Count == 1 ? "item" : "items")} · {done} done · {failed} failed";
     }
 }

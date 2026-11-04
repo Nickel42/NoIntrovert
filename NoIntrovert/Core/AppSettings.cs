@@ -68,6 +68,7 @@ public sealed class AppSettings
                 // Schema 1: keep the original, convert, and save the new layout.
                 var migrated = FromV1(JsonSerializer.Deserialize<SettingsV1>(json, JsonOptions) ?? new SettingsV1());
                 migrated.Presets = Core.Presets.ActionPresets.Infer(migrated);
+                Core.Presets.FormatPresets.Migrate(migrated);
                 if (!File.Exists(V1BackupPath)) File.Copy(SettingsPath, V1BackupPath);
                 migrated.Save();
                 return migrated;
@@ -80,6 +81,9 @@ public sealed class AppSettings
                     settings.Presets = Core.Presets.ActionPresets.Infer(settings);
                 // Before Save to: the old "remove originals" switches and presets, and the output folder.
                 OutputSettings.Migrate(loaded, settings);
+                // Before format presets: each action's chosen preset seeds the systems' defaults.
+                if (loaded[nameof(Presets)] is not JsonObject presets || !presets.ContainsKey(nameof(Core.Presets.PresetSettings.DefaultBySystem)))
+                    Core.Presets.FormatPresets.Migrate(settings);
             }
             return settings;
         }
@@ -90,8 +94,15 @@ public sealed class AppSettings
         return new AppSettings();
     }
 
+    /// <summary>
+    /// A copy that's edited but never written to disk, e.g. one row's Custom
+    /// values behind the Preset settings controls. Not saved, and not copied by <see cref="Clone"/>.
+    /// </summary>
+    [JsonIgnore] public bool IsScratch { get; init; }
+
     public void Save()
     {
+        if (IsScratch) return;
         try
         {
             var json = ToJson();

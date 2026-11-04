@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using NoIntrovert.Core.Jobs;
+using NoIntrovert.Core.Presets;
 
 namespace NoIntrovert.ViewModels;
 
@@ -73,10 +74,115 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
     /// <summary>The system's name, for the status's tooltip.</summary>
     public string FormatDetails { get; init; } = "";
 
-    /// <summary>What this row becomes; changed by the row's own drop-down.</summary>
+    /// <summary>What this row becomes; follows the row's preset on the Convert page.</summary>
     [ObservableProperty] public partial Core.Formats.TargetChoice? Target { get; set; }
 
     public bool IsFolder { get; }
+
+    // ---- Selection and focus ----
+
+    /// <summary>The row the side panel describes: the last one clicked or moved to with the keyboard.</summary>
+    [ObservableProperty] public partial bool IsFocusedRow { get; set; }
+
+    // ---- The row's format preset (Convert page only) ----
+
+    /// <summary>The input's system id (TargetFormats.json), or null when it's unknown.</summary>
+    public string? SystemId { get; init; }
+
+    /// <summary>The target the rules chose for the input, which decides the preset a row starts on.</summary>
+    public Core.Formats.TargetKind PlannedTarget { get; init; } = Core.Formats.TargetKind.Leave;
+
+    /// <summary>The row's Preset dropdown (empty off the Convert page).</summary>
+    [ObservableProperty] public partial IReadOnlyList<PresetListItem> PresetOptions { get; set; } = [];
+
+    public bool HasPresets => PresetOptions.Count > 0;
+
+    partial void OnPresetOptionsChanged(IReadOnlyList<PresetListItem> value) => OnPropertyChanged(nameof(HasPresets));
+
+    private PresetListItem? _presetChoice;
+
+    /// <summary>
+    /// The row's preset. A disabled entry, a divider or null (a dropdown
+    /// clearing itself while its list is replaced) is ignored. Choosing Custom
+    /// copies the current preset's values, so nothing jumps.
+    /// </summary>
+    public PresetListItem? PresetChoice
+    {
+        get => _presetChoice;
+        set
+        {
+            if (value is null || !value.IsPreset || !value.IsEnabled || value == _presetChoice)
+            {
+                // Put the dropdown back on the row's real choice.
+                if (value != _presetChoice) Avalonia.Threading.Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(PresetChoice)));
+                return;
+            }
+            var old = _presetChoice?.Preset;
+            if (value.Preset!.IsCustom && old is { IsCustom: false })
+            {
+                var from = old.IsLeave ? FirstConvertible()?.Preset : old;
+                CustomBase = from;
+                CustomValues = (from?.Values ?? Core.Presets.FormatPresets.StandardFor(Core.Formats.TargetKind.Chd).Values).Copy();
+            }
+            _presetChoice = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Preset));
+            OnPropertyChanged(nameof(IsCustom));
+            OnPropertyChanged(nameof(PresetLabel));
+            SyncTarget();
+        }
+    }
+
+    /// <summary>The row's preset, or null off the Convert page.</summary>
+    public FormatPreset? Preset => _presetChoice?.Preset;
+
+    public bool IsCustom => Preset?.IsCustom == true;
+
+    /// <summary>The preset's name, as the filter and the panel read it.</summary>
+    public string PresetLabel => Preset?.Label ?? "";
+
+    /// <summary>The row's own values while it's on Custom (copied from the preset it was on).</summary>
+    [ObservableProperty] public partial PresetValues? CustomValues { get; set; }
+
+    partial void OnCustomValuesChanged(PresetValues? value) => SyncTarget();
+
+    /// <summary>The preset Custom was copied from: "Reset to CHD · Standard" goes back to it.</summary>
+    public FormatPreset? CustomBase { get; private set; }
+
+    /// <summary>The values the row's job runs with; null for Leave as is (and off the Convert page).</summary>
+    public PresetValues? Values => Preset switch
+    {
+        null or { IsLeave: true } => null,
+        { IsCustom: true } => CustomValues,
+        var p => p.Values,
+    };
+
+    /// <summary>The first preset this file can be converted with (Custom starts from it when the row was left as is).</summary>
+    private PresetListItem? FirstConvertible() =>
+        PresetOptions.FirstOrDefault(i => i.IsPreset && i.IsEnabled && i.Preset!.Kind is PresetKind.Standard or PresetKind.Saved);
+
+    /// <summary>The list entry for <paramref name="id"/>, when this row can use it.</summary>
+    public PresetListItem? OptionFor(string id) => PresetOptions.FirstOrDefault(i => i.IsPreset && i.IsEnabled && i.Preset!.Id == id);
+
+    /// <summary>Whether this row can be converted with <paramref name="values"/>' target.</summary>
+    public bool Offers(Core.Formats.TargetKind kind) => Targets.Any(t => t.Kind == kind);
+
+    private void SyncTarget()
+    {
+        var kind = Values?.Target ?? Core.Formats.TargetKind.Leave;
+        Target = Targets.FirstOrDefault(t => t.Kind == kind) ?? Core.Formats.TargetChoice.Leave;
+        OnPropertyChanged(nameof(Values));
+    }
+
+    /// <summary>Rebuilds the dropdown (saved presets changed), keeping the row's choice when it's still there.</summary>
+    public void ReplacePresetOptions(IReadOnlyList<PresetListItem> options, Func<IReadOnlyList<PresetListItem>, PresetListItem> start)
+    {
+        var id = Preset?.Id;
+        PresetOptions = options;
+        var keep = id is null ? null : OptionFor(id);
+        _presetChoice = null;
+        PresetChoice = keep ?? start(options);
+    }
 
     partial void OnStatusChanged(JobStatus value)
     {

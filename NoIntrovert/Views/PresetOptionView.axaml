@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:presets="using:NoIntrovert.Core.Presets"
+             x:Class="NoIntrovert.Views.PresetOptionView"
+             x:DataType="presets:PresetListItem">
+    <!--
+        One entry of a Preset dropdown: "CHD · Standard ★", its one-line hint
+        and how many known emulators play the output ("6 of 9"); the divider
+        before Custom; or the "⚠ May not play" group label.
+    -->
+    <Panel>
+        <Border IsVisible="{Binding IsDivider}" Height="1" Margin="0,2" Background="{DynamicResource PanelBorder}" />
+        <TextBlock IsVisible="{Binding IsGroup}" Text="{Binding Label}" Classes="colhead" Foreground="#F5A524" Margin="0,4,0,0" />
+        <Grid IsVisible="{Binding IsPreset}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" MinWidth="360">
+            <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding Hint}" Classes="hint" FontSize="11" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" MaxWidth="260" HorizontalAlignment="Left" />
+            <TextBlock Grid.Column="2" Text="{Binding Plays}" IsVisible="{Binding HasPlays}" Classes="hint" FontSize="11"
+                       VerticalAlignment="Center" ToolTip.Tip="Known emulators that play this preset's output" />
+        </Grid>
+    </Panel>
+</UserControl>
