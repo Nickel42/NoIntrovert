@@ -45,6 +45,9 @@ public sealed class AppSettings
 
     private static string SettingsPath => Path.Combine(SettingsDirectory, "settings.json");
 
+    /// <summary>Where each session's log is saved (Settings › Log › Open log folder).</summary>
+    public static string LogDirectory => Path.Combine(SettingsDirectory, "logs");
+
     /// <summary>Where a schema-1 file is kept after it's converted.</summary>
     internal static string V1BackupPath => Path.Combine(SettingsDirectory, "settings.v1.json");
 
@@ -147,12 +150,45 @@ public sealed class GeneralSettings
     public bool LogProgress { get; set; }
     public double WindowWidth { get; set; } = 1180;
     public double WindowHeight { get; set; } = 820;
+
+    public AppTheme Theme { get; set; } = AppTheme.System;
+
+    /// <summary>The page the app opens on, by page id; empty = Optimize once the library has folders, otherwise Convert.</summary>
+    public string StartPage { get; set; } = "";
+
+    /// <summary>Whether the log is expanded (Show log) rather than collapsed to its bar.</summary>
+    public bool LogExpanded { get; set; }
+
+    /// <summary>Expands the log when a run logs an error.</summary>
+    public bool OpenLogOnErrors { get; set; } = true;
+
+    /// <summary>Days a saved session log is kept in <see cref="AppSettings.LogDirectory"/>.</summary>
+    public int KeepLogsDays { get; set; } = 30;
+}
+
+public enum AppTheme { System, Dark, Light }
+
+/// <summary>Where a run saves its results: the run bar's three choices, and the default Settings gives them.</summary>
+public enum SaveTo
+{
+    /// <summary>In each source's own folder.</summary>
+    NextToOriginals,
+    /// <summary>In <see cref="OutputSettings.Folder"/>.</summary>
+    Folder,
+    /// <summary>Next to the originals, and each original is removed once its new file verifies.</summary>
+    ReplaceOriginals,
 }
 
 /// <summary>Where results go, and what happens to the files they were made from.</summary>
 public sealed class OutputSettings
 {
-    public string Folder { get; set; } = ""; // empty = next to each source file
+    /// <summary>The run bar's default. This is the only setting that removes originals.</summary>
+    public SaveTo SaveTo { get; set; } = SaveTo.NextToOriginals;
+
+    /// <summary>Set once the user has confirmed Replace the originals, so it's asked only the first time.</summary>
+    public bool ReplaceConfirmed { get; set; }
+
+    public string Folder { get; set; } = ""; // the folder for SaveTo.Folder; the last one used
     public bool Overwrite { get; set; }
     public bool ScanSubfolders { get; set; } = true;
 
