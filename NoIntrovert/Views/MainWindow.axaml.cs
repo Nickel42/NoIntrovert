@@ -27,11 +27,40 @@ public partial class MainWindow : Window, IDialogs
         if (Vm is not { } vm) return;
         Width = vm.Settings.General.WindowWidth;
         Height = vm.Settings.General.WindowHeight;
-        vm.Log.EntriesAdded += () =>
+        vm.Log.EntriesAdded += () => ScrollLogToEnd(vm);
+        vm.Log.PropertyChanged += (_, args) =>
         {
-            if (vm.Log.Entries.Count > 0)
-                LogList.ScrollIntoView(vm.Log.Entries[^1]);
+            if (args.PropertyName == nameof(LogViewModel.IsExpanded)) ApplyLogLayout(vm);
         };
+        ApplyLogLayout(vm);
+    }
+
+    private const double ExpandedLogHeight = 230;
+    private GridLength _expandedLogRow = new(ExpandedLogHeight);
+
+    /// <summary>
+    /// Collapsed, the log's row fits just its bar and the page takes the rest;
+    /// expanded, it gets back the height it had (the splitter can change it).
+    /// </summary>
+    private void ApplyLogLayout(MainViewModel vm)
+    {
+        var row = BodyGrid.RowDefinitions[2];
+        if (vm.Log.IsExpanded)
+        {
+            row.Height = _expandedLogRow;
+            ScrollLogToEnd(vm);
+        }
+        else
+        {
+            if (row.Height.IsAbsolute && row.Height.Value > 60) _expandedLogRow = row.Height;
+            row.Height = GridLength.Auto;
+        }
+    }
+
+    private void ScrollLogToEnd(MainViewModel vm)
+    {
+        if (vm.Log.IsExpanded && vm.Log.Entries.Count > 0)
+            LogList.ScrollIntoView(vm.Log.Entries[^1]);
     }
 
     protected override void OnOpened(EventArgs e)

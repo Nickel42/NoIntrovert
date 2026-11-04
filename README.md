@@ -11,11 +11,10 @@ recommended preset; its individual options appear only under Custom ([presets](d
 | Tab | What it does |
 |---|---|
 | Convert | Any supported image → CHD (GameCube/Wii discs → RVZ, or CHD if you choose), optional verify, optional removal of the originals (Recycle Bin by default, and only after the CHD verifies) |
-| Verify & match | Checks each game for damage (CHDs against their stored SHA-1, 7z and zip by testing every file), then looks it up in the No-Intro and Redump databases: a good dump, a misnamed one (with the name it should have), or not in the database. The databases come from [libretro-database](https://github.com/libretro/libretro-database), only for the systems in your Library, checked for updates when the app starts ([requirement](docs/requirements/verify-match.md)) |
+| Verify | Checks each game for damage (CHDs against their stored SHA-1, 7z and zip by testing every file), then looks it up in the No-Intro and Redump databases: a good dump, a misnamed one (with the name it should have), or not in the database. The databases come from [libretro-database](https://github.com/libretro/libretro-database), only for the systems in your Library, checked for updates when the app starts ([requirement](docs/requirements/verify-match.md)) |
 | Extract | CHD → cue/bin (one bin per track or a single bin), gdi, iso (DVDs, and single-track data CDs) or raw img; RVZ/WIA/GCZ → iso |
 | Archive | Files and folders → .7z or .zip (one archive per item, one per file/subfolder in a folder, or one for everything), zip ↔ 7z conversion, and extracting zip/7z (into a folder per archive or straight into the output folder); tests each archive and can remove the originals |
-| Cleanup | The Cleanup wizard: for the selected games or the whole Library, a dry run of converting to the target formats, renaming to the No-Intro/Redump names, moving into ES-DE system folders (or keeping each game where it is) and removing duplicates. Every step can be unticked; a run can be undone, conversions included, until its trash is emptied ([requirement](docs/requirements/cleanup-wizard.md)) |
-| CHD Info | Header fields, metadata (copy, save an item to a file), hunk counts per codec |
+| Organize | The Cleanup wizard: for the selected games or the whole Library, a dry run of converting to the target formats, renaming to the No-Intro/Redump names, moving into ES-DE system folders (or keeping each game where it is) and removing duplicates. Every step can be unticked; a run can be undone, conversions included, until its trash is emptied ([requirement](docs/requirements/cleanup-wizard.md)) |
 | Library tests | Round trip (create → verify → extract → compare with the original data) and comparison with a chdman.exe (byte-for-byte output, timings); CSV export |
 
 ## Input formats
@@ -190,11 +189,13 @@ dotnet publish NoIntrovert -c Release -r win-x64 --self-contained -p:PublishSing
 ```
 
 Paths given on the command line are added to the list, as if dropped on the
-window; `--tab convert|verify|extract|info|tests` picks the starting tab.
+window; `--page library|convert|verify|organize|settings|tests` picks the
+starting page (the older `--tab NAME` still works). Without it the app opens
+on Settings › General › Start on.
 
 Settings live in `%AppData%\NoIntrovert\settings.json` (macOS and Linux:
-`~/.config/NoIntrovert`); each session's log is written to
-`%LocalAppData%\NoIntrovert\logs` (macOS and Linux: `~/.local/share/NoIntrovert/logs`).
+`~/.config/NoIntrovert`); each session's log is written to its `logs` folder
+as `NoIntrovert-yyyyMMdd-HHmmss.log` and kept for 30 days (Settings › Log).
 
 ## Tests
 

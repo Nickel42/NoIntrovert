@@ -15,8 +15,9 @@ public interface IProgressIndicator
 
 /// <summary>
 /// The shared queue as the shell shows it: one status line and progress bar
-/// for everything that's running, weighted by size, plus the job list in the
-/// queue drawer. Refreshed from the UI thread a few times a second.
+/// for everything in the queue (counted by item, see <see cref="OverallFraction"/>),
+/// plus the job list in the queue drawer. Refreshed from the UI thread a few
+/// times a second.
 /// </summary>
 public partial class QueueViewModel : ViewModelBase
 {
@@ -52,6 +53,32 @@ public partial class QueueViewModel : ViewModelBase
     [ObservableProperty] public partial string StatusText { get; set; } = "Queue empty";
     [ObservableProperty] public partial string ToggleText { get; set; } = "Show queue";
     [ObservableProperty] public partial bool HasRows { get; set; }
+
+    /// <summary>Whether the status bar shows the progress bar and percentage: not when the queue is empty.</summary>
+    [ObservableProperty] public partial bool ShowsProgress { get; set; }
+
+    /// <summary>
+    /// The queue's overall progress, 0..1: (finished items + the running items'
+    /// fractions) ÷ all items in the queue. Skipped items don't count on either
+    /// side; null when nothing counts (an empty queue, or only skipped items).
+    /// </summary>
+    internal static double? OverallFraction(IEnumerable<(QueuedState State, JobStatus? Outcome, double Fraction)> jobs)
+    {
+        double done = 0;
+        var count = 0;
+        foreach (var (state, outcome, fraction) in jobs)
+        {
+            if (outcome == JobStatus.Skipped) continue;
+            count++;
+            done += state switch
+            {
+                QueuedState.Finished => 1,
+                QueuedState.Running => Math.Clamp(fraction, 0, 1),
+                _ => 0,
+            };
+        }
+        return count == 0 ? null : done / count;
+    }
 
     partial void OnIsOpenChanged(bool value) => UpdateToggleText();
 
@@ -98,7 +125,9 @@ public partial class QueueViewModel : ViewModelBase
         var failed = finished.Count(j => j.Outcome?.Status == JobStatus.Failed);
         var total = jobs.Sum(j => (double)j.Cost);
         var done = jobs.Sum(j => j.DoneBytes);
-        OverallPercent = total > 0 ? 100 * done / total : 0;
+        var overall = OverallFraction(jobs.Select(j => (j.State, j.Outcome?.Status, j.Fraction)));
+        OverallPercent = 100 * (overall ?? 0);
+        ShowsProgress = overall is not null;
         IsBusy = running + queued > 0;
 
         // Throughput: bytes done per second, smoothed over several seconds, from running jobs only.
@@ -139,7 +168,7 @@ public partial class QueueViewModel : ViewModelBase
                 : $"Idle · {finished.Count} done" + (failed > 0 ? $", {failed} failed" : "");
         }
         UpdateToggleText();
-        Indicator?.Show(IsBusy ? done / Math.Max(1, total) : null, failed > 0);
+        Indicator?.Show(IsBusy ? overall ?? 0 : null, failed > 0);
     }
 
     private void UpdateToggleText() =>

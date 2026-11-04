@@ -11,42 +11,68 @@
         Background="{DynamicResource AppBackground}"
         DragDrop.AllowDrop="True">
 
+    <Window.Resources>
+        <!-- One rail button: icon, title, and an optional line of small text under the title -->
+        <DataTemplate x:Key="RailButton" x:DataType="vm:PageViewModel">
+            <Button Classes="rail" Classes.selected="{Binding IsSelected}" IsVisible="{Binding IsVisible}"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectPageCommand}" CommandParameter="{Binding}"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,4">
+                <Grid ColumnDefinitions="Auto,*" Margin="0,7">
+                    <Path Data="{Binding Icon, Converter={x:Static v:Palette.Geometry}}" Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Top"
+                          Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Margin="0,1,10,0" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" />
+                        <TextBlock Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" FontSize="11" FontWeight="Normal"
+                                   Foreground="{DynamicResource SubtleText}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Button>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Window.Styles>
+        <!-- The log's counts turn red once there's an error, so it's noticed while the log is collapsed -->
+        <Style Selector="TextBlock.counts.error">
+            <Setter Property="Foreground" Value="{x:Static v:Palette.Bad}" />
+        </Style>
+        <Style Selector="TextBlock.railsection">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+            <Setter Property="Margin" Value="12,6,0,6" />
+        </Style>
+    </Window.Styles>
+
     <!-- Navigation rail | the page with the log and queue under it; the status bar spans the bottom. -->
     <Grid ColumnDefinitions="Auto,*" RowDefinitions="*,Auto">
 
-        <!-- Navigation rail: one button per registered page -->
+        <!-- Navigation rail: the logo, then LIBRARY and FILES, with Settings at the bottom below a divider -->
         <Border Grid.Column="0" Background="{DynamicResource HeaderBackground}" Width="190" Padding="10,14">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="6,0,0,18">
-                    <Image Source="/Assets/nointrovert-64.png" Width="32" Height="32" RenderOptions.BitmapInterpolationMode="None" />
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="NoIntrovert" FontSize="16" FontWeight="Bold" />
-                        <TextBlock Text="{Binding AppVersion}" Classes="hint" />
-                    </StackPanel>
+                <Image DockPanel.Dock="Top" Source="/Assets/nointrovert-logo.png" Width="170" Stretch="Uniform" Margin="0,0,0,12"
+                       RenderOptions.BitmapInterpolationMode="HighQuality" />
+                <StackPanel DockPanel.Dock="Bottom">
+                    <Border Height="1" Background="{DynamicResource PanelBorder}" Margin="4,8,4,8" />
+                    <ItemsControl ItemsSource="{Binding BottomPages}" ItemTemplate="{StaticResource RailButton}" />
                 </StackPanel>
-                <ItemsControl ItemsSource="{Binding Pages}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:PageViewModel">
-                            <Button Classes="rail" Classes.selected="{Binding IsSelected}" IsVisible="{Binding IsVisible}"
-                                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectPageCommand}" CommandParameter="{Binding}"
-                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,0,4">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <Path Data="{Binding Icon, Converter={x:Static v:Palette.Geometry}}" Width="18" Height="18" Stretch="Uniform"
-                                          Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" />
-                                    <TextBlock Text="{Binding Title}" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="LIBRARY" Classes="railsection" />
+                        <ItemsControl ItemsSource="{Binding LibraryPages}" ItemTemplate="{StaticResource RailButton}" />
+                        <TextBlock Text="FILES" Classes="railsection" Margin="12,14,0,6" />
+                        <ItemsControl ItemsSource="{Binding FilePages}" ItemTemplate="{StaticResource RailButton}" />
+                    </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
 
-        <!-- The page, then the log and the queue drawer -->
-        <Grid Grid.Column="1" RowDefinitions="*,Auto,230,Auto">
+        <!-- The page, then the log and the queue drawer. The log row is Auto while collapsed to its bar
+             (the page takes the height) and a resizable 230 px when expanded; see MainWindow.axaml.cs. -->
+        <Grid Grid.Column="1" x:Name="BodyGrid" RowDefinitions="*,Auto,Auto,Auto">
             <ContentControl Grid.Row="0" Content="{Binding SelectedPage.Content}" Margin="12,6,12,0" />
 
-            <GridSplitter Grid.Row="1" Height="6" Background="Transparent" ResizeDirection="Rows" />
+            <GridSplitter Grid.Row="1" Height="6" Background="Transparent" ResizeDirection="Rows" IsVisible="{Binding Log.IsExpanded}" />
+            <Border Grid.Row="1" Height="6" IsVisible="{Binding !Log.IsExpanded}" />
 
             <!-- Log -->
             <Border Grid.Row="2" Classes="card" Margin="12,0,12,12" Padding="0" x:Name="LogCard">
@@ -54,11 +80,12 @@
                     <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,6">
                         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                             <TextBlock Text="Log" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            <TextBlock Classes="hint" VerticalAlignment="Center">
+                            <TextBlock Classes="hint counts" Classes.error="{Binding Log.HasErrors}" VerticalAlignment="Center">
                                 <Run Text="{Binding Log.ErrorCount}" /><Run Text=" errors · " /><Run Text="{Binding Log.WarningCount}" /><Run Text=" warnings" />
                             </TextBlock>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding Log.IsExpanded}">
                             <CheckBox Content="Show debug" IsChecked="{Binding Log.ShowDebug}" />
                             <CheckBox Content="lib-chd-kit messages" IsChecked="{Binding Settings.General.VerboseLog}" IsVisible="{Binding Settings.General.PowerUserMode}"
                                       ToolTip.Tip="Log every message lib-chd-kit sends (shown as debug lines)." />
@@ -67,9 +94,11 @@
                             <Button Classes="tool" Content="Copy" Command="{Binding Log.CopyCommand}" />
                             <Button Classes="tool" Content="Save…" Command="{Binding Log.SaveCommand}" />
                             <Button Classes="tool" Content="Clear" Command="{Binding Log.ClearCommand}" />
+                            </StackPanel>
+                            <Button Classes="tool" Content="{Binding Log.ToggleText}" Command="{Binding Log.ToggleExpandedCommand}" MinWidth="84" />
                         </StackPanel>
                     </Grid>
-                    <ListBox Grid.Row="1" x:Name="LogList" ItemsSource="{Binding Log.Entries}"
+                    <ListBox Grid.Row="1" x:Name="LogList" ItemsSource="{Binding Log.Entries}" IsVisible="{Binding Log.IsExpanded}"
                              Background="{DynamicResource LogBackground}" Padding="0,2">
                         <ListBox.Styles>
                             <Style Selector="ListBoxItem">
@@ -132,15 +161,16 @@
             </Border>
         </Grid>
 
-        <!-- Status bar: overall progress of the shared queue, weighted by size -->
+        <!-- Status bar: the queue summary, then the whole queue's progress (by item) filling the space up to Show queue.
+             An empty queue reads only "Queue empty". -->
         <Border Grid.Row="1" Grid.ColumnSpan="2" Background="{DynamicResource HeaderBackground}" Padding="18,6">
             <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
-                <TextBlock Text="Queue" FontWeight="SemiBold" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="1" Text="{Binding Queue.StatusText}" VerticalAlignment="Center" Margin="12,0,16,0" />
+                <TextBlock Text="Queue" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" IsVisible="{Binding Queue.HasRows}" />
+                <TextBlock Grid.Column="1" Text="{Binding Queue.StatusText}" VerticalAlignment="Center" Margin="0,0,16,0" />
                 <ProgressBar Grid.Column="2" Value="{Binding Queue.OverallPercent}" Minimum="0" Maximum="100" Height="8" MinWidth="0"
-                             VerticalAlignment="Center" IsVisible="{Binding Queue.HasRows}" />
+                             VerticalAlignment="Center" IsVisible="{Binding Queue.ShowsProgress}" />
                 <TextBlock Grid.Column="3" Text="{Binding Queue.OverallPercent, StringFormat={}{0:F0}%}" VerticalAlignment="Center"
-                           Margin="10,0" IsVisible="{Binding Queue.HasRows}" />
+                           Margin="10,0" MinWidth="34" TextAlignment="Right" IsVisible="{Binding Queue.ShowsProgress}" />
                 <Button Grid.Column="4" Classes="tool" Content="{Binding Queue.ToggleText}" Command="{Binding Queue.ToggleCommand}" />
             </Grid>
         </Border>
