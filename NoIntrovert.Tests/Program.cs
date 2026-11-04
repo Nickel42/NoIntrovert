@@ -898,6 +898,8 @@ Test("Presets: the view model saves a real choice only, and shows parameters onl
     finally { AppSettings.SettingsDirectoryOverride = previous; }
 });
 
+EmulatorTests.Run(Test);
+
 Test("Convert planner: each job runs with its own action's preset", () =>
 {
     var s = new AppSettings();

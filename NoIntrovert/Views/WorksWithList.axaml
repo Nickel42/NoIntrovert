@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             xmlns:local="using:NoIntrovert.Views"
+             x:Class="NoIntrovert.Views.WorksWithList"
+             x:DataType="vm:WorksWithViewModel">
+    <!--
+        "Works with" (docs/requirements/ui-redesign.md, Preset section): every
+        RetroArch core for the system, then the most common standalone
+        emulators. Two columns per group; each entry is a 14 px ✓/✕/? icon
+        and the name, with the detail in a tooltip.
+    -->
+    <UserControl.Resources>
+        <DataTemplate x:Key="EntryTemplate" x:DataType="vm:WorksWithItem">
+            <Grid ColumnDefinitions="14,*" ColumnSpacing="6" Margin="0,2,8,2" Background="Transparent"
+                  ToolTip.Tip="{Binding Detail}">
+                <Path Width="14" Height="14" VerticalAlignment="Center"
+                      Data="{Binding State, Converter={x:Static local:WorksWithConverters.Glyph}}"
+                      Stroke="{Binding State, Converter={x:Static local:WorksWithConverters.Brush}}"
+                      StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" />
+                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="13" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           Opacity="{Binding State, Converter={x:Static local:WorksWithConverters.NameOpacity}}" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <StackPanel Spacing="2">
+        <TextBlock Text="Works with" Classes="section" />
+        <TextBlock Classes="hint" Text="No emulator data for this system." IsVisible="{Binding !HasAny}" />
+
+        <TextBlock Text="RetroArch cores" Classes="colhead" Margin="0,2,0,0" IsVisible="{Binding HasCores}" />
+        <ItemsControl ItemsSource="{Binding Cores}" ItemTemplate="{StaticResource EntryTemplate}" IsVisible="{Binding HasCores}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Columns="2" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+
+        <TextBlock Text="Standalone" Classes="colhead" Margin="0,6,0,0" IsVisible="{Binding HasStandalone}" />
+        <ItemsControl ItemsSource="{Binding Standalone}" ItemTemplate="{StaticResource EntryTemplate}" IsVisible="{Binding HasStandalone}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Columns="2" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+
+        <TextBlock Classes="hint" FontSize="11" Margin="0,6,0,0" Text="{Binding Source}" />
+    </StackPanel>
+</UserControl>
