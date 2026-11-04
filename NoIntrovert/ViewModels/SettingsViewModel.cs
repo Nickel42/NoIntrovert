@@ -14,10 +14,12 @@ public sealed record Choice<T>(T Value, string Label)
 }
 
 /// <summary>
-/// The app's settings, one view model per section (General, Presets, Output,
-/// Performance, CHD, GameCube/Wii, Archives, Keys, Diagnostics), each bound
-/// two-way and saved as it changes. Batches run on a snapshot
-/// (<see cref="Snapshot"/>), so edits during a run apply to the next one.
+/// The app's settings, one view model per section (General, Output,
+/// Performance, Log, Library, then the advanced ones: presets, CHD,
+/// GameCube/Wii, archives, databases, target formats, keys, diagnostics),
+/// each bound two-way and saved as it changes: the Settings page has no Save
+/// button. Batches run on a snapshot (<see cref="Snapshot"/>), so edits during
+/// a run apply to the next one.
 /// </summary>
 public partial class SettingsViewModel : ViewModelBase
 {
@@ -29,15 +31,17 @@ public partial class SettingsViewModel : ViewModelBase
         General = new GeneralSettingsViewModel(settings);
         Output = new OutputSettingsViewModel(settings, dialogs);
         Performance = new PerformanceSettingsViewModel(settings, dialogs);
+        Log = new LogSettingsViewModel(settings, dialogs);
         Chd = new ChdSettingsViewModel(settings);
         Nintendo = new NintendoSettingsViewModel(settings);
         Archives = new ArchiveSettingsViewModel(settings);
         Keys = new KeySettingsViewModel(settings, dialogs);
         Diagnostics = new DiagnosticsSettingsViewModel(settings, dialogs);
-        Library = new LibrarySettingsViewModel(settings);
+        Library = new LibrarySettingsViewModel(settings, dialogs);
         Dats = new DatSettingsViewModel(settings, dialogs);
         TargetFormats = new TargetFormatSettingsViewModel(settings, dialogs);
         Presets = new PresetsViewModel(settings, this);
+        About = new AboutViewModel(Diagnostics);
     }
 
     public GeneralSettingsViewModel General { get; }
@@ -52,9 +56,17 @@ public partial class SettingsViewModel : ViewModelBase
     public DatSettingsViewModel Dats { get; }
     public TargetFormatSettingsViewModel TargetFormats { get; }
     public PresetsViewModel Presets { get; }
+    public LogSettingsViewModel Log { get; }
+    public AboutViewModel About { get; }
+
+    /// <summary>
+    /// The Default presets card's content: one preset per system, filled in by
+    /// the presets work. Null until then, and the card shows a hint instead.
+    /// </summary>
+    public object? DefaultPresets => null;
 
     /// <summary>Every section, in the order the Settings page shows them.</summary>
-    public IReadOnlyList<SettingsSectionViewModel> Sections => [General, Presets, Library, Dats, Output, Performance, Chd, Nintendo, Archives, TargetFormats, Keys, Diagnostics];
+    public IReadOnlyList<SettingsSectionViewModel> Sections => [General, Output, Performance, Log, Library, Presets, Nintendo, Archives, Dats, TargetFormats, Keys, Chd, Diagnostics];
 
     public AppSettings Snapshot() => _s.Clone();
     public void Save() => _s.Save();
@@ -95,6 +107,38 @@ public sealed class GeneralSettingsViewModel(AppSettings settings) : SettingsSec
 {
     public override string Title => "General";
 
+    public static IReadOnlyList<Choice<AppTheme>> Themes { get; } =
+    [
+        new(AppTheme.System, "System"),
+        new(AppTheme.Dark, "Dark"),
+        new(AppTheme.Light, "Light"),
+    ];
+
+    /// <summary>The app's colours; App applies a change at once.</summary>
+    public Choice<AppTheme> SelectedTheme
+    {
+        get => Themes.FirstOrDefault(t => t.Value == S.General.Theme) ?? Themes[0];
+        set { if (value is not null && Set(value.Value, (s, v) => s.General.Theme = v)) OnPropertyChanged(nameof(Theme)); }
+    }
+
+    public AppTheme Theme => S.General.Theme;
+
+    /// <summary>The pages the app can open on, by page id; "" picks Optimize once the library has folders, otherwise Convert.</summary>
+    public static IReadOnlyList<Choice<string>> StartPages { get; } =
+    [
+        new("", "Automatic"),
+        new("library", "Optimize"),
+        new("convert", "Convert"),
+        new("verify", "Verify"),
+        new("cleanup", "Organize"),
+    ];
+
+    public Choice<string> SelectedStartPage
+    {
+        get => StartPages.FirstOrDefault(p => p.Value == S.General.StartPage) ?? StartPages[0];
+        set { if (value is not null) Set(value.Value, (s, v) => s.General.StartPage = v); }
+    }
+
     /// <summary>Shows Expert options, lib-chd-kit's own messages and the Library tests tab.</summary>
     public bool PowerUserMode { get => S.General.PowerUserMode; set => Set(value, (s, v) => s.General.PowerUserMode = v); }
 
@@ -113,11 +157,36 @@ public sealed partial class OutputSettingsViewModel(AppSettings settings, IDialo
     public string Folder
     {
         get => S.Output.Folder;
-        set { if (Set(value, (s, v) => s.Output.Folder = v)) { OnPropertyChanged(nameof(UseSourceFolder)); OnPropertyChanged(nameof(FolderText)); } }
+        set { if (Set(value, (s, v) => s.Output.Folder = v)) { OnPropertyChanged(nameof(UseSourceFolder)); OnPropertyChanged(nameof(FolderText)); OnPropertyChanged(nameof(SaveFolderText)); } }
     }
 
     public bool UseSourceFolder => string.IsNullOrWhiteSpace(S.Output.Folder);
     public string FolderText => UseSourceFolder ? "Next to each source file" : S.Output.Folder;
+
+    /// <summary>The run bar's default choice. Replace the originals is the only one that removes files.</summary>
+    public static IReadOnlyList<Choice<SaveTo>> SaveToChoices { get; } =
+    [
+        new(SaveTo.NextToOriginals, "Next to the originals"),
+        new(SaveTo.Folder, "A folder"),
+        new(SaveTo.ReplaceOriginals, "Replace the originals ⚠"),
+    ];
+
+    public Choice<SaveTo> SelectedSaveTo
+    {
+        get => SaveToChoices.FirstOrDefault(c => c.Value == S.Output.SaveTo) ?? SaveToChoices[0];
+        set
+        {
+            if (value is null || !Set(value.Value, (s, v) => s.Output.SaveTo = v)) return;
+            OnPropertyChanged(nameof(SavesToFolder));
+            OnPropertyChanged(nameof(ReplacesOriginals));
+        }
+    }
+
+    public bool SavesToFolder => S.Output.SaveTo == SaveTo.Folder;
+    public bool ReplacesOriginals => S.Output.SaveTo == SaveTo.ReplaceOriginals;
+
+    /// <summary>The folder Save to › A folder uses.</summary>
+    public string SaveFolderText => string.IsNullOrWhiteSpace(S.Output.Folder) ? "No folder chosen yet" : S.Output.Folder;
 
     public bool Overwrite { get => S.Output.Overwrite; set => Set(value, (s, v) => s.Output.Overwrite = v); }
     public bool ScanSubfolders { get => S.Output.ScanSubfolders; set => Set(value, (s, v) => s.Output.ScanSubfolders = v); }
@@ -164,6 +233,26 @@ public sealed partial class PerformanceSettingsViewModel(AppSettings settings, I
 
     [RelayCommand]
     private void UseDefaultTempFolder() => TempFolder = "";
+}
+
+/// <summary>The log: when it opens by itself, how long saved logs are kept, and where they are.</summary>
+public sealed partial class LogSettingsViewModel(AppSettings settings, IDialogs dialogs) : SettingsSectionViewModel(settings)
+{
+    public override string Title => "Log";
+
+    public bool OpenLogOnErrors { get => S.General.OpenLogOnErrors; set => Set(value, (s, v) => s.General.OpenLogOnErrors = v); }
+
+    /// <summary>Days a saved log is kept (1 to 365).</summary>
+    public decimal KeepLogsDays { get => S.General.KeepLogsDays; set => Set((int)value, (s, v) => s.General.KeepLogsDays = Math.Clamp(v, 1, 365)); }
+
+    /// <summary>Opens the folder the session logs are saved in, creating it first.</summary>
+    [RelayCommand]
+    private async Task OpenLogFolder()
+    {
+        try { Directory.CreateDirectory(AppSettings.LogDirectory); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return; }
+        await dialogs.OpenFolderAsync(AppSettings.LogDirectory);
+    }
 }
 
 public sealed class ChdSettingsViewModel : SettingsSectionViewModel
@@ -546,12 +635,52 @@ public sealed partial class KeySettingsViewModel(AppSettings settings, IDialogs 
     private void RefreshWiiUKeys() => OnPropertyChanged(nameof(WiiUKeysSummary));
 }
 
-public sealed class LibrarySettingsViewModel(AppSettings settings) : SettingsSectionViewModel(settings)
+public sealed partial class LibrarySettingsViewModel(AppSettings settings, IDialogs dialogs) : SettingsSectionViewModel(settings)
 {
     public override string Title => "Library";
 
-    /// <summary>The folders the Library page looks through (managed on that page).</summary>
-    public IReadOnlyList<string> Folders => S.Library.Folders;
+    /// <summary>The folders Optimize looks through (a copy, so a list bound to it refreshes).</summary>
+    public IReadOnlyList<string> Folders => S.Library.Folders.ToList();
+
+    public bool HasFolders => S.Library.Folders.Count > 0;
+
+    /// <summary>Adds folders and rescans; set by the main window so the Library page follows. Without it the folders are just added.</summary>
+    public Func<IReadOnlyList<string>, Task>? AddFoldersRequested { get; set; }
+
+    /// <summary>Removes a folder and rescans; set by the main window. Without it the folder is just removed.</summary>
+    public Func<string, Task>? RemoveFolderRequested { get; set; }
+
+    [RelayCommand]
+    private async Task AddFolder()
+    {
+        var folder = await dialogs.PickFolderAsync("Add a folder of games to the library");
+        if (folder is null) return;
+        if (AddFoldersRequested is not null) await AddFoldersRequested([folder]);
+        else AddFolders([folder]);
+    }
+
+    [RelayCommand]
+    private async Task RemoveFolderFromList(string folder)
+    {
+        if (RemoveFolderRequested is not null) await RemoveFolderRequested(folder);
+        else RemoveFolder(folder);
+    }
+
+    /// <summary>"Emulator data: bundled": where the emulator data comes from and how fresh it is; set by the emulator data source.</summary>
+    [ObservableProperty] public partial string EmulatorDataStatus { get; set; } = "Emulator data: bundled";
+
+    /// <summary>Whether Check now can run: false until there is an emulator data source to check.</summary>
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(CheckEmulatorDataCommand))]
+    public partial bool CanCheckEmulatorData { get; set; }
+
+    /// <summary>Checks the emulator data source for an update; set by whoever provides it.</summary>
+    public Func<Task>? EmulatorDataCheckRequested { get; set; }
+
+    [RelayCommand(CanExecute = nameof(CanCheckEmulatorData))]
+    private async Task CheckEmulatorData()
+    {
+        if (EmulatorDataCheckRequested is not null) await EmulatorDataCheckRequested();
+    }
 
     public string FoldersSummary => S.Library.Folders.Count switch
     {
@@ -591,6 +720,7 @@ public sealed class LibrarySettingsViewModel(AppSettings settings) : SettingsSec
             }
         });
         OnPropertyChanged(nameof(Folders));
+        OnPropertyChanged(nameof(HasFolders));
         OnPropertyChanged(nameof(FoldersSummary));
         return added;
     }
@@ -599,6 +729,7 @@ public sealed class LibrarySettingsViewModel(AppSettings settings) : SettingsSec
     {
         if (!Change(s => s.Library.Folders.RemoveAll(f => string.Equals(f, folder, StringComparison.OrdinalIgnoreCase)))) return;
         OnPropertyChanged(nameof(Folders));
+        OnPropertyChanged(nameof(HasFolders));
         OnPropertyChanged(nameof(FoldersSummary));
     }
 
@@ -622,4 +753,20 @@ public sealed partial class DiagnosticsSettingsViewModel(AppSettings settings, I
         var file = await dialogs.PickFileAsync("Find chdman", "chdman", OperatingSystem.IsWindows() ? ["chdman*.exe", "*.exe"] : ["chdman*"]);
         if (file is not null) ChdmanExePath = file;
     }
+}
+
+/// <summary>
+/// Settings › About: the app's and the bundled tools' versions. Check for
+/// updates opens the GitHub releases page (there is no built-in updater) and
+/// Licenses the repository's licence; both links are in the view.
+/// </summary>
+public sealed class AboutViewModel(DiagnosticsSettingsViewModel diagnostics) : ViewModelBase
+{
+    /// <summary>"Version 0.9.0", from the assembly's informational version (as the rail shows it).</summary>
+    public string Version { get; } = "Version " + (typeof(AboutViewModel).Assembly
+        .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+        .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion.Split('+')[0] ?? "unknown");
+
+    /// <summary>The bundled native libraries and their versions (set by the main window at startup).</summary>
+    public string ToolVersions => diagnostics.LibraryVersions;
 }
