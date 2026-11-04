@@ -6,106 +6,339 @@
              x:DataType="vm:SettingsViewModel">
     <!--
         One scrolling page with no Save button: every change is saved as it's
-        made. Two columns of cards (one when the window is narrow, see the
-        code-behind), then the Advanced cards, collapsed and quieter: the
-        presets' details, targets, databases, keys and diagnostics.
+        made (Penpot "Page 4 · Settings"). Two columns of cards, one when the
+        window is narrow (see the code-behind). Each row has the setting's name
+        and a one-line description at the left and its control at the right;
+        when a card is narrow ("compact"), the wide controls go under the text.
+        Then the Advanced cards, collapsed and quieter: the presets' details,
+        targets, databases, keys and diagnostics.
     -->
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="SettingsFieldBackground" Color="#1E1E2A" />
+                    <SolidColorBrush x:Key="SettingsFieldBorder" Color="#3A3A4E" />
+                    <SolidColorBrush x:Key="SettingsFieldText" Color="#C9C8D8" />
+                    <SolidColorBrush x:Key="SettingsLink" Color="#B4B5DA" />
+                    <SolidColorBrush x:Key="SettingsSegmentHover" Color="#2C2C3C" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="SettingsFieldBackground" Color="#F4F4F8" />
+                    <SolidColorBrush x:Key="SettingsFieldBorder" Color="#D4D4DE" />
+                    <SolidColorBrush x:Key="SettingsFieldText" Color="#4A4A5A" />
+                    <SolidColorBrush x:Key="SettingsLink" Color="#5A5C8A" />
+                    <SolidColorBrush x:Key="SettingsSegmentHover" Color="#E6E6EE" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            <SolidColorBrush x:Key="SettingsAccent" Color="#7C7EA6" />
+            <SolidColorBrush x:Key="SettingsWarning" Color="#FF8C42" />
+        </ResourceDictionary>
+    </UserControl.Resources>
+
     <UserControl.Styles>
         <Style Selector="TextBlock.overridden">
             <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Border.card">
+            <Setter Property="Margin" Value="0,0,0,14" />
+        </Style>
+        <!-- The main cards, as in the design -->
+        <Style Selector="Border.card.main">
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="18,16" />
+        </Style>
+        <Style Selector="Border.card.main > StackPanel">
+            <Setter Property="Spacing" Value="14" />
+        </Style>
+        <Style Selector="Border.card.main TextBlock.section">
+            <Setter Property="Margin" Value="0,0,0,6" />
         </Style>
         <!-- Advanced cards: no fill, so the main ones stand out -->
         <Style Selector="Border.card.quiet">
             <Setter Property="Background" Value="Transparent" />
         </Style>
-        <Style Selector="Border.card">
-            <Setter Property="Margin" Value="0,0,0,12" />
+
+        <!-- A setting's name and its one-line description -->
+        <Style Selector="TextBlock.name">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.desc">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+        </Style>
+
+        <!-- A setting row: text at the left, the control at the right -->
+        <Style Selector="Grid.row">
+            <Setter Property="ColumnSpacing" Value="16" />
+        </Style>
+        <Style Selector="Grid.row > :is(Control).control">
+            <Setter Property="Grid.Column" Value="1" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <!-- A narrow card: a wide control goes under its text -->
+        <Style Selector=":is(UserControl).compact Grid.row.wide > :is(Control).control">
+            <Setter Property="Grid.Column" Value="0" />
+            <Setter Property="Grid.Row" Value="1" />
+            <Setter Property="Grid.ColumnSpan" Value="2" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+        </Style>
+
+        <!-- Theme: a segmented control of three radio buttons -->
+        <Style Selector="Border.segmented">
+            <Setter Property="Background" Value="{DynamicResource SettingsFieldBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SettingsFieldBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="2" />
+        </Style>
+        <Style Selector="RadioButton.segment">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource SettingsFieldText}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="MinWidth" Value="59" />
+            <Setter Property="Padding" Value="13,5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="7" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.segment:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SettingsSegmentHover}" />
+        </Style>
+        <Style Selector="RadioButton.segment:checked">
+            <Setter Property="Background" Value="{StaticResource SettingsAccent}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <!-- Jobs at once: − n + -->
+        <Style Selector="Border.stepper">
+            <Setter Property="Background" Value="{DynamicResource SettingsFieldBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SettingsFieldBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Border.stepper Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource SettingsLink}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Width" Value="33" />
+            <Setter Property="Height" Value="29" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <!-- A path shown in a field (read-only) -->
+        <Style Selector="Border.path">
+            <Setter Property="Background" Value="{DynamicResource SettingsFieldBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SettingsFieldBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="11,0" />
+            <Setter Property="Height" Value="34" />
+        </Style>
+        <Style Selector="Border.path > TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource SettingsFieldText}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="TextTrimming" Value="LeadingCharacterEllipsis" />
+        </Style>
+
+        <!-- Text buttons: Change…, Remove -->
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="2,0" />
+            <Setter Property="Foreground" Value="{DynamicResource SettingsLink}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource SettingsLink}" />
+        </Style>
+
+        <!-- Outlined buttons: Change…, Open log folder, Manage…, Check now, … -->
+        <Style Selector="Button.outline">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SettingsFieldBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <!-- Fields and dropdowns -->
+        <Style Selector="Border.card.main ComboBox, Border.card.main TextBox">
+            <Setter Property="MinHeight" Value="34" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <!-- On/Off checkboxes and the Save to radio buttons -->
+        <Style Selector="Border.card.main CheckBox.onoff">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="MinWidth" Value="0" />
+        </Style>
+        <Style Selector="Border.card.main RadioButton.choice">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="6,0,0,0" />
         </Style>
     </UserControl.Styles>
 
     <ScrollViewer Margin="0,10,0,0">
         <StackPanel Margin="0,0,12,0">
-            <TextBlock Margin="0,0,0,12">
-                <Run Text="Settings" FontSize="20" FontWeight="SemiBold" />
-                <Run Text=" · Changes are saved as you make them" FontSize="13" Foreground="{DynamicResource SubtleText}" />
-            </TextBlock>
+            <StackPanel Margin="0,0,0,16" Spacing="2">
+                <TextBlock Text="Settings" FontSize="22" FontWeight="Bold" />
+                <TextBlock Text="Changes are saved as you make them." FontSize="13" Foreground="{DynamicResource SubtleText}" />
+            </StackPanel>
 
-            <Grid x:Name="MainColumns" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12">
+            <Grid x:Name="MainColumns" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="14">
                 <StackPanel Grid.Column="0">
 
                     <!-- General -->
-                    <Border Classes="card">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="GENERAL" Classes="section" Margin="0,0,0,4" />
-                            <Grid ColumnDefinitions="*,200" ColumnSpacing="8">
-                                <TextBlock Text="Theme" VerticalAlignment="Center" />
-                                <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:GeneralSettingsViewModel.Themes}"
-                                          SelectedItem="{Binding General.SelectedTheme}" HorizontalAlignment="Stretch" />
+                    <Border Classes="card main">
+                        <StackPanel>
+                            <TextBlock Text="GENERAL" Classes="section" />
+                            <Grid Classes="row" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="Theme" Classes="name" VerticalAlignment="Center" />
+                                <Border Classes="segmented control">
+                                    <StackPanel Orientation="Horizontal" Spacing="2">
+                                        <RadioButton Classes="segment" Content="System" IsChecked="{Binding General.IsSystemTheme}"
+                                                     ToolTip.Tip="Follow Windows' light or dark setting" />
+                                        <RadioButton Classes="segment" Content="Dark" IsChecked="{Binding General.IsDarkTheme}" />
+                                        <RadioButton Classes="segment" Content="Light" IsChecked="{Binding General.IsLightTheme}" />
+                                    </StackPanel>
+                                </Border>
                             </Grid>
-                            <Grid ColumnDefinitions="*,200" ColumnSpacing="8">
-                                <TextBlock Text="Start on" VerticalAlignment="Center" />
-                                <ComboBox Grid.Column="1" ItemsSource="{Binding General.StartPages}"
-                                          SelectedItem="{Binding General.SelectedStartPage}" HorizontalAlignment="Stretch"
-                                          ToolTip.Tip="The page the app opens on. Automatic: Optimize once the library has folders, otherwise Convert." />
+                            <Grid Classes="row" ColumnDefinitions="*,Auto">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Start on" Classes="name" />
+                                    <TextBlock Text="The page NoIntrovert opens to." Classes="desc" />
+                                </StackPanel>
+                                <ComboBox Classes="control" Width="220" ItemsSource="{Binding General.StartPages}"
+                                          SelectedItem="{Binding General.SelectedStartPage}"
+                                          ToolTip.Tip="Automatic: Optimize once the library has folders, otherwise Convert." />
                             </Grid>
                         </StackPanel>
                     </Border>
 
                     <!-- Output -->
-                    <Border Classes="card">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="OUTPUT" Classes="section" Margin="0,0,0,4" />
-                            <Grid ColumnDefinitions="*,200" ColumnSpacing="8">
-                                <TextBlock Text="Save to" VerticalAlignment="Center" />
-                                <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:OutputSettingsViewModel.SaveToChoices}"
-                                          SelectedItem="{Binding Output.SelectedSaveTo}" HorizontalAlignment="Stretch" />
+                    <Border Classes="card main">
+                        <StackPanel>
+                            <TextBlock Text="OUTPUT" Classes="section" />
+                            <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Save to" Classes="name" />
+                                    <TextBlock Text="The starting choice for each run. You can still change it in the run bar." Classes="desc" />
+                                </StackPanel>
+                                <StackPanel Classes="control" Spacing="8" MaxWidth="300">
+                                    <RadioButton Classes="choice" Content="Next to the originals" IsChecked="{Binding Output.SavesNextToOriginals}" />
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <RadioButton Classes="choice" IsChecked="{Binding Output.SavesToFolder}" Content="Folder:" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Output.SaveFolderText}" FontSize="13" Margin="5,0,6,0"
+                                                   Foreground="{DynamicResource SubtleText}" VerticalAlignment="Center"
+                                                   TextWrapping="NoWrap" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding Output.SaveFolderText}" />
+                                        <Button Grid.Column="2" Classes="link" Content="Change…" Command="{Binding Output.BrowseFolderCommand}" />
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <RadioButton Classes="choice" Content="Replace the originals" IsChecked="{Binding Output.ReplacesOriginals}" />
+                                        <TextBlock Text="⚠" Foreground="{StaticResource SettingsWarning}" FontSize="13" VerticalAlignment="Center"
+                                                   ToolTip.Tip="Each original is removed once its new file checks out." />
+                                    </StackPanel>
+                                </StackPanel>
                             </Grid>
-                            <TextBlock Classes="hint" Text="The run bar starts with this choice." />
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding Output.SavesToFolder}">
-                                <TextBlock Classes="hint" Text="{Binding Output.SaveFolderText}" VerticalAlignment="Center"
-                                           TextWrapping="NoWrap" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding Output.SaveFolderText}" />
-                                <Button Grid.Column="1" Classes="tool" Content="Choose folder…" Command="{Binding Output.BrowseFolderCommand}" />
-                            </Grid>
-                            <TextBlock Classes="hint" IsVisible="{Binding Output.ReplacesOriginals}"
+                            <TextBlock Classes="desc" IsVisible="{Binding Output.ReplacesOriginals}" Margin="0,-6,0,0"
                                        Text="⚠ Each original is removed once its new file checks out." />
-                            <CheckBox Content="Overwrite existing files" IsChecked="{Binding Output.Overwrite}" Margin="0,4,0,0" />
-                            <TextBlock Classes="hint" Text="Off: a taken name gets &quot; (2)&quot;." />
-                            <TextBlock Text="Working folder for unpacking" Margin="0,6,0,0" />
-                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
-                                <TextBlock Classes="hint" Text="{Binding Performance.TempFolderHint}" VerticalAlignment="Center"
-                                           TextWrapping="NoWrap" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding Performance.TempFolderHint}" />
-                                <Button Grid.Column="1" Classes="tool" Content="Choose…" Command="{Binding Performance.BrowseTempFolderCommand}" />
-                                <Button Grid.Column="2" Classes="tool" Content="Default" Command="{Binding Performance.UseDefaultTempFolderCommand}" />
+                            <Grid Classes="row" ColumnDefinitions="*,Auto">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Overwrite existing files" Classes="name" />
+                                    <TextBlock Text="When off, a new file whose name is taken gets a number added, e.g. “(2)”." Classes="desc" />
+                                </StackPanel>
+                                <CheckBox Classes="onoff control" IsChecked="{Binding Output.Overwrite}"
+                                          Content="{Binding Output.Overwrite, Converter={x:Static v:SettingsView.OnOff}}" />
+                            </Grid>
+                            <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Working folder" Classes="name" />
+                                    <TextBlock Text="Where files are unpacked while converting. Needs free space about the size of the biggest disc." Classes="desc" />
+                                </StackPanel>
+                                <StackPanel Classes="control" Orientation="Horizontal" Spacing="8">
+                                    <TextBox Width="300" Text="{Binding Performance.TempFolder, UpdateSourceTrigger=LostFocus}"
+                                             PlaceholderText="{x:Static vm:PerformanceSettingsViewModel.DefaultTempFolderText}"
+                                             ToolTip.Tip="{Binding Performance.TempFolderHint}" />
+                                    <Button Classes="outline" Content="Change…" Command="{Binding Performance.BrowseTempFolderCommand}" />
+                                </StackPanel>
                             </Grid>
                         </StackPanel>
                     </Border>
 
                     <!-- Performance -->
-                    <Border Classes="card">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="PERFORMANCE" Classes="section" Margin="0,0,0,4" />
-                            <Grid ColumnDefinitions="*,200" ColumnSpacing="8">
-                                <TextBlock Text="Jobs at once" VerticalAlignment="Center"
-                                           ToolTip.Tip="How many jobs the queue runs at the same time, across every page." />
-                                <NumericUpDown Grid.Column="1" Value="{Binding Performance.ParallelJobs}" Minimum="1" Maximum="{Binding Performance.MaxThreads}"
-                                               Increment="1" FormatString="0" />
+                    <Border Classes="card main">
+                        <StackPanel>
+                            <TextBlock Text="PERFORMANCE" Classes="section" />
+                            <Grid Classes="row" ColumnDefinitions="*,Auto">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Jobs at once" Classes="name" />
+                                    <TextBlock Text="How many files convert at the same time. 1 is best for hard drives; 2–4 for SSDs." Classes="desc" />
+                                </StackPanel>
+                                <Border Classes="stepper control">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="−" Command="{Binding Performance.DecreaseJobsCommand}" ToolTip.Tip="Fewer jobs at once" />
+                                        <TextBlock Text="{Binding Performance.ParallelJobs, StringFormat={}{0:0}}" Width="40" TextAlignment="Center"
+                                                   VerticalAlignment="Center" FontSize="14" FontWeight="Bold" />
+                                        <Button Content="+" Command="{Binding Performance.IncreaseJobsCommand}" ToolTip.Tip="More jobs at once" />
+                                    </StackPanel>
+                                </Border>
                             </Grid>
-                            <CheckBox Content="Check each file after converting" IsChecked="{Binding Chd.VerifyAfterCreate}" Margin="0,4,0,0" />
-                            <TextBlock Classes="hint" Text="CHD and RVZ files. Always on when replacing the originals." />
+                            <Grid Classes="row" ColumnDefinitions="*,Auto">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Check each file after converting" Classes="name" />
+                                    <TextBlock Text="Reads the new file back and compares it. Slower, but required before originals are replaced." Classes="desc" />
+                                </StackPanel>
+                                <CheckBox Classes="onoff control" IsChecked="{Binding Chd.VerifyAfterCreate}"
+                                          Content="{Binding Chd.VerifyAfterCreate, Converter={x:Static v:SettingsView.OnOff}}" />
+                            </Grid>
                         </StackPanel>
                     </Border>
 
                     <!-- Log -->
-                    <Border Classes="card">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="LOG" Classes="section" Margin="0,0,0,4" />
-                            <CheckBox Content="Open the log when a run has errors" IsChecked="{Binding Log.OpenLogOnErrors}" />
-                            <Grid ColumnDefinitions="*,120,Auto" ColumnSpacing="8">
-                                <TextBlock Text="Keep logs for" VerticalAlignment="Center" />
-                                <NumericUpDown Grid.Column="1" Value="{Binding Log.KeepLogsDays}" Minimum="1" Maximum="365" Increment="1" FormatString="0" />
-                                <TextBlock Grid.Column="2" Text="days" VerticalAlignment="Center" />
+                    <Border Classes="card main">
+                        <StackPanel>
+                            <TextBlock Text="LOG" Classes="section" />
+                            <Grid Classes="row" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="Open the log when a run has errors" Classes="name" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                <CheckBox Classes="onoff control" IsChecked="{Binding Log.OpenLogOnErrors}"
+                                          Content="{Binding Log.OpenLogOnErrors, Converter={x:Static v:SettingsView.OnOff}}" />
                             </Grid>
-                            <Button Classes="tool" Content="Open log folder" Command="{Binding Log.OpenLogFolderCommand}" HorizontalAlignment="Left" />
+                            <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                <TextBlock Text="Keep logs for" Classes="name" VerticalAlignment="Center" />
+                                <StackPanel Classes="control" Orientation="Horizontal" Spacing="8">
+                                    <ComboBox Width="140" ItemsSource="{Binding Log.KeepLogsChoices}" SelectedItem="{Binding Log.SelectedKeepLogs}"
+                                              VerticalAlignment="Center" ToolTip.Tip="Older saved logs are deleted when the app starts." />
+                                    <Button Classes="outline" Content="Open log folder" Command="{Binding Log.OpenLogFolderCommand}" />
+                                </StackPanel>
+                            </Grid>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -113,26 +346,36 @@
                 <StackPanel Grid.Column="1">
 
                     <!-- Default presets: the preset each system's rows start on, then the saved presets -->
-                    <Border Classes="card" DataContext="{Binding DefaultPresets}" x:DataType="vm:DefaultPresetsViewModel">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="DEFAULT PRESETS" Classes="section" Margin="0,0,0,4" />
-                            <ItemsControl ItemsSource="{Binding Systems}">
+                    <Border Classes="card main" DataContext="{Binding DefaultPresets}" x:DataType="vm:DefaultPresetsViewModel">
+                        <StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="DEFAULT PRESETS" Classes="section" />
+                                <TextBlock Classes="desc" Text="The preset new files start with, per system. Each file can still use a different one." />
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding VisibleSystems}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Spacing="14" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:SystemDefaultViewModel">
-                                        <Grid ColumnDefinitions="*,220" ColumnSpacing="8" Margin="0,0,0,6">
-                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
-                                            <ComboBox Grid.Column="1" ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch" />
+                                        <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                            <TextBlock Text="{Binding Name}" Classes="name" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding Name}" />
+                                            <ComboBox Classes="control" Width="240" ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,6,0,0">
+                            <Button Classes="link" Content="{Binding MoreSystemsText}" Command="{Binding ToggleAllSystemsCommand}"
+                                    IsVisible="{Binding HasMoreSystems}" HorizontalAlignment="Left" Margin="-2,-4,0,0" />
+                            <Grid Classes="row" ColumnDefinitions="*,Auto">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Saved presets" />
-                                    <TextBlock Classes="hint" Text="{Binding SavedSummary}" TextWrapping="Wrap" />
+                                    <TextBlock Text="Saved presets" Classes="name" />
+                                    <TextBlock Classes="desc" Text="{Binding SavedSummary}" />
                                 </StackPanel>
-                                <Button Grid.Column="1" Classes="tool" Content="Manage…" Command="{Binding ManageCommand}" IsEnabled="{Binding HasSaved}"
-                                        VerticalAlignment="Center" />
+                                <Button Classes="outline control" Content="Manage…" Command="{Binding ManageCommand}" IsEnabled="{Binding HasSaved}" />
                             </Grid>
                             <ItemsControl ItemsSource="{Binding Saved}" IsVisible="{Binding IsManaging}">
                                 <ItemsControl.ItemTemplate>
@@ -140,7 +383,7 @@
                                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,0,0,6">
                                             <TextBox Text="{Binding Name}" ToolTip.Tip="Rename the preset" />
                                             <TextBlock Grid.Column="1" Text="{Binding Detail}" Classes="hint" VerticalAlignment="Center" />
-                                            <Button Grid.Column="2" Classes="tool" Content="Delete" Command="{Binding DeleteCommand}" />
+                                            <Button Grid.Column="2" Classes="link" Content="Delete" Command="{Binding DeleteCommand}" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -149,46 +392,64 @@
                     </Border>
 
                     <!-- Library -->
-                    <Border Classes="card">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="LIBRARY" Classes="section" Margin="0,0,0,4" />
-                            <TextBlock Text="Folders Optimize scans" />
-                            <ItemsControl ItemsSource="{Binding Library.Folders}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="x:String">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,0,0,4">
-                                            <TextBlock Text="{Binding}" Classes="hint" VerticalAlignment="Center" TextWrapping="NoWrap"
-                                                       TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding}" />
-                                            <Button Grid.Column="1" Classes="tool" Content="Remove" ToolTip.Tip="Stop scanning this folder (no files are touched)."
-                                                    Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).Library.RemoveFolderFromListCommand}"
-                                                    CommandParameter="{Binding}" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock Classes="hint" Text="No folders yet." IsVisible="{Binding !Library.HasFolders}" />
-                            <Button Classes="tool" Content="Add folder…" Command="{Binding Library.AddFolderCommand}" HorizontalAlignment="Left" />
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,8,0,0">
-                                <TextBlock Classes="hint" Text="{Binding Library.EmulatorDataStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                <Button Grid.Column="1" Classes="tool" Content="Check now" Command="{Binding Library.CheckEmulatorDataCommand}" />
+                    <Border Classes="card main">
+                        <StackPanel>
+                            <TextBlock Text="LIBRARY" Classes="section" />
+                            <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Library folders" Classes="name" />
+                                    <TextBlock Text="Optimize scans these folders." Classes="desc" />
+                                </StackPanel>
+                                <StackPanel Classes="control" Width="302" Spacing="6">
+                                    <ItemsControl ItemsSource="{Binding Library.Folders}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Spacing="6" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                    <Border Classes="path">
+                                                        <TextBlock Text="{Binding}" ToolTip.Tip="{Binding}" />
+                                                    </Border>
+                                                    <Button Grid.Column="1" Classes="link" Content="Remove" ToolTip.Tip="Stop scanning this folder (no files are touched)."
+                                                            Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).Library.RemoveFolderFromListCommand}"
+                                                            CommandParameter="{Binding}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Classes="desc" Text="No folders yet." IsVisible="{Binding !Library.HasFolders}" />
+                                    <Button Classes="outline" Content="Add folder…" Command="{Binding Library.AddFolderCommand}" HorizontalAlignment="Right" />
+                                </StackPanel>
+                            </Grid>
+                            <Grid Classes="row" ColumnDefinitions="*,Auto">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Emulator data" Classes="name" />
+                                    <TextBlock Classes="desc" Text="{Binding Library.EmulatorDataDescription}" />
+                                </StackPanel>
+                                <Button Classes="outline control" Content="Check now" Command="{Binding Library.CheckEmulatorDataCommand}" />
                             </Grid>
                         </StackPanel>
                     </Border>
 
                     <!-- About -->
-                    <Border Classes="card">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="ABOUT" Classes="section" Margin="0,0,0,4" />
-                            <TextBlock Text="{Binding About.Version}" />
-                            <TextBlock Classes="hint" Text="{Binding About.ToolVersions}" />
-                            <StackPanel Orientation="Horizontal" Spacing="12">
-                                <HyperlinkButton Content="Check for updates" Padding="0,2"
-                                                 NavigateUri="https://github.com/Nickel42/NoIntrovert/releases"
-                                                 ToolTip.Tip="Opens the releases page in your browser" />
-                                <HyperlinkButton Content="Licenses" Padding="0,2"
-                                                 NavigateUri="https://github.com/Nickel42/NoIntrovert#license"
-                                                 ToolTip.Tip="NoIntrovert's licence and the bundled libraries' (opens in your browser)" />
-                            </StackPanel>
+                    <Border Classes="card main">
+                        <StackPanel>
+                            <TextBlock Text="ABOUT" Classes="section" />
+                            <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding About.Version}" Classes="name" />
+                                    <TextBlock Classes="desc" Text="{Binding About.ToolVersions}" />
+                                </StackPanel>
+                                <StackPanel Classes="control" Orientation="Horizontal" Spacing="8">
+                                    <Button Classes="outline" Content="Check for updates" Command="{Binding About.CheckForUpdatesCommand}"
+                                            ToolTip.Tip="Opens the releases page in your browser" />
+                                    <Button Classes="outline" Content="Licenses" Command="{Binding About.OpenLicensesCommand}"
+                                            ToolTip.Tip="NoIntrovert's licence and the bundled libraries' licences and notices" />
+                                </StackPanel>
+                            </Grid>
                         </StackPanel>
                     </Border>
                 </StackPanel>

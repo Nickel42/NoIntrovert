@@ -43,7 +43,7 @@ public partial class SettingsViewModel : ViewModelBase
         Dats = new DatSettingsViewModel(settings, dialogs);
         TargetFormats = new TargetFormatSettingsViewModel(settings, dialogs);
         Presets = new PresetsViewModel(settings, this);
-        About = new AboutViewModel(Diagnostics);
+        About = new AboutViewModel(Diagnostics, dialogs);
     }
 
     public GeneralSettingsViewModel General { get; }
@@ -119,10 +119,21 @@ public sealed class GeneralSettingsViewModel(AppSettings settings) : SettingsSec
     public Choice<AppTheme> SelectedTheme
     {
         get => Themes.FirstOrDefault(t => t.Value == S.General.Theme) ?? Themes[0];
-        set { if (value is not null && Set(value.Value, (s, v) => s.General.Theme = v)) OnPropertyChanged(nameof(Theme)); }
+        set { if (value is not null) ChooseTheme(value.Value); }
     }
 
     public AppTheme Theme => S.General.Theme;
+
+    // The Theme segmented control: one radio button per choice.
+    public bool IsSystemTheme { get => Theme == AppTheme.System; set { if (value) ChooseTheme(AppTheme.System); } }
+    public bool IsDarkTheme { get => Theme == AppTheme.Dark; set { if (value) ChooseTheme(AppTheme.Dark); } }
+    public bool IsLightTheme { get => Theme == AppTheme.Light; set { if (value) ChooseTheme(AppTheme.Light); } }
+
+    private void ChooseTheme(AppTheme theme)
+    {
+        if (!Set(theme, (s, v) => s.General.Theme = v, nameof(SelectedTheme))) return;
+        foreach (var name in new[] { nameof(Theme), nameof(IsSystemTheme), nameof(IsDarkTheme), nameof(IsLightTheme) }) OnPropertyChanged(name);
+    }
 
     private IReadOnlyList<StartPageOption> _startPages = [new("", "Automatic")];
 
@@ -207,9 +218,16 @@ public sealed partial class OutputSettingsViewModel(AppSettings settings, IDialo
             OnPropertyChanged(nameof(SelectedSaveTo));
             OnPropertyChanged(nameof(SavesToFolder));
             OnPropertyChanged(nameof(ReplacesOriginals));
+            OnPropertyChanged(nameof(SavesNextToOriginals));
         }
-        // The dropdown has already shown the refused choice; put it back after the selection is done.
-        if (!ok) Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(SelectedSaveTo)));
+        // The radio buttons have already shown the refused choice; put them back after the click is done.
+        if (!ok) Dispatcher.UIThread.Post(() =>
+        {
+            OnPropertyChanged(nameof(SelectedSaveTo));
+            OnPropertyChanged(nameof(SavesNextToOriginals));
+            OnPropertyChanged(nameof(SavesToFolder));
+            OnPropertyChanged(nameof(ReplacesOriginals));
+        });
     }
 
     private async Task<bool> ConfirmReplaceOnceAsync()
@@ -219,8 +237,10 @@ public sealed partial class OutputSettingsViewModel(AppSettings settings, IDialo
         return true;
     }
 
-    public bool SavesToFolder => S.Output.SaveTo == SaveTo.Folder;
-    public bool ReplacesOriginals => S.Output.SaveTo == SaveTo.ReplaceOriginals;
+    // The Save to radio buttons; checking one chooses it (Replace asks first).
+    public bool SavesNextToOriginals { get => S.Output.SaveTo == SaveTo.NextToOriginals; set { if (value) _ = ChooseSaveToAsync(SaveTo.NextToOriginals); } }
+    public bool SavesToFolder { get => S.Output.SaveTo == SaveTo.Folder; set { if (value) _ = ChooseSaveToAsync(SaveTo.Folder); } }
+    public bool ReplacesOriginals { get => S.Output.SaveTo == SaveTo.ReplaceOriginals; set { if (value) _ = ChooseSaveToAsync(SaveTo.ReplaceOriginals); } }
 
     /// <summary>The folder Save to › A folder uses.</summary>
     public string SaveFolderText => string.IsNullOrWhiteSpace(S.Output.Folder) ? "No folder chosen yet" : S.Output.Folder;
@@ -253,17 +273,44 @@ public sealed partial class PerformanceSettingsViewModel(AppSettings settings, I
 {
     public override string Title => "Performance";
 
-    public decimal ParallelJobs { get => S.Performance.ParallelJobs; set => Set((int)value, (s, v) => s.Performance.ParallelJobs = Math.Max(1, v)); }
+    public decimal ParallelJobs
+    {
+        get => S.Performance.ParallelJobs;
+        set
+        {
+            if (!Set((int)value, (s, v) => s.Performance.ParallelJobs = Math.Clamp(v, 1, MaxJobs))) return;
+            DecreaseJobsCommand.NotifyCanExecuteChanged();
+            IncreaseJobsCommand.NotifyCanExecuteChanged();
+        }
+    }
+
     public decimal ThreadsPerJob { get => S.Performance.ThreadsPerJob; set => Set((int)value, (s, v) => s.Performance.ThreadsPerJob = Math.Max(0, v)); }
     public int MaxThreads => Environment.ProcessorCount;
 
+    /// <summary>The Jobs at once stepper's limit: one job per processor, at least 2.</summary>
+    public int MaxJobs => Math.Max(2, MaxThreads);
+
+    // The Jobs at once stepper (− 2 +).
+    private bool CanDecreaseJobs => ParallelJobs > 1;
+    private bool CanIncreaseJobs => ParallelJobs < MaxJobs;
+
+    [RelayCommand(CanExecute = nameof(CanDecreaseJobs))]
+    private void DecreaseJobs() => ParallelJobs--;
+
+    [RelayCommand(CanExecute = nameof(CanIncreaseJobs))]
+    private void IncreaseJobs() => ParallelJobs++;
+
+    /// <summary>The working folder as typed; empty means the default, shown as the box's placeholder.</summary>
     public string TempFolder
     {
         get => S.Performance.TempFolder;
-        set { if (Set(value, (s, v) => s.Performance.TempFolder = v)) OnPropertyChanged(nameof(TempFolderHint)); }
+        set { if (Set(value?.Trim() ?? "", (s, v) => s.Performance.TempFolder = v)) OnPropertyChanged(nameof(TempFolderHint)); }
     }
 
     public string TempFolderHint => S.Performance.EffectiveTempFolder;
+
+    /// <summary>"%TEMP%\NoIntrovert": the default working folder, as the empty box shows it.</summary>
+    public static string DefaultTempFolderText => OperatingSystem.IsWindows() ? @"%TEMP%\NoIntrovert" : Path.Combine(Path.GetTempPath(), "NoIntrovert");
 
     [RelayCommand]
     private async Task BrowseTempFolder()
@@ -284,7 +331,26 @@ public sealed partial class LogSettingsViewModel(AppSettings settings, IDialogs 
     public bool OpenLogOnErrors { get => S.General.OpenLogOnErrors; set => Set(value, (s, v) => s.General.OpenLogOnErrors = v); }
 
     /// <summary>Days a saved log is kept (1 to 365).</summary>
-    public decimal KeepLogsDays { get => S.General.KeepLogsDays; set => Set((int)value, (s, v) => s.General.KeepLogsDays = Math.Clamp(v, 1, 365)); }
+    public decimal KeepLogsDays
+    {
+        get => S.General.KeepLogsDays;
+        set { if (Set((int)value, (s, v) => s.General.KeepLogsDays = Math.Clamp(v, 1, 365))) OnPropertyChanged(nameof(SelectedKeepLogs)); }
+    }
+
+    private static readonly int[] KeepLogsPresets = [7, 14, 30, 90, 365];
+
+    /// <summary>The Keep logs for dropdown: a week to a year, plus the saved value if it's none of those.</summary>
+    public IReadOnlyList<Choice<int>> KeepLogsChoices =>
+        KeepLogsPresets.Append(S.General.KeepLogsDays).Distinct().Order().Select(d => new Choice<int>(d, DaysText(d))).ToList();
+
+    public Choice<int> SelectedKeepLogs
+    {
+        get => new(S.General.KeepLogsDays, DaysText(S.General.KeepLogsDays));
+        set { if (value is not null) KeepLogsDays = value.Value; }
+    }
+
+    /// <summary>"1 day", "30 days", "1 year".</summary>
+    internal static string DaysText(int days) => days switch { 1 => "1 day", 365 => "1 year", _ => $"{days} days" };
 
     /// <summary>Opens the folder the session logs are saved in, creating it first.</summary>
     [RelayCommand]
@@ -727,8 +793,35 @@ public sealed partial class LibrarySettingsViewModel(AppSettings settings, IDial
     public Func<Task>? EmulatorDataCheckRequested { get; set; }
 
     /// <summary>Shows the catalog's source and date, and why the last check failed if it did.</summary>
-    public void RefreshEmulatorDataStatus(string sourceText, string? problem = null) =>
+    public void RefreshEmulatorDataStatus(string sourceText, string? problem = null)
+    {
+        _emulatorSource = sourceText;
+        _emulatorProblem = problem;
         EmulatorDataStatus = DescribeEmulatorData(sourceText) + (problem is null ? "" : $" Last check failed: {problem}");
+    }
+
+    private string _emulatorSource = EmulatorCatalog.Current.SourceText;
+    private string? _emulatorProblem;
+
+    partial void OnEmulatorDataStatusChanged(string value) => OnPropertyChanged(nameof(EmulatorDataDescription));
+
+    /// <summary>
+    /// The line under Emulator data: "Which emulators can open each format.
+    /// From libretro core info and ES-DE, updated 2 Nov 2026."
+    /// </summary>
+    public string EmulatorDataDescription => IsCheckingEmulatorData
+        ? EmulatorDataPurpose + " Checking for an update…"
+        : DescribeEmulatorSource(_emulatorSource, _emulatorProblem);
+
+    private const string EmulatorDataPurpose = "Which emulators can open each format.";
+
+    /// <summary>"From libretro core info and ES-DE · 2 Nov 2026" becomes the Emulator data description.</summary>
+    internal static string DescribeEmulatorSource(string sourceText, string? problem = null)
+    {
+        var source = sourceText.Trim().Replace(" · ", ", updated ");
+        if (source.Length > 0 && !source.EndsWith('.')) source += ".";
+        return $"{EmulatorDataPurpose} {source}" + (problem is null ? "" : $" Last check failed: {problem}");
+    }
 
     /// <summary>"From libretro core info · 4 Nov 2026" becomes "Emulator data: from libretro core info · 4 Nov 2026".</summary>
     internal static string DescribeEmulatorData(string sourceText) =>
@@ -817,16 +910,74 @@ public sealed partial class DiagnosticsSettingsViewModel(AppSettings settings, I
 
 /// <summary>
 /// Settings › About: the app's and the bundled tools' versions. Check for
-/// updates opens the GitHub releases page (there is no built-in updater) and
-/// Licenses the repository's licence; both links are in the view.
+/// updates opens the GitHub releases page in the browser (there is no built-in
+/// updater and no network call); Licenses opens the folder of licence and
+/// notice files that ships next to the app, or the repository's licence when
+/// there is none.
 /// </summary>
-public sealed class AboutViewModel(DiagnosticsSettingsViewModel diagnostics) : ViewModelBase
+public sealed partial class AboutViewModel(DiagnosticsSettingsViewModel diagnostics, IDialogs dialogs) : ViewModelBase
 {
-    /// <summary>"Version 0.9.0", from the assembly's informational version (as the rail shows it).</summary>
-    public string Version { get; } = "Version " + (typeof(AboutViewModel).Assembly
+    public const string ReleasesUrl = "https://github.com/Nickel42/NoIntrovert/releases";
+    public const string LicenseUrl = "https://github.com/Nickel42/NoIntrovert#license";
+
+    /// <summary>"NoIntrovert 0.9.0", from the assembly's informational version (as the rail shows it).</summary>
+    public string Version { get; } = "NoIntrovert " + (typeof(AboutViewModel).Assembly
         .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
         .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion.Split('+')[0] ?? "unknown");
 
-    /// <summary>The bundled native libraries and their versions (set by the main window at startup).</summary>
-    public string ToolVersions => diagnostics.LibraryVersions;
+    /// <summary>"chdman from MAME 0.289 · Dolphin 2412": the bundled tools, from the libraries the main window loaded at startup.</summary>
+    public string ToolVersions => DescribeTools(diagnostics.LibraryVersions);
+
+    /// <summary>Opens a web page in the browser; set by the view.</summary>
+    public Func<string, Task>? OpenUrl { get; set; }
+
+    [RelayCommand]
+    private Task CheckForUpdates() => OpenUrl?.Invoke(ReleasesUrl) ?? Task.CompletedTask;
+
+    [RelayCommand]
+    private async Task OpenLicenses()
+    {
+        var folder = FindLicenseFolder(AppContext.BaseDirectory);
+        if (folder is not null) await dialogs.OpenFolderAsync(folder);
+        else if (OpenUrl is not null) await OpenUrl(LicenseUrl);
+    }
+
+    /// <summary>
+    /// The folder holding the licence and notice files (LICENSE*,
+    /// THIRD_PARTY_NOTICES*), looking in <paramref name="appFolder"/> and, for
+    /// a macOS bundle, its Resources folder; null when there are none.
+    /// </summary>
+    internal static string? FindLicenseFolder(string appFolder)
+    {
+        foreach (var folder in new[] { appFolder, Path.Combine(appFolder, "..", "Resources") })
+        {
+            try
+            {
+                if (Directory.Exists(folder) && Directory.EnumerateFiles(folder).Select(Path.GetFileName)
+                        .Any(n => n!.StartsWith("LICENSE", StringComparison.OrdinalIgnoreCase) || n.StartsWith("THIRD_PARTY", StringComparison.OrdinalIgnoreCase)))
+                    return Path.GetFullPath(folder);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Turns the loaded libraries' versions ("0.289 (mame0289) lib-chd-kit 1 · ABI 1",
+    /// "lib-wii-gamecube-kit 0.1.0 (Dolphin 2412) · ABI 1", one per line) into
+    /// "chdman from MAME 0.289 · Dolphin 2412". A library that didn't load
+    /// keeps its "… not loaded" line; anything unrecognised is shown as it is.
+    /// </summary>
+    internal static string DescribeTools(string libraryVersions) =>
+        string.Join(" · ", libraryVersions.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(DescribeTool));
+
+    private static string DescribeTool(string line)
+    {
+        var mame = System.Text.RegularExpressions.Regex.Match(line, @"\(mame(\d)(\d+)\)");
+        if (mame.Success) return $"chdman from MAME {mame.Groups[1].Value}.{mame.Groups[2].Value}";
+        var dolphin = System.Text.RegularExpressions.Regex.Match(line, @"\(Dolphin ([^)]+)\)");
+        if (dolphin.Success) return $"Dolphin {dolphin.Groups[1].Value}";
+        var abi = line.IndexOf(" · ABI ", StringComparison.Ordinal);
+        return abi >= 0 ? line[..abi] : line;
+    }
 }
