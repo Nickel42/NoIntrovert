@@ -6,7 +6,7 @@ a page, or a top-level label, and keep [Current structure](#current-structure) m
 
 Sections:
 
-1. [Current structure](#current-structure) (main at d6b2192)
+1. [Current structure](#current-structure) (the UI redesign, Nov 2026)
 2. [What the structure has to serve](#what-the-structure-has-to-serve)
 3. [Option A: task-first](#option-a-task-first)
 4. [Option B: object-first](#option-b-object-first)
@@ -23,38 +23,48 @@ A shareable version of section 1 with diagrams and screenshots is in Google Docs
 
 ## Current structure
 
-One window. A navigation rail on the left; under every page, a resizable log, a queue drawer (hidden until
-opened) and a status bar with overall progress.
+One window. A navigation rail on the left: the NoIntrovert logo at the top, then two labelled sections,
+**Library** and **Files**, and Settings at the bottom below a divider. Under every page, a log collapsed to
+one bar (error and warning counts, Show log), a queue drawer (hidden until opened) and a status bar with
+overall queue progress. The redesign is specified in [ui-redesign](requirements/ui-redesign.md).
 
-- **Library** (start page once a library folder exists)
-  - Toolbar: Add folder… · Rescan · folder chips
-  - Filters: search · system · status · summary line
-  - Game list: Game · System · Formats · Size · Status
-  - Selection actions: Clean up selected · Verify selected · **Convert selected**
-  - Side panel: Details (status, match) · Files (each file, its planned conversion, Show)
-- **Convert** (start page with no library folders)
-  - Job list: Add files… · Add folder… · Remove · Clear finished · Clear all · filter
-  - Rows: File · Type · **Target** (per row) · Size · Status · Progress · Time · Result
-  - Side panel: target summary · Pack a folder… · one preset picker per action the rows use (CHD, RVZ,
-    .wua with Wii U keys, 7z and zip, CHD → disc image, unpacking) · This run (output folder, overwrite)
-- **Verify & match**
-  - Job list (as Convert, no Target column)
-  - Side panel: game databases (status, Update now) · *Checking games* preset · This run
-- **Cleanup**
-  - Plan: scope (selected games or whole Library) · steps with tick boxes (Step · Game · Change)
-  - Actions: Whole Library · Make the plan again · Verify the unchecked ones · **Run**
-  - Side panel: file layout (ES-DE or keep) · safety note · past runs (Undo, Empty trash)
-- **CHD info**: header · metadata (Save selected…) · hunks by codec
-- **Library tests** (Power-user mode only): round trip and chdman comparison, results table, CSV export
-- **Settings**: Presets · General · Library · Output · Performance · Default targets · Game databases
-  (and ES-DE systems) · Target formats (Advanced: by system, by file type, rule options) · Keys ·
-  Diagnostics (Power-user)
+- **Library**
+  - **Optimize** (was Library; start page once a library folder exists), with "Verify, Rename, Convert,
+    Organize" under its rail button
+    - Toolbar: Add folder… · Rescan · folder chips
+    - Filters: search · system · status · summary line
+    - Game list: Game · System · Formats · Size · Status
+    - Selection actions: Clean up selected · Verify selected · **Convert selected**
+    - Side panel: Details (status, match) · Files (each file, its planned conversion, Show)
+- **Files**
+  - **Convert** (start page with no library folders)
+    - Toolbar: Add files… · Add folder… · Pack a folder… · Remove · Clear finished · Clear all · filter
+    - Rows: File · Type · **Preset** (per row) · Size · Status · Progress · Time · Result
+    - Side panel, for the focused row: File (system, facts, formats) · Preset (with Works with) · Preset
+      settings (Custom only)
+    - Run bar: **Save to** (Next to the originals · Folder: <path> · Change… · Replace the originals ⚠) ·
+      Cancel · Convert
+  - **Verify** (was Verify & match)
+    - Job list (as Convert, no Preset column, no Save to)
+    - Side panel: game databases (status, Update now) · *Checking games* preset
+  - **Organize** (was Cleanup)
+    - Plan: scope (selected games or whole Library) · steps with tick boxes (Step · Game · Change)
+    - Actions: Whole Library · Make the plan again · Verify the unchecked ones · **Run**
+    - Side panel: file layout (ES-DE or keep) · safety note · past runs (Undo, Empty trash)
+  - **Library tests** (Power-user mode only): round trip and chdman comparison, results table, CSV export
+- **Settings** (one page of cards, saved as they change): General (theme, Start on) · Output (Save to's
+  default, Overwrite existing files, working folder) · Performance · Log · Default presets · Library (folders,
+  emulator data with Check now) · About. Under **Advanced**: Power user · How each action is done ·
+  Default targets · Files and folders · Keys · Game databases (and ES-DE systems) · Target formats (by
+  system, by file type, rule options) · Expert · Diagnostics (Power-user)
 
-Hand-offs: Library → Convert, Verify or Cleanup (with the selection); Cleanup → Verify (unmatched files);
-Convert, Verify and Library tests → Settings. A drop goes to the page you're on (on the Library, loose files
-go to Convert).
+The CHD info page is gone. Originals are removed only by Save to › Replace the originals, never by a preset.
 
-Known friction, from the review of this structure:
+Hand-offs: Optimize → Convert, Verify or Organize (with the selection); Organize → Verify (unmatched files);
+Convert, Verify and Library tests → Settings. A drop goes to the page you're on (on Optimize, folders become
+library folders and loose files go to Convert).
+
+Known friction, from the review of the structure before the redesign (main at d6b2192):
 
 - The same control lives in several places: Cleanup layout (Cleanup and Settings), Wii U keys (Convert and
   Settings), game databases (Verify and Settings), presets (Convert, Verify and Settings).
@@ -309,3 +319,10 @@ Before building past step 1:
 
 Record the outcome here, update [Current structure](#current-structure) when a step ships, and keep the
 options above as the history of why.
+
+**Outcome so far (UI redesign, Nov 2026).** The rail took a mix of A and C: a **Library** section with one
+page, **Optimize**, named for the whole-collection job, and a **Files** section of verbs (Convert, Verify,
+Organize). CHD info was removed rather than moved to Tools, and Library tests stays in the rail only in
+Power-user mode. *Organize* was chosen over *Repair* and *Tidy up*; *Verify* dropped *& match*. Where files
+go moved out of the side panel into the run bar's Save to, which is also the only control that removes
+originals. The pipeline (C's steps 2–4) is not built.
