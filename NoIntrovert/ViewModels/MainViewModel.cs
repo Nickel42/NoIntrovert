@@ -31,6 +31,8 @@ public partial class MainViewModel : ViewModelBase
         Settings.Dats.UpdateRequested = () => UpdateDatsAsync(Core.Library.LibraryIndex.Load().Items.Select(i => i.System), startup: false);
         Library.IndexShown += _ => CheckEsdeAsync(startup: true);
         Settings.Dats.EsdeCheckRequested = () => CheckEsdeAsync(startup: false);
+        Settings.Library.AddFoldersRequested = Library.AddFoldersAsync;
+        Settings.Library.RemoveFolderRequested = Library.RemoveFolderCommand.ExecuteAsync;
 
         // The one place pages are listed: the rail, --page and drops all follow it.
         Pages =

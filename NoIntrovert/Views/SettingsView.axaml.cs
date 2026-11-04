@@ -1,8 +1,33 @@
+using Avalonia;
 using Avalonia.Controls;
 
 namespace NoIntrovert.Views;
 
 public partial class SettingsView : UserControl
 {
-    public SettingsView() => InitializeComponent();
+    /// <summary>Below this width the cards stack in one column.</summary>
+    private const double TwoColumnWidth = 780;
+
+    private bool? _twoColumns;
+
+    public SettingsView()
+    {
+        InitializeComponent();
+        SizeChanged += (_, e) => Arrange(e.NewSize.Width >= TwoColumnWidth);
+    }
+
+    /// <summary>Puts each two-column grid's second column beside the first, or under it.</summary>
+    private void Arrange(bool twoColumns)
+    {
+        if (_twoColumns == twoColumns) return;
+        _twoColumns = twoColumns;
+        foreach (var grid in new[] { MainColumns, AdvancedColumns })
+        {
+            grid.ColumnDefinitions[1].Width = twoColumns ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+            grid.ColumnSpacing = twoColumns ? 12 : 0;
+            var second = grid.Children[1];
+            Grid.SetColumn(second, twoColumns ? 1 : 0);
+            Grid.SetRow(second, twoColumns ? 0 : 1);
+        }
+    }
 }

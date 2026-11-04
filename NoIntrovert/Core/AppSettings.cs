@@ -207,8 +207,8 @@ public sealed class OutputSettings
 /// <summary>How much of the machine the queue uses.</summary>
 public sealed class PerformanceSettings
 {
-    /// <summary>Jobs the shared queue runs at once, across every tab.</summary>
-    public int ParallelJobs { get; set; } = 1;
+    /// <summary>Jobs the shared queue runs at once, across every tab. New settings start at 2; a saved file keeps its value.</summary>
+    public int ParallelJobs { get; set; } = 2;
 
     public int ThreadsPerJob { get; set; } // 0 = all processors
     public string TempFolder { get; set; } = ""; // empty = %TEMP%\NoIntrovert
@@ -363,7 +363,7 @@ internal sealed class SettingsV1
     public bool ArchiveExtractToOwnFolder { get; set; } = true;
     public bool WiiUDeleteOriginals { get; set; }
     public string WiiUKeysPath { get; set; } = "";
-    public int ParallelJobs { get; set; } = 1;
+    public int ParallelJobs { get; set; } = 2; // as the new default; a real schema-1 file always has the value
     public int ThreadsPerJob { get; set; }
     public string TempFolder { get; set; } = "";
     public string ChdmanExePath { get; set; } = "";
