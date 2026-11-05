@@ -88,7 +88,7 @@
                     <TextBlock Text="{x:Static vm:PresetSettingsViewModel.HunkWarning}" />
                 </Border>
             </StackPanel>
-            <CheckBox Content="Verify each CHD after it is written" IsChecked="{Binding Chd.VerifyAfterCreate}" Margin="0,10,0,0" />
+            <CheckBox IsChecked="{Binding Chd.VerifyAfterCreate}" Margin="0,10,0,0"><TextBlock Text="Verify each CHD after it is written" TextWrapping="Wrap" /></CheckBox>
         </StackPanel>
 
         <!-- RVZ -->
@@ -107,11 +107,11 @@
                 <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:NintendoSettingsViewModel.BlockSizes}"
                           SelectedItem="{Binding Nintendo.SelectedBlockSize}" HorizontalAlignment="Stretch" />
             </Grid>
-            <CheckBox Content="Scrub unused data" IsChecked="{Binding Nintendo.Scrub}" />
+            <CheckBox IsChecked="{Binding Nintendo.Scrub}"><TextBlock Text="Scrub unused data" TextWrapping="Wrap" /></CheckBox>
             <Border Classes="warning" IsVisible="{Binding Nintendo.Scrub}">
                 <TextBlock Text="{x:Static vm:PresetSettingsViewModel.ScrubWarning}" />
             </Border>
-            <CheckBox Content="Verify each RVZ after it is written" IsChecked="{Binding Chd.VerifyAfterCreate}" />
+            <CheckBox IsChecked="{Binding Chd.VerifyAfterCreate}"><TextBlock Text="Verify each RVZ after it is written" TextWrapping="Wrap" /></CheckBox>
         </StackPanel>
 
         <!-- 7z and zip -->
@@ -119,8 +119,8 @@
             <TextBlock Text="Compression" Classes="label" />
             <ComboBox ItemsSource="{x:Static vm:ArchiveSettingsViewModel.Levels}"
                       SelectedItem="{Binding Archives.SelectedLevel}" HorizontalAlignment="Stretch" />
-            <CheckBox Content="Solid archive (smaller, slower to open one file)" IsChecked="{Binding Archives.Solid}" IsVisible="{Binding IsSevenZip}" />
-            <CheckBox Content="Test each new archive" IsChecked="{Binding Archives.TestAfter}" />
+            <CheckBox IsChecked="{Binding Archives.Solid}" IsVisible="{Binding IsSevenZip}"><TextBlock Text="Solid archive (smaller, slower to open one file)" TextWrapping="Wrap" /></CheckBox>
+            <CheckBox IsChecked="{Binding Archives.TestAfter}"><TextBlock Text="Test each new archive" TextWrapping="Wrap" /></CheckBox>
             <TextBlock Text="Archives to make when packing" Classes="label" Margin="0,6,0,0" />
             <ComboBox ItemsSource="{x:Static vm:ArchiveSettingsViewModel.Groupings}"
                       SelectedItem="{Binding Archives.SelectedGrouping}" HorizontalAlignment="Stretch" />
@@ -133,12 +133,12 @@
             <TextBlock Text="Extract to" Classes="label" />
             <ComboBox ItemsSource="{x:Static vm:ChdSettingsViewModel.ExtractFormats}"
                       SelectedItem="{Binding Chd.SelectedExtractFormat}" HorizontalAlignment="Stretch" />
-            <CheckBox Content="One .bin per track (cue/bin)" IsChecked="{Binding Chd.SplitBin}" />
+            <CheckBox IsChecked="{Binding Chd.SplitBin}"><TextBlock Text="One .bin per track (cue/bin)" TextWrapping="Wrap" /></CheckBox>
         </StackPanel>
 
         <!-- Unpacking -->
         <StackPanel Classes="field" IsVisible="{Binding IsUnpack}">
-            <CheckBox Content="Unpack each archive into its own folder" IsChecked="{Binding Archives.ExtractToOwnFolder}" />
+            <CheckBox IsChecked="{Binding Archives.ExtractToOwnFolder}"><TextBlock Text="Unpack each archive into its own folder" TextWrapping="Wrap" /></CheckBox>
         </StackPanel>
 
         <TextBlock Classes="hint" Text="Nothing to set for this format." IsVisible="{Binding HasNothingToSet}" Margin="0,10,0,0" />
