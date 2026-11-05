@@ -486,7 +486,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         var ok = pending.Count(i => i.Status is JobStatus.Succeeded or JobStatus.Warning);
         var failed = pending.Count(i => i.Status == JobStatus.Failed);
         var cancelled = pending.Count(i => i.Status == JobStatus.Cancelled);
-        RunStatus = $"Finished in {took:h\\:mm\\:ss}: {ok} done, {failed} failed" + (cancelled > 0 ? $", {cancelled} cancelled" : "");
+        RunStatus = $"Finished in {took:h\\:mm\\:ss} · {ok} done, {failed} failed" + (cancelled > 0 ? $", {cancelled} cancelled" : "");
         (failed > 0 ? (Action<string>)Log.Warn : Log.Success)($"{Title}: {RunStatus}");
         AfterRun(pending);
     }

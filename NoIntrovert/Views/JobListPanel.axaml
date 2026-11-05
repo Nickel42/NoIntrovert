@@ -95,7 +95,7 @@
                           VerticalAlignment="Center" ToolTip.Tip="Select every row shown, or none" />
                 <TextBlock Grid.Column="1" Text="FILE" Classes="colhead" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="TYPE" Classes="colhead col-type" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="3" Text="PRESET" Classes="colhead" Width="150" Margin="0,0,8,0" IsVisible="{Binding ShowsTargets}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="3" Text="PRESET" Classes="colhead" Width="210" Margin="0,0,8,0" IsVisible="{Binding ShowsTargets}" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="4" Text="SIZE" Classes="colhead col-size" TextAlignment="Right" Padding="0,0,10,0" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="5" Text="STATUS" Classes="colhead col-status" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="6" Text="PROGRESS" Classes="colhead col-progress" VerticalAlignment="Center" />
@@ -145,7 +145,7 @@
                                     <TextBlock Text="{Binding Folder}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="LeadingCharacterEllipsis" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="2" Text="{Binding TypeText}" VerticalAlignment="Center" Classes="hint col-type" TextTrimming="CharacterEllipsis" />
-                                <StackPanel Grid.Column="3" Width="150" Margin="0,0,8,0" VerticalAlignment="Center"
+                                <StackPanel Grid.Column="3" Width="210" Margin="0,0,8,0" VerticalAlignment="Center"
                                             IsVisible="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).ShowsTargets}">
                                     <ComboBox ItemsSource="{Binding PresetOptions}" SelectedItem="{Binding PresetChoice}" IsVisible="{Binding HasPresets}"
                                               HorizontalAlignment="Stretch" MaxDropDownHeight="520"

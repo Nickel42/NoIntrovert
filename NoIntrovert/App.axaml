@@ -219,6 +219,21 @@
             <Setter Property="MinHeight" Value="6" />
             <Setter Property="CornerRadius" Value="3" />
         </Style>
+        <!-- SukiUI's bar draws only the fill, so on a card a run at 20% looked like a short stub.
+             A bar with a known amount gets a visible track the fill grows along. -->
+        <Style Selector="ProgressBar:not(:indeterminate)">
+            <Setter Property="Background" Value="{DynamicResource PanelBorder}" />
+            <Setter Property="Foreground" Value="{DynamicResource SukiPrimaryColor}" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}"
+                            Height="{TemplateBinding Height}" MinHeight="{TemplateBinding MinHeight}" ClipToBounds="True">
+                        <Border Name="PART_Indicator" Background="{TemplateBinding Foreground}"
+                                CornerRadius="{TemplateBinding CornerRadius}" HorizontalAlignment="Left" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
         <Style Selector="ToolTip">
             <Setter Property="FontSize" Value="13" />
         </Style>

@@ -54,12 +54,12 @@
             </ItemsControl.ItemsPanel>
         </ItemsControl>
 
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,6,0,0">
-            <TextBlock Classes="hint" FontSize="11" Text="{Binding Footer}" TextWrapping="Wrap" VerticalAlignment="Center"
+        <StackPanel Spacing="2" Margin="0,6,0,0">
+            <TextBlock Classes="hint" FontSize="11" Text="{Binding Footer}" TextWrapping="Wrap"
                        ToolTip.Tip="{Binding Source}" />
-            <HyperlinkButton Grid.Column="1" Content="Learn more" NavigateUri="{Binding LearnMoreUri}" VerticalAlignment="Center"
+            <HyperlinkButton Content="Learn more" NavigateUri="{Binding LearnMoreUri}" HorizontalAlignment="Left"
                              Padding="0" MinHeight="0" FontSize="11" FontWeight="Bold" Foreground="#B4B5DA"
                              ToolTip.Tip="RetroArch core documentation at docs.libretro.com" />
-        </Grid>
+        </StackPanel>
     </StackPanel>
 </UserControl>

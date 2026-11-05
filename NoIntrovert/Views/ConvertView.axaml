@@ -119,10 +119,10 @@
                     </Grid>
                     <TextBlock Classes="hint" Text="Add files to choose how they're converted." IsVisible="{Binding !HasRow}" />
                     <StackPanel Spacing="6" IsVisible="{Binding HasRow}">
-                        <Grid ColumnDefinitions="Auto,*" Margin="0,4,0,0">
+                        <WrapPanel Margin="0,4,0,0" ItemSpacing="10">
                             <TextBlock Text="Preset (format + settings)" Classes="label" />
-                            <TextBlock Grid.Column="1" Text="{Binding PresetCount}" Classes="aside" ToolTip.Tip="{Binding PresetCount}" />
-                        </Grid>
+                            <TextBlock Text="{Binding PresetCount}" Classes="aside" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        </WrapPanel>
                         <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" IsEnabled="{Binding CanChoose}"
                                   HorizontalAlignment="Stretch" MaxDropDownHeight="520">
                             <ComboBox.Styles>
