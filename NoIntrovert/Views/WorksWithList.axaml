@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             xmlns:local="using:NoIntrovert.Views"
+             x:Class="NoIntrovert.Views.WorksWithList"
+             x:DataType="vm:WorksWithViewModel">
+    <!--
+        "Works with this preset" (docs/requirements/ui-redesign.md, Preset
+        section): every RetroArch core for the system, then the most common
+        standalone emulators. Two columns per group; each entry is a 14 px
+        round ✓/✕/? icon and the name, with the detail in a tooltip.
+    -->
+    <UserControl.Resources>
+        <DataTemplate x:Key="EntryTemplate" x:DataType="vm:WorksWithItem">
+            <Grid ColumnDefinitions="14,*" ColumnSpacing="7" Margin="2,3,8,3" Background="Transparent"
+                  ToolTip.Tip="{Binding Detail}">
+                <Ellipse Width="14" Height="14" VerticalAlignment="Center"
+                         Fill="{Binding State, Converter={x:Static local:WorksWithConverters.Fill}}" />
+                <Path Width="14" Height="14" VerticalAlignment="Center" RenderTransform="scale(0.68)"
+                      Data="{Binding State, Converter={x:Static local:WorksWithConverters.Glyph}}"
+                      Stroke="{Binding State, Converter={x:Static local:WorksWithConverters.GlyphBrush}}"
+                      StrokeThickness="2.6" StrokeLineCap="Round" StrokeJoin="Round" />
+                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           Opacity="{Binding State, Converter={x:Static local:WorksWithConverters.NameOpacity}}" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <StackPanel Spacing="2">
+        <Grid ColumnDefinitions="Auto,*">
+            <TextBlock Text="WORKS WITH THIS PRESET" Classes="head" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding PlayCount}" Classes="hint" FontSize="12" Margin="8,0,0,0"
+                       HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                       ToolTip.Tip="{Binding PlayCount}" />
+        </Grid>
+        <TextBlock Classes="hint" Text="No emulator data for this system." IsVisible="{Binding !HasAny}" />
+
+        <TextBlock Text="RETROARCH CORES" Classes="group" Margin="0,2,0,2" IsVisible="{Binding HasCores}" />
+        <ItemsControl ItemsSource="{Binding Cores}" ItemTemplate="{StaticResource EntryTemplate}" IsVisible="{Binding HasCores}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Columns="2" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+
+        <TextBlock Text="STANDALONE" Classes="group" Margin="0,8,0,2" IsVisible="{Binding HasStandalone}" />
+        <ItemsControl ItemsSource="{Binding Standalone}" ItemTemplate="{StaticResource EntryTemplate}" IsVisible="{Binding HasStandalone}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Columns="2" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+
+        <StackPanel Spacing="2" Margin="0,6,0,0">
+            <TextBlock Classes="hint" FontSize="11" Text="{Binding Footer}" TextWrapping="Wrap"
+                       ToolTip.Tip="{Binding Source}" />
+            <HyperlinkButton Content="Learn more" NavigateUri="{Binding LearnMoreUri}" HorizontalAlignment="Left"
+                             Padding="0" MinHeight="0" FontSize="11" FontWeight="Bold" Foreground="#B4B5DA"
+                             ToolTip.Tip="RetroArch core documentation at docs.libretro.com" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

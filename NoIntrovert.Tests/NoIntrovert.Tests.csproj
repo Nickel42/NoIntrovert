@@ -20,6 +20,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NoIntrovert\NoIntrovert.csproj" />
+    <!-- The layout tests open the real window without a screen (LayoutTests.cs) -->
+    <PackageReference Include="Avalonia.Headless" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Skia" Version="12.1.4" />
   </ItemGroup>
 
   <Import Project="$(LibChdKitRoot)/bindings/csharp/ChdmanNativeCopy.targets" />

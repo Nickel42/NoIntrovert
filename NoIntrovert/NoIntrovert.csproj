@@ -20,7 +20,8 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.4" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <!-- The look: SukiUI's controls in the design's colours (App.axaml). 7.x is the line for Avalonia 12. -->
+    <PackageReference Include="SukiUI" Version="7.0.1" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
     <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3">
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
@@ -49,6 +50,19 @@
     <EmbeddedResource Include="Core/Formats/TargetFormats.json" LogicalName="NoIntrovert.TargetFormats.json" />
     <!-- ES-DE's system folders as of its latest release (Core/Esde, docs/requirements/cleanup-wizard.md). -->
     <EmbeddedResource Include="Core/Esde/es_systems.json" LogicalName="NoIntrovert.es_systems.json" />
+    <!-- The File section's hand-checked system facts and format paragraphs (Core/Systems, docs/requirements/ui-redesign.md). -->
+    <EmbeddedResource Include="Core/Systems/SystemFacts.json" LogicalName="NoIntrovert.SystemFacts.json" />
+    <EmbeddedResource Include="Core/Systems/SystemFormats.json" LogicalName="NoIntrovert.SystemFormats.json" />
+    <!-- Emulator data for "Works with" (Core/Emulators; scripts/refresh-emulator-data.py writes emulators.json). -->
+    <EmbeddedResource Include="Core/Emulators/Data/emulators.json" LogicalName="NoIntrovert.Emulators.emulators.json" />
+    <EmbeddedResource Include="Core/Emulators/Data/emulator-facts.json" LogicalName="NoIntrovert.Emulators.emulator-facts.json" />
+    <!--
+      The MIT notices of libretro-core-info and ES-DE, which emulators.json is made from: next to the
+      executable in a build. A publish leaves it out (macOS allows only Mach-O files in Contents/MacOS);
+      release.yml copies it next to the other notices in every download.
+    -->
+    <None Include="Core/Emulators/Data/THIRD_PARTY_NOTICES.txt" Link="THIRD_PARTY_NOTICES-emulator-data.txt"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
   </ItemGroup>
 
   <Import Project="$(LibChdKitRoot)/bindings/csharp/ChdmanNativeCopy.targets" />

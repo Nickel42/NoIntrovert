@@ -3,20 +3,43 @@
 A desktop CHD and RVZ batch tool built with Avalonia, used as a test bench for
 [lib-chd-kit](native/lib-chd-kit) and [lib-wii-gamecube-kit](native/lib-wii-gamecube-kit). Every CHD operation goes through the LibChdKit .NET
 binding (`chdkit.dll`); `chdman.exe` is only run when you ask the Library tests
-tab to compare against it.
+page to compare against it.
 
-Workflow on every tab: **pick files → choose a preset → run the batch → read the log.** Each action has a
-recommended preset; its individual options appear only under Custom ([presets](docs/requirements/presets.md)).
+Workflow on every page: **pick files → choose a preset → choose where to save → run the batch.** Each action
+has a recommended preset; its individual options appear only under Custom ([presets](docs/requirements/presets.md)).
+The window's left rail has two sections, **Library** (Optimize) and **Files** (Convert, Verify, Organize), with
+Settings at the bottom ([information architecture](docs/information-architecture.md)).
 
-| Tab | What it does |
+| Page | What it does |
 |---|---|
-| Convert | Any supported image → CHD (GameCube/Wii discs → RVZ, or CHD if you choose), optional verify, optional removal of the originals (Recycle Bin by default, and only after the CHD verifies) |
-| Verify & match | Checks each game for damage (CHDs against their stored SHA-1, 7z and zip by testing every file), then looks it up in the No-Intro and Redump databases: a good dump, a misnamed one (with the name it should have), or not in the database. The databases come from [libretro-database](https://github.com/libretro/libretro-database), only for the systems in your Library, checked for updates when the app starts ([requirement](docs/requirements/verify-match.md)) |
-| Extract | CHD → cue/bin (one bin per track or a single bin), gdi, iso (DVDs, and single-track data CDs) or raw img; RVZ/WIA/GCZ → iso |
-| Archive | Files and folders → .7z or .zip (one archive per item, one per file/subfolder in a folder, or one for everything), zip ↔ 7z conversion, and extracting zip/7z (into a folder per archive or straight into the output folder); tests each archive and can remove the originals |
-| Cleanup | The Cleanup wizard: for the selected games or the whole Library, a dry run of converting to the target formats, renaming to the No-Intro/Redump names, moving into ES-DE system folders (or keeping each game where it is) and removing duplicates. Every step can be unticked; a run can be undone, conversions included, until its trash is emptied ([requirement](docs/requirements/cleanup-wizard.md)) |
-| CHD Info | Header fields, metadata (copy, save an item to a file), hunk counts per codec |
-| Library tests | Round trip (create → verify → extract → compare with the original data) and comparison with a chdman.exe (byte-for-byte output, timings); CSV export |
+| Optimize | Your library: the folders you add, scanned into a list of games with their system, formats, size and status. From a selection (or the whole library) it hands games to Verify, Convert and Organize |
+| Convert | Each row has its own target and preset: disc images → CHD (GameCube/Wii discs → RVZ, or CHD if you choose), Wii U → .wua, CHD → cue/bin (one bin per track or a single bin), gdi, iso or raw img, RVZ/WIA/GCZ → iso, files and folders → .7z or .zip (Pack a folder…), zip ↔ 7z, and unpacking zip/7z. New files are verified (archives tested) |
+| Verify | Checks each game for damage (CHDs against their stored SHA-1, 7z and zip by testing every file), then looks it up in the No-Intro and Redump databases: a good dump, a misnamed one (with the name it should have), or not in the database. The databases come from [libretro-database](https://github.com/libretro/libretro-database), only for the systems in your Library, checked for updates when the app starts ([requirement](docs/requirements/verify-match.md)) |
+| Organize | The Cleanup wizard: for the selected games or the whole Library, a dry run of converting to the target formats, renaming to the No-Intro/Redump names, moving into ES-DE system folders (or keeping each game where it is) and removing duplicates. Every step can be unticked; a run can be undone, conversions included, until its trash is emptied ([requirement](docs/requirements/cleanup-wizard.md)) |
+| Library tests | Power-user mode only. Round trip (create → verify → extract → compare with the original data) and comparison with a chdman.exe (byte-for-byte output, timings); CSV export |
+| Settings | One page of cards, saved as you change them: General, Output, Performance, Log, Default presets, Library and About, with Advanced below them |
+
+The side panel on Convert describes the focused row: its system, the file, the formats for the system, the
+row's preset and the emulators that can play the result ("Works with"). The emulator list comes from
+[libretro-core-info](https://github.com/libretro/libretro-core-info) and [ES-DE](https://gitlab.com/es-de/emulationstation-de)
+(both MIT), bundled with the app; Settings › Library › Check now downloads a newer copy
+([ui-redesign](docs/requirements/ui-redesign.md)).
+
+### Save to
+
+Where new files go is chosen in the run bar, next to the Convert button: **Next to the originals** (the
+default), **Folder** (the last folder used, with Change…), or **Replace the originals ⚠**. Replace is the only
+way the app removes originals, and each one goes only after its new file verifies (or its archive tests OK);
+if that fails, the original stays and the row says why. It asks for confirmation the first time it's chosen.
+Removed originals go to the Recycle Bin (or the Trash) unless that's turned off. Settings › Output sets the
+run bar's starting choice and **Overwrite existing files**: when that's off, a name that's already taken gets
+" (2)".
+
+### The log
+
+The log sits under the job list, collapsed to one bar with the error and warning counts (red when there's an
+error) and **Show log**. It opens by itself when a run has errors (Settings › Log). Each session's log is also
+written to a file (see "Build and run").
 
 ## Input formats
 
@@ -42,7 +65,7 @@ GameCube and Wii discs (iso and gcm, recognised by their disc header; gcz,
 wia, rvz and tgc) go through lib-wii-gamecube-kit, which is Dolphin's own disc code
 (the same as `DolphinTool convert`). By default they become **RVZ**, Dolphin's
 format: Zstandard level 5 with 128 KiB blocks, as in Dolphin's convert dialog,
-and adjustable on the Convert tab. Wii partitions are stored decrypted, and
+and adjustable on the Convert page. Wii partitions are stored decrypted, and
 Nintendo's junk padding as seeds, so an RVZ is far smaller than the ISO and
 still decodes to the exact original disc. Verifying an RVZ decodes it again
 and compares its SHA-1 with the source. Choose CHD instead to store them as
@@ -99,13 +122,13 @@ as submodules.
 
 ## Archive engine
 
-The Archive tab uses 7-Zip's own library (`7z.dll` / `7z.so`, built from
+Convert's 7z and zip targets use 7-Zip's own library (`7z.dll` / `7z.so`, built from
 7-Zip 26.04's source, without RAR support) through [bit7z](https://github.com/rikyoz/bit7z) 4.1.0,
 by way of lib-7z-zip-kit, its own repository
 ([Nickel42/lib-7z-zip-kit.](https://github.com/Nickel42/lib-7z-zip-kit.)), checked
 out as a git submodule in `native/lib-7z-zip-kit`. Its small C library,
 sevenzipkit, is what the C# code calls; its managed reader (SharpCompress)
-unpacks and lists archives for the other tabs. To build the native engine locally:
+unpacks and lists archives for the rest of the app. To build the native engine locally:
 
 ```
 bash native/lib-7z-zip-kit/scripts/fetch-sources.sh
@@ -121,7 +144,7 @@ licenses.
 
 ## Wii U (.wua)
 
-The Wii U tab builds Cemu's `.wua` format: a [ZArchive](https://github.com/Exzap/ZArchive)
+Convert's Wii U target builds Cemu's `.wua` format: a [ZArchive](https://github.com/Exzap/ZArchive)
 (zstd in 64 KiB blocks, random access) holding each title in a
 `<16-hex title ID>_v<version>` folder. It writes one `.wua` per game with the
 base game, its newest update and its DLC, from any mix of:
@@ -145,7 +168,7 @@ replaces anything. The Wii U code, ZArchive writer and reader included, is
 lib-wii-u-kit, a managed .NET library in its own repository
 ([Nickel42/lib-wii-u-kit](https://github.com/Nickel42/lib-wii-u-kit)),
 checked out as a git submodule in `native/lib-wii-u-kit`; NoIntrovert adds
-its settings, output folders and "remove originals" on top
+its settings and Save to on top
 (`NoIntrovert/Core/WiiU/WuaJobs.cs`). It is checked in CI against Exzap's reference
 `zarchive` tool in both directions. The encrypted-format tests use synthetic
 images with made-up keys, so try a real dump of your own before relying on
@@ -190,11 +213,13 @@ dotnet publish NoIntrovert -c Release -r win-x64 --self-contained -p:PublishSing
 ```
 
 Paths given on the command line are added to the list, as if dropped on the
-window; `--tab convert|verify|extract|info|tests` picks the starting tab.
+window; `--page optimize|convert|verify|organize|settings|tests` picks the
+starting page (the older `--tab NAME` still works). Without it the app opens
+on Settings › General › Start on.
 
 Settings live in `%AppData%\NoIntrovert\settings.json` (macOS and Linux:
-`~/.config/NoIntrovert`); each session's log is written to
-`%LocalAppData%\NoIntrovert\logs` (macOS and Linux: `~/.local/share/NoIntrovert/logs`).
+`~/.config/NoIntrovert`); each session's log is written to its `logs` folder
+as `NoIntrovert-yyyyMMdd-HHmmss.log` and kept for 30 days (Settings › Log).
 
 ## Tests
 
@@ -202,7 +227,7 @@ Settings live in `%AppData%\NoIntrovert\settings.json` (macOS and Linux:
 `..\test-roms` (never writing there), builds a sample of every input format in
 a scratch folder, converts each through the app's own code and lib-chd-kit, and
 checks the CHD's data SHA-1 against a CHD made from the original. It also
-checks verify, extract, cancel, overwrite and delete-originals behaviour, and
+checks verify, extract, cancel, Overwrite (" (2)" names) and Replace the originals, and
 compares output with `native\lib-chd-kit\build-x64\Release\chdman-upstream.exe` when
 that exists.
 
@@ -219,7 +244,7 @@ at other locations.
 The ISZ, PBP, CloneCD and Alcohol samples are made by the test program's own
 writers, which follow the same layouts the decoders read, so those tests check
 the conversion logic but not compatibility with files from the original tools.
-Try real files from those tools on the Convert tab to confirm.
+Try real files from those tools on the Convert page to confirm.
 
 ## License
 
@@ -230,5 +255,8 @@ later version, as published by the Free Software Foundation. See `LICENSE`.
 The bundled libraries keep their own licenses (all GPL-compatible): lib-chd-kit
 is BSD-3-Clause, lib-7z-zip-kit and lib-wii-u-kit MIT, 7-Zip (built without RAR) LGPL-2.1+, bit7z MPL-2.0. See
 `packaging/THIRD_PARTY_ARCHIVES.md` and lib-chd-kit's `THIRD_PARTY_NOTICES.md`.
+The bundled emulator data is derived from libretro-core-info and ES-DE, both MIT;
+their notices are in `THIRD_PARTY_NOTICES-emulator-data.txt` in every download
+(`NoIntrovert/Core/Emulators/Data/THIRD_PARTY_NOTICES.txt` in the source).
 RAR archives aren't supported, because 7-Zip's RAR decoder is under the unRAR
 license restriction, which the GPL doesn't allow.

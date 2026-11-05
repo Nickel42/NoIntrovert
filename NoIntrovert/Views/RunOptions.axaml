@@ -3,20 +3,43 @@
              xmlns:vm="using:NoIntrovert.ViewModels"
              x:Class="NoIntrovert.Views.RunOptions"
              x:DataType="vm:BatchTabViewModel">
-    <!-- Where this tab's results go: the Settings defaults, which can be changed for this tab's runs only. -->
-    <StackPanel Spacing="4">
-        <TextBlock Text="THIS RUN" Classes="section" Margin="0,0,0,4" />
-        <TextBlock Text="Saving to" />
-        <TextBlock Classes="hint" Text="{Binding RunFolderText}" TextTrimming="LeadingCharacterEllipsis"
-                   ToolTip.Tip="{Binding RunFolderText}" />
-        <WrapPanel Orientation="Horizontal" Margin="0,2,0,0">
-            <Button Classes="tool" Content="Another folder…" Command="{Binding ChooseRunFolderCommand}" Margin="0,0,6,6"
-                    ToolTip.Tip="Use a different folder for this tab's runs, without changing the default." />
-            <Button Classes="tool" Content="Use the defaults" Command="{Binding ResetRunOptionsCommand}" Margin="0,0,6,6"
-                    IsVisible="{Binding HasRunOverrides}" />
-        </WrapPanel>
-        <CheckBox Content="Overwrite existing files" IsChecked="{Binding RunOverwrite}" />
-        <TextBlock Classes="hint" Text="{Binding RunOptionsNote}" TextWrapping="Wrap" />
-        <Button Classes="tool" Content="Change the defaults in Settings…" Command="{Binding OpenSettingsCommand}" Margin="0,4,0,0" />
-    </StackPanel>
+    <!-- Save to, in the run bar just left of Cancel / Convert: where this page's results go.
+         The radio buttons follow the view model, which keeps exactly one of them on. -->
+    <UserControl.Styles>
+        <!-- Change…: a bold text link after the folder -->
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource PanelHeadText}" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource SystemAccentColor}" />
+        </Style>
+    </UserControl.Styles>
+    <WrapPanel Orientation="Horizontal" ItemSpacing="16" LineSpacing="4" VerticalAlignment="Center">
+        <RadioButton Content="Next to the originals" IsChecked="{Binding SaveNextToOriginals}" VerticalAlignment="Center" />
+        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <RadioButton IsChecked="{Binding SaveInFolder}" VerticalAlignment="Center" ToolTip.Tip="{Binding SaveFolderText}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Folder:" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding SaveFolderText}" MaxWidth="180" Foreground="{DynamicResource SubtleText}"
+                               TextTrimming="LeadingCharacterEllipsis" VerticalAlignment="Center" />
+                </StackPanel>
+            </RadioButton>
+            <Button Classes="link" Content="Change…" Command="{Binding ChangeSaveFolderCommand}" VerticalAlignment="Center"
+                    ToolTip.Tip="Choose the folder" />
+        </StackPanel>
+        <RadioButton IsChecked="{Binding SaveReplacingOriginals}" VerticalAlignment="Center"
+                     ToolTip.Tip="Each original is removed only after its new file verifies. If verification fails, the original stays and the row shows why.">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="Replace the originals" VerticalAlignment="Center" />
+                <TextBlock Text="⚠" Foreground="#FF8C42" VerticalAlignment="Center" />
+            </StackPanel>
+        </RadioButton>
+    </WrapPanel>
 </UserControl>

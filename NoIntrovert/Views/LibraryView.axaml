@@ -3,18 +3,41 @@
              xmlns:vm="using:NoIntrovert.ViewModels"
              xmlns:v="using:NoIntrovert.Views"
              x:Class="NoIntrovert.Views.LibraryView"
-             x:DataType="vm:LibraryViewModel">
+             x:DataType="vm:LibraryViewModel"
+             v:Responsive.Below="compact:1000,narrow:720">
     <!--
         The Library: the folders it watches, every game found in them, and the
         selected game's files. The game list is virtualised, so a library of
         thousands of games costs only the rows on screen.
     -->
-    <Grid ColumnDefinitions="*,340" ColumnSpacing="12" Margin="0,10,0,0">
+    <UserControl.Styles>
+        <!-- Column widths, shared by the headings and the rows. Narrower pages drop Formats, then System,
+             and give the details panel less room; the game's title takes what's left. -->
+        <Style Selector=":is(Control).col-system"><Setter Property="Width" Value="130" /></Style>
+        <Style Selector=":is(Control).col-formats"><Setter Property="Width" Value="100" /></Style>
+        <Style Selector=":is(Control).col-size"><Setter Property="Width" Value="76" /></Style>
+        <Style Selector=":is(Control).col-status"><Setter Property="Width" Value="150" /></Style>
+        <Style Selector="ScrollViewer.details"><Setter Property="Width" Value="340" /></Style>
+        <Style Selector="ComboBox.systems"><Setter Property="Width" Value="170" /></Style>
+        <Style Selector="ComboBox.statuses"><Setter Property="Width" Value="200" /></Style>
+
+        <Style Selector="v|LibraryView.compact :is(Control).col-formats"><Setter Property="IsVisible" Value="False" /></Style>
+        <Style Selector="v|LibraryView.compact :is(Control).col-system"><Setter Property="Width" Value="120" /></Style>
+        <Style Selector="v|LibraryView.compact :is(Control).col-status"><Setter Property="Width" Value="140" /></Style>
+        <Style Selector="v|LibraryView.compact ScrollViewer.details"><Setter Property="Width" Value="280" /></Style>
+        <Style Selector="v|LibraryView.compact ComboBox.systems"><Setter Property="Width" Value="140" /></Style>
+        <Style Selector="v|LibraryView.compact ComboBox.statuses"><Setter Property="Width" Value="160" /></Style>
+
+        <Style Selector="v|LibraryView.narrow :is(Control).col-system"><Setter Property="IsVisible" Value="False" /></Style>
+        <Style Selector="v|LibraryView.narrow ScrollViewer.details"><Setter Property="Width" Value="240" /></Style>
+    </UserControl.Styles>
+
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,10,0,0">
         <Border Classes="card" Padding="0">
             <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
 
                 <!-- Folders -->
-                <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,10,12,4">
+                <Grid ColumnDefinitions="Auto,*" Margin="12,10,12,4">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <Button Classes="tool" Content="Add folder…" Command="{Binding AddFolderCommand}" />
                         <Button Classes="tool" Content="Rescan" Command="{Binding RescanCommand}" IsEnabled="{Binding !IsScanning}"
@@ -26,42 +49,50 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="x:String">
+                                <!-- A long path trims from the left to the room there is -->
                                 <Border Background="{DynamicResource RowAlt}" CornerRadius="12" Padding="10,2,4,2" Margin="0,0,6,4">
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Classes="tool" Content="✕" Padding="6,0" FontSize="11" Margin="4,0,0,0"
+                                                ToolTip.Tip="Stop keeping track of this folder (no files are touched)."
+                                                Command="{Binding $parent[UserControl].((vm:LibraryViewModel)DataContext).RemoveFolderCommand}" CommandParameter="{Binding}" />
                                         <TextBlock Text="{Binding}" VerticalAlignment="Center" FontSize="12" MaxWidth="320" TextTrimming="LeadingCharacterEllipsis"
                                                    ToolTip.Tip="{Binding}" />
-                                        <Button Classes="tool" Content="✕" Padding="6,0" FontSize="11" ToolTip.Tip="Stop keeping track of this folder (no files are touched)."
-                                                Command="{Binding $parent[UserControl].((vm:LibraryViewModel)DataContext).RemoveFolderCommand}" CommandParameter="{Binding}" />
-                                    </StackPanel>
+                                    </DockPanel>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsScanning}" VerticalAlignment="Center">
-                        <ProgressBar IsIndeterminate="True" Width="80" Height="6" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding ScanStatus}" Classes="hint" VerticalAlignment="Center" />
-                        <Button Classes="tool" Content="Stop" Command="{Binding CancelScanCommand}" />
-                    </StackPanel>
                 </Grid>
 
                 <!-- Filters -->
-                <Grid Grid.Row="1" ColumnDefinitions="*,170,200,Auto" ColumnSpacing="8" Margin="12,4,12,4">
-                    <TextBox Text="{Binding Search}" PlaceholderText="Search games…" />
-                    <ComboBox Grid.Column="1" ItemsSource="{Binding Systems}" SelectedItem="{Binding SelectedSystem}" HorizontalAlignment="Stretch" />
-                    <ComboBox Grid.Column="2" ItemsSource="{x:Static vm:LibraryViewModel.StatusFilters}" SelectedItem="{Binding SelectedStatus}" HorizontalAlignment="Stretch" />
-                    <TextBlock Grid.Column="3" Text="{Binding Summary}" Classes="hint" VerticalAlignment="Center" />
-                </Grid>
+                <!-- Filters, then what they show (or the scan's progress) on a line of its own -->
+                <StackPanel Grid.Row="1" Margin="12,4,12,4" Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <TextBox Text="{Binding Search}" PlaceholderText="Search games…" MinWidth="120" />
+                        <ComboBox Grid.Column="1" Classes="systems" ItemsSource="{Binding Systems}" SelectedItem="{Binding SelectedSystem}" />
+                        <ComboBox Grid.Column="2" Classes="statuses" ItemsSource="{x:Static vm:LibraryViewModel.StatusFilters}" SelectedItem="{Binding SelectedStatus}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" MinHeight="22">
+                        <TextBlock Text="{Binding Summary}" Classes="hint" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Summary}"
+                                   IsVisible="{Binding !IsScanning}" />
+                        <DockPanel IsVisible="{Binding IsScanning}">
+                            <ProgressBar DockPanel.Dock="Left" IsIndeterminate="True" Width="80" Height="6" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock Text="{Binding ScanStatus}" Classes="hint" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                        <Button Grid.Column="1" Classes="tool" Content="Stop" Command="{Binding CancelScanCommand}" IsVisible="{Binding IsScanning}" Margin="8,0,0,0" />
+                    </Grid>
+                </StackPanel>
                 <TextBlock Grid.Row="2" Text="{Binding MissingNote}" Classes="hint" Margin="12,0,12,4" TextWrapping="Wrap"
                            Foreground="{x:Static v:Palette.Warn}"
                            IsVisible="{Binding MissingNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
                 <!-- Column headings -->
-                <Grid Grid.Row="3" ColumnDefinitions="2.4*,1.1*,1.3*,80,150" Margin="22,4,22,4">
+                <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="22,4,22,4">
                     <TextBlock Text="GAME" Classes="colhead" />
-                    <TextBlock Grid.Column="1" Text="SYSTEM" Classes="colhead" />
-                    <TextBlock Grid.Column="2" Text="FORMATS" Classes="colhead" />
-                    <TextBlock Grid.Column="3" Text="SIZE" Classes="colhead" HorizontalAlignment="Right" Margin="0,0,10,0" />
-                    <TextBlock Grid.Column="4" Text="STATUS" Classes="colhead" />
+                    <TextBlock Grid.Column="1" Text="SYSTEM" Classes="colhead col-system" />
+                    <TextBlock Grid.Column="2" Text="FORMATS" Classes="colhead col-formats" />
+                    <TextBlock Grid.Column="3" Text="SIZE" Classes="colhead col-size" TextAlignment="Right" Padding="0,0,10,0" />
+                    <TextBlock Grid.Column="4" Text="STATUS" Classes="colhead col-status" />
                 </Grid>
 
                 <!-- Games -->
@@ -77,24 +108,25 @@
                         </ListBox.Styles>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:GameRowViewModel">
-                                <Grid ColumnDefinitions="2.4*,1.1*,1.3*,80,150">
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
                                     <StackPanel VerticalAlignment="Center" Margin="0,0,8,0">
                                         <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
                                         <TextBlock Text="{Binding DiscsText}" Classes="hint" FontSize="11"
                                                    IsVisible="{Binding DiscsText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                     </StackPanel>
-                                    <TextBlock Grid.Column="1" Text="{Binding System}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Grid.Column="2" Text="{Binding Formats}" VerticalAlignment="Center" Classes="hint" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Grid.Column="3" Text="{Binding SizeText}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0" />
-                                    <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                        <Ellipse Width="8" Height="8" Fill="{Binding Status, Converter={x:Static v:Palette.GameStatusBrush}}" />
-                                        <TextBlock Text="{Binding StatusText}" />
-                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Classes="col-system" Text="{Binding System}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                               ToolTip.Tip="{Binding System}" Padding="0,0,8,0" />
+                                    <TextBlock Grid.Column="2" Classes="hint col-formats" Text="{Binding Formats}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Padding="0,0,8,0" />
+                                    <TextBlock Grid.Column="3" Classes="col-size" Text="{Binding SizeText}" VerticalAlignment="Center" TextAlignment="Right" Padding="0,0,10,0" />
+                                    <DockPanel Grid.Column="4" Classes="col-status" VerticalAlignment="Center">
+                                        <Ellipse Width="8" Height="8" Margin="0,0,6,0" Fill="{Binding Status, Converter={x:Static v:Palette.GameStatusBrush}}" />
+                                        <TextBlock Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusText}" />
+                                    </DockPanel>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <StackPanel IsVisible="{Binding !HasFolders}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" MaxWidth="520">
+                    <StackPanel IsVisible="{Binding ShowsEmptyMessage}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" MaxWidth="520">
                         <TextBlock Text="Add the folders where you keep your games." FontSize="16" HorizontalAlignment="Center" />
                         <TextBlock Classes="hint" TextWrapping="Wrap" TextAlignment="Center"
                                    Text="NoIntrovert looks through them (subfolders too), groups the files into games by title and system, and shows what still needs converting. Nothing is changed until you convert. You can also drop folders here." />
@@ -104,20 +136,20 @@
 
                 <!-- Actions on the selected games -->
                 <Border Grid.Row="5" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="12,10">
-                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                    <WrapPanel Orientation="Horizontal" HorizontalAlignment="Right" ItemSpacing="8" LineSpacing="8">
                         <Button Content="Clean up selected" Command="{Binding CleanupSelectedCommand}"
                                 ToolTip.Tip="Plan converting, renaming, moving and removing duplicates for the selected games, as a dry run first." />
                         <Button Content="Verify selected" Command="{Binding VerifySelectedCommand}"
                                 ToolTip.Tip="Send the selected games to Verify &amp; match, to check them for damage and against the No-Intro and Redump databases." />
                         <Button Classes="primary" Content="Convert selected" Command="{Binding ConvertSelectedCommand}"
                                 ToolTip.Tip="Send what still needs converting in the selected games to the Convert page." />
-                    </StackPanel>
+                    </WrapPanel>
                 </Border>
             </Grid>
         </Border>
 
         <!-- Details of the selected game -->
-        <ScrollViewer Grid.Column="1">
+        <ScrollViewer Grid.Column="1" Classes="details" HorizontalScrollBarVisibility="Disabled">
             <Border Classes="card">
                 <Panel>
                     <TextBlock Text="Select a game to see its files." Classes="hint" IsVisible="{Binding SelectedGame, Converter={x:Static ObjectConverters.IsNull}}" />
@@ -139,7 +171,7 @@
                         <ItemsControl ItemsSource="{Binding Files}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:GameFileRow">
-                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,0,0,8">
                                         <StackPanel>
                                             <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
                                             <TextBlock Classes="hint" FontSize="11">

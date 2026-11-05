@@ -1,14 +1,18 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
+using NoIntrovert.Core;
 using NoIntrovert.Services;
 using NoIntrovert.ViewModels;
+using SukiUI.Controls;
 
 namespace NoIntrovert.Views;
 
-public partial class MainWindow : Window, IDialogs
+public partial class MainWindow : SukiWindow, IDialogs
 {
     private bool _closeConfirmed;
 
@@ -17,9 +21,44 @@ public partial class MainWindow : Window, IDialogs
         InitializeComponent();
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        BodyGrid.SizeChanged += (_, _) => FitDrawers();
+    }
+
+    /// <summary>
+    /// On a short window the log and the queue drawer give up height first, so
+    /// the page above them keeps room for its list and run bar: each takes at
+    /// most about a quarter of the body (never under a few rows).
+    /// </summary>
+    private void FitDrawers()
+    {
+        var height = BodyGrid.Bounds.Height;
+        if (height <= 0) return;
+        QueueList.MaxHeight = Math.Clamp(height * 0.2, 48, 220);
+        var row = BodyGrid.RowDefinitions[2];
+        if (Vm?.Log.IsExpanded == true && row.Height.IsAbsolute)
+        {
+            // A height the splitter set is the one wanted; it comes back when the window grows again.
+            if (Math.Abs(row.Height.Value - _fittedLogHeight) > 0.5) _expandedLogRow = row.Height;
+            _fittedLogHeight = Math.Min(_expandedLogRow.Value, Math.Max(110, height * 0.3));
+            row.Height = new GridLength(_fittedLogHeight);
+        }
     }
 
     private MainViewModel? Vm => DataContext as MainViewModel;
+
+    private void OnThemeToggleClick(object? sender, RoutedEventArgs e) => ToggleTheme();
+
+    /// <summary>
+    /// The title bar's moon/sun: flips between Dark and Light (from System too, by what's showing)
+    /// through Settings › General › Theme, so the setting, the saved file and the colours stay in step.
+    /// </summary>
+    public void ToggleTheme()
+    {
+        if (Vm is not { } vm) return;
+        var showingDark = (Application.Current?.ActualThemeVariant ?? ActualThemeVariant) == ThemeVariant.Dark;
+        var next = showingDark ? AppTheme.Light : AppTheme.Dark;
+        vm.Settings.General.SelectedTheme = GeneralSettingsViewModel.Themes.First(t => t.Value == next);
+    }
 
     protected override void OnDataContextChanged(EventArgs e)
     {
@@ -27,11 +66,43 @@ public partial class MainWindow : Window, IDialogs
         if (Vm is not { } vm) return;
         Width = vm.Settings.General.WindowWidth;
         Height = vm.Settings.General.WindowHeight;
-        vm.Log.EntriesAdded += () =>
+        vm.Log.EntriesAdded += () => ScrollLogToEnd(vm);
+        vm.Log.PropertyChanged += (_, args) =>
         {
-            if (vm.Log.Entries.Count > 0)
-                LogList.ScrollIntoView(vm.Log.Entries[^1]);
+            if (args.PropertyName == nameof(LogViewModel.IsExpanded)) ApplyLogLayout(vm);
         };
+        ApplyLogLayout(vm);
+    }
+
+    private const double ExpandedLogHeight = 230;
+    private GridLength _expandedLogRow = new(ExpandedLogHeight);
+    private double _fittedLogHeight = ExpandedLogHeight;
+
+    /// <summary>
+    /// Collapsed, the log's row fits just its bar and the page takes the rest;
+    /// expanded, it gets back the height it had (the splitter can change it).
+    /// </summary>
+    private void ApplyLogLayout(MainViewModel vm)
+    {
+        var row = BodyGrid.RowDefinitions[2];
+        if (vm.Log.IsExpanded)
+        {
+            row.Height = _expandedLogRow;
+            _fittedLogHeight = _expandedLogRow.Value;
+            FitDrawers();
+            ScrollLogToEnd(vm);
+        }
+        else
+        {
+            if (row.Height.IsAbsolute && row.Height.Value > 60 && Math.Abs(row.Height.Value - _fittedLogHeight) > 0.5) _expandedLogRow = row.Height;
+            row.Height = GridLength.Auto;
+        }
+    }
+
+    private void ScrollLogToEnd(MainViewModel vm)
+    {
+        if (vm.Log.IsExpanded && vm.Log.Entries.Count > 0)
+            LogList.ScrollIntoView(vm.Log.Entries[^1]);
     }
 
     protected override void OnOpened(EventArgs e)

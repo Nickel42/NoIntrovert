@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using NoIntrovert.Core;
 using NoIntrovert.Core.Formats;
 using NoIntrovert.Core.Jobs;
+using NoIntrovert.Core.Presets;
 using NoIntrovert.Services;
 
 namespace NoIntrovert.ViewModels;
@@ -11,9 +12,10 @@ namespace NoIntrovert.ViewModels;
 /// <summary>
 /// The one Convert page: every input the format registry recognises (disc
 /// images, CHDs, GameCube/Wii and Wii U games, archives) plus any other files
-/// and folders to pack. Each row picks its own target; the options panel
-/// shows a preset picker for each action the chosen targets use (issue #33),
-/// with parameters only under Custom.
+/// and folders to pack. Each row has its own format preset (a target plus
+/// all its settings, docs/requirements/ui-redesign.md), starting on its
+/// system's default; the side panel describes the focused row and edits its
+/// preset, with every setting under Custom.
 /// </summary>
 public partial class ConvertViewModel : BatchTabViewModel
 {
@@ -21,14 +23,15 @@ public partial class ConvertViewModel : BatchTabViewModel
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, FileSet> _scanned = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<JobItemViewModel, PlannedJob> _jobs = [];
     private readonly HashSet<JobItemViewModel> _watched = [];
-    private readonly Coalesced _sections;
+    private readonly Coalesced _panel;
     private AppSettings? _addSettings;
     private ConvertPlan? _plan;
 
     public ConvertViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
         : base(settings, log, dialogs, queue)
     {
-        _sections = new Coalesced(RefreshSections);
+        Panel = new SidePanelViewModel(this, settings.DefaultPresets);
+        _panel = new Coalesced(Panel.Refresh);
         Items.CollectionChanged += (_, _) =>
         {
             // Bulk adds arrive as one reset: watch any row not watched yet, and forget removed ones.
@@ -40,18 +43,28 @@ public partial class ConvertViewModel : BatchTabViewModel
                     gone.PropertyChanged -= OnItemChanged;
                     _watched.Remove(gone);
                 }
-            _sections.Request();
+            _panel.Request();
         };
+        // A preset saved, renamed or deleted, or a new default: every row's list follows.
+        settings.DefaultPresets.Changed += RefreshPresetLists;
     }
+
+    /// <summary>The side panel: File, Preset and Preset settings for the focused row.</summary>
+    public SidePanelViewModel Panel { get; }
+
+    protected override void OnFocusChanged() => _panel.Request();
+
+    protected override void OnSelectionChanged() => _panel.Request();
 
     public override string Title => "Convert";
     public override string StartLabel => "Convert";
     public override bool ShowsTargets => true;
+    public override bool ShowsSaveTo => true;
 
     public override string EmptyHint =>
         "Drop disc images, GameCube/Wii and Wii U games, or archives here — or any files and folders to pack into 7z or zip.\n" +
         "Folders bring in what isn't in its system's target format yet; drop a CHD or RVZ on its own to extract it.\n" +
-        "Each row's TARGET says what it becomes; change it per row (or for every selected row at once).";
+        "Each row's PRESET says what it becomes and how; change it per row, or in the panel for the focused row.";
 
     protected override string FilterName => "Games, archives and files";
     protected override IReadOnlyList<FormatInfo>? InputFormats => null; // anything: what the registry doesn't know can still be packed
@@ -105,13 +118,32 @@ public partial class ConvertViewModel : BatchTabViewModel
         if (!_scanned.TryRemove(path, out var set))
             set = FormatRegistry.Default.Identify(path)
                   ?? new FileSet(path, [path], Directory.Exists(path) ? ConvertTargets.PackedFolder : ConvertTargets.OtherFile);
-        var options = ConvertTargets.For(set, _addSettings ?? Settings.Snapshot());
+        var settings = _addSettings ?? Settings.Snapshot();
+        var options = ConvertTargets.For(set, settings);
         var plan = options.Plan;
-        return new JobItemViewModel(path)
+        var item = new JobItemViewModel(path)
         {
             Targets = options.Choices, Target = options.Default, FormatStatus = plan.Text,
-            FormatDetails = plan.SystemName,
+            FormatDetails = plan.SystemName, SystemId = plan.System, PlannedTarget = options.Default.Kind,
         };
+        item.ReplacePresetOptions(PresetListFor(item, settings.Presets), list => StartFor(item, list, settings.Presets));
+        return item;
+    }
+
+    /// <summary>A row's Preset dropdown: its system's presets, as far as this file can become them.</summary>
+    private static IReadOnlyList<PresetListItem> PresetListFor(JobItemViewModel item, PresetSettings presets) =>
+        FormatPresets.ListFor(item.SystemId, item.Targets.Select(t => t.Kind).ToList(), presets);
+
+    private static PresetListItem StartFor(JobItemViewModel item, IReadOnlyList<PresetListItem> list, PresetSettings presets) =>
+        FormatPresets.Start(list, item.SystemId, item.PlannedTarget, presets);
+
+    /// <summary>Rebuilds every row's dropdown after the saved presets or the defaults change; rows keep their choice.</summary>
+    private void RefreshPresetLists()
+    {
+        var presets = Settings.DefaultPresets.Current;
+        foreach (var item in Items.Where(i => i.HasPresets))
+            item.ReplacePresetOptions(PresetListFor(item, presets), list => StartFor(item, list, presets));
+        _panel.Request();
     }
 
     /// <summary>One settings copy for a whole scan, not one per row.</summary>
@@ -130,59 +162,19 @@ public partial class ConvertViewModel : BatchTabViewModel
         Items.Add(CreateItem(whole));
     }
 
-    // ---- Changing targets: one row's change applies to every selected row that offers it ----
-
-    private bool _spreading;
-
     private void OnItemChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(JobItemViewModel.Target) || sender is not JobItemViewModel changed) return;
-        if (!_spreading && SelectedItems is { Count: > 1 } selected && selected.Contains(changed) && changed.Target is { } target)
-        {
-            _spreading = true;
-            foreach (var other in selected.OfType<JobItemViewModel>().Where(o => o != changed))
-                if (other.Targets.FirstOrDefault(t => t.Kind == target.Kind) is { } same) other.Target = same;
-            _spreading = false;
-        }
-        _sections.Request();
-    }
-
-    // ---- Which actions' presets the current targets need ----
-
-    private bool Any(params TargetKind[] kinds) => Items.Any(i => i.Target is { } t && kinds.Contains(t.Kind));
-
-    public bool ShowsChd => Any(TargetKind.Chd);
-    public bool ShowsRvz => Any(TargetKind.Rvz);
-    public bool ShowsExtract => Any(TargetKind.DiscImage);
-    public bool ShowsWua => Any(TargetKind.Wua);
-    public bool ShowsArchives => Any(TargetKind.SevenZip, TargetKind.Zip);
-    public bool ShowsUnpacking => Any(TargetKind.Files);
-
-    /// <summary>A one-line count of what the list will make, shown above the options.</summary>
-    public string TargetSummary
-    {
-        get
-        {
-            var parts = Items.Where(i => i.Target is not null).GroupBy(i => i.Target!.Kind)
-                .Where(g => g.Key != TargetKind.Leave)
-                .Select(g => $"{g.Count()} → {g.First().Target!.Label}");
-            var text = string.Join(" · ", parts);
-            return text.Length == 0 ? "Nothing to convert yet." : text;
-        }
-    }
-
-    private void RefreshSections()
-    {
-        foreach (var name in new[] { nameof(ShowsChd), nameof(ShowsRvz), nameof(ShowsExtract), nameof(ShowsWua), nameof(ShowsArchives),
-                     nameof(ShowsUnpacking), nameof(TargetSummary) })
-            OnPropertyChanged(name);
+        if (e.PropertyName is nameof(JobItemViewModel.PresetChoice) or nameof(JobItemViewModel.CustomValues)) _panel.Request();
     }
 
     // ---- Running: the planner turns rows and targets into queue jobs ----
 
     protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
     {
-        var rows = pending.Select(i => new PlanInput(i.Path, i.Target?.Kind ?? TargetKind.Leave, i.SizeBytes)).ToList();
+        // Each row runs with its own preset's values (its Custom values when it's on Custom). Whether new files are
+        // checked is Settings' choice, except in Custom and saved presets, which carry the user's own.
+        var rows = pending.Select(i => new PlanInput(i.Path, i.Target?.Kind ?? TargetKind.Leave, i.SizeBytes, i.Values,
+            OwnChecks: i.Preset is { IsCustom: true } or { IsSaved: true })).ToList();
         _plan = ConvertPlanner.Plan(rows, RunSettings(), Log);
         if (_plan.Error is { } error)
         {

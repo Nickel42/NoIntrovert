@@ -52,6 +52,13 @@ if (Array.IndexOf(args, "--unpack-zar") is var zi and >= 0 && zi + 2 < args.Leng
 
 Console.WriteLine($"lib-chd-kit {Chdman.Version} · roms {roms} · scratch {scratch}{(quick ? " · quick" : "")}{(synthetic ? " · synthetic discs" : "")}");
 
+// --layout: only the layout tests (the main window at common desktop sizes); --screenshots DIR also saves a PNG of each.
+if (args.Contains("--layout"))
+{
+    LayoutTests.Run(Test, Dir, ArgValue("--screenshots"));
+    goto Summary;
+}
+
 string Rom(params string[] parts) => Path.Combine([roms, .. parts]);
 var crashBin = Rom("PS1", "Crash Bandicoot (USA)", "Crash Bandicoot (USA).bin");
 var roarAudio = Rom("PS1", "Bloody Roar (USA)", "Bloody Roar (USA) (Track 2).bin");
@@ -638,7 +645,7 @@ Test("Settings: writing back the current values saves nothing", () =>
         var settings = new AppSettings
         {
             General = { PowerUserMode = true, VerboseLog = true },
-            Output = { Folder = @"D:\out", Overwrite = true, ScanSubfolders = false, RemoveArchiveOriginals = true },
+            Output = { Folder = @"D:\out", Overwrite = true, ScanSubfolders = false, SaveTo = SaveTo.ReplaceOriginals, ReplaceConfirmed = true },
             Performance = { ParallelJobs = 3, ThreadsPerJob = 2, TempFolder = @"D:\tmp" },
             Chd = { Compression = "cdzs,cdfl", HunkSize = 2048 * 8, IsoMode = IsoMode.Cd, ExtractFormat = ExtractFormat.Iso },
             Nintendo = { Target = NintendoTarget.Chd, Compression = LibWiiGameCubeKit.RvzCompression.Lzma2, CompressionLevel = 7, BlockSize = 0x80000, Scrub = true },
@@ -737,8 +744,8 @@ Test("Settings: a schema-1 file is converted once, keeping a copy", () =>
         var checks = new (string What, bool Ok)[]
         {
             ("output folder", s.Output.Folder == @"D:\CHD"), ("overwrite", s.Output.Overwrite), ("subfolders", !s.Output.ScanSubfolders),
-            ("remove originals", s.Output.RemoveOriginals), ("archive remove", s.Output.RemoveArchiveOriginals),
-            ("Wii U remove", s.Output.RemoveWiiUOriginals), ("recycle bin", !s.Output.UseRecycleBin),
+            // Removal was on, so Replace stays, but it's asked before the first run (never confirmed by a migration).
+            ("remove originals", s.Output.SaveTo == SaveTo.ReplaceOriginals && !s.Output.ReplaceConfirmed), ("recycle bin", !s.Output.UseRecycleBin),
             ("compression", s.Chd.Compression == "cdzs,cdzl,cdfl"), ("ISO mode", s.Chd.IsoMode == IsoMode.Dvd), ("split bin", !s.Chd.SplitBin),
             ("Nintendo target", s.Nintendo.Target == NintendoTarget.Chd), ("RVZ compression", s.Nintendo.Compression == LibWiiGameCubeKit.RvzCompression.Lzma2),
             ("RVZ level", s.Nintendo.CompressionLevel == 9), ("archive action", s.Archives.Action == ArchiveAction.Extract),
@@ -797,9 +804,11 @@ Test("Presets: each action starts on its recommended preset, and ends with Custo
     foreach (var action in ActionPresets.Actions)
     {
         var list = ActionPresets.For(action);
-        if (list.Count < 3) return $"{action} has {list.Count} presets";
+        // Wii U → .wua has nothing to choose, so it has one preset and no Custom.
+        if (action == PresetAction.Wua ? list.Count != 1 || list[0].IsCustom : list.Count < 2) return $"{action} has {list.Count} presets";
         if (ActionPresets.Selected(fresh, action) != ActionPresets.Preferred(action)) return $"{action} doesn't start on its preferred preset";
-        if (!list[^1].IsCustom || list.Take(list.Count - 1).Any(p => p.IsCustom)) return $"{action}: Custom isn't the last and only custom preset";
+        if (action != PresetAction.Wua && (!list[^1].IsCustom || list.Take(list.Count - 1).Any(p => p.IsCustom)))
+            return $"{action}: Custom isn't the last and only custom preset";
         if (list.Select(p => p.Id).Distinct().Count() != list.Count) return $"{action} has two presets with one id";
         // The defaults are the recommended values, so a new install behaves as before.
         if (!ActionPresets.Preferred(action).Matches(fresh)) return $"{action}: the default settings aren't its recommended preset";
@@ -819,17 +828,23 @@ Test("Presets: each action starts on its recommended preset, and ends with Custo
 
 Test("Presets: a preset sets its action's values, and Custom keeps yours", () =>
 {
-    var s = new AppSettings { Chd = { Compression = "cdzs,cdfl", VerifyAfterCreate = false }, Output = { RemoveOriginals = true } };
+    var s = new AppSettings { Chd = { Compression = "cdzs,cdfl", VerifyAfterCreate = false } };
     var mine = s.ToJson();
     var standard = ActionPresets.Effective(s, PresetAction.Chd); // nothing chosen yet: the recommended preset
-    if (standard.Chd.Compression != "" || !standard.Chd.VerifyAfterCreate || standard.Output.RemoveOriginals) return "Standard didn't set the CHD values";
+    if (standard.Chd.Compression != "" || !standard.Chd.VerifyAfterCreate) return "Standard didn't set the CHD values";
     if (s.ToJson() != mine) return "working out a job's settings changed the stored ones";
 
-    ActionPresets.Select(s, ActionPresets.For(PresetAction.Chd).Single(p => p.Id == "replace"));
-    if (!ActionPresets.Effective(s, PresetAction.Chd).Output.RemoveOriginals) return "Replace the originals doesn't remove them";
+    // Only Save to removes originals: no preset touches it.
+    foreach (var action in ActionPresets.Actions)
+        foreach (var p in ActionPresets.For(action).Where(p => !p.IsCustom))
+        {
+            var replacing = new AppSettings { Output = { SaveTo = SaveTo.ReplaceOriginals } };
+            p.Values!(replacing);
+            if (!replacing.Output.ReplacesOriginals || p.Id is "replace" or "remove") return $"{action}/{p.Id} decides whether originals are removed";
+        }
     ActionPresets.Select(s, ActionPresets.For(PresetAction.Chd)[^1]);
     var custom = ActionPresets.Effective(s, PresetAction.Chd);
-    if (custom.Chd.Compression != "cdzs,cdfl" || custom.Chd.VerifyAfterCreate || !custom.Output.RemoveOriginals) return "Custom lost your values";
+    if (custom.Chd.Compression != "cdzs,cdfl" || custom.Chd.VerifyAfterCreate) return "Custom lost your values";
 
     ActionPresets.Select(s, ActionPresets.Preferred(PresetAction.Chd));
     if (s.Presets.Chosen.ContainsKey("Chd")) return "choosing the recommended preset is written down";
@@ -844,7 +859,6 @@ Test("Presets: settings from before presets keep their behaviour", () =>
     var before = new AppSettings
     {
         Nintendo = { CompressionLevel = 19 },                      // = RVZ Smallest
-        Output = { RemoveWiiUOriginals = true },                   // = Wii U Replace the originals
         Archives = { Level = ArchiveLevel.Maximum },               // no preset: Custom
         Chd = { SplitBin = false },                                // = One .bin
     };
@@ -858,7 +872,7 @@ Test("Presets: settings from before presets keep their behaviour", () =>
         var s = AppSettings.Load();
         var expect = new Dictionary<PresetAction, string>
         {
-            [PresetAction.Chd] = "standard", [PresetAction.Rvz] = "smallest", [PresetAction.Wua] = "replace",
+            [PresetAction.Chd] = "standard", [PresetAction.Rvz] = "smallest", [PresetAction.Wua] = "wua",
             [PresetAction.Archive] = ActionPreset.CustomId, [PresetAction.Extract] = "single-bin", [PresetAction.Unpack] = "own-folder",
             [PresetAction.Verify] = "check",
         };
@@ -898,24 +912,37 @@ Test("Presets: the view model saves a real choice only, and shows parameters onl
     finally { AppSettings.SettingsDirectoryOverride = previous; }
 });
 
+SettingsPageTests.Run(Test, Dir);
+SettingsDesignTests.Run(Test, Dir);
+WiringTests.Run(Test, Dir);
+ReviewFixTests.Run(Test, Dir, log);
+FormatPresetTests.Run(Test, Dir, log);
+EmulatorTests.Run(Test);
+LayoutTests.Run(Test, Dir, ArgValue("--screenshots"));
+
 Test("Convert planner: each job runs with its own action's preset", () =>
 {
     var s = new AppSettings();
-    ActionPresets.Select(s, ActionPresets.For(PresetAction.Chd).Single(p => p.Id == "replace"));
+    ActionPresets.Select(s, ActionPresets.For(PresetAction.Rvz).Single(p => p.Id == "smallest"));
     ActionPresets.Select(s, ActionPresets.For(PresetAction.Archive).Single(p => p.Id == "smallest"));
-    if (!ConvertPlanner.SettingsFor(s, TargetKind.Chd).Output.RemoveOriginals) return "the CHD job doesn't remove the originals";
-    if (ConvertPlanner.SettingsFor(s, TargetKind.Rvz).Output.RemoveOriginals) return "CHD's preset reached the RVZ job";
+    if (ConvertPlanner.SettingsFor(s, TargetKind.Rvz).Nintendo.CompressionLevel != 19) return "the RVZ job isn't at level 19";
+    if (ConvertPlanner.SettingsFor(s, TargetKind.Chd).Nintendo.CompressionLevel == 19) return "RVZ's preset reached the CHD job";
     if (ConvertPlanner.SettingsFor(s, TargetKind.SevenZip).Archives.Level != ArchiveLevel.Ultra) return "the 7z job isn't at Ultra";
     if (ConvertPlanner.SettingsFor(s, TargetKind.Iso).ToJson() != s.ToJson()) return "a target without presets got different settings";
-    if (ConvertPlanner.SettingsFor(s, TargetKind.Chd, x => x.Output.RemoveOriginals = false).Output.RemoveOriginals) return "a pin didn't win over the preset";
+    s.Output.SaveTo = SaveTo.ReplaceOriginals;
+    if (!ConvertPlanner.SettingsFor(s, TargetKind.Chd).Output.ReplacesOriginals) return "a preset undid Replace the originals";
+    if (ConvertPlanner.SettingsFor(s, TargetKind.Chd, x => x.Output.SaveTo = SaveTo.Folder).Output.ReplacesOriginals) return "a pin didn't win over Save to";
 
     var dir = Dir("planner-presets");
     var cue = Path.Combine(dir, "game.cue");
     var gc = Path.Combine(dir, "game.gcm");
+    var chd = Path.Combine(dir, "game.chd");
     var warns = ConvertPlanner.Plan([new(cue, TargetKind.Chd)], s, log).Warnings;
     if (!warns.Any(w => w.Contains("Originals"))) return "no warning that the CHD job removes originals";
-    if (ConvertPlanner.Plan([new(gc, TargetKind.Rvz)], s, log).Warnings.Any(w => w.Contains("Originals"))) return "warned about removing for an RVZ job that keeps them";
-    return ConvertPlanner.Plan([new(cue, TargetKind.Chd)], s, log, x => x.Output.RemoveOriginals = false).Warnings.Any(w => w.Contains("Originals"))
+    if (!ConvertPlanner.Plan([new(gc, TargetKind.Rvz)], s, log).Warnings.Any(w => w.Contains("Originals"))) return "no warning for an RVZ job";
+    if (!ConvertPlanner.Plan([new(chd, TargetKind.DiscImage)], s, log).Warnings.Any(w => w.Contains("keep their originals")))
+        return "no note that an extracted disc image keeps its CHD";
+    return ConvertPlanner.Plan([new(cue, TargetKind.Chd)], s, log, x => x.Output.SaveTo = SaveTo.Folder).Warnings.Any(w => w.Contains("Originals"))
         ? "Clean Up's pin still warns about removing originals" : null;
 });
 
@@ -946,7 +973,7 @@ Test("RAR inputs are refused", () =>
     return null;
 });
 
-Test("Existing CHD is skipped unless Overwrite is on", () =>
+Test("Existing CHD: a new one is named \" (2)\" unless Overwrite is on", () =>
 {
     var dir = Dir("overwrite");
     var outDir = Dir("overwrite-out");
@@ -954,7 +981,8 @@ Test("Existing CHD is skipped unless Overwrite is on", () =>
     File.Copy(synthBin, Path.Combine(dir, "synth.bin"));
     File.WriteAllText(Path.Combine(outDir, "synth.chd"), "placeholder");
     var o = RunJob(c => ChdJobs.Convert(c, Path.Combine(dir, "synth.cue")), s => s.Output.Folder = outDir);
-    if (o.Status != JobStatus.Skipped) return $"expected Skipped, got {o.Status}";
+    if (o.Status != JobStatus.Succeeded || File.ReadAllText(Path.Combine(outDir, "synth.chd")) != "placeholder"
+        || !File.Exists(Path.Combine(outDir, "synth (2).chd"))) return $"without Overwrite: {o.Status} {o.Summary}";
     o = RunJob(c => ChdJobs.Convert(c, Path.Combine(dir, "synth.cue")), s => { s.Output.Folder = outDir; s.Output.Overwrite = true; });
     return o.Status == JobStatus.Succeeded && RawSha1(Path.Combine(outDir, "synth.chd")) == synthRef ? null : $"overwrite gave {o.Status}: {o.Summary}";
 });
@@ -965,11 +993,13 @@ Test("Remove originals after a verified conversion", () =>
     var cue = Path.Combine(dir, "synth.cue");
     File.Copy(synthCue, cue);
     File.Copy(synthBin, Path.Combine(dir, "synth.bin"));
-    var o = RunJob(c => ChdJobs.Convert(c, cue), s => { s.Output.RemoveOriginals = true; s.Output.UseRecycleBin = false; s.Chd.VerifyAfterCreate = false; });
+    var o = RunJob(c => ChdJobs.Convert(c, cue), s => { s.Output.SaveTo = SaveTo.ReplaceOriginals; s.Output.UseRecycleBin = false; s.Chd.VerifyAfterCreate = false; });
     if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
     var left = Directory.GetFiles(dir).Select(Path.GetFileName).ToList();
     return left.SequenceEqual(["synth.chd"]) ? null : $"folder holds {string.Join(", ", left)}";
 });
+
+SaveToTests.Run(Test, Dir, (work, configure) => RunJob(work, configure), synthCue, synthBin);
 
 if (OperatingSystem.IsLinux())
     Test("Remove to the Trash (freedesktop.org, under a scratch XDG_DATA_HOME)", () =>
@@ -1183,7 +1213,7 @@ else
         var folder = Path.Combine(dir, "Game Folder");
         Directory.CreateDirectory(folder);
         File.Copy(synthBin, Path.Combine(folder, "game.bin"));
-        var o = RunJob(c => ArchiveJobs.CompressOne(c, [folder], "Game Folder", dir), s => { s.Output.RemoveArchiveOriginals = true; s.Output.UseRecycleBin = false; s.Archives.TestAfter = false; });
+        var o = RunJob(c => ArchiveJobs.CompressOne(c, [folder], "Game Folder", dir), s => { s.Output.SaveTo = SaveTo.ReplaceOriginals; s.Output.UseRecycleBin = false; s.Archives.TestAfter = false; });
         return o.Status == JobStatus.Succeeded && !Directory.Exists(folder) && File.Exists(Path.Combine(dir, "Game Folder.7z"))
             ? null : $"{o.Status} {o.Summary}; folder still there: {Directory.Exists(folder)}";
     });
@@ -1231,23 +1261,26 @@ else
         return o.Status == JobStatus.Succeeded ? SameTree(archiveSrc, Path.Combine(outDir, "archive-src")) : $"{o.Status}: {o.Summary}";
     });
 
-    Test("Extract: an existing folder is skipped unless Overwrite is on", () =>
+    Test("Extract: an existing folder gets a \" (2)\" folder unless Overwrite is on", () =>
     {
         var outDir = Dir("ext-own");
         var o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.Output.Folder = outDir; s.Archives.ExtractToOwnFolder = true; });
-        if (o.Status != JobStatus.Skipped) return $"expected Skipped, got {o.Status}";
+        if (o.Status != JobStatus.Succeeded || SameTree(archiveSrc, Path.Combine(outDir, "src (2)", "archive-src")) is not null)
+            return $"without Overwrite: {o.Status} {o.Summary}";
         o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.Output.Folder = outDir; s.Archives.ExtractToOwnFolder = true; s.Output.Overwrite = true; });
         return o.Status == JobStatus.Succeeded ? null : $"with Overwrite: {o.Status} {o.Summary}";
     });
 
-    Test("Extract: existing files are kept, or replaced with Overwrite", () =>
+    Test("Extract: existing files are kept (the new ones get \" (2)\"), or replaced with Overwrite", () =>
     {
         var outDir = Dir("ext-conflict");
         var existing = Path.Combine(outDir, "archive-src", "notes.txt");
         Directory.CreateDirectory(Path.GetDirectoryName(existing)!);
         File.WriteAllText(existing, "mine");
         var o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.Output.Folder = outDir; s.Archives.ExtractToOwnFolder = false; });
-        if (o.Status != JobStatus.Warning || File.ReadAllText(existing) != "mine") return $"without Overwrite: {o.Status} {o.Summary}";
+        if (o.Status != JobStatus.Succeeded || File.ReadAllText(existing) != "mine") return $"without Overwrite: {o.Status} {o.Summary}";
+        if (!File.Exists(Path.Combine(outDir, "archive-src", "notes (2).txt"))) return "the clashing file wasn't extracted as notes (2).txt";
+        File.Delete(Path.Combine(outDir, "archive-src", "notes (2).txt"));
         if (!File.Exists(Path.Combine(outDir, "archive-src", "disc.bin"))) return "files that didn't clash weren't extracted";
         o = RunJob(c => ArchiveJobs.Extract(c, src7z), s => { s.Output.Folder = outDir; s.Archives.ExtractToOwnFolder = false; s.Output.Overwrite = true; });
         if (o.Status != JobStatus.Succeeded) return $"with Overwrite: {o.Status} {o.Summary}";
@@ -1259,7 +1292,7 @@ else
         var dir = Dir("ext-delete");
         var archive = Path.Combine(dir, "copy.7z");
         File.Copy(src7z, archive);
-        var o = RunJob(c => ArchiveJobs.Extract(c, archive), s => { s.Output.RemoveArchiveOriginals = true; s.Output.UseRecycleBin = false; });
+        var o = RunJob(c => ArchiveJobs.Extract(c, archive), s => { s.Output.SaveTo = SaveTo.ReplaceOriginals; s.Output.UseRecycleBin = false; });
         return o.Status == JobStatus.Succeeded && !File.Exists(archive) && Directory.Exists(Path.Combine(dir, "copy"))
             ? null : $"{o.Status} {o.Summary}; archive still there: {File.Exists(archive)}";
     });
@@ -1269,7 +1302,7 @@ else
         var dir = Dir("ext-damaged");
         var damaged = Path.Combine(dir, "bad.7z");
         File.Copy(Path.Combine(scratch, "arc-damaged", "bad.7z"), damaged);
-        var o = RunJob(c => ArchiveJobs.Extract(c, damaged), s => { s.Output.RemoveArchiveOriginals = true; s.Output.UseRecycleBin = false; });
+        var o = RunJob(c => ArchiveJobs.Extract(c, damaged), s => { s.Output.SaveTo = SaveTo.ReplaceOriginals; s.Output.UseRecycleBin = false; });
         var leftovers = Directory.GetFileSystemEntries(dir).Select(Path.GetFileName).Where(n => n != "bad.7z").ToList();
         return o.Status == JobStatus.Failed && File.Exists(damaged) && leftovers.Count == 0
             ? Note(o.Summary.Split('\n')[0])
@@ -1377,10 +1410,14 @@ Test("Wii U: a newer update is merged into an existing .wua", () =>
         ?? SameTree(baseTitle, Path.Combine(unpacked, "0005000010101c00_v0"));
 });
 
-Test("Wii U: an existing .wua is skipped unless Overwrite is on", () =>
+Test("Wii U: an existing .wua is kept, and the new one gets \" (2)\" unless Overwrite is on", () =>
 {
-    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [baseTitle]), s => s.Output.Folder = Path.Combine(scratch, "wiiu-out"));
-    return o.Status == JobStatus.Skipped ? null : $"{o.Status}: {o.Summary}";
+    var outDir = Path.Combine(scratch, "wiiu-out");
+    var before = Directory.GetFiles(outDir, "*.wua").ToHashSet();
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010101C00, [baseTitle]), s => s.Output.Folder = outDir);
+    var added = Directory.GetFiles(outDir, "*.wua").Where(f => !before.Contains(f)).ToList();
+    foreach (var f in added) File.Delete(f); // later tests read this folder
+    return o.Status == JobStatus.Succeeded && added.Count == 1 && added[0].EndsWith(" (2).wua") ? null : $"{o.Status}: {o.Summary}";
 });
 
 Test("Wii U: folder scan finds titles and .wua files, not folders inside titles", () =>
@@ -1404,7 +1441,7 @@ Test("Wii U: remove the originals once the .wua verifies", () =>
 {
     var dir = Dir("wiiu-delete");
     var game = WiiUSample.MakeTitle(Path.Combine(dir, "Game"), 0x0005000010202D00, 0, "Other Game", 5);
-    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010202D00, [game]), s => { s.Output.RemoveWiiUOriginals = true; s.Output.UseRecycleBin = false; });
+    var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.Build(c, 0x0005000010202D00, [game]), s => { s.Output.SaveTo = SaveTo.ReplaceOriginals; s.Output.UseRecycleBin = false; });
     return o.Status == JobStatus.Succeeded && !Directory.Exists(game) && File.Exists(Path.Combine(dir, "Other Game [0005000010202D00].wua"))
         ? null : $"{o.Status} {o.Summary}; folder still there: {Directory.Exists(game)}";
 });
@@ -1461,7 +1498,7 @@ if (SevenZipEngine.IsAvailable(out _))
         var dir = Dir("wiiu-zip");
         var zip = Path.Combine(dir, "Test Game.zip");
         ZipFile.CreateFromDirectory(baseTitle, zip, CompressionLevel.Fastest, includeBaseDirectory: true);
-        var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.BuildFromArchive(c, zip), s => { s.Output.RemoveWiiUOriginals = true; s.Output.UseRecycleBin = false; });
+        var o = RunJob(c => NoIntrovert.Core.WiiU.WuaJobs.BuildFromArchive(c, zip), s => { s.Output.SaveTo = SaveTo.ReplaceOriginals; s.Output.UseRecycleBin = false; });
         if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
         var wua = Path.Combine(dir, "Test Game [0005000010101C00].wua");
         if (!File.Exists(wua)) return $"no .wua next to the zip: {string.Join(", ", Directory.GetFiles(dir).Select(Path.GetFileName))}";
@@ -3198,7 +3235,7 @@ if (SevenZipEngine.IsAvailable(out _))
         {
             s.Keys.WiiUKeysPath = encKeysTxt;
             s.Performance.TempFolder = temp;
-            s.Output.RemoveWiiUOriginals = remove;
+            s.Output.SaveTo = remove ? SaveTo.ReplaceOriginals : SaveTo.NextToOriginals;
             s.Output.UseRecycleBin = false;
             configure?.Invoke(s);
         }, token, report);
@@ -3293,14 +3330,15 @@ if (SevenZipEngine.IsAvailable(out _))
         return Leftovers(temp, dir);
     });
 
-    Test("Wii U archive: kept when the .wua isn't built, even with Remove originals on", () =>
+    Test("Wii U archive: an existing .wua is kept, the new one gets \" (2)\", then Replace removes the archive", () =>
     {
         var archive = PackWiiU("exists", "Game.zip", nusGame);
         var dir = Path.GetDirectoryName(archive)!;
         File.WriteAllText(Path.Combine(dir, encWua), "not mine");
         var (o, temp) = FromArchive(archive, remove: true);
-        if (o.Status != JobStatus.Skipped) return $"{o.Status}: {o.Summary}";
-        if (!File.Exists(archive)) return "the zip was removed although its .wua was skipped";
+        if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+        if (!File.Exists(Path.Combine(dir, Path.GetFileNameWithoutExtension(encWua) + " (2).wua"))) return "the new .wua isn't there as (2)";
+        if (File.Exists(archive)) return "the zip was kept although its .wua was built and verified";
         return File.ReadAllText(Path.Combine(dir, encWua)) == "not mine" ? Leftovers(temp, dir) : "the existing .wua was replaced";
     });
 
@@ -3392,7 +3430,7 @@ if (rvzProblem is null)
         var dir = Dir("gc-rvz-delete");
         var iso = Path.Combine(dir, "game.iso");
         File.Copy(gcIso, iso);
-        var o = RunJob(c => ChdJobs.Convert(c, iso), s => { s.Output.RemoveOriginals = true; s.Output.UseRecycleBin = false; s.Chd.VerifyAfterCreate = false; });
+        var o = RunJob(c => ChdJobs.Convert(c, iso), s => { s.Output.SaveTo = SaveTo.ReplaceOriginals; s.Output.UseRecycleBin = false; s.Chd.VerifyAfterCreate = false; });
         if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
         return !File.Exists(iso) && File.Exists(Path.Combine(dir, "game.rvz")) ? null : "the ISO is still there, or no RVZ";
     });
@@ -3441,6 +3479,10 @@ Test("Round trip test job (cue/bin)", () =>
     return o.Status == JobStatus.Succeeded ? Note(records[0].Notes) : string.Join("; ", records.Select(r => r.Notes));
 });
 
+ShellTests.Run(Test, scratch);
+FileFactsTests.Run(Test, scratch);
+ConvertDesignTests.Run(Test);
+
 // ---- Full discs from test-roms ------------------------------------------------
 
 if (!quick)
@@ -3475,6 +3517,7 @@ if (!quick)
 
 // ---- Summary -------------------------------------------------------------------
 
+Summary:
 Console.WriteLine();
 Console.WriteLine($"{passes} passed, {failures.Count} failed in {total.Elapsed:mm\\:ss}");
 foreach (var f in failures) Console.WriteLine($"  FAILED: {f}");
@@ -3551,6 +3594,8 @@ JobOutcome RunJob(JobWork work, Action<AppSettings>? configure = null, Cancellat
 {
     var settings = new AppSettings { Performance = { TempFolder = Path.Combine(scratch, "_temp"), ParallelJobs = 1 }, Chd = { VerifyAfterCreate = true } };
     configure?.Invoke(settings);
+    // Tests name an output folder by setting it; the app also chooses Save to: Folder.
+    if (settings.Output.SaveTo == SaveTo.NextToOriginals && settings.Output.Folder.Length > 0) settings.Output.SaveTo = SaveTo.Folder;
     JobOutcome? result = null;
     var job = new BatchJob("test", report ?? new NullReport(), work, _ => { }, o => result = o);
     var group = new JobQueue(() => 1).Submit("test", [job], settings, log);

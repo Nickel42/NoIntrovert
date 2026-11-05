@@ -65,32 +65,27 @@ public static class ActionPresets
     {
         [PresetAction.Chd] =
         [
-            new(PresetAction.Chd, "standard", "Standard", "chdman's codecs for the disc type · verify · keep the originals", s => Chd(s, remove: false)),
-            new(PresetAction.Chd, "replace", "Replace the originals", "Standard, then the originals are removed once the CHD verifies", s => Chd(s, remove: true)),
+            new(PresetAction.Chd, "standard", "Standard", "chdman's codecs for the disc type · verify", Chd),
             Custom(PresetAction.Chd),
         ],
         [PresetAction.Rvz] =
         [
-            new(PresetAction.Rvz, "balanced", "Balanced", "Zstandard level 5, 128 KiB blocks · verify · keep the originals", s => Rvz(s, 5, remove: false)),
-            new(PresetAction.Rvz, "smallest", "Smallest", "Zstandard level 19: slower, a little smaller", s => Rvz(s, 19, remove: false)),
-            new(PresetAction.Rvz, "fastest", "Fastest", "Zstandard level 1: quicker, a little bigger", s => Rvz(s, 1, remove: false)),
-            new(PresetAction.Rvz, "replace", "Replace the originals", "Balanced, then the originals are removed once the RVZ verifies", s => Rvz(s, 5, remove: true)),
+            new(PresetAction.Rvz, "balanced", "Balanced", "Zstandard level 5, 128 KiB blocks · verify", s => Rvz(s, 5)),
+            new(PresetAction.Rvz, "smallest", "Smallest", "Zstandard level 19: slower, a little smaller", s => Rvz(s, 19)),
+            new(PresetAction.Rvz, "fastest", "Fastest", "Zstandard level 1: quicker, a little bigger", s => Rvz(s, 1)),
             Custom(PresetAction.Rvz),
         ],
         [PresetAction.Wua] =
         [
-            new(PresetAction.Wua, "wua", "WUX, WUD or NUS → .wua", "Base game, update and DLC in one .wua · keep the originals", s => s.Output.RemoveWiiUOriginals = false),
-            new(PresetAction.Wua, "replace", "Replace the originals", "Build the .wua, then remove what it was built from once it verifies", s => s.Output.RemoveWiiUOriginals = true),
-            Custom(PresetAction.Wua),
+            // A .wua has nothing to choose (whether the originals go is the run bar's Save to), so there's no Custom.
+            new(PresetAction.Wua, "wua", "WUX, WUD or NUS → .wua", "Base game, update and DLC in one .wua, verified", _ => { }),
         ],
         [PresetAction.Archive] =
         [
-            new(PresetAction.Archive, "balanced", "Balanced", "Normal compression, solid 7z · test each archive · one archive per item · keep the originals",
-                s => Archive(s, ArchiveLevel.Normal, remove: false)),
-            new(PresetAction.Archive, "smallest", "Smallest", "Ultra compression: slower, a little smaller", s => Archive(s, ArchiveLevel.Ultra, remove: false)),
-            new(PresetAction.Archive, "fastest", "Fastest", "Fast compression: quicker, a little bigger", s => Archive(s, ArchiveLevel.Fast, remove: false)),
-            new(PresetAction.Archive, "replace", "Replace the originals", "Balanced, then the originals are removed once the archive tests OK",
-                s => Archive(s, ArchiveLevel.Normal, remove: true)),
+            new(PresetAction.Archive, "balanced", "Balanced", "Normal compression, solid 7z · test each archive · one archive per item",
+                s => Archive(s, ArchiveLevel.Normal)),
+            new(PresetAction.Archive, "smallest", "Smallest", "Ultra compression: slower, a little smaller", s => Archive(s, ArchiveLevel.Ultra)),
+            new(PresetAction.Archive, "fastest", "Fastest", "Fast compression: quicker, a little bigger", s => Archive(s, ArchiveLevel.Fast)),
             Custom(PresetAction.Archive),
         ],
         [PresetAction.Extract] =
@@ -101,8 +96,7 @@ public static class ActionPresets
         ],
         [PresetAction.Unpack] =
         [
-            new(PresetAction.Unpack, "own-folder", "Into its own folder", "Each archive's files in a folder named after it · keep the archive", s => Unpack(s, remove: false)),
-            new(PresetAction.Unpack, "remove", "Unpack and remove the archive", "Into its own folder, then the archive is removed", s => Unpack(s, remove: true)),
+            new(PresetAction.Unpack, "own-folder", "Into its own folder", "Each archive's files in a folder named after it", s => s.Archives.ExtractToOwnFolder = true),
             Custom(PresetAction.Unpack),
         ],
         [PresetAction.Verify] =
@@ -186,32 +180,29 @@ public static class ActionPresets
     private static ActionPreset Custom(PresetAction action) =>
         new(action, ActionPreset.CustomId, "Custom", "Your own choices:", null);
 
-    private static void Chd(AppSettings s, bool remove)
+    private static void Chd(AppSettings s)
     {
         s.Chd.Compression = "";
         s.Chd.HunkSize = 0;
         s.Chd.IsoMode = IsoMode.Auto;
         s.Chd.VerifyAfterCreate = true;
-        s.Output.RemoveOriginals = remove;
     }
 
-    private static void Rvz(AppSettings s, int level, bool remove)
+    private static void Rvz(AppSettings s, int level)
     {
         s.Nintendo.Compression = LibWiiGameCubeKit.RvzCompression.Zstd;
         s.Nintendo.CompressionLevel = level;
         s.Nintendo.BlockSize = 0x20000;
         s.Nintendo.Scrub = false;
         s.Chd.VerifyAfterCreate = true;
-        s.Output.RemoveOriginals = remove;
     }
 
-    private static void Archive(AppSettings s, ArchiveLevel level, bool remove)
+    private static void Archive(AppSettings s, ArchiveLevel level)
     {
         s.Archives.Level = level;
         s.Archives.Solid = true;
         s.Archives.TestAfter = true;
         s.Archives.Grouping = ArchiveGrouping.PerItem;
-        s.Output.RemoveArchiveOriginals = remove;
     }
 
     private static void Extract(AppSettings s, bool split)
@@ -219,16 +210,21 @@ public static class ActionPresets
         s.Chd.ExtractFormat = ExtractFormat.Auto;
         s.Chd.SplitBin = split;
     }
-
-    private static void Unpack(AppSettings s, bool remove)
-    {
-        s.Archives.ExtractToOwnFolder = true;
-        s.Output.RemoveArchiveOriginals = remove;
-    }
 }
 
-/// <summary>The preset chosen for each action, by action name; an action not listed uses its preferred preset.</summary>
+/// <summary>
+/// The presets the user chose: each system's default format preset, the
+/// presets saved from Custom, and (from before format presets) the preset
+/// chosen for each action, which only Verify still uses.
+/// </summary>
 public sealed class PresetSettings
 {
+    /// <summary>The action presets by action name; an action not listed uses its preferred preset. Convert rows use format presets instead.</summary>
     public Dictionary<string, string> Chosen { get; set; } = [];
+
+    /// <summary>The format preset id new rows of each system start on (a system not listed starts on its recommended one).</summary>
+    public Dictionary<string, string> DefaultBySystem { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Presets saved from Custom, in the order they were saved.</summary>
+    public List<SavedPreset> Saved { get; set; } = [];
 }

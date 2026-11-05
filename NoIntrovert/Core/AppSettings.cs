@@ -45,6 +45,9 @@ public sealed class AppSettings
 
     private static string SettingsPath => Path.Combine(SettingsDirectory, "settings.json");
 
+    /// <summary>Where each session's log is saved (Settings › Log › Open log folder).</summary>
+    public static string LogDirectory => Path.Combine(SettingsDirectory, "logs");
+
     /// <summary>Where a schema-1 file is kept after it's converted.</summary>
     internal static string V1BackupPath => Path.Combine(SettingsDirectory, "settings.v1.json");
 
@@ -65,14 +68,32 @@ public sealed class AppSettings
                 // Schema 1: keep the original, convert, and save the new layout.
                 var migrated = FromV1(JsonSerializer.Deserialize<SettingsV1>(json, JsonOptions) ?? new SettingsV1());
                 migrated.Presets = Core.Presets.ActionPresets.Infer(migrated);
+                Core.Presets.FormatPresets.Migrate(migrated);
                 if (!File.Exists(V1BackupPath)) File.Copy(SettingsPath, V1BackupPath);
                 migrated.Save();
                 return migrated;
             }
             var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
-            // Before presets: pick the preset each action's values already equal, or Custom, so nothing changes.
-            if (JsonNode.Parse(json) is JsonObject loaded && !loaded.ContainsKey(nameof(Presets)))
-                settings.Presets = Core.Presets.ActionPresets.Infer(settings);
+            if (JsonNode.Parse(json) is JsonObject loaded)
+            {
+                var migrated = false;
+                // Before presets: pick the preset each action's values already equal, or Custom, so nothing changes.
+                if (!loaded.ContainsKey(nameof(Presets)))
+                {
+                    settings.Presets = Core.Presets.ActionPresets.Infer(settings);
+                    migrated = true;
+                }
+                // Before Save to: the old "remove originals" switches and presets, and the output folder.
+                migrated |= OutputSettings.Migrate(loaded, settings);
+                // Before format presets: each action's chosen preset seeds the systems' defaults.
+                if (loaded[nameof(Presets)] is not JsonObject presets || !presets.ContainsKey(nameof(Core.Presets.PresetSettings.DefaultBySystem)))
+                {
+                    Core.Presets.FormatPresets.Migrate(settings);
+                    migrated = true;
+                }
+                // Saved straight away, so a migration runs once rather than on every start.
+                if (migrated) settings.Save();
+            }
             return settings;
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
@@ -82,8 +103,15 @@ public sealed class AppSettings
         return new AppSettings();
     }
 
+    /// <summary>
+    /// A copy that's edited but never written to disk, e.g. one row's Custom
+    /// values behind the Preset settings controls. Not saved, and not copied by <see cref="Clone"/>.
+    /// </summary>
+    [JsonIgnore] public bool IsScratch { get; init; }
+
     public void Save()
     {
+        if (IsScratch) return;
         try
         {
             var json = ToJson();
@@ -111,9 +139,10 @@ public sealed class AppSettings
         },
         Output = new()
         {
-            Folder = v.OutputFolder, Overwrite = v.Overwrite, ScanSubfolders = v.ScanSubfolders,
-            RemoveOriginals = v.DeleteOriginals, RemoveArchiveOriginals = v.ArchiveDeleteOriginals,
-            RemoveWiiUOriginals = v.WiiUDeleteOriginals, UseRecycleBin = v.UseRecycleBin,
+            Folder = v.OutputFolder, Overwrite = v.Overwrite, ScanSubfolders = v.ScanSubfolders, UseRecycleBin = v.UseRecycleBin,
+            // Schema 1 had no presets, so a switch that was on removed originals. Replace stays, but is asked before its first run.
+            SaveTo = v.DeleteOriginals || v.ArchiveDeleteOriginals || v.WiiUDeleteOriginals ? SaveTo.ReplaceOriginals
+                : string.IsNullOrWhiteSpace(v.OutputFolder) ? SaveTo.NextToOriginals : SaveTo.Folder,
         },
         Performance = new() { ParallelJobs = v.ParallelJobs, ThreadsPerJob = v.ThreadsPerJob, TempFolder = v.TempFolder },
         Chd = new()
@@ -147,32 +176,106 @@ public sealed class GeneralSettings
     public bool LogProgress { get; set; }
     public double WindowWidth { get; set; } = 1180;
     public double WindowHeight { get; set; } = 820;
+
+    public AppTheme Theme { get; set; } = AppTheme.System;
+
+    /// <summary>The page the app opens on, by page id; empty = Optimize once the library has folders, otherwise Convert.</summary>
+    public string StartPage { get; set; } = "";
+
+    /// <summary>Whether the log is expanded (Show log) rather than collapsed to its bar.</summary>
+    public bool LogExpanded { get; set; }
+
+    /// <summary>Expands the log when a run logs an error.</summary>
+    public bool OpenLogOnErrors { get; set; } = true;
+
+    /// <summary>Days a saved session log is kept in <see cref="AppSettings.LogDirectory"/>.</summary>
+    public int KeepLogsDays { get; set; } = 30;
+}
+
+public enum AppTheme { System, Dark, Light }
+
+/// <summary>Where a run saves its results: the run bar's three choices, and the default Settings gives them.</summary>
+public enum SaveTo
+{
+    /// <summary>In each source's own folder.</summary>
+    NextToOriginals,
+    /// <summary>In <see cref="OutputSettings.Folder"/>.</summary>
+    Folder,
+    /// <summary>Next to the originals, and each original is removed once its new file verifies.</summary>
+    ReplaceOriginals,
 }
 
 /// <summary>Where results go, and what happens to the files they were made from.</summary>
 public sealed class OutputSettings
 {
-    public string Folder { get; set; } = ""; // empty = next to each source file
+    /// <summary>The run bar's default. This is the only setting that removes originals.</summary>
+    public SaveTo SaveTo { get; set; } = SaveTo.NextToOriginals;
+
+    /// <summary>Set once the user has confirmed Replace the originals, so it's asked only the first time.</summary>
+    public bool ReplaceConfirmed { get; set; }
+
+    public string Folder { get; set; } = ""; // the folder for SaveTo.Folder; the last one used
+
+    /// <summary>Replace a file that's in the way; off, a taken name gets " (2)" (see <see cref="Jobs.OutputPaths.Available"/>).</summary>
     public bool Overwrite { get; set; }
     public bool ScanSubfolders { get; set; } = true;
 
-    /// <summary>Disc images, after their CHD or RVZ verifies.</summary>
-    public bool RemoveOriginals { get; set; }
-
-    /// <summary>The Archive tab's inputs, after the archive tests OK (or the archive, after it extracts).</summary>
-    public bool RemoveArchiveOriginals { get; set; }
-
-    /// <summary>The Wii U tab's inputs, after the .wua verifies.</summary>
-    public bool RemoveWiiUOriginals { get; set; }
-
     public bool UseRecycleBin { get; set; } = true;
+
+    /// <summary>Where jobs write: <see cref="Folder"/> when Save to is Folder (and one is chosen), otherwise null for each source's own folder.</summary>
+    [JsonIgnore] public string? TargetFolder => SaveTo == SaveTo.Folder && !string.IsNullOrWhiteSpace(Folder) ? Folder : null;
+
+    /// <summary>Whether jobs remove each original once its new file verifies (or its archive tests OK).</summary>
+    [JsonIgnore] public bool ReplacesOriginals => SaveTo == SaveTo.ReplaceOriginals;
+
+    /// <summary>
+    /// A settings file from before Save to: when the user really had originals
+    /// removed, Save to becomes Replace the originals, not yet confirmed (so the
+    /// first run asks); otherwise a chosen output folder becomes Folder.
+    /// "Really" means an action's chosen preset was a Replace one (Unpack's
+    /// "remove"), or it was Custom with that action's "Remove the originals"
+    /// switch on: every other preset wrote the switches off, so a switch left on
+    /// from Custom did nothing. Before presets the switches always counted.
+    /// The Replace presets go back to each action's preferred one.
+    /// </summary>
+    /// <returns>Whether anything was migrated (false for a file that already has Save to).</returns>
+    internal static bool Migrate(JsonObject root, AppSettings settings)
+    {
+        if (root[nameof(AppSettings.Output)] is JsonObject output && output.ContainsKey(nameof(SaveTo))) return false;
+        var o = root[nameof(AppSettings.Output)] as JsonObject;
+        bool On(string key) => o?[key] is JsonValue v && v.TryGetValue<bool>(out var on) && on;
+        var hadPresets = root.ContainsKey(nameof(AppSettings.Presets));
+        var removed = !hadPresets && LegacyRemoveSwitches.Any(On);
+        foreach (var (action, id, @switch) in LegacyReplacePresets)
+        {
+            if (!settings.Presets.Chosen.TryGetValue(action, out var chosen)) continue;
+            if (chosen == id)
+            {
+                settings.Presets.Chosen.Remove(action);
+                removed = true;
+            }
+            else if (chosen == Core.Presets.ActionPreset.CustomId && On(@switch)) removed = true;
+        }
+        settings.Output.SaveTo = removed ? SaveTo.ReplaceOriginals : !string.IsNullOrWhiteSpace(settings.Output.Folder) ? SaveTo.Folder : SaveTo.NextToOriginals;
+        return true;
+    }
+
+    /// <summary>The old Output switches that removed originals.</summary>
+    internal static readonly string[] LegacyRemoveSwitches = ["RemoveOriginals", "RemoveArchiveOriginals", "RemoveWiiUOriginals"];
+
+    /// <summary>The old presets that removed originals, by action, and the switch that action's Custom used.</summary>
+    internal static readonly (string Action, string Id, string Switch)[] LegacyReplacePresets =
+    [
+        ("Chd", "replace", "RemoveOriginals"), ("Rvz", "replace", "RemoveOriginals"), ("Wua", "replace", "RemoveWiiUOriginals"),
+        ("Archive", "replace", "RemoveArchiveOriginals"), ("Unpack", "remove", "RemoveArchiveOriginals"),
+    ];
 }
 
 /// <summary>How much of the machine the queue uses.</summary>
 public sealed class PerformanceSettings
 {
-    /// <summary>Jobs the shared queue runs at once, across every tab.</summary>
-    public int ParallelJobs { get; set; } = 1;
+    /// <summary>Jobs the shared queue runs at once, across every tab. New settings start at 2; a saved file keeps its value.</summary>
+    public int ParallelJobs { get; set; } = 2;
 
     public int ThreadsPerJob { get; set; } // 0 = all processors
     public string TempFolder { get; set; } = ""; // empty = %TEMP%\NoIntrovert
@@ -327,7 +430,7 @@ internal sealed class SettingsV1
     public bool ArchiveExtractToOwnFolder { get; set; } = true;
     public bool WiiUDeleteOriginals { get; set; }
     public string WiiUKeysPath { get; set; } = "";
-    public int ParallelJobs { get; set; } = 1;
+    public int ParallelJobs { get; set; } = 2; // as the new default; a real schema-1 file always has the value
     public int ThreadsPerJob { get; set; }
     public string TempFolder { get; set; } = "";
     public string ChdmanExePath { get; set; } = "";

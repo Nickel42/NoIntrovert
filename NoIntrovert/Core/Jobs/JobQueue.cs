@@ -293,7 +293,8 @@ public sealed class JobQueue
         try
         {
             job.Token.ThrowIfCancellationRequested();
-            outcome = job.Spec.Work(new JobContext(chdman, settings, log, job, job.Token, rvz));
+            // The output names the job picks are its own until it ends, so a parallel job never picks the same one.
+            outcome = OutputPaths.WithClaims(() => job.Spec.Work(new JobContext(chdman, settings, log, job, job.Token, rvz)));
         }
         catch (OperationCanceledException)
         {

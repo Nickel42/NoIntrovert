@@ -1,5 +1,7 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=netstandard"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
              x:Class="NoIntrovert.App"
              Name="NoIntrovert"
              xmlns:local="using:NoIntrovert"
@@ -9,46 +11,140 @@
         <local:ViewLocator />
     </Application.DataTemplates>
 
+    <!--
+      The Penpot design's SukiUI palettes ("SukiUI/Light" and "SukiUI/Dark" tokens): a dark navy and a
+      warm light grey, both with the lilac primary. Our own keys (AppBackground, PanelBackground…) are what
+      the pages use; the Suki* keys repaint SukiUI's controls to match. The lilac primary itself is set in
+      App.axaml.cs (SukiUI keeps it outside the theme dictionaries), one shade per theme.
+    -->
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="AppBackground" Color="#16181D" />
-                    <SolidColorBrush x:Key="PanelBackground" Color="#1E2128" />
-                    <SolidColorBrush x:Key="PanelBorder" Color="#2C3039" />
-                    <SolidColorBrush x:Key="RowAlt" Color="#20232B" />
-                    <SolidColorBrush x:Key="SubtleText" Color="#9AA0AA" />
-                    <SolidColorBrush x:Key="HeaderBackground" Color="#101216" />
-                    <SolidColorBrush x:Key="LogBackground" Color="#121419" />
+                    <SolidColorBrush x:Key="AppBackground" Color="#191923" />
+                    <SolidColorBrush x:Key="PanelBackground" Color="#262635" />
+                    <SolidColorBrush x:Key="PanelRaised" Color="#2F2F42" />
+                    <SolidColorBrush x:Key="PanelBorder" Color="#3A3A4E" />
+                    <SolidColorBrush x:Key="ControlBorder" Color="#545470" />
+                    <SolidColorBrush x:Key="RowAlt" Color="#2B2B3B" />
+                    <SolidColorBrush x:Key="SubtleText" Color="#A3A2B8" />
+                    <SolidColorBrush x:Key="SectionText" Color="#B4B5DA" />
+                    <SolidColorBrush x:Key="HeaderBackground" Color="#20202C" />
+                    <SolidColorBrush x:Key="LogBackground" Color="#1E1E2A" />
+                    <SolidColorBrush x:Key="PrimaryTint" Color="#3B3C58" />
+                    <SolidColorBrush x:Key="WindowButtonBackground" Color="#33324A" />
+                    <SolidColorBrush x:Key="DangerTint" Color="#4A2627" />
+                    <SolidColorBrush x:Key="DangerText" Color="#FF3C38" />
+
+                    <Color x:Key="SukiStrongBackground">#2F2F42</Color>
+                    <Color x:Key="SukiCardBackground">#262635</Color>
+                    <Color x:Key="SukiPopupBackground">#262635</Color>
+                    <Color x:Key="SukiGlassCardBackground">#262635</Color>
+                    <Color x:Key="SukiGlassCardOpaqueBackground">#262635</Color>
+                    <Color x:Key="ControlSukiGlassCardBackground">#262635</Color>
+                    <Color x:Key="SukiControlTouchBackground">#33324A</Color>
+                    <Color x:Key="SukiBorderBrush">#3A3A4E</Color>
+                    <Color x:Key="SukiControlBorderBrush">#545470</Color>
+                    <Color x:Key="SukiMediumBorderBrush">#545470</Color>
+                    <Color x:Key="SukiLightBorderBrush">#3A3A4E</Color>
+                    <Color x:Key="SukiMenuBorderBrush">#3A3A4E</Color>
+                    <Color x:Key="GlassBorderBrush">#3A3A4E</Color>
+                    <Color x:Key="SukiLiquid1">#3A3A4E</Color>
+                    <Color x:Key="SukiLiquid2">#3A3A4E</Color>
+                    <Color x:Key="SukiText">#ECEAF2</Color>
+                    <Color x:Key="SukiLowText">#E2E1F0</Color>
+                    <Color x:Key="SukiMuteText">#A3A2B8</Color>
+                    <Color x:Key="SukiDisabledText">#5F5E74</Color>
+                    <Color x:Key="SukiDangerColor">#FF3C38</Color>
+                    <Color x:Key="SukiWarningColor">#FF8C42</Color>
+                    <Color x:Key="SukiSuccessColor">#FFF275</Color>
+                    <sys:Double x:Key="GlassOpacity">1</sys:Double>
+                    <sys:Double x:Key="ControlGlassOpacity">1</sys:Double>
+                    <sys:Double x:Key="DiscreteControlGlassOpacity">1</sys:Double>
+                    <BoxShadows x:Key="SukiPopupShadow">0 6 18 0 #66000000</BoxShadows>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="AppBackground" Color="#F3F4F6" />
+                    <SolidColorBrush x:Key="AppBackground" Color="#F5F2F5" />
                     <SolidColorBrush x:Key="PanelBackground" Color="#FFFFFF" />
-                    <SolidColorBrush x:Key="PanelBorder" Color="#DDE0E5" />
-                    <SolidColorBrush x:Key="RowAlt" Color="#F7F8FA" />
-                    <SolidColorBrush x:Key="SubtleText" Color="#5F6670" />
-                    <SolidColorBrush x:Key="HeaderBackground" Color="#E8EAEE" />
-                    <SolidColorBrush x:Key="LogBackground" Color="#FAFAFB" />
+                    <SolidColorBrush x:Key="PanelRaised" Color="#FBF9FB" />
+                    <SolidColorBrush x:Key="PanelBorder" Color="#E2DAE1" />
+                    <SolidColorBrush x:Key="ControlBorder" Color="#C9BFC8" />
+                    <SolidColorBrush x:Key="RowAlt" Color="#F7F4F7" />
+                    <SolidColorBrush x:Key="SubtleText" Color="#77778F" />
+                    <SolidColorBrush x:Key="SectionText" Color="#616283" />
+                    <SolidColorBrush x:Key="HeaderBackground" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="LogBackground" Color="#FBF9FB" />
+                    <SolidColorBrush x:Key="PrimaryTint" Color="#E4E4ED" />
+                    <SolidColorBrush x:Key="WindowButtonBackground" Color="#F1EBF0" />
+                    <SolidColorBrush x:Key="DangerTint" Color="#FFDCDB" />
+                    <SolidColorBrush x:Key="DangerText" Color="#E02B27" />
+
+                    <Color x:Key="SukiStrongBackground">#FBF9FB</Color>
+                    <Color x:Key="SukiCardBackground">#FFFFFF</Color>
+                    <Color x:Key="SukiPopupBackground">#FFFFFF</Color>
+                    <Color x:Key="SukiGlassCardBackground">#FFFFFF</Color>
+                    <Color x:Key="SukiGlassCardOpaqueBackground">#FFFFFF</Color>
+                    <Color x:Key="ControlSukiGlassCardBackground">#FFFFFF</Color>
+                    <Color x:Key="SukiControlTouchBackground">#F1EBF0</Color>
+                    <Color x:Key="SukiBorderBrush">#E2DAE1</Color>
+                    <Color x:Key="SukiControlBorderBrush">#C9BFC8</Color>
+                    <Color x:Key="SukiMediumBorderBrush">#C9BFC8</Color>
+                    <Color x:Key="SukiLightBorderBrush">#E2DAE1</Color>
+                    <Color x:Key="SukiMenuBorderBrush">#E2DAE1</Color>
+                    <Color x:Key="GlassBorderBrush">#E2DAE1</Color>
+                    <Color x:Key="SukiText">#2B2B3D</Color>
+                    <Color x:Key="SukiLowText">#46475F</Color>
+                    <Color x:Key="SukiMuteText">#77778F</Color>
+                    <Color x:Key="SukiDisabledText">#BDB8C3</Color>
+                    <Color x:Key="SukiDangerColor">#FF3C38</Color>
+                    <Color x:Key="SukiWarningColor">#FF8C42</Color>
+                    <Color x:Key="SukiSuccessColor">#E8D84A</Color>
+                    <sys:Double x:Key="GlassOpacity">1</sys:Double>
+                    <sys:Double x:Key="ControlGlassOpacity">1</sys:Double>
+                    <sys:Double x:Key="DiscreteControlGlassOpacity">1</sys:Double>
+                    <BoxShadows x:Key="SukiPopupShadow">0 6 18 0 #22463A50</BoxShadows>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
-            <Color x:Key="SystemAccentColor">#E0703A</Color>
+            <!-- The design's orange accent: the focused row's outline and other highlights. -->
+            <Color x:Key="SystemAccentColor">#FF8C42</Color>
+            <CornerRadius x:Key="SmallCornerRadius">8</CornerRadius>
+            <CornerRadius x:Key="MediumCornerRadius">14</CornerRadius>
         </ResourceDictionary>
     </Application.Resources>
 
     <Application.Styles>
-        <FluentTheme />
+        <suki:SukiTheme ThemeColor="Blue" />
+
+        <!-- Windows: the design's flat colours instead of SukiUI's shader background; the title bar is the rail's colour. -->
+        <Style Selector="suki|SukiMainHost /template/ suki|SukiBackground">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="suki|SukiMainHost">
+            <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
+        </Style>
+        <Style Selector="suki|SukiWindow /template/ Border#DragArea">
+            <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
+        </Style>
+
+        <!-- Quicksand (SukiUI bundles it; SIL Open Font License) everywhere, as in the design. -->
+        <Style Selector="TopLevel, CheckBox, ComboBox, ComboBoxItem, ListBoxItem, ToolTip">
+            <Setter Property="FontFamily" Value="{DynamicResource DefaultFontFamily}" />
+        </Style>
+        <Style Selector="TopLevel">
+            <Setter Property="FontWeight" Value="Medium" />
+        </Style>
 
         <Style Selector="Border.card">
             <Setter Property="Background" Value="{DynamicResource PanelBackground}" />
             <Setter Property="BorderBrush" Value="{DynamicResource PanelBorder}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="CornerRadius" Value="14" />
             <Setter Property="Padding" Value="14" />
         </Style>
         <Style Selector="TextBlock.section">
             <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource SectionText}" />
             <Setter Property="Margin" Value="0,10,0,4" />
         </Style>
         <Style Selector="TextBlock.hint">
@@ -58,40 +154,153 @@
         </Style>
         <Style Selector="TextBlock.colhead">
             <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+        </Style>
+
+        <!--
+          Buttons, as the design's "Button" board draws them: a secondary button is the surface colour with
+          a strong border, 14 px semibold; the primary one is filled lilac with white text. SukiUI's own
+          template buttons (window controls, icon buttons) keep their look.
+        -->
+        <Style Selector="Button:not(.WindowControlsButton):not(.Icon)">
+            <Setter Property="Background" Value="{DynamicResource PanelBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="18,8" />
         </Style>
         <Style Selector="Button.primary">
-            <Setter Property="Background" Value="{DynamicResource SystemAccentColor}" />
+            <Setter Property="Background" Value="{DynamicResource SukiPrimaryColor}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SukiPrimaryColor}" />
             <Setter Property="Foreground" Value="White" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Padding" Value="18,7" />
+            <Setter Property="Padding" Value="22,8" />
+        </Style>
+        <Style Selector="Button.primary:pointerover">
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ Border">
+            <Setter Property="Background" Value="{DynamicResource SukiPrimaryDarkColor}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SukiPrimaryDarkColor}" />
+        </Style>
+        <Style Selector="Button.primary:disabled">
+            <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PrimaryTint}" />
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+            <Setter Property="Opacity" Value="1" />
         </Style>
         <Style Selector="Button.tool">
-            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Padding" Value="12,6" />
             <Setter Property="FontSize" Value="13" />
         </Style>
-        <Style Selector="CheckBox">
+
+        <!-- Text boxes and combo boxes: the surface colour, a quiet border that turns lilac on focus. -->
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="{DynamicResource PanelBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="MinHeight" Value="36" />
+        </Style>
+        <Style Selector="TextBox:focus">
+            <Setter Property="BorderBrush" Value="{DynamicResource SukiPrimaryColor}" />
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="FontSize" Value="14" />
+        </Style>
+        <Style Selector="CheckBox, RadioButton">
+            <Setter Property="FontSize" Value="14" />
+        </Style>
+        <Style Selector="ProgressBar">
+            <Setter Property="MinHeight" Value="6" />
+            <Setter Property="CornerRadius" Value="3" />
+        </Style>
+        <!-- SukiUI's bar draws only the fill, so on a card a run at 20% looked like a short stub.
+             A bar with a known amount gets a visible track the fill grows along. -->
+        <Style Selector="ProgressBar:not(:indeterminate)">
+            <Setter Property="Background" Value="{DynamicResource PanelBorder}" />
+            <Setter Property="Foreground" Value="{DynamicResource SukiPrimaryColor}" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}"
+                            Height="{TemplateBinding Height}" MinHeight="{TemplateBinding MinHeight}" ClipToBounds="True">
+                        <Border Name="PART_Indicator" Background="{TemplateBinding Foreground}"
+                                CornerRadius="{TemplateBinding CornerRadius}" HorizontalAlignment="Left" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="ToolTip">
             <Setter Property="FontSize" Value="13" />
         </Style>
-        <!-- Navigation rail buttons: quiet until hovered or selected -->
+
+        <!--
+          List rows as the design draws them: a rounded row that tints on hover and takes the lilac tint when
+          selected. (SukiUI's own rows add a check mark and padding that would take width from the columns.)
+        -->
+        <Style Selector="ListBoxItem">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_RowBackground" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}">
+                        <ContentPresenter Name="PART_ContentPresenter" Padding="{TemplateBinding Padding}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="ListBoxItem:pointerover /template/ Border#PART_RowBackground">
+            <Setter Property="Background" Value="{DynamicResource RowAlt}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ Border#PART_RowBackground">
+            <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
+        </Style>
+
+        <!-- Navigation rail: quiet until hovered; the selected page is a filled lilac pill. -->
         <Style Selector="Button.rail">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
             <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="MinHeight" Value="40" />
             <Setter Property="Padding" Value="12,0" />
-            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="Transitions" Value="{x:Null}" />
+            <!-- A plain template: SukiUI's lays the content out in a horizontal stack, so Optimize's subtitle couldn't wrap -->
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="RootBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}">
+                        <ContentPresenter Name="PART_ContentPresenter" Padding="{TemplateBinding Padding}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
+                                          FontWeight="{TemplateBinding FontWeight}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
         </Style>
-        <Style Selector="Button.rail:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource PanelBackground}" />
+        <Style Selector="Button.rail:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
         </Style>
-        <Style Selector="Button.rail.selected">
-            <Setter Property="Foreground" Value="{DynamicResource SystemAccentColor}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+        <Style Selector="Button.rail:pointerover /template/ Border">
+            <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
         </Style>
-        <Style Selector="Button.rail.selected /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource PanelBackground}" />
+        <Style Selector="Button.rail.selected, Button.rail.selected:pointerover">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+        <Style Selector="Button.rail.selected /template/ Border">
+            <Setter Property="Background" Value="{DynamicResource SukiPrimaryColor}" />
         </Style>
     </Application.Styles>
 </Application>

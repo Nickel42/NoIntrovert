@@ -34,22 +34,21 @@ public static class ArchiveJobs
 
     /// <summary>
     /// Compresses <paramref name="inputs"/> into one archive called
-    /// <paramref name="name"/> (plus the format's extension), then tests it
-    /// and removes the inputs if asked.
+    /// <paramref name="name"/> (plus the format's extension, and " (2)" when
+    /// that's taken), then tests it and, with Replace the originals, removes the inputs.
     /// </summary>
     public static JobOutcome CompressOne(JobContext c, IReadOnlyList<string> inputs, string name, string outputFolder)
     {
         var s = c.Settings;
-        var output = Path.Combine(outputFolder, name + Extension(s.Archives.Format));
+        var wanted = Path.Combine(outputFolder, name + Extension(s.Archives.Format));
+        var output = OutputPaths.Available(wanted, s.Output.Overwrite);
         if (inputs.Any(i => Path.GetFullPath(i).Equals(Path.GetFullPath(output), StringComparison.OrdinalIgnoreCase)))
             return JobOutcome.Failed($"{Path.GetFileName(output)} would overwrite one of its own inputs.");
+        if (output != wanted) c.Log.Info(OutputPaths.Renamed(wanted, output));
         if (File.Exists(output))
         {
-            if (!s.Output.Overwrite)
-            {
-                c.Log.Warn($"  {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
-                return JobOutcome.Skipped("Archive already exists");
-            }
+            // Available only gives a taken name when Overwrite is on; otherwise something else made it meanwhile.
+            if (!s.Output.Overwrite) return JobOutcome.Failed($"{Path.GetFileName(output)} appeared while this job was starting; nothing was overwritten.");
             File.Delete(output);
         }
 
@@ -135,14 +134,13 @@ public static class ArchiveJobs
             return JobOutcome.Skipped($"Already {FormatName(target)}");
 
         var outputFolder = OutputPaths.FolderFor(s, archive);
-        var output = Path.Combine(outputFolder, Path.GetFileNameWithoutExtension(archive) + Extension(target));
+        var wanted = Path.Combine(outputFolder, Path.GetFileNameWithoutExtension(archive) + Extension(target));
+        var output = OutputPaths.Available(wanted, s.Output.Overwrite);
+        if (output != wanted) c.Log.Info(OutputPaths.Renamed(wanted, output));
         if (File.Exists(output))
         {
-            if (!s.Output.Overwrite)
-            {
-                c.Log.Warn($"  {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
-                return JobOutcome.Skipped("Target already exists");
-            }
+            // Available only gives a taken name when Overwrite is on; otherwise something else made it meanwhile.
+            if (!s.Output.Overwrite) return JobOutcome.Failed($"{Path.GetFileName(output)} appeared while this job was starting; nothing was overwritten.");
             File.Delete(output);
         }
 
@@ -170,8 +168,8 @@ public static class ArchiveJobs
     /// Rewrites a zip or 7z in its own format with a method RetroArch opens
     /// (R8: 7-Zip's default LZMA2 for 7z, Deflate for zip): unpacked to a
     /// temporary folder, packed again, and always tested before it takes the
-    /// original's place. With an output folder set, the original stays where
-    /// it is (removed only with Remove originals on).
+    /// original's place. With a Save to folder, the original stays where
+    /// it is (a taken name there gets " (2)").
     /// </summary>
     public static JobOutcome Recompress(JobContext c, string archive)
     {
@@ -179,10 +177,11 @@ public static class ArchiveJobs
         var format = Path.GetExtension(archive).Equals(".zip", StringComparison.OrdinalIgnoreCase) ? ArchiveFormat.Zip : ArchiveFormat.SevenZip;
         var output = Path.Combine(OutputPaths.FolderFor(s, archive), Path.GetFileName(archive));
         var inPlace = Path.GetFullPath(output).Equals(Path.GetFullPath(archive), StringComparison.OrdinalIgnoreCase);
-        if (!inPlace && File.Exists(output) && !s.Output.Overwrite)
+        if (!inPlace)
         {
-            c.Log.Warn($"  {Path.GetFileName(output)} already exists; skipped (turn on Overwrite to replace it).");
-            return JobOutcome.Skipped("Target already exists");
+            var wanted = output;
+            output = OutputPaths.Available(wanted, s.Output.Overwrite);
+            if (output != wanted) c.Log.Info(OutputPaths.Renamed(wanted, output));
         }
 
         Directory.CreateDirectory(s.Performance.EffectiveTempFolder);
@@ -213,7 +212,7 @@ public static class ArchiveJobs
         var inputBytes = new FileInfo(archive).Length;
         var stats = new OperationStats(sw.Elapsed, inputBytes, new FileInfo(packed).Length);
         File.Move(packed, output, overwrite: true);
-        if (!inPlace && s.Output.RemoveArchiveOriginals)
+        if (!inPlace && s.Output.ReplacesOriginals)
         {
             c.Report.SetStage("Removing originals");
             FileRemover.Remove([archive], s.Output.UseRecycleBin, c.Log);
@@ -226,9 +225,10 @@ public static class ArchiveJobs
     /// Unpacks an archive into a folder named after it (or straight into the
     /// output folder). Everything lands in a hidden staging folder first and
     /// is then moved into place, so existing files are only replaced with
-    /// Overwrite on, and a failed or cancelled extraction leaves nothing behind.
-    /// 7-Zip checks every file's CRC as it extracts, so a clean extraction is
-    /// also a full test of the archive.
+    /// Overwrite on (otherwise a taken name gets " (2)"), and a failed or
+    /// cancelled extraction leaves nothing behind. 7-Zip checks every file's
+    /// CRC as it extracts, so a clean extraction is also a full test of the
+    /// archive, and Replace the originals then removes it.
     /// </summary>
     public static JobOutcome Extract(JobContext c, string archive)
     {
@@ -238,11 +238,16 @@ public static class ArchiveJobs
             ? Path.Combine(outputFolder, Path.GetFileNameWithoutExtension(archive))
             : outputFolder;
 
-        if (s.Archives.ExtractToOwnFolder && Directory.Exists(destination) &&
-            Directory.EnumerateFileSystemEntries(destination).Any() && !s.Output.Overwrite)
+        if (s.Archives.ExtractToOwnFolder && !s.Output.Overwrite && Directory.Exists(destination) &&
+            Directory.EnumerateFileSystemEntries(destination).Any())
         {
-            c.Log.Warn($"  {Path.GetFileName(destination)} already exists; skipped (turn on Overwrite to extract into it anyway).");
-            return JobOutcome.Skipped("Folder already exists");
+            var wanted = destination;
+            destination = OutputPaths.Available(wanted, overwrite: false, isFolder: true);
+            c.Log.Info(OutputPaths.Renamed(wanted, destination));
+        }
+        else if (s.Archives.ExtractToOwnFolder && File.Exists(destination))
+        {
+            destination = OutputPaths.Available(destination, overwrite: false, isFolder: true);
         }
 
         // Staging next to the destination keeps the final move on one drive.
@@ -259,20 +264,16 @@ public static class ArchiveJobs
 
             c.Report.SetStage("Moving into place");
             Directory.CreateDirectory(destination);
-            var (moved, kept) = MoveEntries(staging, destination, s.Output.Overwrite, c.Log);
+            var (moved, renamed) = MoveEntries(staging, destination, s.Output.Overwrite, c.Log);
             sw.Stop();
 
             var stats = new OperationStats(sw.Elapsed, new FileInfo(archive).Length, SizeOf(destination));
-            if (moved == 0 && kept == 0)
+            if (moved == 0)
                 return JobOutcome.Skipped("Archive is empty");
+            if (renamed > 0)
+                c.Log.Info($"  {renamed} item(s) were already in {Path.GetFileName(destination)}, so the new ones got \" (2)\" names (turn on Overwrite to replace them).");
 
-            if (kept > 0)
-            {
-                c.Log.Warn($"  {kept} item(s) already existed in {Path.GetFileName(destination)} and were left as they were (turn on Overwrite to replace them).");
-                return new JobOutcome(JobStatus.Warning, $"{moved} extracted, {kept} kept", stats);
-            }
-
-            if (s.Output.RemoveArchiveOriginals)
+            if (s.Output.ReplacesOriginals)
             {
                 c.Report.SetStage("Removing the archive");
                 FileRemover.Remove([archive], s.Output.UseRecycleBin, c.Log);
@@ -293,44 +294,45 @@ public static class ArchiveJobs
     /// <summary>
     /// Moves everything under <paramref name="from"/> into <paramref name="to"/>,
     /// merging folders. An existing file is replaced only when
-    /// <paramref name="overwrite"/> is on; otherwise it is kept and counted.
+    /// <paramref name="overwrite"/> is on; otherwise the new one gets a
+    /// " (2)" name, and is counted as renamed.
     /// </summary>
-    private static (int Moved, int Kept) MoveEntries(string from, string to, bool overwrite, ILog log)
+    private static (int Moved, int Renamed) MoveEntries(string from, string to, bool overwrite, ILog log)
     {
-        int moved = 0, kept = 0;
+        int moved = 0, renamed = 0;
         foreach (var dir in Directory.EnumerateDirectories(from))
         {
             var target = Path.Combine(to, Path.GetFileName(dir));
-            if (!Directory.Exists(target) && !File.Exists(target))
+            if (Directory.Exists(target))
             {
-                Directory.Move(dir, target);
-                moved++;
+                var (m, r) = MoveEntries(dir, target, overwrite, log); // merge into the existing folder
+                moved += m;
+                renamed += r;
                 continue;
             }
             if (File.Exists(target))
             {
-                if (!overwrite) { kept++; continue; }
-                File.Delete(target);
-                Directory.Move(dir, target);
-                moved++;
-                continue;
+                if (overwrite) File.Delete(target);
+                else { target = OutputPaths.Available(target, overwrite: false, isFolder: true); renamed++; }
             }
-            var (m, k) = MoveEntries(dir, target, overwrite, log); // merge into the existing folder
-            moved += m;
-            kept += k;
+            Directory.Move(dir, target);
+            moved++;
         }
         foreach (var file in Directory.EnumerateFiles(from))
         {
             var target = Path.Combine(to, Path.GetFileName(file));
-            if (Directory.Exists(target)) { kept++; continue; }
-            if (File.Exists(target) && !overwrite) { kept++; continue; }
+            if (Directory.Exists(target) || (File.Exists(target) && !overwrite))
+            {
+                target = OutputPaths.Available(target, overwrite: false);
+                renamed++;
+            }
             File.Move(file, target, overwrite: true);
             moved++;
         }
-        return (moved, kept);
+        return (moved, renamed);
     }
 
-    /// <summary>Tests a new archive (always, when originals are to be removed), then removes them.</summary>
+    /// <summary>Tests a new archive (always with Replace the originals), then, with Replace, removes the originals.</summary>
     private static JobOutcome AfterWrite(JobContext c, SevenZipEngine engine, string output, IReadOnlyList<string> originals,
         long inputBytes, TimeSpan elapsed)
     {
@@ -339,7 +341,8 @@ public static class ArchiveJobs
         var stats = new OperationStats(elapsed, inputBytes, outputBytes);
         c.Log.Info($"  wrote {Path.GetFileName(output)}: {ChdJobs.Size(inputBytes)} → {ChdJobs.Size(outputBytes)} ({stats.Ratio:P1}) in {elapsed:mm\\:ss\\.f}");
 
-        if (s.Archives.TestAfter || s.Output.RemoveArchiveOriginals)
+        var replace = s.Output.ReplacesOriginals;
+        if (s.Archives.TestAfter || replace)
         {
             c.Report.SetStage("Testing");
             try
@@ -350,17 +353,17 @@ public static class ArchiveJobs
             catch (ArchiveException ex)
             {
                 c.Log.Error($"  testing {Path.GetFileName(output)} failed: {ex.Message}");
-                return new JobOutcome(JobStatus.Failed, "Written, but the test failed", stats);
+                return new JobOutcome(JobStatus.Failed, replace ? "The test failed, so the originals were kept" : "Written, but the test failed", stats);
             }
         }
 
-        if (s.Output.RemoveArchiveOriginals)
+        if (replace)
         {
             c.Report.SetStage("Removing originals");
             FileRemover.Remove(originals, s.Output.UseRecycleBin, c.Log);
         }
 
-        c.Log.Success($"{Path.GetFileName(output)}: done{(s.Archives.TestAfter || s.Output.RemoveArchiveOriginals ? " and tested" : "")}");
+        c.Log.Success($"{Path.GetFileName(output)}: done{(s.Archives.TestAfter || replace ? " and tested" : "")}");
         return new JobOutcome(JobStatus.Succeeded, $"{Path.GetFileName(output)} · {stats.Ratio:P0}", stats);
     }
 
