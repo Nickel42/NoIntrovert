@@ -68,13 +68,8 @@ public static class TargetResolver
         // D7: chdman can't convert DiscJuggler images reliably.
         if (id == "dreamcast" && contents.Contains(".cdi")) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (.cdi, D7)");
 
-        // D2, FR-9: a 3DS image has to be decrypted first, and a .cia can't become a .cci yet.
-        if (id == "nintendo-3ds" && !isArchive)
-        {
-            if (ext == ".cia") return Plan(id, TargetStatus.NotYetSupported, TargetChoice.Leave, "Recommended: .cci (not yet supported from .cia)", alternatives);
-            if (ext is ".3ds" or ".cci" && RomFixes.Is3dsEncrypted(set.Primary) == true)
-                return Plan(id, TargetStatus.NotYetSupported, TargetChoice.Leave, "Recommended: decrypt first", alternatives);
-        }
+        // D2, FR-9: lib-3ds-kit decrypts a 3DS image, makes a .cia a .cci and reads Azahar's .zcci on the way to its target.
+        if (id == "nintendo-3ds" && !isArchive && ThreeDs(set, system, ext, alternatives, settings) is { } ctr) return ctr;
 
         // FR-12: your overrides, then the registry's target (and D1).
         var (resolved, overridden) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
@@ -96,6 +91,45 @@ public static class TargetResolver
         return isArchive
             ? Plan(id, TargetStatus.Convert, TargetChoice.Files, "Convert → folder (unpack)", alternatives)
             : Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
+    }
+
+    /// <summary>
+    /// D2: a Nintendo 3DS file that isn't in an archive. Every target is a decrypted .cci: in its 7z (the
+    /// recommendation), bare, or compressed as Azahar's .zcci. An encrypted image, a .cia (games only; an update
+    /// or DLC can't be a cartridge image) or a .zcci/.zcia goes through lib-3ds-kit first. Null leaves a plain,
+    /// decrypted .cci/.3ds (and a .cxi) to the usual packing rules (R1, .3ds → .cci inside).
+    /// </summary>
+    private static TargetPlan? ThreeDs(FileSet set, SystemInfo system, string ext, List<TargetChoice> alternatives, AppSettings settings)
+    {
+        var id = system.Id;
+        var facts = File.Exists(set.Primary) ? Ctr.CtrFacts.Of(set.Primary) : null;
+        if (facts is null)
+            return ext is ".zcci" or ".zcia" or ".zcxi" or ".z3dsx"
+                ? Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (not a Z3DS file NoIntrovert can read)") : null;
+        if (facts.Type is not (Lib3dsKit.CtrFileType.Cci or Lib3dsKit.CtrFileType.Cia))
+            return facts.Compressed ? Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, $"Left as is ({ext}: not a cartridge image)") : null;
+        if (!facts.IsGame) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (an update or DLC .cia; only games become a .cci)");
+
+        alternatives.RemoveAll(a => a == TargetChoice.Files);
+        if (ext != ".zcci" || facts.Encrypted) alternatives.Insert(0, TargetChoice.Zcci);
+        if (ext != ".cci" || facts.NeedsConversion) alternatives.Add(TargetChoice.Cci);
+
+        var (target, _) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
+        if (target is null) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (your setting)", alternatives);
+        var what = facts.Type == Lib3dsKit.CtrFileType.Cia ? "from the .cia" : facts.Encrypted ? "decrypted" : facts.Compressed ? "unpacked from Z3DS" : null;
+        var note = what is null ? "" : $" ({what})";
+
+        if (target.Format == ".zcci")
+            return ext == ".zcci" && !facts.Encrypted
+                ? Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives)
+                : Plan(id, TargetStatus.Convert, TargetChoice.Zcci, $"Convert → .zcci{(facts.Encrypted || facts.Type == Lib3dsKit.CtrFileType.Cia ? note : "")}", alternatives);
+        if (target.Container == TargetContainer.Bare)
+            return ext == ".cci" && !facts.NeedsConversion
+                ? Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives)
+                : Plan(id, TargetStatus.Convert, TargetChoice.Cci, $"Convert → bare .cci{note}", alternatives);
+        if (!facts.NeedsConversion) return null;
+        var container = target.Container == TargetContainer.Zip ? TargetContainer.Zip : TargetContainer.SevenZip;
+        return Plan(id, TargetStatus.Convert, ChoiceFor(container), $"Convert → {Label(container)} (.cci, {what})", alternatives);
     }
 
     /// <summary>Discs and other bare targets (R2, R3, R4, R13): .chd, .rvz, .wua, .wad, .nsz, .iso.</summary>
@@ -211,6 +245,7 @@ public static class TargetResolver
                 "zip" when ext != ".zip" => TargetChoice.Zip,
                 "7z" when ext != ".7z" => TargetChoice.SevenZip,
                 "bare" when isArchive => TargetChoice.Files,
+                "zcci" when system.Id == "nintendo-3ds" && isArchive => TargetChoice.Zcci, // D2: unpacked, then compressed for Azahar
                 "iso" when NintendoDisc.IsDecodable(set.Primary) => TargetChoice.Iso,
                 "iso" or "cue-bin" or "gdi" when set.Format == KnownFormats.Chd => TargetChoice.DiscImage,
                 _ => null,

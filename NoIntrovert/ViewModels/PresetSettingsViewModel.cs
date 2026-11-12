@@ -67,7 +67,7 @@ public sealed partial class PresetSettingsViewModel : ViewModelBase
     public bool IsSevenZip => Values.Target == TargetKind.SevenZip;
     public bool IsExtract => Values.Target == TargetKind.DiscImage;
     public bool IsUnpack => Values.Target == TargetKind.Files;
-    public bool HasNothingToSet => Values.Target is TargetKind.Iso or TargetKind.Wua;
+    public bool HasNothingToSet => Values.Target is TargetKind.Iso or TargetKind.Wua or TargetKind.Cci or TargetKind.Zcci;
     public bool UsesZstandard => Values.UsesZstandard;
 
     /// <summary>Compression's codecs, at the right of its label: "cdzs, cdzl, cdfl", or "Default codecs".</summary>

@@ -331,6 +331,12 @@ public sealed class ArchiveSettings
 public sealed class KeySettings
 {
     public string WiiUKeysPath { get; set; } = ""; // empty = look in the usual places
+
+    /// <summary>
+    /// A folder holding your 3DS keys (boot9.bin, aes_keys.txt, seeddb.bin), searched before the usual
+    /// places (Azahar's and Citra's sysdata, ~/.3ds); empty = only the usual places.
+    /// </summary>
+    public string ThreeDsKeysFolder { get; set; } = "";
 }
 
 /// <summary>Where the Cleanup wizard puts games inside a Library folder.</summary>

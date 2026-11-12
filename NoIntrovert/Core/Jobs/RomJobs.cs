@@ -21,6 +21,10 @@ public static class RomJobs
     public static JobOutcome Pack(JobContext c, string rom, string archiveName, string outputFolder)
     {
         var s = c.Settings;
+        // D2: a 3DS image that's encrypted, a .cia or a .zcci goes in as a decrypted .cci, made by lib-3ds-kit.
+        if (Path.GetExtension(rom).ToLowerInvariant() is ".3ds" or ".cci" or ".cia" or ".zcci" or ".zcia"
+            && Ctr.CtrFacts.Of(rom) is { NeedsConversion: true })
+            return PackCtr(c, rom, archiveName, outputFolder);
         var fixedExt = RomFixes.FixedExtension(rom, s.TargetFormats.NormalizeHeaders);
         if (fixedExt is null) return ArchiveJobs.CompressOne(c, [rom], archiveName, outputFolder);
 
@@ -65,6 +69,39 @@ public static class RomJobs
         }
 
         if (outcome.Status == JobStatus.Succeeded && removeOriginal)
+        {
+            c.Report.SetStage("Removing the original");
+            FileRemover.Remove([rom], s.Output.UseRecycleBin, c.Log);
+        }
+        return outcome;
+    }
+
+    /// <summary>
+    /// D2: a 3DS game that lib-3ds-kit has to convert first (encrypted, a .cia, a .zcci or .zcia) is
+    /// decrypted into a scratch .cci, which goes into the archive. The archive's bytes differ from the
+    /// dump's, so the dump's hashes are recorded (R11); the original goes only once the archive tests OK.
+    /// </summary>
+    private static JobOutcome PackCtr(JobContext c, string rom, string archiveName, string outputFolder)
+    {
+        var s = c.Settings;
+        var removeOriginal = s.Output.ReplacesOriginals;
+        var wanted = Path.Combine(outputFolder, archiveName + ArchiveJobs.Extension(s.Archives.Format));
+        archiveName = Path.GetFileNameWithoutExtension(OutputPaths.Available(wanted, s.Output.Overwrite));
+        var keep = s.Clone();
+        if (removeOriginal) keep.Output.SaveTo = SaveTo.NextToOriginals;
+        keep.Archives.TestAfter |= removeOriginal;
+
+        Directory.CreateDirectory(s.Performance.EffectiveTempFolder);
+        using var work = new WorkDirectory(s.Performance.EffectiveTempFolder);
+        var cci = Ctr.CtrJobs.DecryptedCopy(c, rom, work.Path, out var failure);
+        if (cci is null) return failure!;
+        c.Log.Info($"  {Path.GetFileName(rom)} goes in as {Path.GetFileName(cci)}, decrypted");
+        var outcome = ArchiveJobs.CompressOne(c.WithSettings(keep), [cci], archiveName, outputFolder);
+        if (outcome.Status != JobStatus.Succeeded) return outcome;
+
+        var archive = Path.Combine(outputFolder, archiveName + ArchiveJobs.Extension(s.Archives.Format));
+        if (s.TargetFormats.RecordOriginalHashes) OriginalHashes.Default.Set(archive, rom, Ctr.CtrJobs.OriginalOf(rom, c.Token));
+        if (removeOriginal)
         {
             c.Report.SetStage("Removing the original");
             FileRemover.Remove([rom], s.Output.UseRecycleBin, c.Log);

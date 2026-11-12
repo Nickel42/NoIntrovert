@@ -737,6 +737,38 @@ public sealed partial class KeySettingsViewModel(AppSettings settings, IDialogs 
 
     [RelayCommand]
     private void RefreshWiiUKeys() => OnPropertyChanged(nameof(WiiUKeysSummary));
+
+    /// <summary>The folder with your 3DS keys (boot9.bin, aes_keys.txt, seeddb.bin); empty = Azahar's and Citra's own.</summary>
+    public string ThreeDsKeysFolder
+    {
+        get => S.Keys.ThreeDsKeysFolder;
+        set { if (Set(value ?? "", (s, v) => s.Keys.ThreeDsKeysFolder = v)) OnPropertyChanged(nameof(ThreeDsKeysSummary)); }
+    }
+
+    /// <summary>Which 3DS key files were found, and whether they're enough for encrypted games and .cia files.</summary>
+    public string ThreeDsKeysSummary
+    {
+        get
+        {
+            var keys = Core.Ctr.CtrJobs.LoadKeys(S.Keys.ThreeDsKeysFolder, out var problems);
+            var text = Core.Ctr.CtrJobs.Describe(keys);
+            if (!string.IsNullOrWhiteSpace(S.Keys.ThreeDsKeysFolder) && !Directory.Exists(S.Keys.ThreeDsKeysFolder)) text = $"{S.Keys.ThreeDsKeysFolder} doesn't exist. " + text;
+            return problems.Count == 0 ? text : text + " " + string.Join(" ", problems);
+        }
+    }
+
+    [RelayCommand]
+    private async Task BrowseThreeDsKeys()
+    {
+        var folder = await dialogs.PickFolderAsync("Choose the folder with your boot9.bin and aes_keys.txt");
+        if (folder is not null) ThreeDsKeysFolder = folder;
+    }
+
+    [RelayCommand]
+    private void FindThreeDsKeysAutomatically() => ThreeDsKeysFolder = "";
+
+    [RelayCommand]
+    private void RefreshThreeDsKeys() => OnPropertyChanged(nameof(ThreeDsKeysSummary));
 }
 
 public sealed partial class LibrarySettingsViewModel(AppSettings settings, IDialogs dialogs) : SettingsSectionViewModel(settings)

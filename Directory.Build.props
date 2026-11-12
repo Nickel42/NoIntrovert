@@ -62,6 +62,16 @@
   </PropertyGroup>
 
   <!--
+    lib-3ds-kit (Nintendo 3DS: decrypting, CIA to CCI, Azahar's .zcci), its own
+    repository, checked out as a git submodule in native/lib-3ds-kit. It is pure
+    managed code, so there is nothing to build first. Pass -p:LibThreeDsKitRoot=...
+    (ending in a slash) to use another checkout.
+  -->
+  <PropertyGroup>
+    <LibThreeDsKitRoot Condition="'$(LibThreeDsKitRoot)' == ''">$(MSBuildThisFileDirectory)native/lib-3ds-kit/</LibThreeDsKitRoot>
+  </PropertyGroup>
+
+  <!--
     lib-wii-gamecube-kit (Dolphin's GameCube/Wii disc code), its own
     repository, checked out as a git submodule in native/lib-wii-gamecube-kit
     (run "git submodule update" with init after cloning). Its build scripts put the native library

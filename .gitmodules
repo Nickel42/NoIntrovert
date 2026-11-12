@@ -7,3 +7,6 @@
 [submodule "native/lib-wii-u-kit"]
 	path = native/lib-wii-u-kit
 	url = https://github.com/Nickel42/lib-wii-u-kit.git
+[submodule "native/lib-3ds-kit"]
+	path = native/lib-3ds-kit
+	url = https://github.com/Nickel42/lib-3ds-kit.git

@@ -22,7 +22,7 @@ target for a whole system or for one file type in Advanced settings, including "
 - The docs.
 
 **Out of scope here (D8):** converters for formats the app can't produce yet: Switch NSZ/XCZ, Xbox
-XISO, PS3 decrypted folders, PS Vita `.pkg` → NoNpDrm, and 3DS `.zcci`. For these systems the app
+XISO, PS3 decrypted folders and PS Vita `.pkg` → NoNpDrm. (3DS `.zcci` was on this list; FR-9 now covers it.) For these systems the app
 shows the recommendation with no Convert button, and each converter gets its own requirement later.
 
 ## 3. Today's code (starting point)
@@ -94,8 +94,21 @@ shows the recommendation with no Convert button, and each converter gets its own
 - **FR-9 3DS (D2).**
   - A decrypted `.3ds` or `.cci` becomes a .7z holding `<Game>.cci`; the output is never named
     `.3ds`.
-  - An encrypted image (NCCH flag `NoCrypto` not set) gets *Recommended: decrypt first* and is
-    not converted.
+  - lib-3ds-kit (`native/lib-3ds-kit`) converts what isn't a decrypted image first; the result is
+    always a decrypted `.cci`, in its target container:
+    - an encrypted image (NCCH flag `NoCrypto` not set) is decrypted, keeping its layout (trimmed or
+      not), so the decrypted dump still matches its DAT entry;
+    - a `.cia` of a game becomes a `.cci` (trimmed). An update or DLC `.cia` can't be a cartridge
+      image and is left as is;
+    - Azahar's `.zcci` and `.zcia` (Z3DS) are read directly, without unpacking first.
+  - The targets are the 7z (recommended), bare `.cci`, and `.zcci` (Azahar's Z3DS, which Azahar plays
+    without unpacking). An archive holding a 3DS game can become a `.zcci` too.
+  - Keys are the user's own: `boot9.bin` and `aes_keys.txt` (and `seeddb.bin` for eShop titles),
+    found in Azahar's and Citra's folders, or a folder chosen in Settings › Keys. Without them the
+    job fails and says where they go; nothing is written.
+  - The new file is checked against the hashes stored inside it (with *Check each file after
+    converting*, or Replace the originals). The dump's own hashes are recorded (R11), and a `.zcci`
+    or `.zcia` is hashed as the file it holds, so Verify & match still recognises both.
 - **FR-10 PS Vita.**
   - A NoNpDrm game folder (`sce_sys/param.sfo` present) becomes `<Title> (<TitleID>).zip`.
   - The title and title ID come from `param.sfo`.
@@ -184,7 +197,10 @@ shows the recommendation with no Convert button, and each converter gets its own
 | 9 | C64 `Game.7z` holding `Game.d64` | defaults | `Game.zip` holding `Game.d64` |
 | 10 | `mame/sf2.zip` | defaults | Left as is (arcade) |
 | 11 | Decrypted `Game.3ds` | defaults | `Game.7z` holding `Game.cci` |
-| 12 | Encrypted `Game.3ds` | defaults | Recommended: decrypt first; no job |
+| 12 | Encrypted `Game.3ds` | defaults | `Game.7z` holding the decrypted `Game.cci`; without keys the job fails and says where keys go |
+| 12a | `Game.cia` (a game) | defaults | `Game.7z` holding `Game.cci` |
+| 12b | `Game.cia` | system `nintendo-3ds` → `zcci` | Bare `Game.zcci` |
+| 12c | `Game.zcci` | defaults | `Game.7z` holding the decrypted `Game.cci` |
 | 13 | `Game.nds` | system `nintendo-ds` → `zip` | `Game.zip` |
 | 14 | `Game.cso` (PSP) | `*` / `.cso` → `leave` | Left as is |
 | 15 | `Game.cso` (PSP) | defaults | `Game.chd` (createdvd, 2048-byte hunks) |
@@ -201,7 +217,7 @@ shows the recommendation with no Convert button, and each converter gets its own
 2. **Overrides:** FR-12 to FR-14.
 3. **Per-system extras:** FR-7 (multi-disc), FR-8, FR-9 (3DS), FR-10 (Vita zip and launcher),
    FR-11 (hashes and header fixes), R6 (splitting).
-4. **Later, a separate requirement each (D8):** NSZ/XCZ, XISO, Vita `.pkg` + zRIF, `.zcci`, PS3.
+4. **Later, a separate requirement each (D8):** NSZ/XCZ, XISO, Vita `.pkg` + zRIF, PS3.
 
 ## 7. Resolved questions
 

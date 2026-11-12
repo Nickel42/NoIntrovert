@@ -195,6 +195,13 @@ public static class FormatPresets
         ["gamecube"] = Nintendo(wii: false),
         ["wii"] = Nintendo(wii: true),
         ["wii-u"] = [new("wua-standard", "WUA", "Standard", "Base game, update and DLC in one file", Kind(TargetKind.Wua), Recommended: true)],
+        // D2: always decrypted (Azahar plays nothing else); encrypted images, .cia and .zcci files are converted by lib-3ds-kit.
+        ["nintendo-3ds"] =
+        [
+            new("7z-standard", "7z", "Decrypted .cci", "Smallest that still matches No-Intro; Azahar unpacks it on each launch", Kind(TargetKind.SevenZip), Recommended: true),
+            new("zcci-standard", "ZCCI", "Standard", "Azahar plays it without unpacking; other emulators can't read it", Kind(TargetKind.Zcci)),
+            new("cci-standard", "CCI", "Bare", "Every 3DS emulator reads it; the largest", Kind(TargetKind.Cci)),
+        ],
     };
 
     /// <summary>The standard preset for a target, used for systems without a draft and for a file's other targets.</summary>
@@ -208,6 +215,8 @@ public static class FormatPresets
         TargetKind.SevenZip => new("7z-standard", "7z", "Standard", "Normal compression, tested after packing", Kind(TargetKind.SevenZip)),
         TargetKind.Zip => new("zip-standard", "zip", "Standard", "Opens anywhere, tested after packing", Kind(TargetKind.Zip)),
         TargetKind.Files => new("unpack-standard", "Unpacked", "Standard", "Each archive's files in their own folder", Kind(TargetKind.Files)),
+        TargetKind.Cci => new("cci-standard", "CCI", "Bare", "A decrypted 3DS cartridge image", Kind(TargetKind.Cci)),
+        TargetKind.Zcci => new("zcci-standard", "ZCCI", "Standard", "A decrypted 3DS cartridge image, compressed for Azahar", Kind(TargetKind.Zcci)),
         _ => Leave,
     };
 

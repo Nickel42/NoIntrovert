@@ -144,11 +144,11 @@
     "id": "nintendo-3ds",
     "name": "Nintendo 3DS",
     "category": "cartridge",
-    "extensions": [".3ds", ".cci", ".cia", ".cxi", ".zcci"],
+    "extensions": [".3ds", ".cci", ".cia", ".cxi", ".zcci", ".zcia", ".zcxi", ".3dsx", ".z3dsx"],
     "folders": ["3ds", "n3ds", "nintendo3ds"],
     "target": {"format": ".cci", "container": "7z", "label": ".cci (decrypted)", "producible": true},
     "alternatives": [
-      {"id": "zcci", "label": ".zcci (Azahar only)", "producible": false},
+      {"id": "zcci", "label": ".zcci (Azahar only)", "producible": true},
       {"id": "bare", "label": "Bare .cci", "producible": true}
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],

@@ -503,12 +503,20 @@
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="KEYS" Classes="section" Margin="0,0,0,4" />
                                     <TextBlock Classes="hint"
-                                               Text="Encrypted Wii U titles and discs need your own keys.txt (the one Cemu uses). NoIntrovert doesn't include any keys." />
+                                               Text="Encrypted Wii U titles and discs need your own keys.txt (the one Cemu uses). NoIntrovert doesn't include any keys." TextWrapping="Wrap" />
                                     <TextBlock Classes="hint" Text="{Binding WiiUKeysSummary}" />
                                     <WrapPanel Orientation="Horizontal">
                                         <Button Classes="tool" Content="Choose keys.txt…" Command="{Binding BrowseWiiUKeysCommand}" Margin="0,0,6,6" />
                                         <Button Classes="tool" Content="Find automatically" Command="{Binding FindWiiUKeysAutomaticallyCommand}" Margin="0,0,6,6" />
                                         <Button Classes="tool" Content="Refresh" Command="{Binding RefreshWiiUKeysCommand}" Margin="0,0,6,6" />
+                                    </WrapPanel>
+                                    <TextBlock Classes="hint" TextWrapping="Wrap" Margin="0,6,0,0"
+                                               Text="Encrypted 3DS games and .cia files need your own boot9.bin and aes_keys.txt (the ones Azahar uses, dumped from your 3DS). NoIntrovert looks in Azahar's and Citra's folders." />
+                                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="{Binding ThreeDsKeysSummary}" />
+                                    <WrapPanel Orientation="Horizontal">
+                                        <Button Classes="tool" Content="Choose a folder…" Command="{Binding BrowseThreeDsKeysCommand}" Margin="0,0,6,6" />
+                                        <Button Classes="tool" Content="Find automatically" Command="{Binding FindThreeDsKeysAutomaticallyCommand}" Margin="0,0,6,6" />
+                                        <Button Classes="tool" Content="Refresh" Command="{Binding RefreshThreeDsKeysCommand}" Margin="0,0,6,6" />
                                     </WrapPanel>
                                 </StackPanel>
                             </Border>
