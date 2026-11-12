@@ -112,30 +112,13 @@ public static class CtrJobs
             Path.GetFileName(output), Details: result.Warnings.Count > 0 ? string.Join("\n", result.Warnings) : null);
     }
 
-    /// <summary>
-    /// For <see cref="RomJobs.Pack"/>: a decrypted .cci of <paramref name="rom"/> in <paramref name="workFolder"/>,
-    /// named after it, ready to go into its 7z. Null with <paramref name="failure"/> when it couldn't be made.
-    /// </summary>
-    public static string? DecryptedCopy(JobContext c, string rom, string workFolder, out JobOutcome? failure)
-    {
-        failure = null;
-        var facts = CtrFacts.Of(rom);
-        if (facts is null) { failure = JobOutcome.Failed("not a 3DS game image or .cia"); return null; }
-        if (!facts.IsGame) { failure = JobOutcome.Skipped("an update or DLC .cia; only games become a .cci"); return null; }
-        var output = Path.Combine(workFolder, Path.GetFileNameWithoutExtension(rom) + ".cci");
-        var result = Convert(c, rom, facts, output, compress: false, verify: false);
-        failure = result.Outcome;
-        foreach (var w in result.Warnings) c.Log.Info($"  {w}");
-        return failure is null ? output : null;
-    }
-
     /// <summary>The hashes the original had (R11), for a file whose bytes the conversion changed: its own record, else its contents.</summary>
     public static IReadOnlyList<HashedFile> OriginalOf(string source, CancellationToken token) =>
         OriginalHashes.Default.Get(source)?.Files ?? Hasher.HashFile(source, token);
 
     private sealed record Converted(JobOutcome? Outcome, IReadOnlyList<string> Warnings);
 
-    private static Converted Convert(JobContext c, string input, CtrFacts facts, string output, bool compress, bool verify = true)
+    private static Converted Convert(JobContext c, string input, CtrFacts facts, string output, bool compress)
     {
         var s = c.Settings;
         var keys = KeysForTests?.Invoke() ?? LoadKeys(s.Keys.ThreeDsKeysFolder, out _);
@@ -173,7 +156,7 @@ public static class CtrJobs
         var warnings = result.Warnings.Where(w => !w.StartsWith("Input was already decrypted", StringComparison.Ordinal)).ToList();
 
         // Checked like other conversions: the hashes stored inside the new file (Settings › "Check each file after converting").
-        if (verify && (s.Chd.VerifyAfterCreate || s.Output.ReplacesOriginals))
+        if (s.Chd.VerifyAfterCreate || s.Output.ReplacesOriginals)
         {
             c.Report.SetStage("Checking");
             var report = new CtrVerifier(keys).Verify(output, new CtrVerifyOptions(), progress, c.Token);

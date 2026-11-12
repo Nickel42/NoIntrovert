@@ -2116,30 +2116,35 @@ if (SevenZipEngine.IsAvailable(out _))
     {
         var o = ConvertTargets.For(Set3("3DS/Game.3ds"), new AppSettings());
         if (o.Plan.Text != "Convert → .cci (renamed from .3ds)" || o.Default != TargetChoice.Cci) return $"{o.Plan.Text} ({o.Default})";
-        if (!o.Choices.Contains(TargetChoice.SevenZip) || !o.Choices.Contains(TargetChoice.Zcci)) return string.Join(", ", o.Choices);
+        if (!o.Choices.Contains(TargetChoice.Zcci) || o.Choices.Any(c => c == TargetChoice.SevenZip || c == TargetChoice.Zip)) return string.Join(", ", o.Choices);
         if (RunDefault3("3DS/Game.3ds") is { } problem) return problem;
         if (File.Exists(Q("3DS/Game.7z"))) return "a 7z was made";
         return File.Exists(Q("3DS/Game.3ds")) && File.ReadAllBytes(Q("3DS/Game.cci")).AsSpan().SequenceEqual(File.ReadAllBytes(Q("3DS/Game.3ds")))
             ? null : "Game.cci isn't the .3ds's bytes";
     });
 
-    Test("3DS: with the 7z override a decrypted .3ds still goes into a 7z as .cci", () =>
+    Test("3DS: a game is never packed into a 7z or zip, whatever the settings say (D2)", () =>
     {
-        void SevenZip(AppSettings s) => s.TargetFormats.Overrides.Add(new TargetOverride("nintendo-3ds", null, "7z"));
-        var s7 = new AppSettings();
-        SevenZip(s7);
-        var o = ConvertTargets.For(Set3("3DS/Game.3ds"), s7);
-        if (o.Plan.Text != "Convert → .7z (as .cci)") return o.Plan.Text;
-        if (RunDefault3("3DS/Game.3ds", SevenZip) is { } problem) return problem;
-        var held = Members3(Q("3DS/Game.7z"));
-        return held == "Game.cci" ? null : $"holds {held}";
+        // 7z isn't a 3DS choice, so an override naming it is ignored (and reported); one for every system doesn't apply.
+        if (TargetOverrides.Options(TargetFormats.ById("nintendo-3ds")).Any(t => t.Id is "7z" or "zip")) return "Settings offers 7z or zip for 3DS";
+        foreach (var o7 in new[] { new TargetOverride("nintendo-3ds", null, "7z"), new TargetOverride("*", null, "7z"), new TargetOverride("*", ".3ds", "zip") })
+        {
+            var s = new AppSettings();
+            s.TargetFormats.Overrides.Add(o7);
+            var o = ConvertTargets.For(Set3("3DS/Game.3ds"), s);
+            if (o.Plan.Text != "Convert → .cci (renamed from .3ds)") return $"{o7.System}/{o7.Extension} → {o7.Target}: {o.Plan.Text}";
+        }
+        // A row that asks for a 7z anyway (a saved preset) is refused, and nothing is packed.
+        var plan = ConvertPlanner.Plan([new PlanInput(Q("3DS/Game.3ds"), TargetKind.SevenZip, 1)], new AppSettings(), log);
+        var r = RunJob(plan.Jobs[0].Work);
+        return r.Status == JobStatus.Skipped && !File.Exists(Q("3DS/Game.7z")) ? null : $"{r.Status}: {r.Summary}";
     });
 
-    Test("3DS: an encrypted image is planned to be decrypted into a bare .cci, with .zcci and 7z offered (acceptance 12, FR-9)", () =>
+    Test("3DS: an encrypted image is planned to be decrypted into a bare .cci, with .zcci offered and no 7z (acceptance 12, FR-9)", () =>
     {
         var o = ConvertTargets.For(Set3("3DS/Locked.3ds"), new AppSettings());
         if (o.Plan.Text != "Convert → .cci (decrypted)" || o.Default != TargetChoice.Cci) return o.Plan.Text;
-        return o.Choices.Contains(TargetChoice.Zcci) && o.Choices.Contains(TargetChoice.SevenZip) ? null : string.Join(", ", o.Choices);
+        return o.Choices.Contains(TargetChoice.Zcci) && !o.Choices.Any(c => c == TargetChoice.SevenZip || c == TargetChoice.Zip) ? null : string.Join(", ", o.Choices);
     });
 
     // ---- 3DS through lib-3ds-kit (D2): its synthetic images, made with its fake keys, and the bytes its reference expects ----
@@ -2157,13 +2162,6 @@ if (SevenZipEngine.IsAvailable(out _))
         string Expected3(string name) => System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(ctrFixtures, "expected.json")))
             .RootElement.GetProperty(name).GetProperty("sha256").GetString()!;
         string Sha256Of(string path) { using var f = File.OpenRead(path); return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(f)).ToLowerInvariant(); }
-        string Sha256In7z(string archive)
-        {
-            var into = Dir("ctr-check-" + Guid.NewGuid().ToString("N")[..6]);
-            NoIntrovert.Core.Formats.ArchiveExtractor.Extract(archive, into, null, CancellationToken.None);
-            var files = Directory.GetFiles(into);
-            return files.Length == 1 ? Path.GetFileName(files[0]) + ":" + Sha256Of(files[0]) : $"{files.Length} files";
-        }
         Directory.CreateDirectory(Q("3DS-real"));
         File.Copy(Path.Combine(ctrFixtures, "game_a.3ds"), Q("3DS-real/Game A.3ds"));       // encrypted cartridge image
         File.Copy(Path.Combine(ctrFixtures, "game_b.cia"), Q("3DS-real/Game B.cia"));       // encrypted .cia of a game
@@ -2180,13 +2178,13 @@ if (SevenZipEngine.IsAvailable(out _))
                 return o.Plan.Text == text && o.Default == choice ? null : $"{rel}: {o.Plan.Text} ({o.Default})";
             }
             void Zcci(AppSettings s) => s.TargetFormats.Overrides.Add(new TargetOverride("nintendo-3ds", null, "zcci"));
-            void SevenZip(AppSettings s) => s.TargetFormats.Overrides.Add(new TargetOverride("nintendo-3ds", null, "7z"));
+            void SevenZip(AppSettings s) => s.TargetFormats.Overrides.Add(new TargetOverride("*", null, "7z"));
             return Expect("3DS-real/Game A.3ds", "Convert → .cci (decrypted)", TargetChoice.Cci)
                 ?? Expect("3DS-real/Game B.cia", "Convert → .cci (from the .cia)", TargetChoice.Cci)
                 ?? Expect("3DS-real/Game C.zcci", "Convert → .cci (unpacked from Z3DS)", TargetChoice.Cci)
                 ?? Expect("3DS-real/Game A.3ds", "Convert → .zcci (decrypted)", TargetChoice.Zcci, Zcci)
                 ?? Expect("3DS-real/Game C.zcci", "Optimal", TargetChoice.Leave, Zcci)
-                ?? Expect("3DS-real/Game B.cia", "Convert → .7z (.cci, from the .cia)", TargetChoice.SevenZip, SevenZip)
+                ?? Expect("3DS-real/Game B.cia", "Convert → .cci (from the .cia)", TargetChoice.Cci, SevenZip)
                 ?? Expect("3DS/Game.3ds", "Convert → .zcci", TargetChoice.Zcci, Zcci);
         });
 
@@ -2213,11 +2211,12 @@ if (SevenZipEngine.IsAvailable(out _))
             return original?.Files.FirstOrDefault()?.Sha1 == dump.Sha1 ? null : "the dump's hashes weren't recorded";
         });
 
-        Test("3DS: with the 7z override a .cia becomes a .cci in its 7z, as lib-3ds-kit's reference CCI", () =>
+        Test("3DS: a .cia becomes a bare .cci, as lib-3ds-kit's reference CCI", () =>
         {
-            if (RunDefault3("3DS-real/Game B.cia", s => s.TargetFormats.Overrides.Add(new TargetOverride("nintendo-3ds", null, "7z"))) is { } problem) return problem;
-            var held = Sha256In7z(Q("3DS-real/Game B.7z"));
-            return held == "Game B.cci:" + Expected3("game_b.3ds") ? null : held;
+            File.Copy(Path.Combine(ctrFixtures, "game_b.cia"), Q("3DS-real/Game E.cia"));
+            if (RunDefault3("3DS-real/Game E.cia") is { } problem) return problem;
+            if (File.Exists(Q("3DS-real/Game E.7z"))) return "a 7z was made";
+            return Sha256Of(Q("3DS-real/Game E.cci")) == Expected3("game_b.3ds") ? null : "Game E.cci isn't the reference";
         });
 
         Test("3DS: a 7z holding an encrypted image becomes a bare decrypted .cci, with the image's own hashes kept", () =>

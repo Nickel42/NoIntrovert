@@ -98,9 +98,9 @@ public static class TargetResolver
 
     /// <summary>
     /// D2: a Nintendo 3DS file that isn't in an archive. Every target is a decrypted .cci: bare (the
-    /// recommendation), compressed as Azahar's .zcci, or in a 7z. An encrypted image, a .cia (games only; an update
-    /// or DLC can't be a cartridge image) or a .zcci/.zcia goes through lib-3ds-kit first. Null leaves a plain,
-    /// decrypted .cci/.3ds (and a .cxi) to the usual packing rules (R1, .3ds → .cci inside).
+    /// recommendation) or compressed as Azahar's .zcci; a 3DS game is never packed into a 7z or zip. An encrypted
+    /// image, a .cia (games only; an update or DLC can't be a cartridge image) or a .zcci/.zcia goes through
+    /// lib-3ds-kit first. Null leaves anything else (a .cxi, a .3dsx) to the usual rules.
     /// </summary>
     private static TargetPlan? ThreeDs(FileSet set, SystemInfo system, string ext, List<TargetChoice> alternatives, AppSettings settings)
     {
@@ -113,11 +113,11 @@ public static class TargetResolver
             return facts.Compressed ? Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, $"Left as is ({ext}: not a cartridge image)") : null;
         if (!facts.IsGame) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (an update or DLC .cia; only games become a .cci)");
 
-        alternatives.RemoveAll(a => a == TargetChoice.Files);
+        alternatives.RemoveAll(a => a == TargetChoice.Files || a == TargetChoice.SevenZip || a == TargetChoice.Zip);
         if (ext != ".zcci" || facts.Encrypted) alternatives.Insert(0, TargetChoice.Zcci);
         if (ext != ".cci" || facts.NeedsConversion) alternatives.Add(TargetChoice.Cci);
 
-        var (target, _) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
+        var target = ThreeDsTarget(system, set, settings);
         if (target is null) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (your setting)", alternatives);
         var what = facts.Type == Lib3dsKit.CtrFileType.Cia ? "from the .cia" : facts.Encrypted ? "decrypted" : facts.Compressed ? "unpacked from Z3DS" : null;
         var note = what is null ? "" : $" ({what})";
@@ -126,13 +126,20 @@ public static class TargetResolver
             return ext == ".zcci" && !facts.Encrypted
                 ? Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives)
                 : Plan(id, TargetStatus.Convert, TargetChoice.Zcci, $"Convert → .zcci{(facts.Encrypted || facts.Type == Lib3dsKit.CtrFileType.Cia ? note : "")}", alternatives);
-        if (target.Container == TargetContainer.Bare)
-            return ext == ".cci" && !facts.NeedsConversion
-                ? Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives)
-                : Plan(id, TargetStatus.Convert, TargetChoice.Cci, $"Convert → .cci{(what is null && ext == ".3ds" ? " (renamed from .3ds)" : note)}", alternatives);
-        if (!facts.NeedsConversion) return null;
-        var container = target.Container == TargetContainer.Zip ? TargetContainer.Zip : TargetContainer.SevenZip;
-        return Plan(id, TargetStatus.Convert, ChoiceFor(container), $"Convert → {Label(container)} (.cci, {what})", alternatives);
+        return ext == ".cci" && !facts.NeedsConversion
+            ? Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives)
+            : Plan(id, TargetStatus.Convert, TargetChoice.Cci, $"Convert → .cci{(what is null && ext == ".3ds" ? " (renamed from .3ds)" : note)}", alternatives);
+    }
+
+    /// <summary>
+    /// A 3DS game's target: yours (.zcci, or leave as is), else the bare .cci. A 7z or zip from an override for every
+    /// system doesn't apply: a 3DS game is never packed (D2).
+    /// </summary>
+    private static SystemTarget? ThreeDsTarget(SystemInfo system, FileSet set, AppSettings settings)
+    {
+        var (target, overridden) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
+        if (target is null && overridden) return null;
+        return target is null || target.Container is TargetContainer.SevenZip or TargetContainer.Zip ? system.Target : target;
     }
 
     /// <summary>
@@ -165,19 +172,18 @@ public static class TargetResolver
 
     /// <summary>
     /// D2: a 7z or zip holding one 3DS game becomes the bare (or .zcci) target, unpacked, and decrypted or
-    /// converted on the way when it needs to be. A 7z or zip target leaves it to the usual archive rules
-    /// (null); an archive holding several games is left for unpacking first.
+    /// converted on the way when it needs to be; an archive holding several games is left for unpacking first.
+    /// It's never repacked as another 7z or zip.
     /// </summary>
     private static TargetPlan? ThreeDsInArchive(FileSet set, SystemInfo system, List<string> contents, List<TargetChoice> alternatives, AppSettings settings)
     {
         var id = system.Id;
         var games = contents.Count(c => c is ".3ds" or ".cci" or ".cia" or ".zcci" or ".zcia");
         if (games == 0) return null;
-        var (target, _) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
+        alternatives.RemoveAll(a => a == TargetChoice.Files || a == TargetChoice.SevenZip || a == TargetChoice.Zip);
+        var target = ThreeDsTarget(system, set, settings);
         if (target is null) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (your setting)", alternatives);
-        if (target.Container is TargetContainer.SevenZip or TargetContainer.Zip) return null;
         if (games > 1) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (several games in one archive; unpack it first)", alternatives);
-        alternatives.RemoveAll(a => a == TargetChoice.Files);
         foreach (var choice in new[] { TargetChoice.Cci, TargetChoice.Zcci })
             if (!alternatives.Contains(choice)) alternatives.Add(choice);
         var zcci = target.Format == ".zcci";

@@ -148,8 +148,7 @@
     "folders": ["3ds", "n3ds", "nintendo3ds"],
     "target": {"format": ".cci", "container": "bare", "label": ".cci (decrypted)", "producible": true},
     "alternatives": [
-      {"id": "zcci", "label": ".zcci (Azahar only)", "producible": true},
-      {"id": "7z", "label": "Decrypted .cci in 7z", "producible": true}
+      {"id": "zcci", "label": ".zcci (Azahar only)", "producible": true}
     ],
     "rules": ["R6", "R10", "R13"],
     "dats": ["no-intro/Nintendo - Nintendo 3DS", "no-intro/Nintendo - New Nintendo 3DS"],

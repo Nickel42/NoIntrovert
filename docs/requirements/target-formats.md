@@ -102,10 +102,11 @@ shows the recommendation with no Convert button, and each converter gets its own
     - a `.cia` of a game becomes a `.cci` (trimmed). An update or DLC `.cia` can't be a cartridge
       image and is left as is;
     - Azahar's `.zcci` and `.zcia` (Z3DS) are read directly, without unpacking first.
-  - The targets are bare `.cci` (recommended), `.zcci` (Azahar's Z3DS, which Azahar plays without
-    unpacking), and a `.cci` in a 7z. A 7z or zip holding one 3DS game is unpacked into the bare
-    `.cci` (or `.zcci`), decrypted on the way when it needs to be; one holding several is left for
-    unpacking first.
+  - The targets are bare `.cci` (recommended) and `.zcci` (Azahar's Z3DS, which Azahar plays
+    without unpacking). A 3DS game is never packed into a 7z or zip: neither is offered, a setting
+    for every system that says 7z or zip doesn't apply, and a row that asks for one anyway is
+    skipped. A 7z or zip holding one 3DS game is unpacked into the bare `.cci` (or `.zcci`),
+    decrypted on the way when it needs to be; one holding several is left for unpacking first.
   - Keys are the user's own: `boot9.bin` and `aes_keys.txt` (and `seeddb.bin` for eShop titles),
     found in Azahar's and Citra's folders, or a folder chosen in Settings › Keys. Without them the
     job fails and says where they go; nothing is written.
@@ -214,7 +215,7 @@ shows the recommendation with no Convert button, and each converter gets its own
 | 9 | C64 `Game.7z` holding `Game.d64` | defaults | `Game.zip` holding `Game.d64` |
 | 10 | `mame/sf2.zip` | defaults | Left as is (arcade) |
 | 11 | Decrypted `Game.3ds` | defaults | Bare `Game.cci` (the same bytes) |
-| 11a | Decrypted `Game.3ds` | system `nintendo-3ds` → `7z` | `Game.7z` holding `Game.cci` |
+| 11a | Decrypted `Game.3ds` | every system → `7z` | Bare `Game.cci`; no 7z is made |
 | 12 | Encrypted `Game.3ds` | defaults | Bare decrypted `Game.cci`; without keys the job fails and says where keys go |
 | 12a | `Game.cia` (a game) | defaults | Bare `Game.cci` |
 | 12b | `Game.cia` | system `nintendo-3ds` → `zcci` | Bare `Game.zcci` |

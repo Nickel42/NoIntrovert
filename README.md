@@ -177,10 +177,10 @@ it.
 ## Nintendo 3DS
 
 Encrypted `.3ds`/`.cci` images, `.cia` games and Azahar's compressed `.zcci`
-and `.zcia` all become a decrypted `.cci`: the raw file by default (a 3DS
-game in a 7z or zip is unpacked), or a `.zcci`, which Azahar plays without
-unpacking, or a `.cci` in a .7z (choose either in Settings › Target formats,
-or per file on the Convert page). An update or DLC `.cia`
+and `.zcia` all become a decrypted `.cci`, the raw file (a 3DS game in a 7z
+or zip is unpacked), or a `.zcci`, which Azahar plays without unpacking
+(choose it in Settings › Target formats, or per file on the Convert page). A
+3DS game is never packed into a 7z or zip. An update or DLC `.cia`
 can't become a cartridge image and is left alone. A `.zcci` is hashed as the
 image it holds, so Verify & match recognises it.
 

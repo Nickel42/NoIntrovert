@@ -200,7 +200,6 @@ public static class FormatPresets
         [
             new("cci-standard", "CCI", "Bare", "The raw decrypted image; every 3DS emulator opens it as it is", Kind(TargetKind.Cci), Recommended: true),
             new("zcci-standard", "ZCCI", "Standard", "Azahar plays it without unpacking; other emulators can't read it", Kind(TargetKind.Zcci)),
-            new("7z-standard", "7z", "Decrypted .cci", "Smallest that still matches No-Intro; Azahar unpacks it on each launch", Kind(TargetKind.SevenZip)),
         ],
         // Switch packages through lib-nx-kit, with your own prod.keys.
         ["switch"] =
