@@ -81,6 +81,15 @@
   </PropertyGroup>
 
   <!--
+    lib-xiso-kit (original Xbox: Redump ISO to XISO or CCI), its own repository, checked out
+    as a git submodule in native/lib-xiso-kit. It is pure managed code, so there is nothing
+    to build first. Pass -p:LibXisoKitRoot=... (ending in a slash) to use another checkout.
+  -->
+  <PropertyGroup>
+    <LibXisoKitRoot Condition="'$(LibXisoKitRoot)' == ''">$(MSBuildThisFileDirectory)native/lib-xiso-kit/</LibXisoKitRoot>
+  </PropertyGroup>
+
+  <!--
     lib-wii-gamecube-kit (Dolphin's GameCube/Wii disc code), its own
     repository, checked out as a git submodule in native/lib-wii-gamecube-kit
     (run "git submodule update" with init after cloning). Its build scripts put the native library

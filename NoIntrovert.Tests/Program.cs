@@ -2354,6 +2354,101 @@ if (SevenZipEngine.IsAvailable(out _))
     }
     else Console.WriteLine($"SKIP  Switch through lib-nx-kit: no fixtures at {nxFixtures}");
 
+    // ---- Original Xbox through lib-xiso-kit: a synthetic game packed into an XISO, and the same game in a Redump layout ----
+    {
+        // A minimal default.xbe (header, certificate with title ID and name), as lib-xiso-kit's own tests make one.
+        static byte[] FakeXbe(uint titleId, string name)
+        {
+            var x = new byte[16 * 1024];
+            "XBEH"u8.CopyTo(x);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(x.AsSpan(0x104), 0x10000);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(x.AsSpan(0x118), 0x10000 + 0x1000);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(x.AsSpan(0x1000 + 8), titleId);
+            System.Text.Encoding.Unicode.GetBytes(name).CopyTo(x.AsSpan(0x1000 + 0x0C));
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(x.AsSpan(0x1000 + 0xA0), 7);
+            return x;
+        }
+        var tree = Dir("xbox-tree");
+        File.WriteAllBytes(Path.Combine(tree, "default.xbe"), FakeXbe(0x4E490001, "Test Game"));
+        Directory.CreateDirectory(Path.Combine(tree, "Data"));
+        File.WriteAllBytes(Path.Combine(tree, "Data", "level1.bin"), TextBytes(300_000));
+        File.WriteAllBytes(Path.Combine(tree, "Data", "level2.bin"), TextBytes(120_000));
+        var packed = Path.Combine(Dir("xbox-packed"), "game.iso");
+        LibXisoKit.Shrinking.XisoShrinker.PackFolder(tree, packed, LibXisoKit.IO.OutputFormat.Iso, new LibXisoKit.Xdvdfs.XisoBuildOptions { MediaPatch = false });
+        var xisoBytes = File.ReadAllBytes(packed);
+
+        // A Redump layout: the game partition after the 387 MiB video partition. The video partition is left as
+        // zeros by extending the file, which Windows, macOS and Linux don't write out.
+        void MakeRedump(string path)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            using var f = new FileStream(path, FileMode.Create);
+            f.SetLength(LibXisoKit.Xdvdfs.XdvdfsConstants.Xgd1PartitionOffset + xisoBytes.Length);
+            f.Position = LibXisoKit.Xdvdfs.XdvdfsConstants.Xgd1PartitionOffset;
+            f.Write(xisoBytes);
+        }
+        var xboxDir = Dir("xbox/Xbox");
+        string X(string name) => Path.Combine(xboxDir, name);
+        FileSet XSet(string name) => FormatRegistry.Default.Identify(X(name))!;
+        MakeRedump(X("Test Game (USA).iso"));
+        File.WriteAllBytes(X("Already (USA).iso"), xisoBytes);
+
+        Test("Xbox: a Redump image plans to become an XISO, an XISO is optimal, and CCI is offered (lib-xiso-kit)", () =>
+        {
+            var o = ConvertTargets.For(XSet("Test Game (USA).iso"), new AppSettings());
+            if (o.Plan.System != "xbox") return $"system {o.Plan.System}";
+            if (o.Plan.Text != "Convert → XISO (drops the video partition)" || o.Default != TargetChoice.Xiso) return $"{o.Plan.Text} ({o.Default})";
+            if (!o.Choices.SequenceEqual([TargetChoice.Xiso, TargetChoice.XboxCci, TargetChoice.Leave])) return string.Join(", ", o.Choices);
+            var done = ConvertTargets.For(XSet("Already (USA).iso"), new AppSettings());
+            if (done.Plan.Status != TargetStatus.Optimal || !done.Choices.Contains(TargetChoice.XboxCci)) return $"XISO: {done.Plan.Text}, {string.Join(", ", done.Choices)}";
+            var s = new AppSettings();
+            s.TargetFormats.Overrides.Add(new TargetOverride("xbox", null, "cci"));
+            var c = ConvertTargets.For(XSet("Test Game (USA).iso"), s);
+            return c.Plan.Text == "Convert → .cci (Cerbios)" && c.Default == TargetChoice.XboxCci ? null : $"cci override: {c.Plan.Text}";
+        });
+
+        Test("Xbox: a Redump image becomes an XISO, checked, with its Redump hashes kept for Verify & match (R11)", () =>
+        {
+            var outDir = Dir("xbox-out");
+            var plan = ConvertPlanner.Plan([new PlanInput(X("Test Game (USA).iso"), TargetKind.Xiso, 1)], new AppSettings(), log);
+            var r = RunJob(plan.Jobs[0].Work, st => st.Output.Folder = outDir);
+            if (r.Status != JobStatus.Succeeded) return $"{r.Status}: {r.Summary}";
+            var made = Path.Combine(outDir, "Test Game (USA).iso");
+            if (!DiscProbe.IsXiso(made)) return "the output isn't an XISO";
+            if (new FileInfo(made).Length >= new FileInfo(X("Test Game (USA).iso")).Length / 10) return "the video partition wasn't dropped";
+            using (var check = LibXisoKit.Xdvdfs.XdvdfsVolume.Open(made))
+                if (check.Find("/default.xbe") is null || check.Find("/Data/level1.bin") is null) return "files are missing from the XISO";
+            var original = NoIntrovert.Core.Dats.OriginalHashes.Default.Get(made)?.Files.FirstOrDefault();
+            var dump = NoIntrovert.Core.Dats.Hasher.HashFile(X("Test Game (USA).iso"))[0];
+            return original is not null && original.Sha1 == dump.Sha1 && original.Crc == dump.Crc && original.Size == dump.Size
+                ? null : $"kept {original?.Sha1}, the dump is {dump.Sha1}";
+        });
+
+        Test("Xbox: with Replace the originals the XISO takes the Redump image's name", () =>
+        {
+            MakeRedump(X("Swap (USA).iso"));
+            var dump = NoIntrovert.Core.Dats.Hasher.HashFile(X("Swap (USA).iso"))[0];
+            var r = RunJob(c => NoIntrovert.Core.Xbox.XboxJobs.Convert(c, X("Swap (USA).iso"), TargetKind.Xiso),
+                st => { st.Output.SaveTo = SaveTo.ReplaceOriginals; st.Output.UseRecycleBin = false; });
+            if (r.Status != JobStatus.Succeeded) return $"{r.Status}: {r.Summary}";
+            if (!DiscProbe.IsXiso(X("Swap (USA).iso"))) return "Swap (USA).iso isn't the XISO";
+            if (Directory.GetFiles(xboxDir, "Swap*").Length != 1) return string.Join(", ", Directory.GetFiles(xboxDir, "Swap*").Select(Path.GetFileName));
+            return NoIntrovert.Core.Dats.OriginalHashes.Default.Get(X("Swap (USA).iso"))?.Files.FirstOrDefault()?.Sha1 == dump.Sha1 ? null : "the Redump hashes weren't kept";
+        });
+
+        Test("Xbox: an XISO becomes a Cerbios CCI that lib-xiso-kit reads back", () =>
+        {
+            var outDir = Dir("xbox-cci");
+            var r = RunJob(c => NoIntrovert.Core.Xbox.XboxJobs.Convert(c, X("Already (USA).iso"), TargetKind.XboxCci), st => st.Output.Folder = outDir);
+            if (r.Status != JobStatus.Succeeded) return $"{r.Status}: {r.Summary}";
+            var parts = Directory.GetFiles(outDir, "*.cci");
+            if (parts.Length == 0) return "no .cci written";
+            if (parts.Any(p => LibXisoKit.IO.ImageOpener.DetectFormat(p) != LibXisoKit.IO.ContainerFormat.Cci)) return "not a CCI";
+            using var volume = LibXisoKit.Xdvdfs.XdvdfsVolume.Open(parts.Order().First());
+            return volume.Find("/Data/level2.bin") is not null ? Note(string.Join(", ", parts.Select(Path.GetFileName))) : "the CCI's files are missing";
+        });
+    }
+
     // A NoNpDrm folder: sce_sys/param.sfo (TITLE, TITLE_ID) and the game's files.
     byte[] Sfo(params (string Key, string Value)[] entries)
     {

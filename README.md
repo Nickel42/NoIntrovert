@@ -194,6 +194,20 @@ were checked against Azahar itself in both directions. The tests use
 synthetic images and made-up keys, so try a real dump of your own before
 relying on it.
 
+## Original Xbox
+
+A Redump Xbox `.iso` becomes an XISO: just the game partition, without the
+disc's unused video partition, which is what xemu reads. Choose CCI in
+Settings › Target formats for a modded console running Cerbios: it's
+compressed and split below the hard drive's 4 GiB file limit (xemu can't read
+it). The conversion only trims: files keep their sectors, nothing is removed,
+and no executable is patched. Every new image is re-read and checked, and the
+Redump hashes are kept so Verify & match still recognises the game. All of
+the Xbox code is lib-xiso-kit, a managed .NET library in its own repository
+([Nickel42/lib-xiso-kit](https://github.com/Nickel42/lib-xiso-kit)), checked
+out as a git submodule in `native/lib-xiso-kit`. The tests use a synthetic
+disc, so try a real dump of your own before relying on it.
+
 ## Nintendo Switch
 
 `.nsp`, `.xci` and `.xcz` files become `.nsz` by default; choose `.xcz` in
@@ -243,6 +257,8 @@ Needs the .NET 10 SDK and the native libraries built:
 - lib-3ds-kit, the Nintendo 3DS library, also a submodule (`native/lib-3ds-kit`),
   managed code only like lib-wii-u-kit.
 - lib-nx-kit, the Nintendo Switch library, also a submodule (`native/lib-nx-kit`),
+  managed code only.
+- lib-xiso-kit, the original Xbox library, also a submodule (`native/lib-xiso-kit`),
   managed code only.
 
 ```
@@ -296,7 +312,7 @@ the terms of the GNU General Public License, version 3 or (at your option) any
 later version, as published by the Free Software Foundation. See `LICENSE`.
 
 The bundled libraries keep their own licenses (all GPL-compatible): lib-chd-kit
-is BSD-3-Clause, lib-7z-zip-kit, lib-wii-u-kit, lib-3ds-kit and lib-nx-kit MIT, 7-Zip (built without RAR) LGPL-2.1+, bit7z MPL-2.0. See
+is BSD-3-Clause, lib-7z-zip-kit, lib-wii-u-kit, lib-3ds-kit, lib-nx-kit and lib-xiso-kit MIT, 7-Zip (built without RAR) LGPL-2.1+, bit7z MPL-2.0. See
 `packaging/THIRD_PARTY_ARCHIVES.md` and lib-chd-kit's `THIRD_PARTY_NOTICES.md`.
 The bundled emulator data is derived from libretro-core-info and ES-DE, both MIT;
 their notices are in `THIRD_PARTY_NOTICES-emulator-data.txt` in every download

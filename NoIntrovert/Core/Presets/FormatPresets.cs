@@ -201,6 +201,12 @@ public static class FormatPresets
             new("cci-standard", "CCI", "Bare", "The raw decrypted image; every 3DS emulator opens it as it is", Kind(TargetKind.Cci), Recommended: true),
             new("zcci-standard", "ZCCI", "Standard", "Azahar plays it without unpacking; other emulators can't read it", Kind(TargetKind.Zcci)),
         ],
+        // Original Xbox discs through lib-xiso-kit.
+        ["xbox"] =
+        [
+            new("xiso-standard", "XISO", "Game partition", "xemu and modded consoles read it; drops only the unused video partition", Kind(TargetKind.Xiso), Recommended: true),
+            new("xbox-cci-standard", "CCI", "Cerbios", "Compressed, split for the console's hard drive; Cerbios BIOS only, not xemu", Kind(TargetKind.XboxCci)),
+        ],
         // Switch packages through lib-nx-kit, with your own prod.keys.
         ["switch"] =
         [
@@ -227,6 +233,8 @@ public static class FormatPresets
         TargetKind.Xcz => new("xcz-standard", "XCZ", "Standard", "A compressed Switch cartridge image", Kind(TargetKind.Xcz)),
         TargetKind.Nsp => new("nsp-standard", "NSP", "Uncompressed", "A plain Switch package", Kind(TargetKind.Nsp)),
         TargetKind.Xci => new("xci-standard", "XCI", "Uncompressed", "A plain Switch cartridge image", Kind(TargetKind.Xci)),
+        TargetKind.Xiso => new("xiso-standard", "XISO", "Game partition", "An Xbox disc's game partition", Kind(TargetKind.Xiso)),
+        TargetKind.XboxCci => new("xbox-cci-standard", "CCI", "Cerbios", "A compressed Xbox disc for Cerbios", Kind(TargetKind.XboxCci)),
         _ => Leave,
     };
 
