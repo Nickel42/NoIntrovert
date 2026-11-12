@@ -17,6 +17,14 @@ public enum TargetKind
     Cci,
     /// <summary>A Nintendo 3DS game as a decrypted .cci compressed in Azahar's Z3DS format (.zcci), by lib-3ds-kit.</summary>
     Zcci,
+    /// <summary>A Switch package as a compressed .nsz, by lib-nx-kit.</summary>
+    Nsz,
+    /// <summary>A Switch package as a compressed cartridge image, .xcz, by lib-nx-kit.</summary>
+    Xcz,
+    /// <summary>A Switch package as an uncompressed .nsp, by lib-nx-kit (from a cartridge image: an .xci instead).</summary>
+    Nsp,
+    /// <summary>A Switch package as an uncompressed cartridge image, .xci, by lib-nx-kit.</summary>
+    Xci,
     SevenZip,
     Zip,
     /// <summary>An archive's files, unpacked.</summary>
@@ -36,6 +44,10 @@ public sealed record TargetChoice(TargetKind Kind, string Label)
     public static readonly TargetChoice Wua = new(TargetKind.Wua, ".wua");
     public static readonly TargetChoice Cci = new(TargetKind.Cci, ".cci");
     public static readonly TargetChoice Zcci = new(TargetKind.Zcci, ".zcci");
+    public static readonly TargetChoice Nsz = new(TargetKind.Nsz, ".nsz");
+    public static readonly TargetChoice Xcz = new(TargetKind.Xcz, ".xcz");
+    public static readonly TargetChoice Nsp = new(TargetKind.Nsp, ".nsp");
+    public static readonly TargetChoice Xci = new(TargetKind.Xci, ".xci");
     public static readonly TargetChoice SevenZip = new(TargetKind.SevenZip, "7z");
     public static readonly TargetChoice Zip = new(TargetKind.Zip, "zip");
     public static readonly TargetChoice Files = new(TargetKind.Files, "Unpack files");

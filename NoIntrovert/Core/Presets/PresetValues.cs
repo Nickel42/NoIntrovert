@@ -113,6 +113,10 @@ public sealed record PresetValues
         TargetKind.Wua => ".wua",
         TargetKind.Cci => ".cci",
         TargetKind.Zcci => ".zcci",
+        TargetKind.Nsz => ".nsz",
+        TargetKind.Xcz => ".xcz",
+        TargetKind.Nsp => ".nsp",
+        TargetKind.Xci => ".xci",
         TargetKind.SevenZip => ".7z",
         TargetKind.Zip => ".zip",
         TargetKind.DiscImage => ExtractFormat switch

@@ -202,6 +202,13 @@ public static class FormatPresets
             new("zcci-standard", "ZCCI", "Standard", "Azahar plays it without unpacking; other emulators can't read it", Kind(TargetKind.Zcci)),
             new("cci-standard", "CCI", "Bare", "Every 3DS emulator reads it; the largest", Kind(TargetKind.Cci)),
         ],
+        // Switch packages through lib-nx-kit, with your own prod.keys.
+        ["switch"] =
+        [
+            new("nsz-standard", "NSZ", "Standard", "Smallest; Ryujinx, the yuzu family and installers read it", Kind(TargetKind.Nsz), Recommended: true),
+            new("xcz-standard", "XCZ", "Standard", "A compressed cartridge image; keeps a cartridge dump a cartridge", Kind(TargetKind.Xcz)),
+            new("nsp-standard", "NSP/XCI", "Uncompressed", "Back to a plain .nsp (or .xci for a cartridge image)", Kind(TargetKind.Nsp)),
+        ],
     };
 
     /// <summary>The standard preset for a target, used for systems without a draft and for a file's other targets.</summary>
@@ -217,6 +224,10 @@ public static class FormatPresets
         TargetKind.Files => new("unpack-standard", "Unpacked", "Standard", "Each archive's files in their own folder", Kind(TargetKind.Files)),
         TargetKind.Cci => new("cci-standard", "CCI", "Bare", "A decrypted 3DS cartridge image", Kind(TargetKind.Cci)),
         TargetKind.Zcci => new("zcci-standard", "ZCCI", "Standard", "A decrypted 3DS cartridge image, compressed for Azahar", Kind(TargetKind.Zcci)),
+        TargetKind.Nsz => new("nsz-standard", "NSZ", "Standard", "A compressed Switch package", Kind(TargetKind.Nsz)),
+        TargetKind.Xcz => new("xcz-standard", "XCZ", "Standard", "A compressed Switch cartridge image", Kind(TargetKind.Xcz)),
+        TargetKind.Nsp => new("nsp-standard", "NSP", "Uncompressed", "A plain Switch package", Kind(TargetKind.Nsp)),
+        TargetKind.Xci => new("xci-standard", "XCI", "Uncompressed", "A plain Switch cartridge image", Kind(TargetKind.Xci)),
         _ => Leave,
     };
 

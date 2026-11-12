@@ -769,6 +769,29 @@ public sealed partial class KeySettingsViewModel(AppSettings settings, IDialogs 
 
     [RelayCommand]
     private void RefreshThreeDsKeys() => OnPropertyChanged(nameof(ThreeDsKeysSummary));
+
+    /// <summary>Your Switch prod.keys; empty = where Ryujinx or a yuzu-family emulator keeps it.</summary>
+    public string SwitchKeysPath
+    {
+        get => S.Keys.SwitchKeysPath;
+        set { if (Set(value ?? "", (s, v) => s.Keys.SwitchKeysPath = v)) OnPropertyChanged(nameof(SwitchKeysSummary)); }
+    }
+
+    /// <summary>Which prod.keys Switch conversions will use (found by lib-nx-kit).</summary>
+    public string SwitchKeysSummary => Core.Switch.SwitchJobs.Describe(S.Keys.SwitchKeysPath);
+
+    [RelayCommand]
+    private async Task BrowseSwitchKeys()
+    {
+        var file = await dialogs.PickFileAsync("Choose your prod.keys", "Key files", ["prod.keys", "*.keys"]);
+        if (file is not null) SwitchKeysPath = file;
+    }
+
+    [RelayCommand]
+    private void FindSwitchKeysAutomatically() => SwitchKeysPath = "";
+
+    [RelayCommand]
+    private void RefreshSwitchKeys() => OnPropertyChanged(nameof(SwitchKeysSummary));
 }
 
 public sealed partial class LibrarySettingsViewModel(AppSettings settings, IDialogs dialogs) : SettingsSectionViewModel(settings)

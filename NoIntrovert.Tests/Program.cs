@@ -1823,8 +1823,8 @@ Test("Target formats: the guide's table and the registry agree on every system",
                 ("C64/Game.7z", TargetStatus.Convert, "zip", "Convert → .zip"),
                 ("mame/sf2.zip", TargetStatus.LeftAsIs, "Leave as is", "Left as is (arcade romset)"),
                 ("PSP/Game.cso", TargetStatus.Convert, "CHD", "Convert → .chd"),
-                ("Switch/Game.nsp", TargetStatus.NotYetSupported, "Leave as is", "Recommended: .nsz (not yet supported)"),
-                ("Switch/Game.xci", TargetStatus.NotYetSupported, "Leave as is", "Recommended: .nsz (not yet supported; repack to NSP first)"),
+                ("Switch/Game.nsp", TargetStatus.Convert, ".nsz", "Convert → .nsz"),
+                ("Switch/Game.xci", TargetStatus.Convert, ".nsz", "Convert → .nsz"),
             };
             var rows = new List<PlanInput>();
             foreach (var (rel, status, initial, text) in cases)
@@ -1835,10 +1835,10 @@ Test("Target formats: the guide's table and the registry agree on every system",
                 if (status == TargetStatus.NotYetSupported && o.Choices.Count != 1) return $"{rel} offers {string.Join(", ", o.Choices)} for a target the app can't make";
                 rows.Add(new PlanInput(In(rel), o.Default.Kind, 1));
             }
-            // Optimal, arcade and not-yet-supported rows get no job.
+            // Optimal and arcade rows get no job.
             var plan = ConvertPlanner.Plan(rows, settings, log);
             var left = plan.Left.Select(i => cases[i].Rel).ToList();
-            return left.SequenceEqual(["NES/Packed.7z", "mame/sf2.zip", "Switch/Game.nsp", "Switch/Game.xci"])
+            return left.SequenceEqual(["NES/Packed.7z", "mame/sf2.zip"])
                 ? null : $"left alone: {string.Join(", ", left)}";
         });
 
@@ -2003,7 +2003,7 @@ if (SevenZipEngine.IsAvailable(out _))
         var cso = PlanWith("PSP/Game.cso", new TargetOverride("*", ".cso", "leave"));
         if (cso.Status != TargetStatus.LeftAsIs) return $"cso: {cso.Text}";
         var xci = PlanWith("Switch/Game.xci", new TargetOverride("switch", null, "xcz"));
-        return xci.Text == "Recommended: .xcz (not yet supported)" ? null : $"xci: {xci.Text}";
+        return xci.Text == "Convert → .xcz" ? null : $"xci: {xci.Text}";
     });
 
     Test("Overrides: D1 keeps a DS ROM above the size bare", () =>
@@ -2236,6 +2236,91 @@ if (SevenZipEngine.IsAvailable(out _))
         NoIntrovert.Core.Ctr.CtrJobs.KeysForTests = null;
     }
     else Console.WriteLine($"SKIP  3DS through lib-3ds-kit: no fixtures at {ctrFixtures}");
+
+    // ---- Switch through lib-nx-kit: its synthetic packages and the fake prod.keys that opens them ----
+    var nxFixtures = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "native", "lib-nx-kit", "tests", "fixtures"));
+    if (Directory.Exists(nxFixtures))
+    {
+        LibNxKit.Keys.KeySet NxKeys() => LibNxKit.Keys.KeySet.Load(Path.Combine(nxFixtures, "prod.keys.fake"));
+        Directory.CreateDirectory(Q("Switch-real"));
+        File.Copy(Path.Combine(nxFixtures, "test_game.nsp"), Q("Switch-real/Test Game.nsp"));
+        File.Copy(Path.Combine(nxFixtures, "test_game_update.nsp"), Q("Switch-real/Test Game Update.nsp"));
+        NoIntrovert.Core.Switch.SwitchJobs.KeysForTests = NxKeys;
+        string? RunKind(string rel, TargetKind kind, Action<AppSettings>? configure = null)
+        {
+            var plan = ConvertPlanner.Plan([new PlanInput(Q(rel), kind, 1)], new AppSettings(), log);
+            if (plan.Jobs.Count != 1) return $"{plan.Jobs.Count} job(s)";
+            var r = RunJob(plan.Jobs[0].Work, configure);
+            return r.Status is JobStatus.Succeeded or JobStatus.Warning ? null : $"{r.Status}: {r.Summary}";
+        }
+
+        // Every file in a package, by name, with its SHA-256: what an .nsz must give back (the package's file order may differ).
+        string Contents(string path)
+        {
+            using var package = LibNxKit.Packages.SwitchPackage.Open(path, NxKeys());
+            return string.Join(" ", package.Files.OrderBy(f => f.Name, StringComparer.Ordinal).Select(f =>
+            {
+                using var data = package.OpenFile(f);
+                return f.Name + ":" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(data))[..12];
+            }));
+        }
+
+        Test("Switch: an .nsp becomes an .nsz by default, and back to an .nsp holding the same files byte for byte (lib-nx-kit)", () =>
+        {
+            var o = ConvertTargets.For(Set3("Switch-real/Test Game.nsp"), new AppSettings());
+            if (o.Plan.Text != "Convert → .nsz" || o.Default != TargetChoice.Nsz) return $"{o.Plan.Text} ({o.Default})";
+            if (!o.Choices.Contains(TargetChoice.Xcz)) return string.Join(", ", o.Choices);
+            if (RunDefault3("Switch-real/Test Game.nsp") is { } problem) return problem;
+            if (!File.Exists(Q("Switch-real/Test Game.nsz"))) return string.Join(", ", Directory.GetFiles(Q("Switch-real")).Select(Path.GetFileName));
+            if (new FileInfo(Q("Switch-real/Test Game.nsz")).Length >= new FileInfo(Q("Switch-real/Test Game.nsp")).Length) return "the .nsz isn't smaller";
+            var nsz = ConvertTargets.For(Set3("Switch-real/Test Game.nsz"), new AppSettings());
+            if (nsz.Plan.Status != TargetStatus.Optimal || !nsz.Choices.Contains(TargetChoice.Nsp)) return $".nsz: {nsz.Plan.Text}, {string.Join(", ", nsz.Choices)}";
+            var back = Dir("switch-back");
+            if (RunKind("Switch-real/Test Game.nsz", TargetKind.Nsp, s => s.Output.Folder = back) is { } p2) return p2;
+            var original = Contents(Q("Switch-real/Test Game.nsp"));
+            var restored = Contents(Path.Combine(back, "Test Game.nsp"));
+            return restored == original ? null : $"the files differ:\n  {original}\n  {restored}";
+        });
+
+        Test("Switch: an update with title-key crypto, as a cartridge image (.xcz) and back to .xci", () =>
+        {
+            if (RunKind("Switch-real/Test Game Update.nsp", TargetKind.Xcz) is { } problem) return problem;
+            var o = ConvertTargets.For(Set3("Switch-real/Test Game Update.xcz"), new AppSettings());
+            if (!o.Choices.Contains(TargetChoice.Xci) || o.Choices.Contains(TargetChoice.Nsp)) return string.Join(", ", o.Choices);
+            if (RunKind("Switch-real/Test Game Update.xcz", TargetKind.Nsp) is { } p2) return p2; // "uncompressed" of a cartridge image is an .xci
+            using var package = LibNxKit.Packages.SwitchPackage.Open(Q("Switch-real/Test Game Update.xci"), NxKeys());
+            return package.IsGameCard && package.Titles.Count == 1 ? null : $"{package.Format}, {package.Titles.Count} title(s)";
+        });
+
+        Test("Switch: without prod.keys the job fails, says where it goes, and writes nothing", () =>
+        {
+            NoIntrovert.Core.Switch.SwitchJobs.KeysForTests = null;
+            try
+            {
+                var empty = Dir("switch-no-keys");
+                var r = RunJob(c => NoIntrovert.Core.Switch.SwitchJobs.Convert(c, Q("Switch-real/Test Game.nsp"), TargetKind.Xcz, empty),
+                    s => s.Keys.SwitchKeysPath = Path.Combine(empty, "nowhere.keys"));
+                // The machine running the tests may have real keys in an emulator's folder; then the fake package can't be opened with them.
+                return r.Status == JobStatus.Failed && Directory.GetFiles(empty).Length == 0 ? Note(r.Summary) : $"{r.Status}: {r.Summary}";
+            }
+            finally { NoIntrovert.Core.Switch.SwitchJobs.KeysForTests = NxKeys; }
+        });
+
+        Test("Switch: Replace the originals removes the .nsp once its .nsz is written and checked", () =>
+        {
+            File.Copy(Path.Combine(nxFixtures, "test_game.nsp"), Q("Switch-real/Replace.nsp"));
+            var problem = RunKind("Switch-real/Replace.nsp", TargetKind.Nsz, s => { s.Output.SaveTo = SaveTo.ReplaceOriginals; s.Output.UseRecycleBin = false; });
+            return problem ?? (File.Exists(Q("Switch-real/Replace.nsz")) && !File.Exists(Q("Switch-real/Replace.nsp")) ? null : "the original is still there or the .nsz is missing");
+        });
+
+        Test("Switch: Settings › Keys describes the prod.keys lib-nx-kit finds", () =>
+        {
+            var text = NoIntrovert.Core.Switch.SwitchJobs.Describe(Path.Combine(nxFixtures, "prod.keys.fake"));
+            return text.StartsWith("Using prod.keys in ") && text.Contains(nxFixtures) ? null : text;
+        });
+        NoIntrovert.Core.Switch.SwitchJobs.KeysForTests = null;
+    }
+    else Console.WriteLine($"SKIP  Switch through lib-nx-kit: no fixtures at {nxFixtures}");
 
     // A NoNpDrm folder: sce_sys/param.sfo (TITLE, TITLE_ID) and the game's files.
     byte[] Sfo(params (string Key, string Value)[] entries)

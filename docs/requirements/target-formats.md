@@ -21,8 +21,9 @@ target for a whole system or for one file type in Advanced settings, including "
 - The override settings.
 - The docs.
 
-**Out of scope here (D8):** converters for formats the app can't produce yet: Switch NSZ/XCZ, Xbox
-XISO, PS3 decrypted folders and PS Vita `.pkg` → NoNpDrm. (3DS `.zcci` was on this list; FR-9 now covers it.) For these systems the app
+**Out of scope here (D8):** converters for formats the app can't produce yet: Xbox XISO, PS3
+decrypted folders and PS Vita `.pkg` → NoNpDrm. (3DS `.zcci` and Switch NSZ/XCZ were on this list;
+FR-9 and FR-11 now cover them.) For these systems the app
 shows the recommendation with no Convert button, and each converter gets its own requirement later.
 
 ## 3. Today's code (starting point)
@@ -109,6 +110,20 @@ shows the recommendation with no Convert button, and each converter gets its own
   - The new file is checked against the hashes stored inside it (with *Check each file after
     converting*, or Replace the originals). The dump's own hashes are recorded (R11), and a `.zcci`
     or `.zcia` is hashed as the file it holds, so Verify & match still recognises both.
+- **FR-11 Switch.**
+  - lib-nx-kit (`native/lib-nx-kit`) does every conversion; NoIntrovert only picks the output's name
+    and folder, and removes the original when asked.
+  - `.nsp`, `.xci` and `.xcz` become `.nsz` by default. `.xcz` keeps a cartridge image a cartridge
+    image. "Uncompressed" turns an `.nsz` back into an `.nsp` and an `.xcz` into an `.xci`.
+  - Every content file (NCA) is checked against its metadata hash as it's written. An `.nsz` turned
+    back into an `.nsp` holds the same files byte for byte; the order of the files inside the
+    package may differ from the original dump.
+  - A package holding several games becomes one file per game, named like
+    `Game Name [0100…][v0].nsz`. Replace the originals removes the original only when every title
+    in it was written.
+  - Keys are the user's own `prod.keys` (and `title.keys` beside it), found where Ryujinx and the
+    yuzu-family emulators keep them, or chosen in Settings › Keys. Without them the job fails, says
+    where the keys go, and writes nothing.
 - **FR-10 PS Vita.**
   - A NoNpDrm game folder (`sce_sys/param.sfo` present) becomes `<Title> (<TitleID>).zip`.
   - The title and title ID come from `param.sfo`.
@@ -205,8 +220,9 @@ shows the recommendation with no Convert button, and each converter gets its own
 | 14 | `Game.cso` (PSP) | `*` / `.cso` → `leave` | Left as is |
 | 15 | `Game.cso` (PSP) | defaults | `Game.chd` (createdvd, 2048-byte hunks) |
 | 16 | NoNpDrm folder `PCSE00000` | launcher on | `Title (PCSE00000).zip` + `Title (PCSE00000).psvita` |
-| 17 | `Game.nsp` | defaults | Recommended: `.nsz` (not yet supported) |
-| 17b | `Game.xci` | defaults / `switch` → `xcz` | Defaults: Recommended `.nsz` (not yet supported; repack to NSP first). With the override: Recommended `.xcz` |
+| 17 | `Game.nsp` | defaults | `Game.nsz`; back to an `.nsp` holding the same files |
+| 17b | `Game.xci` | defaults / `switch` → `xcz` | Defaults: `Game.nsz`. With the override: `Game.xcz` |
+| 17c | `Game.nsp` | no `prod.keys` | The job fails and says where `prod.keys` goes; nothing is written |
 | 18 | `Game.v64` | header fixes off / on | Off: `Game.7z` holding `Game.v64`. On: `Game.7z` holding `Game.z64` |
 | 19 | Exported overrides imported on another PC | — | Same rows are marked as overridden |
 
@@ -217,7 +233,7 @@ shows the recommendation with no Convert button, and each converter gets its own
 2. **Overrides:** FR-12 to FR-14.
 3. **Per-system extras:** FR-7 (multi-disc), FR-8, FR-9 (3DS), FR-10 (Vita zip and launcher),
    FR-11 (hashes and header fixes), R6 (splitting).
-4. **Later, a separate requirement each (D8):** NSZ/XCZ, XISO, Vita `.pkg` + zRIF, PS3.
+4. **Later, a separate requirement each (D8):** XISO, Vita `.pkg` + zRIF, PS3.
 
 ## 7. Resolved questions
 
