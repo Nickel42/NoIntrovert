@@ -17,6 +17,15 @@
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
+  <!--
+    The built-in themes (Core/Themes): Avalonia ResourceDictionaries, read as theme files like the ones in
+    the themes folder, so they're embedded as they are rather than compiled.
+  -->
+  <ItemGroup>
+    <AvaloniaXaml Remove="Themes\*.axaml" />
+    <EmbeddedResource Include="Themes\*.axaml" LogicalName="NoIntrovert.Themes.%(Filename).axaml" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.4" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />

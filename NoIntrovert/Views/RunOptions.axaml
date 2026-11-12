@@ -38,7 +38,7 @@
                      ToolTip.Tip="Each original is removed only after its new file verifies. If verification fails, the original stays and the row shows why.">
             <StackPanel Orientation="Horizontal" Spacing="6">
                 <TextBlock Text="Replace the originals" VerticalAlignment="Center" />
-                <TextBlock Text="⚠" Foreground="#FF8C42" VerticalAlignment="Center" />
+                <TextBlock Text="⚠" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
             </StackPanel>
         </RadioButton>
     </WrapPanel>

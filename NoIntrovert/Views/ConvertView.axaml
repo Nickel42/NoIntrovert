@@ -6,37 +6,7 @@
              x:Class="NoIntrovert.Views.ConvertView"
              x:DataType="vm:ConvertViewModel"
              v:Responsive.Below="compact:1250,narrow:1000,tight:860">
-    <UserControl.Resources>
-        <!-- The side panel's own colours (the Penpot design); neutrals come from the app theme. -->
-        <ResourceDictionary>
-            <ResourceDictionary.ThemeDictionaries>
-                <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="PanelHeadText" Color="#B4B5DA" />
-                    <SolidColorBrush x:Key="PanelGroupText" Color="#8D8CA6" />
-                    <SolidColorBrush x:Key="PanelTile" Color="#2E2E40" />
-                    <SolidColorBrush x:Key="PanelTileBorder" Color="#3B3C58" />
-                    <SolidColorBrush x:Key="TagGeneration" Color="#3B3C58" />
-                    <SolidColorBrush x:Key="TagMedia" Color="#5A5272" />
-                    <SolidColorBrush x:Key="TagText" Color="#E2E1F0" />
-                    <SolidColorBrush x:Key="WarningFill" Color="#3A2A22" />
-                    <SolidColorBrush x:Key="WarningText" Color="#FFD2B3" />
-                    <SolidColorBrush x:Key="OutlineButton" Color="#9C9DC8" />
-                </ResourceDictionary>
-                <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="PanelHeadText" Color="#55568A" />
-                    <SolidColorBrush x:Key="PanelGroupText" Color="#6E6D88" />
-                    <SolidColorBrush x:Key="PanelTile" Color="#F1F1F8" />
-                    <SolidColorBrush x:Key="PanelTileBorder" Color="#D9D9EA" />
-                    <SolidColorBrush x:Key="TagGeneration" Color="#E3E3F2" />
-                    <SolidColorBrush x:Key="TagMedia" Color="#E9E0F2" />
-                    <SolidColorBrush x:Key="TagText" Color="#2B2B3D" />
-                    <SolidColorBrush x:Key="WarningFill" Color="#FFF1E6" />
-                    <SolidColorBrush x:Key="WarningText" Color="#7A3A10" />
-                    <SolidColorBrush x:Key="OutlineButton" Color="#7C7EA6" />
-                </ResourceDictionary>
-            </ResourceDictionary.ThemeDictionaries>
-        </ResourceDictionary>
-    </UserControl.Resources>
+    <!-- The side panel's own colours (PanelTile, TagMedia…) come from the theme: Core/Themes/ThemeResources. -->
     <UserControl.Styles>
         <!-- The side panel: 440 px on a wide page, down to 280 px on the smallest window -->
         <Style Selector="Border.sidepanel"><Setter Property="Width" Value="440" /></Style>
@@ -79,7 +49,7 @@
         <!-- A setting's warning: an orange-bordered box under it -->
         <Style Selector="Border.sidepanel Border.warning">
             <Setter Property="Background" Value="{DynamicResource WarningFill}" />
-            <Setter Property="BorderBrush" Value="#FF8C42" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Padding" Value="10,8" />

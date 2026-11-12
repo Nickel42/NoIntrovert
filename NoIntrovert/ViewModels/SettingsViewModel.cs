@@ -30,7 +30,7 @@ public partial class SettingsViewModel : ViewModelBase
     public SettingsViewModel(AppSettings settings, IDialogs dialogs)
     {
         _s = settings;
-        General = new GeneralSettingsViewModel(settings);
+        General = new GeneralSettingsViewModel(settings, dialogs);
         Output = new OutputSettingsViewModel(settings, dialogs);
         Performance = new PerformanceSettingsViewModel(settings, dialogs);
         Log = new LogSettingsViewModel(settings, dialogs);
@@ -104,9 +104,14 @@ public abstract class SettingsSectionViewModel(AppSettings settings) : ViewModel
     }
 }
 
-public sealed class GeneralSettingsViewModel(AppSettings settings) : SettingsSectionViewModel(settings)
+public sealed class GeneralSettingsViewModel(AppSettings settings, IDialogs dialogs) : SettingsSectionViewModel(settings)
 {
     public override string Title => "General";
+
+    /// <summary>The dark and light themes to use, the theme editor and importing themes.</summary>
+    public ThemesViewModel ColorThemes => _themes ??= new ThemesViewModel(S, dialogs);
+
+    private ThemesViewModel? _themes;
 
     public static IReadOnlyList<Choice<AppTheme>> Themes { get; } =
     [

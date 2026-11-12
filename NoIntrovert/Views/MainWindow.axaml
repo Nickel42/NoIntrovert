@@ -78,7 +78,7 @@
             <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
         </Style>
         <Style Selector="Button.WindowControlsButton.Close:pointerover">
-            <Setter Property="Background" Value="#E02B27" />
+            <Setter Property="Background" Value="{DynamicResource DangerText}" />
             <Setter Property="Foreground" Value="White" />
         </Style>
         <Style Selector="Button.WindowControlsButton.themetoggle">

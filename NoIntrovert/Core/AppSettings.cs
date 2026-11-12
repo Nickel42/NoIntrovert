@@ -179,6 +179,12 @@ public sealed class GeneralSettings
 
     public AppTheme Theme { get; set; } = AppTheme.System;
 
+    /// <summary>The theme used when the app is dark, by id (Core/Themes/ThemeLibrary): a built-in one, or "user:" and a file in the themes folder.</summary>
+    public string DarkTheme { get; set; } = Themes.ThemeLibrary.DefaultDarkId;
+
+    /// <summary>The theme used when the app is light, by id, as <see cref="DarkTheme"/>.</summary>
+    public string LightTheme { get; set; } = Themes.ThemeLibrary.DefaultLightId;
+
     /// <summary>The page the app opens on, by page id; empty = Optimize once the library has folders, otherwise Convert.</summary>
     public string StartPage { get; set; } = "";
 

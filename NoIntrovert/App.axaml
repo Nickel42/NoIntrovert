@@ -12,107 +12,35 @@
     </Application.DataTemplates>
 
     <!--
-      The Penpot design's SukiUI palettes ("SukiUI/Light" and "SukiUI/Dark" tokens): a dark navy and a
-      warm light grey, both with the lilac primary. Our own keys (AppBackground, PanelBackground…) are what
-      the pages use; the Suki* keys repaint SukiUI's controls to match. The lilac primary itself is set in
-      App.axaml.cs (SukiUI keeps it outside the theme dictionaries), one shade per theme.
+      The colours come from the chosen themes (Settings › General: a dark and a light one; NoIntrovert/Themes
+      and the themes folder, see Core/Themes). App.axaml.cs puts each theme's colours into the Dark or Light
+      dictionary below, so the pages' {DynamicResource …} follow whichever is showing; the Suki* keys repaint
+      SukiUI's controls to match. Here are only what every theme shares.
     -->
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="AppBackground" Color="#191923" />
-                    <SolidColorBrush x:Key="PanelBackground" Color="#262635" />
-                    <SolidColorBrush x:Key="PanelRaised" Color="#2F2F42" />
-                    <SolidColorBrush x:Key="PanelBorder" Color="#3A3A4E" />
-                    <SolidColorBrush x:Key="ControlBorder" Color="#545470" />
-                    <SolidColorBrush x:Key="RowAlt" Color="#2B2B3B" />
-                    <SolidColorBrush x:Key="SubtleText" Color="#A3A2B8" />
-                    <SolidColorBrush x:Key="SectionText" Color="#B4B5DA" />
-                    <SolidColorBrush x:Key="HeaderBackground" Color="#20202C" />
-                    <SolidColorBrush x:Key="LogBackground" Color="#1E1E2A" />
-                    <SolidColorBrush x:Key="PrimaryTint" Color="#3B3C58" />
-                    <SolidColorBrush x:Key="WindowButtonBackground" Color="#33324A" />
-                    <SolidColorBrush x:Key="DangerTint" Color="#4A2627" />
-                    <SolidColorBrush x:Key="DangerText" Color="#FF3C38" />
-
-                    <Color x:Key="SukiStrongBackground">#2F2F42</Color>
-                    <Color x:Key="SukiCardBackground">#262635</Color>
-                    <Color x:Key="SukiPopupBackground">#262635</Color>
-                    <Color x:Key="SukiGlassCardBackground">#262635</Color>
-                    <Color x:Key="SukiGlassCardOpaqueBackground">#262635</Color>
-                    <Color x:Key="ControlSukiGlassCardBackground">#262635</Color>
-                    <Color x:Key="SukiControlTouchBackground">#33324A</Color>
-                    <Color x:Key="SukiBorderBrush">#3A3A4E</Color>
-                    <Color x:Key="SukiControlBorderBrush">#545470</Color>
-                    <Color x:Key="SukiMediumBorderBrush">#545470</Color>
-                    <Color x:Key="SukiLightBorderBrush">#3A3A4E</Color>
-                    <Color x:Key="SukiMenuBorderBrush">#3A3A4E</Color>
-                    <Color x:Key="GlassBorderBrush">#3A3A4E</Color>
-                    <Color x:Key="SukiLiquid1">#3A3A4E</Color>
-                    <Color x:Key="SukiLiquid2">#3A3A4E</Color>
-                    <Color x:Key="SukiText">#ECEAF2</Color>
-                    <Color x:Key="SukiLowText">#E2E1F0</Color>
-                    <Color x:Key="SukiMuteText">#A3A2B8</Color>
-                    <Color x:Key="SukiDisabledText">#5F5E74</Color>
-                    <Color x:Key="SukiDangerColor">#FF3C38</Color>
-                    <Color x:Key="SukiWarningColor">#FF8C42</Color>
-                    <Color x:Key="SukiSuccessColor">#FFF275</Color>
                     <sys:Double x:Key="GlassOpacity">1</sys:Double>
                     <sys:Double x:Key="ControlGlassOpacity">1</sys:Double>
                     <sys:Double x:Key="DiscreteControlGlassOpacity">1</sys:Double>
                     <BoxShadows x:Key="SukiPopupShadow">0 6 18 0 #66000000</BoxShadows>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="AppBackground" Color="#F5F2F5" />
-                    <SolidColorBrush x:Key="PanelBackground" Color="#FFFFFF" />
-                    <SolidColorBrush x:Key="PanelRaised" Color="#FBF9FB" />
-                    <SolidColorBrush x:Key="PanelBorder" Color="#E2DAE1" />
-                    <SolidColorBrush x:Key="ControlBorder" Color="#C9BFC8" />
-                    <SolidColorBrush x:Key="RowAlt" Color="#F7F4F7" />
-                    <SolidColorBrush x:Key="SubtleText" Color="#77778F" />
-                    <SolidColorBrush x:Key="SectionText" Color="#616283" />
-                    <SolidColorBrush x:Key="HeaderBackground" Color="#FFFFFF" />
-                    <SolidColorBrush x:Key="LogBackground" Color="#FBF9FB" />
-                    <SolidColorBrush x:Key="PrimaryTint" Color="#E4E4ED" />
-                    <SolidColorBrush x:Key="WindowButtonBackground" Color="#F1EBF0" />
-                    <SolidColorBrush x:Key="DangerTint" Color="#FFDCDB" />
-                    <SolidColorBrush x:Key="DangerText" Color="#E02B27" />
-
-                    <Color x:Key="SukiStrongBackground">#FBF9FB</Color>
-                    <Color x:Key="SukiCardBackground">#FFFFFF</Color>
-                    <Color x:Key="SukiPopupBackground">#FFFFFF</Color>
-                    <Color x:Key="SukiGlassCardBackground">#FFFFFF</Color>
-                    <Color x:Key="SukiGlassCardOpaqueBackground">#FFFFFF</Color>
-                    <Color x:Key="ControlSukiGlassCardBackground">#FFFFFF</Color>
-                    <Color x:Key="SukiControlTouchBackground">#F1EBF0</Color>
-                    <Color x:Key="SukiBorderBrush">#E2DAE1</Color>
-                    <Color x:Key="SukiControlBorderBrush">#C9BFC8</Color>
-                    <Color x:Key="SukiMediumBorderBrush">#C9BFC8</Color>
-                    <Color x:Key="SukiLightBorderBrush">#E2DAE1</Color>
-                    <Color x:Key="SukiMenuBorderBrush">#E2DAE1</Color>
-                    <Color x:Key="GlassBorderBrush">#E2DAE1</Color>
-                    <Color x:Key="SukiText">#2B2B3D</Color>
-                    <Color x:Key="SukiLowText">#46475F</Color>
-                    <Color x:Key="SukiMuteText">#77778F</Color>
-                    <Color x:Key="SukiDisabledText">#BDB8C3</Color>
-                    <Color x:Key="SukiDangerColor">#FF3C38</Color>
-                    <Color x:Key="SukiWarningColor">#FF8C42</Color>
-                    <Color x:Key="SukiSuccessColor">#E8D84A</Color>
                     <sys:Double x:Key="GlassOpacity">1</sys:Double>
                     <sys:Double x:Key="ControlGlassOpacity">1</sys:Double>
                     <sys:Double x:Key="DiscreteControlGlassOpacity">1</sys:Double>
                     <BoxShadows x:Key="SukiPopupShadow">0 6 18 0 #22463A50</BoxShadows>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
-            <!-- The design's orange accent: the focused row's outline and other highlights. -->
-            <Color x:Key="SystemAccentColor">#FF8C42</Color>
             <CornerRadius x:Key="SmallCornerRadius">8</CornerRadius>
             <CornerRadius x:Key="MediumCornerRadius">14</CornerRadius>
         </ResourceDictionary>
     </Application.Resources>
 
     <Application.Styles>
+        <!-- The colour picker's own templates and converters (the theme editor's colours); SukiUI restyles it. -->
+        <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
         <suki:SukiTheme ThemeColor="Blue" />
 
         <!-- Windows: the design's flat colours instead of SukiUI's shader background; the title bar is the rail's colour. -->
@@ -175,11 +103,11 @@
         <Style Selector="Button.primary">
             <Setter Property="Background" Value="{DynamicResource SukiPrimaryColor}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SukiPrimaryColor}" />
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}" />
             <Setter Property="Padding" Value="22,8" />
         </Style>
         <Style Selector="Button.primary:pointerover">
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}" />
         </Style>
         <Style Selector="Button.primary:pointerover /template/ Border">
             <Setter Property="Background" Value="{DynamicResource SukiPrimaryDarkColor}" />
@@ -296,7 +224,7 @@
             <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
         </Style>
         <Style Selector="Button.rail.selected, Button.rail.selected:pointerover">
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}" />
             <Setter Property="FontWeight" Value="Bold" />
         </Style>
         <Style Selector="Button.rail.selected /template/ Border">

@@ -53,6 +53,62 @@ static class LayoutTests
         if (fixture?.Error is not null) return;
         var f = fixture!;
 
+        // Themes (Core/Themes): the window repaints in the chosen theme of the kind showing.
+        test("Layout: choosing a theme repaints the window, each kind with its own theme", () => Dispatch(() =>
+        {
+            // The window's own app (the headless session's Application.Current can be another instance).
+            var app = (App)((Avalonia.Styling.IStyleHost)f.Window).StylingParent!;
+            var general = f.Vm.Settings.General;
+            app.BindThemes(general);
+            f.Resize(1180, 820);
+            f.Show("settings");
+            Color Background()
+            {
+                f.Layout();
+                // What the window is painted with (its Background is {DynamicResource AppBackground}).
+                return f.Window.Background is ISolidColorBrush b ? b.Color : default;
+            }
+            var themes = general.ColorThemes;
+            general.IsDarkTheme = true;
+            themes.SelectedDark = themes.DarkThemes.First(o => o.Id == "ember");
+            themes.SelectedLight = themes.LightThemes.First(o => o.Id == "seafoam");
+            if (Background() != themes.ActiveDark[Core.Themes.ThemeRole.Background]) return "the dark theme isn't showing";
+            if (screenshots is not null) f.Save(Path.Combine(screenshots, "theme-ember-settings.png"));
+            general.IsLightTheme = true;
+            if (Background() != themes.ActiveLight[Core.Themes.ThemeRole.Background]) return "switching to light didn't show the light theme";
+            if (screenshots is not null) f.Save(Path.Combine(screenshots, "theme-seafoam-settings.png"));
+            // The editor previews what it edits, whichever kind was showing.
+            themes.Customize("Dark");
+            themes.Editor!.Rows.First(r => r.Role == Core.Themes.ThemeRole.Background).Hex = "#203040";
+            var previewed = Background() == Color.Parse("#203040");
+            if (screenshots is not null) f.Save(Path.Combine(screenshots, "theme-editor.png"));
+            themes.Editor.CancelCommand.Execute(null);
+            if (!previewed) return "the editor's change wasn't previewed";
+            if (Background() != themes.ActiveLight[Core.Themes.ThemeRole.Background]) return "Cancel didn't go back to the light theme";
+            Color Link()
+            {
+                // What the link resolves (its Foreground animates there, and the headless clock doesn't run).
+                var link = f.Find<Button>(b => b.Content as string == "Import file…");
+                return link is not null && link.TryFindResource("SettingsLink", link.ActualThemeVariant, out var v) && v is ISolidColorBrush b ? b.Color : default;
+            }
+            foreach (var id in new[] { "cartridge", "sunrise", "nointrovert-dark", "nointrovert-light" })
+            {
+                var dark = themes.DarkThemes.FirstOrDefault(o => o.Id == id);
+                if (dark is not null) { general.IsDarkTheme = true; themes.SelectedDark = dark; }
+                else { general.IsLightTheme = true; themes.SelectedLight = themes.LightThemes.First(o => o.Id == id); }
+                var theme = dark is not null ? themes.ActiveDark : themes.ActiveLight;
+                if (Background() != theme[Core.Themes.ThemeRole.Background]) return $"{id}: the window isn't in its background";
+                var link = Core.Themes.ThemeResources.Colors(theme)["SettingsLink"];
+                if (Link() != link) return $"{id}: a link is {Link()}, not {link}";
+                if (screenshots is not null) f.Save(Path.Combine(screenshots, $"theme-{id}-settings.png"));
+            }
+            // Back to how the other layout tests expect it.
+            general.IsSystemTheme = true;
+            themes.SelectedDark = themes.DarkThemes.First(o => o.Id == Core.Themes.ThemeLibrary.DefaultDarkId);
+            themes.SelectedLight = themes.LightThemes.First(o => o.Id == Core.Themes.ThemeLibrary.DefaultLightId);
+            return null;
+        }));
+
         test("Layout: the Library's add-folders message doesn't cover a list of games", () => Dispatch(() =>
         {
             f.Resize(1180, 820);

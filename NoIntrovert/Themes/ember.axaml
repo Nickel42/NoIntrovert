@@ -1,0 +1,25 @@
+<!--
+  Warm charcoal lit by the logo's orange door, with its lilac ring as the accent.
+  A NoIntrovert theme: an Avalonia ResourceDictionary. Each ThemeXxx colour is one of the theme's roles; the
+  app works out the rest from them. Any other key sets one of the app's own colours exactly.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:String x:Key="ThemeName">Ember</x:String>
+    <x:String x:Key="ThemeVariant">Dark</x:String>
+    <x:String x:Key="ThemeAuthor">NoIntrovert</x:String>
+    <Color x:Key="ThemeBackground">#1A1614</Color>
+    <Color x:Key="ThemeSurface">#26201D</Color>
+    <Color x:Key="ThemeRaised">#302824</Color>
+    <Color x:Key="ThemeHeader">#1F1A17</Color>
+    <Color x:Key="ThemeBorder">#3E332E</Color>
+    <Color x:Key="ThemeControlBorder">#5C4B44</Color>
+    <Color x:Key="ThemeText">#F3EAE5</Color>
+    <Color x:Key="ThemeSubtleText">#B8A69D</Color>
+    <Color x:Key="ThemeSectionText">#F2B48E</Color>
+    <Color x:Key="ThemePrimary">#E0612C</Color>
+    <Color x:Key="ThemeAccent">#A4A5D6</Color>
+    <Color x:Key="ThemeDanger">#FF5A55</Color>
+    <Color x:Key="ThemeWarning">#FFB347</Color>
+    <Color x:Key="ThemeSuccess">#FFF275</Color>
+</ResourceDictionary>
