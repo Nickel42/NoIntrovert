@@ -597,6 +597,14 @@
                                         <Button Classes="tool" Content="Find automatically" Command="{Binding FindThreeDsKeysAutomaticallyCommand}" Margin="0,0,6,6" />
                                         <Button Classes="tool" Content="Refresh" Command="{Binding RefreshThreeDsKeysCommand}" Margin="0,0,6,6" />
                                     </WrapPanel>
+                                    <TextBlock Classes="hint" TextWrapping="Wrap" Margin="0,6,0,0"
+                                               Text="Switch files need your own prod.keys (dumped from your Switch with Lockpick_RCM). NoIntrovert looks where Ryujinx and the yuzu-family emulators keep it." />
+                                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="{Binding SwitchKeysSummary}" />
+                                    <WrapPanel Orientation="Horizontal">
+                                        <Button Classes="tool" Content="Choose prod.keys…" Command="{Binding BrowseSwitchKeysCommand}" Margin="0,0,6,6" />
+                                        <Button Classes="tool" Content="Find automatically" Command="{Binding FindSwitchKeysAutomaticallyCommand}" Margin="0,0,6,6" />
+                                        <Button Classes="tool" Content="Refresh" Command="{Binding RefreshSwitchKeysCommand}" Margin="0,0,6,6" />
+                                    </WrapPanel>
                                 </StackPanel>
                             </Border>
                         </StackPanel>

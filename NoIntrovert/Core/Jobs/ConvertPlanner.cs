@@ -94,10 +94,18 @@ public static class ConvertPlanner
                 case TargetKind.Wua:
                     wiiu.Add(i);
                     break;
+                case TargetKind.Nsz or TargetKind.Xcz or TargetKind.Nsp or TargetKind.Xci:
+                    // Switch packages: lib-nx-kit converts and checks them (prod.keys needed).
+                    var kind = row.Target;
+                    jobs.Add(new(name, [i], row.Size, c => Switch.SwitchJobs.Convert(c.WithSettings(With(c.Settings, at)), path, kind)));
+                    break;
                 case TargetKind.Cci or TargetKind.Zcci:
                     // D2: lib-3ds-kit makes a decrypted .cci (bare, or compressed as Azahar's .zcci).
                     var compress = row.Target == TargetKind.Zcci;
                     jobs.Add(new(name, [i], row.Size, c => Ctr.CtrJobs.ToCci(c.WithSettings(With(c.Settings, at)), path, compress)));
+                    break;
+                case TargetKind.SevenZip or TargetKind.Zip when IsThreeDsGame(path):
+                    jobs.Add(new(name, [i], row.Size, _ => JobOutcome.Skipped("a 3DS game isn't packed into a 7z or zip; choose .cci or .zcci")));
                     break;
                 case TargetKind.SevenZip when ArchiveJobs.IsConvertible(path) && HoldsSeveralGames(path):
                     // R6: one 7z per game, each holding one ROM (D9).
@@ -256,6 +264,13 @@ public static class ConvertPlanner
         return null;
     }
 
+    /// <summary>D2: a 3DS game file (or an archive holding one), which is never packed into a 7z or zip.</summary>
+    private static bool IsThreeDsGame(string path)
+    {
+        static bool Game(string name) => Path.GetExtension(name).ToLowerInvariant() is ".3ds" or ".cci" or ".cia" or ".zcci" or ".zcia";
+        return File.Exists(path) && (Game(path) || (ArchiveJobs.IsConvertible(path) && (ArchivePeek.Members(path) ?? []).Any(m => Game(m.Name))));
+    }
+
     /// <summary>R6: an archive with more than one cartridge ROM in it.</summary>
     private static bool HoldsSeveralGames(string archive) =>
         (ArchivePeek.Members(archive) ?? []).Count(m => KnownFormats.Cartridges.Any(k => k.HasExtension(m.Name))
@@ -303,5 +318,6 @@ public static class ConvertPlanner
     /// </summary>
     private static bool RemovesOriginals(AppSettings s, TargetKind target) =>
         s.Output.ReplacesOriginals && target is TargetKind.Chd or TargetKind.Rvz or TargetKind.Wua
-            or TargetKind.SevenZip or TargetKind.Zip or TargetKind.Files or TargetKind.Cci or TargetKind.Zcci;
+            or TargetKind.SevenZip or TargetKind.Zip or TargetKind.Files or TargetKind.Cci or TargetKind.Zcci
+            or TargetKind.Nsz or TargetKind.Xcz or TargetKind.Nsp or TargetKind.Xci;
 }

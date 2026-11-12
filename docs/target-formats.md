@@ -39,7 +39,7 @@ That's why cartridges go in a .7z while disc images become bare CHD, RVZ or WUA.
 | R8 | Any archive the app writes | 7z uses LZMA2 only and zip uses Deflate only. RetroArch can't open zstd, PPMd or Deflate64. |
 | R9 | Computer systems whose cores read zip themselves (C64, DOS, Amiga, ST, CPC, Atari 8-bit, MSX disks) | `.zip`, not .7z |
 | R10 | A file already in its target format and container | Nothing to do (Optimal) |
-| R11 | A target that changes the bytes on disk (CHD, RVZ, WUA, NSZ, XISO, ZCCI) | The original No-Intro/Redump hashes are kept in the library index (no extra files), so the file can still be verified. RVZ, NSZ and CHD convert back exactly; WUA, XISO and ZCCI don't. |
+| R11 | A target that changes the bytes on disk (CHD, RVZ, WUA, NSZ, XISO, ZCCI) | The original No-Intro/Redump hashes are kept in the library index (no extra files), so the file can still be verified. RVZ, NSZ and CHD convert back exactly (an NSZ gives back its NSP byte for byte, file order and header included). WUA, XISO and ZCCI don't. |
 | R12 | A wrong byte order or copier header (.v64/.n64, .smc with a 512-byte header, interleaved .smd) | Converted to the No-Intro form (.z64, headerless .sfc, .md), then R1. Off unless turned on (Decision D6). |
 | R13 | An already-compressed format (.nsz/.xcz/.chd/.rvz/.wua/.cso) | Never put inside a zip or 7z |
 
@@ -81,13 +81,13 @@ roms/
 | ID | Question | Decision |
 |---|---|---|
 | D1 | Large Nintendo DS ROMs (256–512 MB) | Same as other cartridges: .7z. Power users can set a size above which .nds files stay bare (off by default). |
-| D2 | Nintendo 3DS | A decrypted `.cci` inside a .7z. The output is never named `.3ds`: `.3ds` files are renamed to `.cci`. Encrypted images, `.cia` games and Azahar's `.zcci`/`.zcia` are converted by lib-3ds-kit with the user's own keys. `.zcci` (Azahar only) and bare `.cci` are offered as alternatives. |
+| D2 | Nintendo 3DS | A bare decrypted `.cci`, the raw file, not in an archive. The output is never named `.3ds`: `.3ds` files are renamed to `.cci`. Encrypted images, `.cia` games, Azahar's `.zcci`/`.zcia` and 3DS games in a 7z or zip are converted by lib-3ds-kit with the user's own keys. `.zcci` (Azahar only) is the one alternative. A 3DS game is never packed into a 7z or zip: that isn't a supported way to keep one, and a setting for every system that says 7z or zip doesn't apply to it. |
 | D3 | PSP | `.chd` made with `createdvd` and 2048-byte hunks. Keep `.cso` with an override if you also play on a real PSP. |
 | D4 | PS2 CD vs DVD | Detected automatically: `createdvd` for DVD images, `createcd` for CD-based games |
 | D5 | Computer systems | `.zip` (Rule R9) |
 | D6 | Header and byte-order fixes (R12) | Off by default; turned on in Settings |
 | D7 | Dreamcast `.cdi` | Left as is; chdman can't convert DiscJuggler images reliably |
-| D8 | Systems the app can't convert to yet (Switch, Xbox, PS3, PS Vita) | For now the app shows the recommendation without a Convert button. A converter for each system comes later as its own requirement. |
+| D8 | Systems the app can't convert to yet (Xbox, PS3, PS Vita) | For now the app shows the recommendation without a Convert button. A converter for each system comes later as its own requirement. |
 | D9 | 7z settings | LZMA2, Ultra (`-mx9`), non-solid for a single file |
 | D10 | Arcade (MAME/FBNeo) | Out of scope: reported only, never changed |
 
@@ -95,9 +95,9 @@ roms/
 
 - **Switch:** `.nsz` is the default for everything. NSZ and XCZ are just zstd-compressed NSP and
   XCI. Updates and DLC only exist as NSP, so making the base game `.nsz` too keeps one format
-  throughout. A cartridge XCI is repacked to NSP first, which drops the cartridge-only data, so
-  the result can't be turned back into the No-Intro XCI. Choose `.xcz` in Settings to keep cartridge
-  dumps as exact compressed copies.
+  throughout. An XCI made into an NSZ loses the cartridge-only data (the card header), so the
+  result can't be turned back into the No-Intro XCI. Choose `.xcz` in Settings to keep cartridge
+  dumps as cartridge images. lib-nx-kit does the conversions, with the user's own `prod.keys`.
 - **PS Vita:** the target is a `.zip` of a properly dumped NoNpDrm game folder, which Vita3K installs
   with File → Install .zip. A `.pkg` plus its zRIF key converts to that folder first (pkg2zip). As
   an option, the app also writes a small frontend launcher file named after the game that holds its
@@ -122,7 +122,7 @@ used in the settings file.
 | Game Boy Advance | `game-boy-advance` | .gba | 7z | Loose ROM, single-file .zip (Rule R1) | Single-file .zip (Deflate) | Saves are separate .srm/.sav named after archive basename - 7z is fine. mGBA standalone reads zip/7z too. |
 | Nintendo DS | `nintendo-ds` | .nds | 7z | Loose ROM, single-file .zip (Rule R1) | Single-file .zip (Deflate); bare .nds for 256-512MB titles if launch latency matters | Large ROMs (up to 512MB) take several seconds to decompress from LZMA 7z every launch; zip (deflate) decompresses several times faster at ~10% worse ratio. Saves separate. Do not trim (breaks No-Intro CRC). |
 | Nintendo DSi (enhanced carts & DSiWare) | `nintendo-dsi` | .nds (decrypted) | 7z | Encrypted DSiWare .app/.tad → decrypted .nds (No-Intro 'DSi (Decrypted)' / 'DSi (Digital)') | Single-file .zip (Deflate) | DSi mode needs DSi BIOS + NAND image (NAND must stay bare). Full-fidelity DSiWare usually installed to NAND. |
-| Nintendo 3DS | `nintendo-3ds` | .cci (decrypted) | 7z | Encrypted .3ds/.cci → decrypted; .3ds renamed to .cci (never .3ds); .cia games → .cci | .zcci (Azahar only); bare .cci | Must be decrypted (Azahar dropped encrypted support). Never output .3ds. Large ROMs are extracted to temp on each launch from .7z. |
+| Nintendo 3DS | `nintendo-3ds` | .cci (decrypted) | bare | Encrypted .3ds/.cci → decrypted; .3ds renamed to .cci (never .3ds); .cia games → .cci; a game in a 7z or zip → unpacked .cci | .zcci (Azahar only) | Must be decrypted (Azahar dropped encrypted support). Never output .3ds. Never packed into a 7z or zip. |
 | Virtual Boy | `virtual-boy` | .vb | 7z | Loose ROM, single-file .zip (Rule R1) | Single-file .zip (Deflate) | - |
 | Pokemon Mini | `pokemon-mini` | .min | 7z | Loose ROM, single-file .zip (Rule R1) | Single-file .zip (Deflate) | - |
 | Game & Watch / LCD handhelds | `game-watch-lcd-handhelds` | .zip (MAME romset) | zip | - | 7z romset (MAME supports); .mgw for gw core | Never extract/repack per file. .mgw (MADrigal) is a different format, not interchangeable. |

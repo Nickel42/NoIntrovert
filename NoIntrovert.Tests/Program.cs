@@ -1824,8 +1824,8 @@ Test("Target formats: the guide's table and the registry agree on every system",
                 ("C64/Game.7z", TargetStatus.Convert, "zip", "Convert → .zip"),
                 ("mame/sf2.zip", TargetStatus.LeftAsIs, "Leave as is", "Left as is (arcade romset)"),
                 ("PSP/Game.cso", TargetStatus.Convert, "CHD", "Convert → .chd"),
-                ("Switch/Game.nsp", TargetStatus.NotYetSupported, "Leave as is", "Recommended: .nsz (not yet supported)"),
-                ("Switch/Game.xci", TargetStatus.NotYetSupported, "Leave as is", "Recommended: .nsz (not yet supported; repack to NSP first)"),
+                ("Switch/Game.nsp", TargetStatus.Convert, ".nsz", "Convert → .nsz"),
+                ("Switch/Game.xci", TargetStatus.Convert, ".nsz", "Convert → .nsz"),
             };
             var rows = new List<PlanInput>();
             foreach (var (rel, status, initial, text) in cases)
@@ -1836,10 +1836,10 @@ Test("Target formats: the guide's table and the registry agree on every system",
                 if (status == TargetStatus.NotYetSupported && o.Choices.Count != 1) return $"{rel} offers {string.Join(", ", o.Choices)} for a target the app can't make";
                 rows.Add(new PlanInput(In(rel), o.Default.Kind, 1));
             }
-            // Optimal, arcade and not-yet-supported rows get no job.
+            // Optimal and arcade rows get no job.
             var plan = ConvertPlanner.Plan(rows, settings, log);
             var left = plan.Left.Select(i => cases[i].Rel).ToList();
-            return left.SequenceEqual(["NES/Packed.7z", "mame/sf2.zip", "Switch/Game.nsp", "Switch/Game.xci"])
+            return left.SequenceEqual(["NES/Packed.7z", "mame/sf2.zip"])
                 ? null : $"left alone: {string.Join(", ", left)}";
         });
 
@@ -2004,7 +2004,7 @@ if (SevenZipEngine.IsAvailable(out _))
         var cso = PlanWith("PSP/Game.cso", new TargetOverride("*", ".cso", "leave"));
         if (cso.Status != TargetStatus.LeftAsIs) return $"cso: {cso.Text}";
         var xci = PlanWith("Switch/Game.xci", new TargetOverride("switch", null, "xcz"));
-        return xci.Text == "Recommended: .xcz (not yet supported)" ? null : $"xci: {xci.Text}";
+        return xci.Text == "Convert → .xcz" ? null : $"xci: {xci.Text}";
     });
 
     Test("Overrides: D1 keeps a DS ROM above the size bare", () =>
@@ -2113,20 +2113,39 @@ if (SevenZipEngine.IsAvailable(out _))
     Put3("3DS/Game.3ds", Cci(encrypted: false));
     Put3("3DS/Locked.3ds", Cci(encrypted: true));
 
-    Test("3DS: a decrypted .3ds becomes a 7z holding .cci (acceptance 11, D2)", () =>
+    Test("3DS: a decrypted .3ds becomes a bare .cci, the raw file (acceptance 11, D2)", () =>
     {
         var o = ConvertTargets.For(Set3("3DS/Game.3ds"), new AppSettings());
-        if (o.Plan.Text != "Convert → .7z (as .cci)") return o.Plan.Text;
+        if (o.Plan.Text != "Convert → .cci (renamed from .3ds)" || o.Default != TargetChoice.Cci) return $"{o.Plan.Text} ({o.Default})";
+        if (!o.Choices.Contains(TargetChoice.Zcci) || o.Choices.Any(c => c == TargetChoice.SevenZip || c == TargetChoice.Zip)) return string.Join(", ", o.Choices);
         if (RunDefault3("3DS/Game.3ds") is { } problem) return problem;
-        var held = Members3(Q("3DS/Game.7z"));
-        return held == "Game.cci" && File.Exists(Q("3DS/Game.3ds")) ? null : $"holds {held}; original there: {File.Exists(Q("3DS/Game.3ds"))}";
+        if (File.Exists(Q("3DS/Game.7z"))) return "a 7z was made";
+        return File.Exists(Q("3DS/Game.3ds")) && File.ReadAllBytes(Q("3DS/Game.cci")).AsSpan().SequenceEqual(File.ReadAllBytes(Q("3DS/Game.3ds")))
+            ? null : "Game.cci isn't the .3ds's bytes";
     });
 
-    Test("3DS: an encrypted image is planned to be decrypted on its way into the 7z, with .zcci and bare .cci offered (acceptance 12, FR-9)", () =>
+    Test("3DS: a game is never packed into a 7z or zip, whatever the settings say (D2)", () =>
+    {
+        // 7z isn't a 3DS choice, so an override naming it is ignored (and reported); one for every system doesn't apply.
+        if (TargetOverrides.Options(TargetFormats.ById("nintendo-3ds")).Any(t => t.Id is "7z" or "zip")) return "Settings offers 7z or zip for 3DS";
+        foreach (var o7 in new[] { new TargetOverride("nintendo-3ds", null, "7z"), new TargetOverride("*", null, "7z"), new TargetOverride("*", ".3ds", "zip") })
+        {
+            var s = new AppSettings();
+            s.TargetFormats.Overrides.Add(o7);
+            var o = ConvertTargets.For(Set3("3DS/Game.3ds"), s);
+            if (o.Plan.Text != "Convert → .cci (renamed from .3ds)") return $"{o7.System}/{o7.Extension} → {o7.Target}: {o.Plan.Text}";
+        }
+        // A row that asks for a 7z anyway (a saved preset) is refused, and nothing is packed.
+        var plan = ConvertPlanner.Plan([new PlanInput(Q("3DS/Game.3ds"), TargetKind.SevenZip, 1)], new AppSettings(), log);
+        var r = RunJob(plan.Jobs[0].Work);
+        return r.Status == JobStatus.Skipped && !File.Exists(Q("3DS/Game.7z")) ? null : $"{r.Status}: {r.Summary}";
+    });
+
+    Test("3DS: an encrypted image is planned to be decrypted into a bare .cci, with .zcci offered and no 7z (acceptance 12, FR-9)", () =>
     {
         var o = ConvertTargets.For(Set3("3DS/Locked.3ds"), new AppSettings());
-        if (o.Plan.Text != "Convert → .7z (.cci, decrypted)" || o.Default != TargetChoice.SevenZip) return o.Plan.Text;
-        return o.Choices.Contains(TargetChoice.Zcci) && o.Choices.Contains(TargetChoice.Cci) ? null : string.Join(", ", o.Choices);
+        if (o.Plan.Text != "Convert → .cci (decrypted)" || o.Default != TargetChoice.Cci) return o.Plan.Text;
+        return o.Choices.Contains(TargetChoice.Zcci) && !o.Choices.Any(c => c == TargetChoice.SevenZip || c == TargetChoice.Zip) ? null : string.Join(", ", o.Choices);
     });
 
     // ---- 3DS through lib-3ds-kit (D2): its synthetic images, made with its fake keys, and the bytes its reference expects ----
@@ -2144,13 +2163,6 @@ if (SevenZipEngine.IsAvailable(out _))
         string Expected3(string name) => System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(ctrFixtures, "expected.json")))
             .RootElement.GetProperty(name).GetProperty("sha256").GetString()!;
         string Sha256Of(string path) { using var f = File.OpenRead(path); return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(f)).ToLowerInvariant(); }
-        string Sha256In7z(string archive)
-        {
-            var into = Dir("ctr-check-" + Guid.NewGuid().ToString("N")[..6]);
-            NoIntrovert.Core.Formats.ArchiveExtractor.Extract(archive, into, null, CancellationToken.None);
-            var files = Directory.GetFiles(into);
-            return files.Length == 1 ? Path.GetFileName(files[0]) + ":" + Sha256Of(files[0]) : $"{files.Length} files";
-        }
         Directory.CreateDirectory(Q("3DS-real"));
         File.Copy(Path.Combine(ctrFixtures, "game_a.3ds"), Q("3DS-real/Game A.3ds"));       // encrypted cartridge image
         File.Copy(Path.Combine(ctrFixtures, "game_b.cia"), Q("3DS-real/Game B.cia"));       // encrypted .cia of a game
@@ -2167,13 +2179,13 @@ if (SevenZipEngine.IsAvailable(out _))
                 return o.Plan.Text == text && o.Default == choice ? null : $"{rel}: {o.Plan.Text} ({o.Default})";
             }
             void Zcci(AppSettings s) => s.TargetFormats.Overrides.Add(new TargetOverride("nintendo-3ds", null, "zcci"));
-            void Bare(AppSettings s) => s.TargetFormats.Overrides.Add(new TargetOverride("nintendo-3ds", null, "bare"));
-            return Expect("3DS-real/Game A.3ds", "Convert → .7z (.cci, decrypted)", TargetChoice.SevenZip)
-                ?? Expect("3DS-real/Game B.cia", "Convert → .7z (.cci, from the .cia)", TargetChoice.SevenZip)
-                ?? Expect("3DS-real/Game C.zcci", "Convert → .7z (.cci, unpacked from Z3DS)", TargetChoice.SevenZip)
+            void SevenZip(AppSettings s) => s.TargetFormats.Overrides.Add(new TargetOverride("*", null, "7z"));
+            return Expect("3DS-real/Game A.3ds", "Convert → .cci (decrypted)", TargetChoice.Cci)
+                ?? Expect("3DS-real/Game B.cia", "Convert → .cci (from the .cia)", TargetChoice.Cci)
+                ?? Expect("3DS-real/Game C.zcci", "Convert → .cci (unpacked from Z3DS)", TargetChoice.Cci)
                 ?? Expect("3DS-real/Game A.3ds", "Convert → .zcci (decrypted)", TargetChoice.Zcci, Zcci)
                 ?? Expect("3DS-real/Game C.zcci", "Optimal", TargetChoice.Leave, Zcci)
-                ?? Expect("3DS-real/Game B.cia", "Convert → bare .cci (from the .cia)", TargetChoice.Cci, Bare)
+                ?? Expect("3DS-real/Game B.cia", "Convert → .cci (from the .cia)", TargetChoice.Cci, SevenZip)
                 ?? Expect("3DS/Game.3ds", "Convert → .zcci", TargetChoice.Zcci, Zcci);
         });
 
@@ -2182,29 +2194,46 @@ if (SevenZipEngine.IsAvailable(out _))
             NoIntrovert.Core.Ctr.CtrJobs.KeysForTests = () => new Lib3dsKit.Keys.CtrKeyStore();
             try
             {
-                var plan = ConvertPlanner.Plan([new PlanInput(Q("3DS-real/Game A.3ds"), TargetKind.SevenZip, 1)], new AppSettings(), log);
+                var plan = ConvertPlanner.Plan([new PlanInput(Q("3DS-real/Game A.3ds"), TargetKind.Cci, 1)], new AppSettings(), log);
                 var r = RunJob(plan.Jobs[0].Work);
                 return r.Status == JobStatus.Failed && r.Summary.Contains("3DS key missing") && r.Summary.Contains("Settings › Keys")
-                       && !File.Exists(Q("3DS-real/Game A.7z")) && File.Exists(Q("3DS-real/Game A.3ds")) ? null : $"{r.Status}: {r.Summary}";
+                       && !File.Exists(Q("3DS-real/Game A.cci")) && File.Exists(Q("3DS-real/Game A.3ds")) ? null : $"{r.Status}: {r.Summary}";
             }
             finally { NoIntrovert.Core.Ctr.CtrJobs.KeysForTests = FakeKeys; }
         });
 
-        Test("3DS: an encrypted image goes into its 7z decrypted, byte for byte as lib-3ds-kit's reference, with its dump's hashes kept (R11)", () =>
+        Test("3DS: an encrypted image becomes a bare decrypted .cci, byte for byte as lib-3ds-kit's reference, with its dump's hashes kept (R11)", () =>
         {
             if (RunDefault3("3DS-real/Game A.3ds") is { } problem) return problem;
-            var held = Sha256In7z(Q("3DS-real/Game A.7z"));
-            if (held != "Game A.cci:" + Expected3("game_a.decrypted.3ds")) return held;
-            var original = NoIntrovert.Core.Dats.OriginalHashes.Default.Get(Q("3DS-real/Game A.7z"));
+            if (File.Exists(Q("3DS-real/Game A.7z"))) return "a 7z was made";
+            if (Sha256Of(Q("3DS-real/Game A.cci")) != Expected3("game_a.decrypted.3ds")) return "Game A.cci isn't the reference";
+            var original = NoIntrovert.Core.Dats.OriginalHashes.Default.Get(Q("3DS-real/Game A.cci"));
             var dump = NoIntrovert.Core.Dats.Hasher.HashFile(Q("3DS-real/Game A.3ds"))[0];
             return original?.Files.FirstOrDefault()?.Sha1 == dump.Sha1 ? null : "the dump's hashes weren't recorded";
         });
 
-        Test("3DS: a .cia becomes a .cci in its 7z, as lib-3ds-kit's reference CCI", () =>
+        Test("3DS: a .cia becomes a bare .cci, as lib-3ds-kit's reference CCI", () =>
         {
-            if (RunDefault3("3DS-real/Game B.cia") is { } problem) return problem;
-            var held = Sha256In7z(Q("3DS-real/Game B.7z"));
-            return held == "Game B.cci:" + Expected3("game_b.3ds") ? null : held;
+            File.Copy(Path.Combine(ctrFixtures, "game_b.cia"), Q("3DS-real/Game E.cia"));
+            if (RunDefault3("3DS-real/Game E.cia") is { } problem) return problem;
+            if (File.Exists(Q("3DS-real/Game E.7z"))) return "a 7z was made";
+            return Sha256Of(Q("3DS-real/Game E.cci")) == Expected3("game_b.3ds") ? null : "Game E.cci isn't the reference";
+        });
+
+        Test("3DS: a 7z holding an encrypted image becomes a bare decrypted .cci, with the image's own hashes kept", () =>
+        {
+            Directory.CreateDirectory(Q("3DS-packed"));
+            var inner = Path.Combine(Dir("3ds-packed-src"), "Game D.3ds");
+            File.Copy(Path.Combine(ctrFixtures, "game_a.3ds"), inner);
+            using (var engine = new SevenZipEngine())
+                engine.Compress(ArchiveFormat.SevenZip, ArchiveLevel.Normal, 0, false, [inner], Q("3DS-packed/Game D.7z"), false, null, CancellationToken.None);
+            var o = ConvertTargets.For(Set3("3DS-packed/Game D.7z"), new AppSettings());
+            if (o.Plan.Text != "Convert → .cci (unpacked)" || o.Default != TargetChoice.Cci) return $"{o.Plan.Text} ({o.Default})";
+            if (RunDefault3("3DS-packed/Game D.7z") is { } problem) return problem;
+            if (Sha256Of(Q("3DS-packed/Game D.cci")) != Expected3("game_a.decrypted.3ds")) return "Game D.cci isn't the decrypted image";
+            var original = NoIntrovert.Core.Dats.OriginalHashes.Default.Get(Q("3DS-packed/Game D.cci"));
+            return original?.Files.FirstOrDefault()?.Sha1 == NoIntrovert.Core.Dats.Hasher.HashFile(inner)[0].Sha1
+                ? null : "the hashes kept aren't the image's (the 7z's?)";
         });
 
         Test("3DS: .zcci for Azahar from a .cia, bare .cci from a .zcci, both checked after", () =>
@@ -2237,6 +2266,94 @@ if (SevenZipEngine.IsAvailable(out _))
         NoIntrovert.Core.Ctr.CtrJobs.KeysForTests = null;
     }
     else Console.WriteLine($"SKIP  3DS through lib-3ds-kit: no fixtures at {ctrFixtures}");
+
+    // ---- Switch through lib-nx-kit: its synthetic packages and the fake prod.keys that opens them ----
+    var nxFixtures = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "native", "lib-nx-kit", "tests", "fixtures"));
+    if (Directory.Exists(nxFixtures))
+    {
+        LibNxKit.Keys.KeySet NxKeys() => LibNxKit.Keys.KeySet.Load(Path.Combine(nxFixtures, "prod.keys.fake"));
+        Directory.CreateDirectory(Q("Switch-real"));
+        File.Copy(Path.Combine(nxFixtures, "test_game.nsp"), Q("Switch-real/Test Game.nsp"));
+        File.Copy(Path.Combine(nxFixtures, "test_game_update.nsp"), Q("Switch-real/Test Game Update.nsp"));
+        NoIntrovert.Core.Switch.SwitchJobs.KeysForTests = NxKeys;
+        string? RunKind(string rel, TargetKind kind, Action<AppSettings>? configure = null)
+        {
+            var plan = ConvertPlanner.Plan([new PlanInput(Q(rel), kind, 1)], new AppSettings(), log);
+            if (plan.Jobs.Count != 1) return $"{plan.Jobs.Count} job(s)";
+            var r = RunJob(plan.Jobs[0].Work, configure);
+            return r.Status is JobStatus.Succeeded or JobStatus.Warning ? null : $"{r.Status}: {r.Summary}";
+        }
+
+        // Every file in a package, by name, with its SHA-256: what an .nsz must give back (the package's file order may differ).
+        string Contents(string path)
+        {
+            using var package = LibNxKit.Packages.SwitchPackage.Open(path, NxKeys());
+            return string.Join(" ", package.Files.OrderBy(f => f.Name, StringComparer.Ordinal).Select(f =>
+            {
+                using var data = package.OpenFile(f);
+                return f.Name + ":" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(data))[..12];
+            }));
+        }
+
+        Test("Switch: an .nsp becomes an .nsz by default, and back to the same .nsp byte for byte (lib-nx-kit)", () =>
+        {
+            var o = ConvertTargets.For(Set3("Switch-real/Test Game.nsp"), new AppSettings());
+            if (o.Plan.Text != "Convert → .nsz" || o.Default != TargetChoice.Nsz) return $"{o.Plan.Text} ({o.Default})";
+            if (!o.Choices.Contains(TargetChoice.Xcz)) return string.Join(", ", o.Choices);
+            if (RunDefault3("Switch-real/Test Game.nsp") is { } problem) return problem;
+            if (!File.Exists(Q("Switch-real/Test Game.nsz"))) return string.Join(", ", Directory.GetFiles(Q("Switch-real")).Select(Path.GetFileName));
+            if (new FileInfo(Q("Switch-real/Test Game.nsz")).Length >= new FileInfo(Q("Switch-real/Test Game.nsp")).Length) return "the .nsz isn't smaller";
+            var nsz = ConvertTargets.For(Set3("Switch-real/Test Game.nsz"), new AppSettings());
+            if (nsz.Plan.Status != TargetStatus.Optimal || !nsz.Choices.Contains(TargetChoice.Nsp)) return $".nsz: {nsz.Plan.Text}, {string.Join(", ", nsz.Choices)}";
+            var back = Dir("switch-back");
+            if (RunKind("Switch-real/Test Game.nsz", TargetKind.Nsp, s => s.Output.Folder = back) is { } p2) return p2;
+            var original = Contents(Q("Switch-real/Test Game.nsp"));
+            var restored = Contents(Path.Combine(back, "Test Game.nsp"));
+            if (restored != original) return $"the files differ:\n  {original}\n  {restored}";
+            // lib-nx-kit keeps the file order and header padding, so the whole file is the original (R11).
+            return File.ReadAllBytes(Path.Combine(back, "Test Game.nsp")).AsSpan().SequenceEqual(File.ReadAllBytes(Q("Switch-real/Test Game.nsp")))
+                ? null : "same files, but not the same .nsp";
+        });
+
+        Test("Switch: an update with title-key crypto, as a cartridge image (.xcz) and back to .xci", () =>
+        {
+            if (RunKind("Switch-real/Test Game Update.nsp", TargetKind.Xcz) is { } problem) return problem;
+            var o = ConvertTargets.For(Set3("Switch-real/Test Game Update.xcz"), new AppSettings());
+            if (!o.Choices.Contains(TargetChoice.Xci) || o.Choices.Contains(TargetChoice.Nsp)) return string.Join(", ", o.Choices);
+            if (RunKind("Switch-real/Test Game Update.xcz", TargetKind.Nsp) is { } p2) return p2; // "uncompressed" of a cartridge image is an .xci
+            using var package = LibNxKit.Packages.SwitchPackage.Open(Q("Switch-real/Test Game Update.xci"), NxKeys());
+            return package.IsGameCard && package.Titles.Count == 1 ? null : $"{package.Format}, {package.Titles.Count} title(s)";
+        });
+
+        Test("Switch: without prod.keys the job fails, says where it goes, and writes nothing", () =>
+        {
+            NoIntrovert.Core.Switch.SwitchJobs.KeysForTests = null;
+            try
+            {
+                var empty = Dir("switch-no-keys");
+                var r = RunJob(c => NoIntrovert.Core.Switch.SwitchJobs.Convert(c, Q("Switch-real/Test Game.nsp"), TargetKind.Xcz, empty),
+                    s => s.Keys.SwitchKeysPath = Path.Combine(empty, "nowhere.keys"));
+                // The machine running the tests may have real keys in an emulator's folder; then the fake package can't be opened with them.
+                return r.Status == JobStatus.Failed && Directory.GetFiles(empty).Length == 0 ? Note(r.Summary) : $"{r.Status}: {r.Summary}";
+            }
+            finally { NoIntrovert.Core.Switch.SwitchJobs.KeysForTests = NxKeys; }
+        });
+
+        Test("Switch: Replace the originals removes the .nsp once its .nsz is written and checked", () =>
+        {
+            File.Copy(Path.Combine(nxFixtures, "test_game.nsp"), Q("Switch-real/Replace.nsp"));
+            var problem = RunKind("Switch-real/Replace.nsp", TargetKind.Nsz, s => { s.Output.SaveTo = SaveTo.ReplaceOriginals; s.Output.UseRecycleBin = false; });
+            return problem ?? (File.Exists(Q("Switch-real/Replace.nsz")) && !File.Exists(Q("Switch-real/Replace.nsp")) ? null : "the original is still there or the .nsz is missing");
+        });
+
+        Test("Switch: Settings › Keys describes the prod.keys lib-nx-kit finds", () =>
+        {
+            var text = NoIntrovert.Core.Switch.SwitchJobs.Describe(Path.Combine(nxFixtures, "prod.keys.fake"));
+            return text.StartsWith("Using prod.keys in ") && text.Contains(nxFixtures) ? null : text;
+        });
+        NoIntrovert.Core.Switch.SwitchJobs.KeysForTests = null;
+    }
+    else Console.WriteLine($"SKIP  Switch through lib-nx-kit: no fixtures at {nxFixtures}");
 
     // A NoNpDrm folder: sce_sys/param.sfo (TITLE, TITLE_ID) and the game's files.
     byte[] Sfo(params (string Key, string Value)[] entries)

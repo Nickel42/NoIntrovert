@@ -6,9 +6,9 @@
 #
 # Everything is built from source: lib-chd-kit (native/lib-chd-kit) from this
 # repository, and lib-wii-gamecube-kit, lib-7z-zip-kit (the archive engine) and
-# lib-wii-u-kit (Wii U to .wua) and lib-3ds-kit (Nintendo 3DS), both managed code only,
-# from their own repositories, git submodules in native/lib-wii-gamecube-kit,
-# native/lib-7z-zip-kit, native/lib-wii-u-kit and native/lib-3ds-kit. Private ones need a checkout token that can read
+# lib-wii-u-kit (Wii U to .wua), lib-3ds-kit (Nintendo 3DS) and lib-nx-kit (Switch), all
+# managed code only, from their own repositories, git submodules in native/lib-wii-gamecube-kit,
+# native/lib-7z-zip-kit, native/lib-wii-u-kit, native/lib-3ds-kit and native/lib-nx-kit. Private ones need a checkout token that can read
 # them: the LIB_REPOS_TOKEN secret (a fine-grained token with read access to
 # their contents).
 
@@ -127,6 +127,7 @@ jobs:
             Copy-Item app/native/lib-7z-zip-kit/LICENSE "$out/LICENSE-lib-7z-zip-kit.txt"
             Copy-Item app/native/lib-wii-u-kit/LICENSE "$out/LICENSE-lib-wii-u-kit.txt"
             Copy-Item app/native/lib-3ds-kit/LICENSE "$out/LICENSE-lib-3ds-kit.txt"
+            Copy-Item app/native/lib-nx-kit/LICENSE "$out/LICENSE-lib-nx-kit.txt"
             Copy-Item app/NoIntrovert/Core/Emulators/Data/THIRD_PARTY_NOTICES.txt "$out/THIRD_PARTY_NOTICES-emulator-data.txt"
             Copy-Item app/native/lib-7z-zip-kit/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
             Copy-Item app/native/lib-7z-zip-kit/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
@@ -190,6 +191,7 @@ jobs:
           cp app/native/lib-7z-zip-kit/LICENSE LICENSE-lib-7z-zip-kit.txt
           cp app/native/lib-wii-u-kit/LICENSE LICENSE-lib-wii-u-kit.txt
           cp app/native/lib-3ds-kit/LICENSE LICENSE-lib-3ds-kit.txt
+          cp app/native/lib-nx-kit/LICENSE LICENSE-lib-nx-kit.txt
           cp app/NoIntrovert/Core/Emulators/Data/THIRD_PARTY_NOTICES.txt THIRD_PARTY_NOTICES-emulator-data.txt
           cp app/native/lib-7z-zip-kit/_deps/7zip-src/DOC/License.txt LICENSE-7-Zip.txt
           cp app/native/lib-7z-zip-kit/_deps/bit7z-src/LICENSE LICENSE-bit7z.txt
@@ -206,7 +208,7 @@ jobs:
               app/README.md app/LICENSE LICENSE-lib-chd-kit.txt app/native/lib-chd-kit/THIRD_PARTY_NOTICES.md \
               LICENSE-lib-7z-zip-kit.txt LICENSE-7-Zip.txt LICENSE-bit7z.txt app/packaging/THIRD_PARTY_ARCHIVES.md \
               LICENSE-lib-wii-gamecube-kit.txt THIRD_PARTY_NOTICES-lib-wii-gamecube-kit.md LICENSES-lib-wii-gamecube-kit-bundled.txt \
-              LICENSE-lib-wii-u-kit.txt LICENSE-lib-3ds-kit.txt THIRD_PARTY_NOTICES-emulator-data.txt
+              LICENSE-lib-wii-u-kit.txt LICENSE-lib-3ds-kit.txt LICENSE-lib-nx-kit.txt THIRD_PARTY_NOTICES-emulator-data.txt
           done
 
       - name: Check the Apple silicon zip unpacks to a validly signed app
@@ -331,6 +333,7 @@ jobs:
           cp app/native/lib-7z-zip-kit/LICENSE "$out/LICENSE-lib-7z-zip-kit.txt"
           cp app/native/lib-wii-u-kit/LICENSE "$out/LICENSE-lib-wii-u-kit.txt"
           cp app/native/lib-3ds-kit/LICENSE "$out/LICENSE-lib-3ds-kit.txt"
+          cp app/native/lib-nx-kit/LICENSE "$out/LICENSE-lib-nx-kit.txt"
           cp app/NoIntrovert/Core/Emulators/Data/THIRD_PARTY_NOTICES.txt "$out/THIRD_PARTY_NOTICES-emulator-data.txt"
           cp app/native/lib-7z-zip-kit/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
           cp app/native/lib-7z-zip-kit/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"

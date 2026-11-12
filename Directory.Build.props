@@ -72,6 +72,15 @@
   </PropertyGroup>
 
   <!--
+    lib-nx-kit (Nintendo Switch: NSP, NSZ, XCI and XCZ), its own repository, checked
+    out as a git submodule in native/lib-nx-kit. It is pure managed code, so there is
+    nothing to build first. Pass -p:LibNxKitRoot=... (ending in a slash) to use another checkout.
+  -->
+  <PropertyGroup>
+    <LibNxKitRoot Condition="'$(LibNxKitRoot)' == ''">$(MSBuildThisFileDirectory)native/lib-nx-kit/</LibNxKitRoot>
+  </PropertyGroup>
+
+  <!--
     lib-wii-gamecube-kit (Dolphin's GameCube/Wii disc code), its own
     repository, checked out as a git submodule in native/lib-wii-gamecube-kit
     (run "git submodule update" with init after cloning). Its build scripts put the native library

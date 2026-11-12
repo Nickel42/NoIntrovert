@@ -100,7 +100,7 @@ public static class CtrJobs
         var result = Convert(c, input, facts, output, compress);
         if (result.Outcome is { } failed) return failed;
 
-        RecordOriginal(c, source, output, facts, compress);
+        RecordOriginal(c, source, input, output, facts, compress);
         if (s.Output.ReplacesOriginals)
         {
             c.Report.SetStage("Removing the original");
@@ -112,30 +112,13 @@ public static class CtrJobs
             Path.GetFileName(output), Details: result.Warnings.Count > 0 ? string.Join("\n", result.Warnings) : null);
     }
 
-    /// <summary>
-    /// For <see cref="RomJobs.Pack"/>: a decrypted .cci of <paramref name="rom"/> in <paramref name="workFolder"/>,
-    /// named after it, ready to go into its 7z. Null with <paramref name="failure"/> when it couldn't be made.
-    /// </summary>
-    public static string? DecryptedCopy(JobContext c, string rom, string workFolder, out JobOutcome? failure)
-    {
-        failure = null;
-        var facts = CtrFacts.Of(rom);
-        if (facts is null) { failure = JobOutcome.Failed("not a 3DS game image or .cia"); return null; }
-        if (!facts.IsGame) { failure = JobOutcome.Skipped("an update or DLC .cia; only games become a .cci"); return null; }
-        var output = Path.Combine(workFolder, Path.GetFileNameWithoutExtension(rom) + ".cci");
-        var result = Convert(c, rom, facts, output, compress: false, verify: false);
-        failure = result.Outcome;
-        foreach (var w in result.Warnings) c.Log.Info($"  {w}");
-        return failure is null ? output : null;
-    }
-
     /// <summary>The hashes the original had (R11), for a file whose bytes the conversion changed: its own record, else its contents.</summary>
     public static IReadOnlyList<HashedFile> OriginalOf(string source, CancellationToken token) =>
         OriginalHashes.Default.Get(source)?.Files ?? Hasher.HashFile(source, token);
 
     private sealed record Converted(JobOutcome? Outcome, IReadOnlyList<string> Warnings);
 
-    private static Converted Convert(JobContext c, string input, CtrFacts facts, string output, bool compress, bool verify = true)
+    private static Converted Convert(JobContext c, string input, CtrFacts facts, string output, bool compress)
     {
         var s = c.Settings;
         var keys = KeysForTests?.Invoke() ?? LoadKeys(s.Keys.ThreeDsKeysFolder, out _);
@@ -173,7 +156,7 @@ public static class CtrJobs
         var warnings = result.Warnings.Where(w => !w.StartsWith("Input was already decrypted", StringComparison.Ordinal)).ToList();
 
         // Checked like other conversions: the hashes stored inside the new file (Settings › "Check each file after converting").
-        if (verify && (s.Chd.VerifyAfterCreate || s.Output.ReplacesOriginals))
+        if (s.Chd.VerifyAfterCreate || s.Output.ReplacesOriginals)
         {
             c.Report.SetStage("Checking");
             var report = new CtrVerifier(keys).Verify(output, new CtrVerifyOptions(), progress, c.Token);
@@ -187,11 +170,12 @@ public static class CtrJobs
     }
 
     /// <summary>R11: a decrypted or compressed file's bytes differ from its dump, so the dump's hashes are kept for Verify &amp; match.</summary>
-    private static void RecordOriginal(JobContext c, string source, string output, CtrFacts facts, bool compress)
+    /// <param name="input">The game file itself: the source, or what was unpacked from it when it's an archive.</param>
+    private static void RecordOriginal(JobContext c, string source, string input, string output, CtrFacts facts, bool compress)
     {
         if (!c.Settings.TargetFormats.RecordOriginalHashes) return;
         if (!(facts.NeedsConversion || compress)) return;
-        try { OriginalHashes.Default.Set(output, source, OriginalOf(source, c.Token)); }
+        try { OriginalHashes.Default.Set(output, source, OriginalOf(input, c.Token)); }
         catch (IOException ex) { c.Log.Warn($"  couldn't record {Path.GetFileName(source)}'s original hashes: {ex.Message}"); }
     }
 

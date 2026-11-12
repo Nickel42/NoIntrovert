@@ -177,9 +177,10 @@ it.
 ## Nintendo 3DS
 
 Encrypted `.3ds`/`.cci` images, `.cia` games and Azahar's compressed `.zcci`
-and `.zcia` all become a decrypted `.cci`: in a .7z by default, bare, or as
-a `.zcci`, which Azahar plays without unpacking (choose it in Settings ›
-Target formats, or per file on the Convert page). An update or DLC `.cia`
+and `.zcia` all become a decrypted `.cci`, the raw file (a 3DS game in a 7z
+or zip is unpacked), or a `.zcci`, which Azahar plays without unpacking
+(choose it in Settings › Target formats, or per file on the Convert page). A
+3DS game is never packed into a 7z or zip. An update or DLC `.cia`
 can't become a cartridge image and is left alone. A `.zcci` is hashed as the
 image it holds, so Verify & match recognises it.
 
@@ -191,6 +192,25 @@ repository ([Nickel42/lib-3ds-kit](https://github.com/Nickel42/lib-3ds-kit)),
 checked out as a git submodule in `native/lib-3ds-kit`. Its `.zcci` files
 were checked against Azahar itself in both directions. The tests use
 synthetic images and made-up keys, so try a real dump of your own before
+relying on it.
+
+## Nintendo Switch
+
+`.nsp`, `.xci` and `.xcz` files become `.nsz` by default; choose `.xcz` in
+Settings › Target formats to keep cartridge images as cartridge images, or
+"uncompressed" to turn an `.nsz` back into an `.nsp` (an `.xcz` back into an
+`.xci`). Every content file is checked against its metadata hash as it's
+written, so a damaged dump is caught rather than copied, and an `.nsz` turns
+back into the original `.nsp` byte for byte. A package holding several games
+becomes one file per game.
+
+This needs your own `prod.keys`, dumped from your Switch with Lockpick_RCM.
+NoIntrovert finds the one Ryujinx or a yuzu-family emulator (yuzu, Eden,
+Citron, Sudachi, Suyu) uses, or the one you choose in Settings › Keys; it ships
+no keys. All of the Switch code is lib-nx-kit, a managed .NET library in its
+own repository ([Nickel42/lib-nx-kit](https://github.com/Nickel42/lib-nx-kit)),
+checked out as a git submodule in `native/lib-nx-kit`. The tests use its
+synthetic packages and made-up keys, so try a real dump of your own before
 relying on it.
 
 ## App icon
@@ -222,6 +242,8 @@ Needs the .NET 10 SDK and the native libraries built:
   It is managed code only, so it needs no build of its own.
 - lib-3ds-kit, the Nintendo 3DS library, also a submodule (`native/lib-3ds-kit`),
   managed code only like lib-wii-u-kit.
+- lib-nx-kit, the Nintendo Switch library, also a submodule (`native/lib-nx-kit`),
+  managed code only.
 
 ```
 dotnet run --project NoIntrovert
@@ -274,7 +296,7 @@ the terms of the GNU General Public License, version 3 or (at your option) any
 later version, as published by the Free Software Foundation. See `LICENSE`.
 
 The bundled libraries keep their own licenses (all GPL-compatible): lib-chd-kit
-is BSD-3-Clause, lib-7z-zip-kit, lib-wii-u-kit and lib-3ds-kit MIT, 7-Zip (built without RAR) LGPL-2.1+, bit7z MPL-2.0. See
+is BSD-3-Clause, lib-7z-zip-kit, lib-wii-u-kit, lib-3ds-kit and lib-nx-kit MIT, 7-Zip (built without RAR) LGPL-2.1+, bit7z MPL-2.0. See
 `packaging/THIRD_PARTY_ARCHIVES.md` and lib-chd-kit's `THIRD_PARTY_NOTICES.md`.
 The bundled emulator data is derived from libretro-core-info and ES-DE, both MIT;
 their notices are in `THIRD_PARTY_NOTICES-emulator-data.txt` in every download

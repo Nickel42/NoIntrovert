@@ -146,12 +146,11 @@
     "category": "cartridge",
     "extensions": [".3ds", ".cci", ".cia", ".cxi", ".zcci", ".zcia", ".zcxi", ".3dsx", ".z3dsx"],
     "folders": ["3ds", "n3ds", "nintendo3ds"],
-    "target": {"format": ".cci", "container": "7z", "label": ".cci (decrypted)", "producible": true},
+    "target": {"format": ".cci", "container": "bare", "label": ".cci (decrypted)", "producible": true},
     "alternatives": [
-      {"id": "zcci", "label": ".zcci (Azahar only)", "producible": true},
-      {"id": "bare", "label": "Bare .cci", "producible": true}
+      {"id": "zcci", "label": ".zcci (Azahar only)", "producible": true}
     ],
-    "rules": ["R1", "R6", "R8", "R10", "R13"],
+    "rules": ["R6", "R10", "R13"],
     "dats": ["no-intro/Nintendo - Nintendo 3DS", "no-intro/Nintendo - New Nintendo 3DS"],
     "esde": "n3ds"
   },
@@ -203,10 +202,10 @@
     "category": "cartridge",
     "extensions": [".nsp", ".xci", ".nsz", ".xcz"],
     "folders": ["switch", "nintendoswitch", "nsw"],
-    "target": {"format": ".nsz", "container": "bare", "label": ".nsz", "producible": false},
+    "target": {"format": ".nsz", "container": "bare", "label": ".nsz", "producible": true},
     "alternatives": [
-      {"id": "xcz", "label": ".xcz", "producible": false},
-      {"id": "nsp", "label": ".nsp/.xci uncompressed", "producible": false}
+      {"id": "xcz", "label": ".xcz", "producible": true},
+      {"id": "nsp", "label": ".nsp/.xci uncompressed", "producible": true}
     ],
     "rules": ["R10", "R11", "R13"],
     "esde": "switch"

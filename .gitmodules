@@ -10,3 +10,6 @@
 [submodule "native/lib-3ds-kit"]
 	path = native/lib-3ds-kit
 	url = https://github.com/Nickel42/lib-3ds-kit.git
+[submodule "native/lib-nx-kit"]
+	path = native/lib-nx-kit
+	url = https://github.com/Nickel42/lib-nx-kit.git
