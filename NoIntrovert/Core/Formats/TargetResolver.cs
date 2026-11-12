@@ -70,6 +70,7 @@ public static class TargetResolver
 
         // D2, FR-9: lib-3ds-kit decrypts a 3DS image, makes a .cia a .cci and reads Azahar's .zcci on the way to its target.
         if (id == "nintendo-3ds" && !isArchive && ThreeDs(set, system, ext, alternatives, settings) is { } ctr) return ctr;
+        if (id == "nintendo-3ds" && isArchive && ThreeDsInArchive(set, system, contents, alternatives, settings) is { } packed) return packed;
         // Switch packages convert between NSP, NSZ, XCI and XCZ through lib-nx-kit.
         if (id == "switch" && !isArchive) return Switch(system, set, ext, alternatives, settings);
 
@@ -96,8 +97,8 @@ public static class TargetResolver
     }
 
     /// <summary>
-    /// D2: a Nintendo 3DS file that isn't in an archive. Every target is a decrypted .cci: in its 7z (the
-    /// recommendation), bare, or compressed as Azahar's .zcci. An encrypted image, a .cia (games only; an update
+    /// D2: a Nintendo 3DS file that isn't in an archive. Every target is a decrypted .cci: bare (the
+    /// recommendation), compressed as Azahar's .zcci, or in a 7z. An encrypted image, a .cia (games only; an update
     /// or DLC can't be a cartridge image) or a .zcci/.zcia goes through lib-3ds-kit first. Null leaves a plain,
     /// decrypted .cci/.3ds (and a .cxi) to the usual packing rules (R1, .3ds → .cci inside).
     /// </summary>
@@ -128,7 +129,7 @@ public static class TargetResolver
         if (target.Container == TargetContainer.Bare)
             return ext == ".cci" && !facts.NeedsConversion
                 ? Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives)
-                : Plan(id, TargetStatus.Convert, TargetChoice.Cci, $"Convert → bare .cci{note}", alternatives);
+                : Plan(id, TargetStatus.Convert, TargetChoice.Cci, $"Convert → .cci{(what is null && ext == ".3ds" ? " (renamed from .3ds)" : note)}", alternatives);
         if (!facts.NeedsConversion) return null;
         var container = target.Container == TargetContainer.Zip ? TargetContainer.Zip : TargetContainer.SevenZip;
         return Plan(id, TargetStatus.Convert, ChoiceFor(container), $"Convert → {Label(container)} (.cci, {what})", alternatives);
@@ -160,6 +161,29 @@ public static class TargetResolver
             return Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
         alternatives.Remove(wanted);
         return Plan(id, TargetStatus.Convert, wanted, $"Convert → {wantedExt}", alternatives);
+    }
+
+    /// <summary>
+    /// D2: a 7z or zip holding one 3DS game becomes the bare (or .zcci) target, unpacked, and decrypted or
+    /// converted on the way when it needs to be. A 7z or zip target leaves it to the usual archive rules
+    /// (null); an archive holding several games is left for unpacking first.
+    /// </summary>
+    private static TargetPlan? ThreeDsInArchive(FileSet set, SystemInfo system, List<string> contents, List<TargetChoice> alternatives, AppSettings settings)
+    {
+        var id = system.Id;
+        var games = contents.Count(c => c is ".3ds" or ".cci" or ".cia" or ".zcci" or ".zcia");
+        if (games == 0) return null;
+        var (target, _) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
+        if (target is null) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (your setting)", alternatives);
+        if (target.Container is TargetContainer.SevenZip or TargetContainer.Zip) return null;
+        if (games > 1) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (several games in one archive; unpack it first)", alternatives);
+        alternatives.RemoveAll(a => a == TargetChoice.Files);
+        foreach (var choice in new[] { TargetChoice.Cci, TargetChoice.Zcci })
+            if (!alternatives.Contains(choice)) alternatives.Add(choice);
+        var zcci = target.Format == ".zcci";
+        var wanted = zcci ? TargetChoice.Zcci : TargetChoice.Cci;
+        alternatives.Remove(wanted);
+        return Plan(id, TargetStatus.Convert, wanted, $"Convert → {(zcci ? ".zcci" : ".cci")} (unpacked)", alternatives);
     }
 
     /// <summary>Discs and other bare targets (R2, R3, R4, R13): .chd, .rvz, .wua, .wad, .nsz, .iso.</summary>

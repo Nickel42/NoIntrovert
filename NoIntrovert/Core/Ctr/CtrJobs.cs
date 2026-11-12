@@ -100,7 +100,7 @@ public static class CtrJobs
         var result = Convert(c, input, facts, output, compress);
         if (result.Outcome is { } failed) return failed;
 
-        RecordOriginal(c, source, output, facts, compress);
+        RecordOriginal(c, source, input, output, facts, compress);
         if (s.Output.ReplacesOriginals)
         {
             c.Report.SetStage("Removing the original");
@@ -187,11 +187,12 @@ public static class CtrJobs
     }
 
     /// <summary>R11: a decrypted or compressed file's bytes differ from its dump, so the dump's hashes are kept for Verify &amp; match.</summary>
-    private static void RecordOriginal(JobContext c, string source, string output, CtrFacts facts, bool compress)
+    /// <param name="input">The game file itself: the source, or what was unpacked from it when it's an archive.</param>
+    private static void RecordOriginal(JobContext c, string source, string input, string output, CtrFacts facts, bool compress)
     {
         if (!c.Settings.TargetFormats.RecordOriginalHashes) return;
         if (!(facts.NeedsConversion || compress)) return;
-        try { OriginalHashes.Default.Set(output, source, OriginalOf(source, c.Token)); }
+        try { OriginalHashes.Default.Set(output, source, OriginalOf(input, c.Token)); }
         catch (IOException ex) { c.Log.Warn($"  couldn't record {Path.GetFileName(source)}'s original hashes: {ex.Message}"); }
     }
 
