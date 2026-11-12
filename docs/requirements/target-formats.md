@@ -93,8 +93,8 @@ shows the recommendation with no Convert button, and each converter gets its own
 - **FR-8 PS2 and PSP (D3, D4).** PS2 DVD images use `createdvd`; PS2 CD games use `createcd` (the
   existing `IsoProbe`). PSP uses `createdvd` with 2048-byte hunks.
 - **FR-9 3DS (D2).**
-  - A decrypted `.3ds` or `.cci` becomes a .7z holding `<Game>.cci`; the output is never named
-    `.3ds`.
+  - The output is the raw decrypted `<Game>.cci`, not packed into an archive (a decrypted `.3ds` is
+    just renamed); it's never named `.3ds`.
   - lib-3ds-kit (`native/lib-3ds-kit`) converts what isn't a decrypted image first; the result is
     always a decrypted `.cci`, in its target container:
     - an encrypted image (NCCH flag `NoCrypto` not set) is decrypted, keeping its layout (trimmed or
@@ -102,8 +102,11 @@ shows the recommendation with no Convert button, and each converter gets its own
     - a `.cia` of a game becomes a `.cci` (trimmed). An update or DLC `.cia` can't be a cartridge
       image and is left as is;
     - Azahar's `.zcci` and `.zcia` (Z3DS) are read directly, without unpacking first.
-  - The targets are the 7z (recommended), bare `.cci`, and `.zcci` (Azahar's Z3DS, which Azahar plays
-    without unpacking). An archive holding a 3DS game can become a `.zcci` too.
+  - The targets are bare `.cci` (recommended) and `.zcci` (Azahar's Z3DS, which Azahar plays
+    without unpacking). A 3DS game is never packed into a 7z or zip: neither is offered, a setting
+    for every system that says 7z or zip doesn't apply, and a row that asks for one anyway is
+    skipped. A 7z or zip holding one 3DS game is unpacked into the bare `.cci` (or `.zcci`),
+    decrypted on the way when it needs to be; one holding several is left for unpacking first.
   - Keys are the user's own: `boot9.bin` and `aes_keys.txt` (and `seeddb.bin` for eShop titles),
     found in Azahar's and Citra's folders, or a folder chosen in Settings › Keys. Without them the
     job fails and says where they go; nothing is written.
@@ -211,11 +214,13 @@ shows the recommendation with no Convert button, and each converter gets its own
 | 8 | GameCube `Game.iso` | defaults | Bare `Game.rvz` |
 | 9 | C64 `Game.7z` holding `Game.d64` | defaults | `Game.zip` holding `Game.d64` |
 | 10 | `mame/sf2.zip` | defaults | Left as is (arcade) |
-| 11 | Decrypted `Game.3ds` | defaults | `Game.7z` holding `Game.cci` |
-| 12 | Encrypted `Game.3ds` | defaults | `Game.7z` holding the decrypted `Game.cci`; without keys the job fails and says where keys go |
-| 12a | `Game.cia` (a game) | defaults | `Game.7z` holding `Game.cci` |
+| 11 | Decrypted `Game.3ds` | defaults | Bare `Game.cci` (the same bytes) |
+| 11a | Decrypted `Game.3ds` | every system → `7z` | Bare `Game.cci`; no 7z is made |
+| 12 | Encrypted `Game.3ds` | defaults | Bare decrypted `Game.cci`; without keys the job fails and says where keys go |
+| 12a | `Game.cia` (a game) | defaults | Bare `Game.cci` |
 | 12b | `Game.cia` | system `nintendo-3ds` → `zcci` | Bare `Game.zcci` |
-| 12c | `Game.zcci` | defaults | `Game.7z` holding the decrypted `Game.cci` |
+| 12c | `Game.zcci` | defaults | Bare decrypted `Game.cci` |
+| 12d | `Game.7z` holding an encrypted `Game.3ds` | defaults | Bare decrypted `Game.cci` |
 | 13 | `Game.nds` | system `nintendo-ds` → `zip` | `Game.zip` |
 | 14 | `Game.cso` (PSP) | `*` / `.cso` → `leave` | Left as is |
 | 15 | `Game.cso` (PSP) | defaults | `Game.chd` (createdvd, 2048-byte hunks) |

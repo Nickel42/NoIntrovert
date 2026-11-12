@@ -198,9 +198,8 @@ public static class FormatPresets
         // D2: always decrypted (Azahar plays nothing else); encrypted images, .cia and .zcci files are converted by lib-3ds-kit.
         ["nintendo-3ds"] =
         [
-            new("7z-standard", "7z", "Decrypted .cci", "Smallest that still matches No-Intro; Azahar unpacks it on each launch", Kind(TargetKind.SevenZip), Recommended: true),
+            new("cci-standard", "CCI", "Bare", "The raw decrypted image; every 3DS emulator opens it as it is", Kind(TargetKind.Cci), Recommended: true),
             new("zcci-standard", "ZCCI", "Standard", "Azahar plays it without unpacking; other emulators can't read it", Kind(TargetKind.Zcci)),
-            new("cci-standard", "CCI", "Bare", "Every 3DS emulator reads it; the largest", Kind(TargetKind.Cci)),
         ],
         // Switch packages through lib-nx-kit, with your own prod.keys.
         ["switch"] =

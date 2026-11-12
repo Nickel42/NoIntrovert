@@ -80,6 +80,9 @@ public static class ConvertTargets
         // Files the registry doesn't know, and folders, are dropped to be packed: they keep the packing default.
         if (set.Format == OtherFile || set.Format == PackedFolder) return new Options(choices, initial, plan);
         if (plan.Status == TargetStatus.NotYetSupported) choices = [];
+        // D2: a 3DS game is never packed into a 7z or zip (or unpacked as loose files); it becomes a .cci or .zcci.
+        if (plan.System == "nintendo-3ds")
+            choices = choices.Where(c => c != TargetChoice.SevenZip && c != TargetChoice.Zip && c != TargetChoice.Files).ToList();
         var list = new List<TargetChoice>();
         if (plan.Choice != TargetChoice.Leave) list.Add(plan.Choice);
         foreach (var c in plan.Alternatives.Concat(choices))

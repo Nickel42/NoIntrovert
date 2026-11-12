@@ -13,7 +13,7 @@
   "game-boy-advance": "GBA ROM in 7z or ZIP. 7z is the default: it's the smallest archive, and RetroArch and mGBA both open it directly.",
   "nintendo-ds": "NDS ROM in 7z, ZIP or on its own. 7z is the default: it's the smallest archive. Large games load faster from ZIP or a bare .nds, at the cost of more space.",
   "nintendo-dsi": "Decrypted NDS ROM in 7z or ZIP. 7z is the default: it's the smallest archive, and a decrypted ROM is what emulators and No-Intro expect.",
-  "nintendo-3ds": "Decrypted CCI in 7z, a bare CCI, or ZCCI for Azahar. 7z is the default: Azahar only plays decrypted games, and 7z keeps them smallest while still matching No-Intro.",
+  "nintendo-3ds": "A bare decrypted CCI, or ZCCI for Azahar; never a 7z or zip. Bare CCI is the default: Azahar only plays decrypted games, and every 3DS emulator opens a .cci as it is.",
   "virtual-boy": "VB ROM in 7z or ZIP. 7z is the default: it's the smallest archive, and RetroArch opens it straight into memory.",
   "pokemon-mini": "MIN ROM in 7z or ZIP. 7z is the default: it's the smallest archive, and RetroArch opens it straight into memory.",
   "game-watch-lcd-handhelds": "MAME romset in ZIP or 7z, or MGW for the gw core. ZIP is the default: it's the romset as MAME distributes it, so it's never unpacked or repacked.",

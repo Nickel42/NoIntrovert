@@ -104,6 +104,9 @@ public static class ConvertPlanner
                     var compress = row.Target == TargetKind.Zcci;
                     jobs.Add(new(name, [i], row.Size, c => Ctr.CtrJobs.ToCci(c.WithSettings(With(c.Settings, at)), path, compress)));
                     break;
+                case TargetKind.SevenZip or TargetKind.Zip when IsThreeDsGame(path):
+                    jobs.Add(new(name, [i], row.Size, _ => JobOutcome.Skipped("a 3DS game isn't packed into a 7z or zip; choose .cci or .zcci")));
+                    break;
                 case TargetKind.SevenZip when ArchiveJobs.IsConvertible(path) && HoldsSeveralGames(path):
                     // R6: one 7z per game, each holding one ROM (D9).
                     jobs.Add(new(name, [i], row.Size, c => RomJobs.Split(c.WithSettings(With(c.Settings, at, s => { s.Archives.Format = ArchiveFormat.SevenZip; SingleFile7z(s); })),
@@ -259,6 +262,13 @@ public static class ConvertPlanner
             }
         }
         return null;
+    }
+
+    /// <summary>D2: a 3DS game file (or an archive holding one), which is never packed into a 7z or zip.</summary>
+    private static bool IsThreeDsGame(string path)
+    {
+        static bool Game(string name) => Path.GetExtension(name).ToLowerInvariant() is ".3ds" or ".cci" or ".cia" or ".zcci" or ".zcia";
+        return File.Exists(path) && (Game(path) || (ArchiveJobs.IsConvertible(path) && (ArchivePeek.Members(path) ?? []).Any(m => Game(m.Name))));
     }
 
     /// <summary>R6: an archive with more than one cartridge ROM in it.</summary>
