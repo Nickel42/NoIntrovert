@@ -38,7 +38,7 @@ public static class RomJobs
         string? archive = null;
 
         var renamed = Path.Combine(Path.GetDirectoryName(rom)!, member);
-        if (RomFixes.RenameOnly(rom) && !File.Exists(renamed))
+        if (RomFixes.RenameOnly(rom) && !File.Exists(renamed) && !s.Output.LeaveSourcesAlone)
         {
             // Same bytes, new name: rename beside the original (no copy of a 4 GB 3DS image), then back.
             c.Log.Info($"  {Path.GetFileName(rom)} goes in as {member}");
