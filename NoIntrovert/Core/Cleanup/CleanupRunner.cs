@@ -36,8 +36,14 @@ public sealed class CleanupRun
     /// <summary>The trash folders this run filled, one per library folder.</summary>
     public List<string> TrashFolders { get; set; } = [];
 
+    /// <summary>FR-8: the folder this run built a new library in; null when it tidied the Library in place.</summary>
+    public string? NewLibrary { get; set; }
+
     [JsonIgnore] public string Summary =>
-        $"{StartedUtc.ToLocalTime():g}: {Steps} step(s), {Entries.Count(e => e.Action == JournalAction.Trashed)} file(s) in the trash"
+        $"{StartedUtc.ToLocalTime():g}: {Steps} step(s), "
+        + (NewLibrary is { } lib
+            ? $"{Entries.Count(e => e.Action == JournalAction.Created)} file(s) made in {lib}"
+            : $"{Entries.Count(e => e.Action == JournalAction.Trashed)} file(s) in the trash")
         + (Undone ? " · undone" : TrashEmptied ? " · trash emptied" : "");
 }
 
@@ -64,6 +70,7 @@ public sealed class CleanupRunner
     {
         var games = plan.Steps.Where(s => s.Runs).GroupBy(s => s.GameKey).ToList();
         Run.Steps = games.Sum(g => g.Count());
+        Run.NewLibrary = plan.Steps.FirstOrDefault(s => s.Runs)?.Destination;
         Save();
         return games.Select(g =>
         {
@@ -86,7 +93,8 @@ public sealed class CleanupRunner
                 {
                     CleanupKind.Convert => Convert(c, step),
                     CleanupKind.Move or CleanupKind.Rename => MoveStep(step),
-                    CleanupKind.RemoveDuplicate => TrashAll(step.Sources, step.Root, NextStep()),
+                    CleanupKind.Copy => CopyStep(c, step),
+                    CleanupKind.RemoveDuplicate when !step.Copies => TrashAll(step.Sources, step.Root, NextStep()),
                     _ => null,
                 };
                 if (problem is not null)
@@ -109,7 +117,8 @@ public sealed class CleanupRunner
     /// <summary>
     /// Converts into a staging folder beside the target with the Convert
     /// page's own jobs (verified, originals kept), moves the results to their
-    /// database names, then moves the originals to the trash.
+    /// database names, then moves the originals to the trash. Into a new
+    /// library (FR-8) the originals stay where they are, untouched.
     /// </summary>
     private string? Convert(JobContext c, CleanupStep step)
     {
@@ -127,9 +136,11 @@ public sealed class CleanupRunner
             s.Output.Folder = staging;
             s.Output.Overwrite = false;
             // Whatever the presets say: verified or tested, originals kept (the run moves them to its trash itself).
-            static void Safe(AppSettings x)
+            var copies = step.Copies;
+            void Safe(AppSettings x)
             {
                 x.Output.SaveTo = SaveTo.Folder; // the staging folder, and never Replace the originals
+                x.Output.LeaveSourcesAlone = copies; // FR-8: not even renamed for a moment
                 x.Chd.VerifyAfterCreate = true;
                 x.Archives.TestAfter = true;
             }
@@ -171,11 +182,60 @@ public sealed class CleanupRunner
                 Record(JournalAction.Created, step.Target!, null, id);
                 WriteSkipFile(step, id);
             }
-            return TrashAll(step.Sources.SelectMany(Members).ToList(), step.Root, id);
+            return step.Copies ? null : TrashAll(step.Sources.SelectMany(Members).ToList(), step.Root, id);
         }
         finally
         {
             try { Directory.Delete(staging, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>
+    /// FR-8: copies the step's files (or a folder game, whole) into the new
+    /// library. Each lands under a temporary name first, so a copy that stops
+    /// halfway never looks finished. The sources aren't changed.
+    /// </summary>
+    private string? CopyStep(JobContext c, CleanupStep step)
+    {
+        if (step.Target!.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase)) return MovePlaylist(step);
+        var id = NextStep();
+        var folder = System.IO.Path.GetDirectoryName(step.Target!)!;
+        Directory.CreateDirectory(folder);
+        // A set (a cue and its bins) keeps its own names; a single file or folder takes the target's name.
+        var copies = step.Sources.Select(source =>
+            (Source: source, Target: step.Sources.Count == 1 ? step.Target! : System.IO.Path.Combine(folder, System.IO.Path.GetFileName(source)))).ToList();
+        if (copies.FirstOrDefault(x => File.Exists(x.Target) || Directory.Exists(x.Target)) is { Target: { } taken })
+            return $"{System.IO.Path.GetFileName(taken)} already exists";
+        foreach (var (source, target) in copies)
+        {
+            c.Token.ThrowIfCancellationRequested();
+            var part = target + ".noi-part";
+            if (Directory.Exists(source))
+            {
+                if (Directory.Exists(part)) Directory.Delete(part, recursive: true);
+                CopyFolder(source, part, c.Token);
+                Directory.Move(part, target);
+            }
+            else
+            {
+                File.Copy(source, part, overwrite: true);
+                File.Move(part, target);
+            }
+            if (OriginalHashes.Default.Get(source) is { } original) OriginalHashes.Default.Set(target, original.Source, original.Files); // R11 follows the copy
+            Record(JournalAction.Created, target, null, id);
+        }
+        return null;
+    }
+
+    private static void CopyFolder(string from, string to, CancellationToken token)
+    {
+        Directory.CreateDirectory(to);
+        foreach (var dir in Directory.EnumerateDirectories(from, "*", SearchOption.AllDirectories))
+            Directory.CreateDirectory(System.IO.Path.Combine(to, System.IO.Path.GetRelativePath(from, dir)));
+        foreach (var file in Directory.EnumerateFiles(from, "*", SearchOption.AllDirectories))
+        {
+            token.ThrowIfCancellationRequested();
+            File.Copy(file, System.IO.Path.Combine(to, System.IO.Path.GetRelativePath(from, file)));
         }
     }
 
@@ -205,7 +265,8 @@ public sealed class CleanupRunner
     /// gives each one's place, such as <c>hidden/Game (Disc 1).chd</c>), and
     /// writes the playlist beside hidden/, listing them in disc order. Old
     /// playlists go to the trash. A <c>Game.m3u</c> folder an earlier version
-    /// made is emptied this way, then removed.
+    /// made is emptied this way, then removed. Into a new library (FR-8) the
+    /// discs are copied instead, and the old playlists stay where they are.
     /// </summary>
     private string? MovePlaylist(CleanupStep step)
     {
@@ -222,7 +283,7 @@ public sealed class CleanupRunner
             var place = step.Renames.GetValueOrDefault(System.IO.Path.GetFileName(source)) ?? System.IO.Path.GetFileName(source);
             var target = System.IO.Path.Combine(folder, place.Replace('/', System.IO.Path.DirectorySeparatorChar));
             lines.Add(place);
-            if (System.IO.Path.GetFileName(source) == System.IO.Path.GetFileName(target) && CleanupPlanner.SamePath(source, target)) continue;
+            if (!step.Copies && System.IO.Path.GetFileName(source) == System.IO.Path.GetFileName(target) && CleanupPlanner.SamePath(source, target)) continue;
             if ((File.Exists(target) || Directory.Exists(target)) && !CleanupPlanner.SamePath(source, target))
                 return $"{System.IO.Path.GetFileName(target)} already exists";
             moves.Add((source, target));
@@ -232,6 +293,14 @@ public sealed class CleanupRunner
         foreach (var (from, to) in moves)
         {
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(to)!);
+            if (step.Copies)
+            {
+                File.Copy(from, to + ".noi-part", overwrite: true);
+                File.Move(to + ".noi-part", to);
+                if (OriginalHashes.Default.Get(from) is { } original) OriginalHashes.Default.Set(to, original.Source, original.Files);
+                Record(JournalAction.Created, to, null, id);
+                continue;
+            }
             File.Move(from, to);
             Record(JournalAction.Moved, to, from, id);
         }
@@ -246,19 +315,20 @@ public sealed class CleanupRunner
     /// The playlists a multi-disc step replaces: one where its playlist goes,
     /// one beside the discs (inside an old <c>Game.m3u</c> folder) and one
     /// beside their folder (beside an old hidden/). They go to the trash, so undo brings them back.
+    /// A new library's step (FR-8) replaces only the one in the new library.
     /// </summary>
     private void TrashOldPlaylists(CleanupStep step, int id)
     {
         var name = System.IO.Path.GetFileName(step.Target!);
         var old = new List<string> { step.Target! };
-        foreach (var source in step.Sources)
+        foreach (var source in step.Copies ? [] : step.Sources)
         {
             var dir = System.IO.Path.GetDirectoryName(source)!;
             old.Add(System.IO.Path.Combine(dir, name));
             if (System.IO.Path.GetDirectoryName(dir) is { } parent) old.Add(System.IO.Path.Combine(parent, name));
         }
         var files = old.Where(File.Exists).Distinct(PathNames.Comparer).ToList();
-        if (files.Count > 0) TrashAll(files, step.Root, id);
+        if (files.Count > 0) TrashAll(files, step.WriteRoot, id);
     }
 
     /// <summary>ES-DE: an empty noload.txt in hidden/, so ES-DE doesn't list each disc as a game of its own.</summary>
@@ -375,7 +445,8 @@ public sealed class CleanupRunner
                         if (Directory.Exists(e.Path)) Directory.Move(e.Path, e.From!); else File.Move(e.Path, e.From!);
                         break;
                     case JournalAction.Created:
-                        if (File.Exists(e.Path) && Unchanged(e)) FileRemover.Remove([e.Path], useBin, log);
+                        // A folder game copied whole into a new library (FR-8) is removed whole.
+                        if ((File.Exists(e.Path) || Directory.Exists(e.Path)) && Unchanged(e)) FileRemover.Remove([e.Path], useBin, log);
                         else problems.Add($"{System.IO.Path.GetFileName(e.Path)}: changed since, so it was left");
                         break;
                 }

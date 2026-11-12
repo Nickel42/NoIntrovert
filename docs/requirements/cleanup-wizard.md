@@ -86,6 +86,14 @@ Nothing happens until you've seen the whole plan, and everything the wizard did 
   3. then the one already in its layout folder.
 
   The others go to the Recycle Bin. Different regions or revisions aren't duplicates.
+- **FR-8 New library.** Instead of tidying the Library in place, the wizard can build a new library in another folder (*Where* on the Cleanup page: *Tidy the Library in place* or *Build a new library in another folder*; the folder is remembered).
+  - The plan is the same, made in the new folder: what isn't optimal is converted there, the rest is copied there, named as the database names it and laid out as FR-6 says (`<new folder>/roms/<es-de name>/…`, or the same paths below the new folder with *Keep the current layout*).
+  - **The Library doesn't change at all:** nothing in it is moved, renamed, converted in place, trashed or removed, not even for a moment.
+  - Duplicates (FR-7): only the copy that would stay is copied; the others are listed as left out.
+  - Files that aren't matched (unknown system, not checked, an arcade romset) are copied as they are, in their system folder when they have one, or keep their path below the new folder. *Also copy games that aren't matched* (on by default) turns this off; damaged files are listed but unticked.
+  - The new folder can't be inside a Library folder or hold one.
+  - FR-5 still holds: nothing in the new folder is overwritten; a name that's taken there is a clash. Each copy is written under a temporary name and renamed when complete.
+  - Undo removes what the run made in the new folder (to the Recycle Bin when that setting is on).
 
 ## 5. Decisions
 
@@ -114,3 +122,5 @@ Nothing happens until you've seen the whole plan, and everything the wizard did 
 | 10 | Undo after the bin was emptied | — | The renames and moves are undone; the conversion is listed as no longer reversible |
 | 11 | ES-DE's latest release renames `psx` (FR-6a) | ES-DE | Logged and shown in Settings with the likely new name; the games still go to `roms/psx/` |
 | 12 | First run with no network (FR-6a) | ES-DE | The bundled snapshot's folder names are used; the check is tried again on the next start |
+| 13 | Case 1 and 3, building a new library in `New/` (FR-8) | ES-DE | `New/roms/psx/Crash Bandicoot (USA).chd`, `New/roms/nes/Super Mario Bros. (World).7z`; every file in `Games/` unchanged |
+| 14 | Undo after case 13 | — | `New/` is empty again; `Games/` unchanged |

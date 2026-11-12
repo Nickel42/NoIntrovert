@@ -7,6 +7,7 @@ using NoIntrovert.Core.Cleanup;
 using NoIntrovert.Core.Dats;
 using NoIntrovert.Core.Jobs;
 using NoIntrovert.Core.Library;
+using NoIntrovert.Services;
 
 namespace NoIntrovert.ViewModels;
 
@@ -23,14 +24,18 @@ public sealed partial class CleanupStepRow(CleanupStep step, Action changed) : O
         CleanupKind.Convert => "Convert",
         CleanupKind.Rename => "Rename",
         CleanupKind.Move => "Move",
+        CleanupKind.Copy => "Copy",
         CleanupKind.RemoveDuplicate => "Remove duplicate",
         CleanupKind.Clash => "Clash",
-        _ => "Left alone",
+        _ => Step.Copies ? "Left out" : "Left alone",
     };
 
-    /// <summary>Before → after, as paths in the Library folder, so the dry run shows where each file ends up (FR-2).</summary>
+    /// <summary>
+    /// Before → after, as paths in the Library folder, so the dry run shows where each file ends up (FR-2).
+    /// For a new library (FR-8) the after is a path in the new library's folder.
+    /// </summary>
     public string Change => Step.Target is { } target
-        ? $"{string.Join(", ", Step.Sources.Take(1).Select(Shorten))}{(Step.Sources.Count > 1 ? $" (+{Step.Sources.Count - 1})" : "")} → {Shorten(target)}"
+        ? $"{string.Join(", ", Step.Sources.Take(1).Select(Shorten))}{(Step.Sources.Count > 1 ? $" (+{Step.Sources.Count - 1})" : "")} → {Shorten(target, Step.WriteRoot)}"
         : string.Join(", ", Step.Sources.Take(1).Select(Shorten)) + (Step.Kind == CleanupKind.RemoveDuplicate ? " → trash" : "");
 
     public bool Enabled
@@ -39,8 +44,10 @@ public sealed partial class CleanupStepRow(CleanupStep step, Action changed) : O
         set { if (Step.Enabled == value) return; Step.Enabled = value; OnPropertyChanged(); changed(); }
     }
 
-    private string Shorten(string target) =>
-        Path.GetRelativePath(Step.Root, target) is var relative && !relative.StartsWith("..") ? relative.Replace('\\', '/') : target;
+    private string Shorten(string path) => Shorten(path, Step.Root);
+
+    private static string Shorten(string path, string root) =>
+        Path.GetRelativePath(root, path) is var relative && !relative.StartsWith("..") && !Path.IsPathRooted(relative) ? relative.Replace('\\', '/') : path;
 }
 
 /// <summary>One past run, with Undo and Empty trash (FR-4).</summary>
@@ -62,15 +69,17 @@ public partial class CleanupViewModel : ViewModelBase
     private readonly LogViewModel _log;
     private readonly JobQueue _queue;
     private readonly Func<LibraryIndex> _index;
+    private readonly IDialogs _dialogs;
     private IReadOnlyList<Game>? _scope;
     private CleanupPlan? _plan;
 
-    public CleanupViewModel(SettingsViewModel settings, LogViewModel log, JobQueue queue, Func<LibraryIndex> index)
+    public CleanupViewModel(SettingsViewModel settings, LogViewModel log, JobQueue queue, Func<LibraryIndex> index, IDialogs dialogs)
     {
         _settings = settings;
         _log = log;
         _queue = queue;
         _index = index;
+        _dialogs = dialogs;
         // The layout can be changed here or in Settings; either way the plan is made again for it.
         _settings.Library.PropertyChanged += (_, e) =>
         {
@@ -98,6 +107,80 @@ public partial class CleanupViewModel : ViewModelBase
 
     private void UseLayout(LibraryLayout layout) =>
         _settings.Library.SelectedLayout = LibrarySettingsViewModel.Layouts.First(l => l.Value == layout);
+
+    // ---- FR-8: where the plan writes: the Library itself, or a new library in another folder ----
+
+    /// <summary>Tidy the Library where it is (the default): files are converted, renamed and moved in place.</summary>
+    public bool InPlace
+    {
+        get => !BuildNewLibrary;
+        set { if (value) BuildNewLibrary = false; }
+    }
+
+    /// <summary>
+    /// FR-8: build a new library in <see cref="NewLibraryFolder"/> instead. The
+    /// plan is the same, but every game is converted or copied there and the
+    /// Library is left exactly as it is.
+    /// </summary>
+    [ObservableProperty] public partial bool BuildNewLibrary { get; set; }
+
+    partial void OnBuildNewLibraryChanged(bool value)
+    {
+        OnPropertyChanged(nameof(InPlace));
+        OnPropertyChanged(nameof(SafetyText));
+        ReplanIfShown();
+    }
+
+    /// <summary>FR-8: copy files that aren't matched (unknown, not checked, damaged) as they are, rather than leave them out.</summary>
+    [ObservableProperty] public partial bool CopyUnmatched { get; set; } = true;
+
+    partial void OnCopyUnmatchedChanged(bool value) => ReplanIfShown();
+
+    /// <summary>The new library's folder (remembered in Settings).</summary>
+    public string NewLibraryFolder => _settings.Library.NewLibraryFolder;
+
+    public bool HasNewLibraryFolder => !string.IsNullOrWhiteSpace(NewLibraryFolder);
+
+    public string SafetyText => BuildNewLibrary
+        ? "Nothing in the Library changes: originals stay where they are, and duplicates aren't copied. Nothing in the new folder is overwritten, and a run can be undone, which removes what it made there."
+        : "Nothing is overwritten. Originals and duplicates go to a .noi-trash folder in their Library folder, so a run can be undone (conversions too) until you empty its trash.";
+
+    [RelayCommand]
+    private async Task ChooseNewLibraryFolder()
+    {
+        var folder = await _dialogs.PickFolderAsync("Where to build the new library");
+        if (folder is null) return;
+        _settings.Library.NewLibraryFolder = folder;
+        OnPropertyChanged(nameof(NewLibraryFolder));
+        OnPropertyChanged(nameof(HasNewLibraryFolder));
+        if (!BuildNewLibrary) BuildNewLibrary = true; // replans
+        else ReplanIfShown();
+    }
+
+    private void ReplanIfShown()
+    {
+        if (HasPlan && !IsBusy) _ = MakePlan();
+        else UpdateSummary();
+    }
+
+    /// <summary>
+    /// Why the new library can't be built in the chosen folder, or null when it can: one has to be
+    /// chosen, and it can't be inside a Library folder or hold one, or the Library would change after all.
+    /// </summary>
+    public static string? NewLibraryProblem(string folder, IEnumerable<string> libraryFolders)
+    {
+        if (string.IsNullOrWhiteSpace(folder)) return "Choose a folder for the new library.";
+        static string Full(string p) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(p)) + Path.DirectorySeparatorChar;
+        var dest = Full(folder);
+        foreach (var lib in libraryFolders.Where(f => !string.IsNullOrWhiteSpace(f)).Select(Full))
+        {
+            if (dest.StartsWith(lib, PathNames.Comparison)) return $"The new library can't be inside a Library folder ({lib.TrimEnd(Path.DirectorySeparatorChar)}).";
+            if (lib.StartsWith(dest, PathNames.Comparison)) return $"The new library's folder can't hold a Library folder ({lib.TrimEnd(Path.DirectorySeparatorChar)}).";
+        }
+        return null;
+    }
+
+    private string? CurrentProblem => BuildNewLibrary ? NewLibraryProblem(NewLibraryFolder, _settings.Library.Folders) : null;
 
     public SettingsViewModel Settings => _settings;
 
@@ -148,7 +231,19 @@ public partial class CleanupViewModel : ViewModelBase
             var keys = games.Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
             // The games as the latest index has them (a scan may have run since they were chosen).
             var current = _index().Games().Where(g => keys.Contains(g.Key)).ToList();
-            _plan = await Task.Run(() => CleanupPlanner.Plan(current, settings, MatchStore.Default));
+            var problem = CurrentProblem;
+            var dest = BuildNewLibrary && problem is null ? NewLibraryFolder : null;
+            var copyUnmatched = CopyUnmatched;
+            if (problem is not null)
+            {
+                _plan = null;
+                Steps.Clear();
+                OnPropertyChanged(nameof(HasPlan));
+                Summary = problem;
+                RunCommand.NotifyCanExecuteChanged();
+                return;
+            }
+            _plan = await Task.Run(() => CleanupPlanner.Plan(current, settings, MatchStore.Default, dest, copyUnmatched));
             Steps.Clear();
             foreach (var s in _plan.Steps.OrderBy(s => s.Game, StringComparer.OrdinalIgnoreCase)) Steps.Add(new CleanupStepRow(s, UpdateSummary));
             OnPropertyChanged(nameof(HasPlan));
@@ -159,21 +254,42 @@ public partial class CleanupViewModel : ViewModelBase
 
     private void UpdateSummary()
     {
+        if (CurrentProblem is { } problem)
+        {
+            Summary = problem;
+            RunCommand.NotifyCanExecuteChanged();
+            return;
+        }
         if (_plan is null) return;
         var runs = _plan.Steps.Count(s => s.Runs);
-        var parts = new[] { CleanupKind.Convert, CleanupKind.Rename, CleanupKind.Move, CleanupKind.RemoveDuplicate }
+        var copies = _plan.Steps.Any(s => s.Copies);
+        var parts = new[] { CleanupKind.Convert, CleanupKind.Copy, CleanupKind.Rename, CleanupKind.Move, CleanupKind.RemoveDuplicate }
             .Select(k => (Kind: k, Count: _plan.Steps.Count(s => s.Kind == k && s.Runs)))
             .Where(p => p.Count > 0)
-            .Select(p => $"{p.Count} {p.Kind switch { CleanupKind.Convert => "to convert", CleanupKind.Rename => "to rename", CleanupKind.Move => "to move", _ => "duplicate(s) to remove" }}");
+            .Select(p => $"{p.Count} {p.Kind switch { CleanupKind.Convert => "to convert", CleanupKind.Copy => "to copy", CleanupKind.Rename => "to rename", CleanupKind.Move => "to move", _ => "duplicate(s) to remove" }}");
         var left = _plan.Count(CleanupKind.Untouched);
         var clashes = _plan.Count(CleanupKind.Clash);
-        Summary = (runs == 0 ? "Nothing to do." : $"{string.Join(" · ", parts)} · frees about {ChdJobs.Size(_plan.BytesSaved)}")
+        // A new library's size: what it copies, plus what it converts less the typical saving.
+        var size = copies ? _plan.Steps.Where(s => s.Runs).Sum(s => s.Sources.Sum(FileSize)) - _plan.BytesSaved : 0;
+        Summary = (runs == 0 ? "Nothing to do." : copies
+                      ? $"{string.Join(" · ", parts)} · about {ChdJobs.Size(size)} in the new library"
+                      : $"{string.Join(" · ", parts)} · frees about {ChdJobs.Size(_plan.BytesSaved)}")
                   + (clashes > 0 ? $" · {clashes} clash(es) to sort out first" : "")
-                  + (left > 0 ? $" · {left} left alone" : "");
+                  + (left > 0 ? $" · {left} {(copies ? "left out" : "left alone")}" : "");
         RunCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanRun => !IsBusy && _plan is not null && _plan.Steps.Any(s => s.Runs);
+    private static long FileSize(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) return new FileInfo(path).Length;
+            return Directory.Exists(path) ? Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length) : 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return 0; }
+    }
+
+    private bool CanRun => !IsBusy && _plan is not null && _plan.Steps.Any(s => s.Runs) && CurrentProblem is null;
 
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task Run()
@@ -184,11 +300,14 @@ public partial class CleanupViewModel : ViewModelBase
         {
             var runner = new CleanupRunner();
             var jobs = runner.Jobs(_plan).Select(j => new BatchJob(j.Name, new NullJobReport(), j.Work, _ => { }, _ => { }, j.Cost)).ToList();
-            _log.Info($"Cleanup: running {runner.Run.Steps} step(s) for {jobs.Count} game(s)");
+            _log.Info($"Cleanup: running {runner.Run.Steps} step(s) for {jobs.Count} game(s)"
+                      + (runner.Run.NewLibrary is { } lib ? $", building a new library in {lib}; the Library itself isn't changed" : ""));
             var group = _queue.Submit("Cleanup", jobs, _settings.Snapshot(), _log);
             await group.Completion;
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
-            _log.Info($"Cleanup: finished; the run can be undone from the Cleanup page ({runner.Run.Entries.Count} change(s) recorded).");
+            _log.Info(runner.Run.NewLibrary is { } built
+                ? $"Cleanup: finished; the new library is in {built} ({runner.Run.Entries.Count} file(s) made). Undo on the Cleanup page removes them again."
+                : $"Cleanup: finished; the run can be undone from the Cleanup page ({runner.Run.Entries.Count} change(s) recorded).");
             RefreshRuns();
             if (Rescan is not null) await Rescan();
             await MakePlan();

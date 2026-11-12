@@ -222,6 +222,14 @@ public sealed class OutputSettings
 
     public bool UseRecycleBin { get; set; } = true;
 
+    /// <summary>
+    /// For one run, never set by the user: the sources mustn't change at all,
+    /// not even renamed for a moment (the Cleanup wizard building a new
+    /// library, FR-8). Kept through <see cref="AppSettings.Clone"/>, written only when on.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool LeaveSourcesAlone { get; set; }
+
     /// <summary>Where jobs write: <see cref="Folder"/> when Save to is Folder (and one is chosen), otherwise null for each source's own folder.</summary>
     [JsonIgnore] public string? TargetFolder => SaveTo == SaveTo.Folder && !string.IsNullOrWhiteSpace(Folder) ? Folder : null;
 
@@ -353,6 +361,9 @@ public sealed class LibrarySettings
 
     /// <summary>Where the Cleanup wizard puts each game (M7 Q1, FR-6): ES-DE format unless you choose otherwise.</summary>
     public LibraryLayout Layout { get; set; } = LibraryLayout.EsDe;
+
+    /// <summary>The folder the Cleanup wizard last built a new library in (FR-8); empty until one is chosen.</summary>
+    public string NewLibraryFolder { get; set; } = "";
 }
 
 /// <summary>
