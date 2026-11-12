@@ -337,6 +337,12 @@ public sealed class KeySettings
     /// places (Azahar's and Citra's sysdata, ~/.3ds); empty = only the usual places.
     /// </summary>
     public string ThreeDsKeysFolder { get; set; } = "";
+
+    /// <summary>
+    /// Your Switch prod.keys (title.keys beside it is read too), tried before the usual places (Ryujinx's and
+    /// the yuzu family's folders, ~/.switch); empty = only the usual places.
+    /// </summary>
+    public string SwitchKeysPath { get; set; } = "";
 }
 
 /// <summary>Where the Cleanup wizard puts games inside a Library folder.</summary>

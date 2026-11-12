@@ -70,6 +70,8 @@ public static class TargetResolver
 
         // D2, FR-9: lib-3ds-kit decrypts a 3DS image, makes a .cia a .cci and reads Azahar's .zcci on the way to its target.
         if (id == "nintendo-3ds" && !isArchive && ThreeDs(set, system, ext, alternatives, settings) is { } ctr) return ctr;
+        // Switch packages convert between NSP, NSZ, XCI and XCZ through lib-nx-kit.
+        if (id == "switch" && !isArchive) return Switch(system, set, ext, alternatives, settings);
 
         // FR-12: your overrides, then the registry's target (and D1).
         var (resolved, overridden) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
@@ -130,6 +132,34 @@ public static class TargetResolver
         if (!facts.NeedsConversion) return null;
         var container = target.Container == TargetContainer.Zip ? TargetContainer.Zip : TargetContainer.SevenZip;
         return Plan(id, TargetStatus.Convert, ChoiceFor(container), $"Convert → {Label(container)} (.cci, {what})", alternatives);
+    }
+
+    /// <summary>
+    /// A Switch package that isn't in an archive. NSZ is the target for everything (base games, updates and DLC
+    /// share one format); XCZ keeps a cartridge image a cartridge image; "uncompressed" turns an .nsz back into an
+    /// .nsp and an .xcz into an .xci. lib-nx-kit does each one, with the user's prod.keys.
+    /// </summary>
+    private static TargetPlan Switch(SystemInfo system, FileSet set, string ext, List<TargetChoice> alternatives, AppSettings settings)
+    {
+        var id = system.Id;
+        var card = ext is ".xci" or ".xcz";
+        var plain = card ? TargetChoice.Xci : TargetChoice.Nsp;
+        foreach (var choice in new[] { TargetChoice.Nsz, TargetChoice.Xcz, plain })
+            if ("." + choice.Kind.ToString().ToLowerInvariant() != ext && !alternatives.Contains(choice)) alternatives.Add(choice);
+
+        var (target, _) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
+        if (target is null) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (your setting)", alternatives);
+        var wanted = target.Format switch
+        {
+            ".xcz" => TargetChoice.Xcz,
+            ".nsp" => plain,
+            _ => TargetChoice.Nsz,
+        };
+        var wantedExt = "." + wanted.Kind.ToString().ToLowerInvariant();
+        if (ext == wantedExt || (wanted == plain && ext is ".nsp" or ".xci"))
+            return Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
+        alternatives.Remove(wanted);
+        return Plan(id, TargetStatus.Convert, wanted, $"Convert → {wantedExt}", alternatives);
     }
 
     /// <summary>Discs and other bare targets (R2, R3, R4, R13): .chd, .rvz, .wua, .wad, .nsz, .iso.</summary>

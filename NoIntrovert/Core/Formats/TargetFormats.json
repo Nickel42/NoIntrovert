@@ -203,10 +203,10 @@
     "category": "cartridge",
     "extensions": [".nsp", ".xci", ".nsz", ".xcz"],
     "folders": ["switch", "nintendoswitch", "nsw"],
-    "target": {"format": ".nsz", "container": "bare", "label": ".nsz", "producible": false},
+    "target": {"format": ".nsz", "container": "bare", "label": ".nsz", "producible": true},
     "alternatives": [
-      {"id": "xcz", "label": ".xcz", "producible": false},
-      {"id": "nsp", "label": ".nsp/.xci uncompressed", "producible": false}
+      {"id": "xcz", "label": ".xcz", "producible": true},
+      {"id": "nsp", "label": ".nsp/.xci uncompressed", "producible": true}
     ],
     "rules": ["R10", "R11", "R13"],
     "esde": "switch"

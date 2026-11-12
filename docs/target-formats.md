@@ -39,7 +39,7 @@ That's why cartridges go in a .7z while disc images become bare CHD, RVZ or WUA.
 | R8 | Any archive the app writes | 7z uses LZMA2 only and zip uses Deflate only. RetroArch can't open zstd, PPMd or Deflate64. |
 | R9 | Computer systems whose cores read zip themselves (C64, DOS, Amiga, ST, CPC, Atari 8-bit, MSX disks) | `.zip`, not .7z |
 | R10 | A file already in its target format and container | Nothing to do (Optimal) |
-| R11 | A target that changes the bytes on disk (CHD, RVZ, WUA, NSZ, XISO, ZCCI) | The original No-Intro/Redump hashes are kept in the library index (no extra files), so the file can still be verified. RVZ, NSZ and CHD convert back exactly; WUA, XISO and ZCCI don't. |
+| R11 | A target that changes the bytes on disk (CHD, RVZ, WUA, NSZ, XISO, ZCCI) | The original No-Intro/Redump hashes are kept in the library index (no extra files), so the file can still be verified. RVZ, NSZ and CHD convert back exactly (an NSZ gives back its NSP byte for byte, file order and header included). WUA, XISO and ZCCI don't. |
 | R12 | A wrong byte order or copier header (.v64/.n64, .smc with a 512-byte header, interleaved .smd) | Converted to the No-Intro form (.z64, headerless .sfc, .md), then R1. Off unless turned on (Decision D6). |
 | R13 | An already-compressed format (.nsz/.xcz/.chd/.rvz/.wua/.cso) | Never put inside a zip or 7z |
 
@@ -87,7 +87,7 @@ roms/
 | D5 | Computer systems | `.zip` (Rule R9) |
 | D6 | Header and byte-order fixes (R12) | Off by default; turned on in Settings |
 | D7 | Dreamcast `.cdi` | Left as is; chdman can't convert DiscJuggler images reliably |
-| D8 | Systems the app can't convert to yet (Switch, Xbox, PS3, PS Vita) | For now the app shows the recommendation without a Convert button. A converter for each system comes later as its own requirement. |
+| D8 | Systems the app can't convert to yet (Xbox, PS3, PS Vita) | For now the app shows the recommendation without a Convert button. A converter for each system comes later as its own requirement. |
 | D9 | 7z settings | LZMA2, Ultra (`-mx9`), non-solid for a single file |
 | D10 | Arcade (MAME/FBNeo) | Out of scope: reported only, never changed |
 
@@ -95,9 +95,9 @@ roms/
 
 - **Switch:** `.nsz` is the default for everything. NSZ and XCZ are just zstd-compressed NSP and
   XCI. Updates and DLC only exist as NSP, so making the base game `.nsz` too keeps one format
-  throughout. A cartridge XCI is repacked to NSP first, which drops the cartridge-only data, so
-  the result can't be turned back into the No-Intro XCI. Choose `.xcz` in Settings to keep cartridge
-  dumps as exact compressed copies.
+  throughout. An XCI made into an NSZ loses the cartridge-only data (the card header), so the
+  result can't be turned back into the No-Intro XCI. Choose `.xcz` in Settings to keep cartridge
+  dumps as cartridge images. lib-nx-kit does the conversions, with the user's own `prod.keys`.
 - **PS Vita:** the target is a `.zip` of a properly dumped NoNpDrm game folder, which Vita3K installs
   with File → Install .zip. A `.pkg` plus its zRIF key converts to that folder first (pkg2zip). As
   an option, the app also writes a small frontend launcher file named after the game that holds its
