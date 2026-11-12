@@ -264,6 +264,8 @@ public static class CleanupPlanner
         TargetKind.Chd => ".chd",
         TargetKind.Rvz => ".rvz",
         TargetKind.Wua => ".wua",
+        TargetKind.Cci => ".cci",
+        TargetKind.Zcci => ".zcci",
         TargetKind.SevenZip => ".7z",
         TargetKind.Zip => ".zip",
         _ => null,

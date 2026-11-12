@@ -13,6 +13,10 @@ public enum TargetKind
     DiscImage,
     /// <summary>A Wii U .wua (base game, update and DLC in one file).</summary>
     Wua,
+    /// <summary>A Nintendo 3DS game as a bare, decrypted .cci (from an encrypted image, a .cia or a .zcci), by lib-3ds-kit.</summary>
+    Cci,
+    /// <summary>A Nintendo 3DS game as a decrypted .cci compressed in Azahar's Z3DS format (.zcci), by lib-3ds-kit.</summary>
+    Zcci,
     SevenZip,
     Zip,
     /// <summary>An archive's files, unpacked.</summary>
@@ -30,6 +34,8 @@ public sealed record TargetChoice(TargetKind Kind, string Label)
     public static readonly TargetChoice Iso = new(TargetKind.Iso, "ISO");
     public static readonly TargetChoice DiscImage = new(TargetKind.DiscImage, "Disc image");
     public static readonly TargetChoice Wua = new(TargetKind.Wua, ".wua");
+    public static readonly TargetChoice Cci = new(TargetKind.Cci, ".cci");
+    public static readonly TargetChoice Zcci = new(TargetKind.Zcci, ".zcci");
     public static readonly TargetChoice SevenZip = new(TargetKind.SevenZip, "7z");
     public static readonly TargetChoice Zip = new(TargetKind.Zip, "zip");
     public static readonly TargetChoice Files = new(TargetKind.Files, "Unpack files");

@@ -81,13 +81,13 @@ roms/
 | ID | Question | Decision |
 |---|---|---|
 | D1 | Large Nintendo DS ROMs (256–512 MB) | Same as other cartridges: .7z. Power users can set a size above which .nds files stay bare (off by default). |
-| D2 | Nintendo 3DS | A decrypted `.cci` inside a .7z. The output is never named `.3ds`: `.3ds` files are renamed to `.cci`. `.zcci` (Azahar only) is offered as an alternative. |
+| D2 | Nintendo 3DS | A decrypted `.cci` inside a .7z. The output is never named `.3ds`: `.3ds` files are renamed to `.cci`. Encrypted images, `.cia` games and Azahar's `.zcci`/`.zcia` are converted by lib-3ds-kit with the user's own keys. `.zcci` (Azahar only) and bare `.cci` are offered as alternatives. |
 | D3 | PSP | `.chd` made with `createdvd` and 2048-byte hunks. Keep `.cso` with an override if you also play on a real PSP. |
 | D4 | PS2 CD vs DVD | Detected automatically: `createdvd` for DVD images, `createcd` for CD-based games |
 | D5 | Computer systems | `.zip` (Rule R9) |
 | D6 | Header and byte-order fixes (R12) | Off by default; turned on in Settings |
 | D7 | Dreamcast `.cdi` | Left as is; chdman can't convert DiscJuggler images reliably |
-| D8 | Systems the app can't convert to yet (Switch, Xbox, PS3, PS Vita, 3DS `.zcci`) | For now the app shows the recommendation without a Convert button. A converter for each system comes later as its own requirement. |
+| D8 | Systems the app can't convert to yet (Switch, Xbox, PS3, PS Vita) | For now the app shows the recommendation without a Convert button. A converter for each system comes later as its own requirement. |
 | D9 | 7z settings | LZMA2, Ultra (`-mx9`), non-solid for a single file |
 | D10 | Arcade (MAME/FBNeo) | Out of scope: reported only, never changed |
 

@@ -111,6 +111,8 @@ public sealed record PresetValues
         TargetKind.Rvz => ".rvz",
         TargetKind.Iso => ".iso",
         TargetKind.Wua => ".wua",
+        TargetKind.Cci => ".cci",
+        TargetKind.Zcci => ".zcci",
         TargetKind.SevenZip => ".7z",
         TargetKind.Zip => ".zip",
         TargetKind.DiscImage => ExtractFormat switch

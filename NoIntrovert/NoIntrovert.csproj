@@ -39,6 +39,7 @@
     <ProjectReference Include="$(LibWiiGameCubeKitRoot)/bindings/csharp/LibWiiGameCubeKit/LibWiiGameCubeKit.csproj" />
     <ProjectReference Include="$(Lib7zZipKitRoot)src/lib-7z-zip-kit/lib-7z-zip-kit.csproj" />
     <ProjectReference Include="$(LibWiiUKitRoot)src/lib-wii-u-kit/lib-wii-u-kit.csproj" />
+    <ProjectReference Include="$(LibThreeDsKitRoot)src/lib-3ds-kit/lib-3ds-kit.csproj" />
   </ItemGroup>
 
   <ItemGroup>

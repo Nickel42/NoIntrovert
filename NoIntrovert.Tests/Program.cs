@@ -2121,11 +2121,121 @@ if (SevenZipEngine.IsAvailable(out _))
         return held == "Game.cci" && File.Exists(Q("3DS/Game.3ds")) ? null : $"holds {held}; original there: {File.Exists(Q("3DS/Game.3ds"))}";
     });
 
-    Test("3DS: an encrypted image says decrypt first, with no job (acceptance 12, FR-9)", () =>
+    Test("3DS: an encrypted image is planned to be decrypted on its way into the 7z, with .zcci and bare .cci offered (acceptance 12, FR-9)", () =>
     {
         var o = ConvertTargets.For(Set3("3DS/Locked.3ds"), new AppSettings());
-        return o.Plan.Text == "Recommended: decrypt first" && o.Choices.Count == 1 && o.Default == TargetChoice.Leave ? null : $"{o.Plan.Text}, {o.Choices.Count} choice(s)";
+        if (o.Plan.Text != "Convert → .7z (.cci, decrypted)" || o.Default != TargetChoice.SevenZip) return o.Plan.Text;
+        return o.Choices.Contains(TargetChoice.Zcci) && o.Choices.Contains(TargetChoice.Cci) ? null : string.Join(", ", o.Choices);
     });
+
+    // ---- 3DS through lib-3ds-kit (D2): its synthetic images, made with its fake keys, and the bytes its reference expects ----
+    var ctrFixtures = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "native", "lib-3ds-kit", "tests", "fixtures"));
+    if (Directory.Exists(ctrFixtures))
+    {
+        Lib3dsKit.Keys.CtrKeyStore FakeKeys()
+        {
+            var ks = new Lib3dsKit.Keys.CtrKeyStore();
+            ks.LoadBoot9(File.ReadAllBytes(Path.Combine(ctrFixtures, "keys", "boot9_fake.bin")), requireKnownHash: false);
+            ks.LoadAesKeysFile(Path.Combine(ctrFixtures, "keys", "aes_keys_fake.txt"));
+            ks.LoadSeedDbFile(Path.Combine(ctrFixtures, "keys", "seeddb_fake.bin"));
+            return ks;
+        }
+        string Expected3(string name) => System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(ctrFixtures, "expected.json")))
+            .RootElement.GetProperty(name).GetProperty("sha256").GetString()!;
+        string Sha256Of(string path) { using var f = File.OpenRead(path); return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(f)).ToLowerInvariant(); }
+        string Sha256In7z(string archive)
+        {
+            var into = Dir("ctr-check-" + Guid.NewGuid().ToString("N")[..6]);
+            NoIntrovert.Core.Formats.ArchiveExtractor.Extract(archive, into, null, CancellationToken.None);
+            var files = Directory.GetFiles(into);
+            return files.Length == 1 ? Path.GetFileName(files[0]) + ":" + Sha256Of(files[0]) : $"{files.Length} files";
+        }
+        Directory.CreateDirectory(Q("3DS-real"));
+        File.Copy(Path.Combine(ctrFixtures, "game_a.3ds"), Q("3DS-real/Game A.3ds"));       // encrypted cartridge image
+        File.Copy(Path.Combine(ctrFixtures, "game_b.cia"), Q("3DS-real/Game B.cia"));       // encrypted .cia of a game
+        new Lib3dsKit.Operations.CtrConverter(FakeKeys()).Compress(Path.Combine(ctrFixtures, "expected", "game_a.decrypted.3ds"), Q("3DS-real/Game C.zcci"), new());
+        NoIntrovert.Core.Ctr.CtrJobs.KeysForTests = FakeKeys;
+
+        Test("3DS: an encrypted image, a .cia and a .zcci each plan their way to a decrypted .cci (D2)", () =>
+        {
+            string? Expect(string rel, string text, TargetChoice choice, Action<AppSettings>? configure = null)
+            {
+                var s = new AppSettings();
+                configure?.Invoke(s);
+                var o = ConvertTargets.For(Set3(rel), s);
+                return o.Plan.Text == text && o.Default == choice ? null : $"{rel}: {o.Plan.Text} ({o.Default})";
+            }
+            void Zcci(AppSettings s) => s.TargetFormats.Overrides.Add(new TargetOverride("nintendo-3ds", null, "zcci"));
+            void Bare(AppSettings s) => s.TargetFormats.Overrides.Add(new TargetOverride("nintendo-3ds", null, "bare"));
+            return Expect("3DS-real/Game A.3ds", "Convert → .7z (.cci, decrypted)", TargetChoice.SevenZip)
+                ?? Expect("3DS-real/Game B.cia", "Convert → .7z (.cci, from the .cia)", TargetChoice.SevenZip)
+                ?? Expect("3DS-real/Game C.zcci", "Convert → .7z (.cci, unpacked from Z3DS)", TargetChoice.SevenZip)
+                ?? Expect("3DS-real/Game A.3ds", "Convert → .zcci (decrypted)", TargetChoice.Zcci, Zcci)
+                ?? Expect("3DS-real/Game C.zcci", "Optimal", TargetChoice.Leave, Zcci)
+                ?? Expect("3DS-real/Game B.cia", "Convert → bare .cci (from the .cia)", TargetChoice.Cci, Bare)
+                ?? Expect("3DS/Game.3ds", "Convert → .zcci", TargetChoice.Zcci, Zcci);
+        });
+
+        Test("3DS: without keys an encrypted image's job fails, says where keys go, and writes nothing", () =>
+        {
+            NoIntrovert.Core.Ctr.CtrJobs.KeysForTests = () => new Lib3dsKit.Keys.CtrKeyStore();
+            try
+            {
+                var plan = ConvertPlanner.Plan([new PlanInput(Q("3DS-real/Game A.3ds"), TargetKind.SevenZip, 1)], new AppSettings(), log);
+                var r = RunJob(plan.Jobs[0].Work);
+                return r.Status == JobStatus.Failed && r.Summary.Contains("3DS key missing") && r.Summary.Contains("Settings › Keys")
+                       && !File.Exists(Q("3DS-real/Game A.7z")) && File.Exists(Q("3DS-real/Game A.3ds")) ? null : $"{r.Status}: {r.Summary}";
+            }
+            finally { NoIntrovert.Core.Ctr.CtrJobs.KeysForTests = FakeKeys; }
+        });
+
+        Test("3DS: an encrypted image goes into its 7z decrypted, byte for byte as lib-3ds-kit's reference, with its dump's hashes kept (R11)", () =>
+        {
+            if (RunDefault3("3DS-real/Game A.3ds") is { } problem) return problem;
+            var held = Sha256In7z(Q("3DS-real/Game A.7z"));
+            if (held != "Game A.cci:" + Expected3("game_a.decrypted.3ds")) return held;
+            var original = NoIntrovert.Core.Dats.OriginalHashes.Default.Get(Q("3DS-real/Game A.7z"));
+            var dump = NoIntrovert.Core.Dats.Hasher.HashFile(Q("3DS-real/Game A.3ds"))[0];
+            return original?.Files.FirstOrDefault()?.Sha1 == dump.Sha1 ? null : "the dump's hashes weren't recorded";
+        });
+
+        Test("3DS: a .cia becomes a .cci in its 7z, as lib-3ds-kit's reference CCI", () =>
+        {
+            if (RunDefault3("3DS-real/Game B.cia") is { } problem) return problem;
+            var held = Sha256In7z(Q("3DS-real/Game B.7z"));
+            return held == "Game B.cci:" + Expected3("game_b.3ds") ? null : held;
+        });
+
+        Test("3DS: .zcci for Azahar from a .cia, bare .cci from a .zcci, both checked after", () =>
+        {
+            var plan = ConvertPlanner.Plan([new PlanInput(Q("3DS-real/Game B.cia"), TargetKind.Zcci, 1), new PlanInput(Q("3DS-real/Game C.zcci"), TargetKind.Cci, 1)],
+                new AppSettings(), log);
+            foreach (var job in plan.Jobs)
+                if (RunJob(job.Work) is { Status: not (JobStatus.Succeeded or JobStatus.Warning) } r) return $"{job.Name}: {r.Summary}";
+            if (!Lib3dsKit.CtrFile.IsCompressed(Q("3DS-real/Game B.zcci"))) return "Game B.zcci isn't Z3DS";
+            var back = Path.Combine(Dir("ctr-back"), "b.cci");
+            new Lib3dsKit.Operations.CtrConverter(FakeKeys()).Decompress(Q("3DS-real/Game B.zcci"), back, new());
+            if (Sha256Of(back) != Expected3("game_b.3ds")) return "Game B.zcci doesn't hold the reference CCI";
+            return Sha256Of(Q("3DS-real/Game C.cci")) == Expected3("game_a.decrypted.3ds") ? null : "Game C.cci isn't the decrypted image";
+        });
+
+        Test("3DS: a .zcci is hashed as the image it holds, so it matches its DAT entry (Verify & match)", () =>
+        {
+            var z = NoIntrovert.Core.Dats.Hasher.HashFile(Q("3DS-real/Game C.zcci"))[0];
+            var plain = NoIntrovert.Core.Dats.Hasher.HashFile(Path.Combine(ctrFixtures, "expected", "game_a.decrypted.3ds"))[0];
+            return z.Sha1 == plain.Sha1 && z.Crc == plain.Crc && z.Size == plain.Size ? null : $"{z.Size} {z.Sha1} vs {plain.Size} {plain.Sha1}";
+        });
+
+        Test("3DS: Replace the originals removes a .cia only once its .cci is made and checked", () =>
+        {
+            File.Copy(Path.Combine(ctrFixtures, "game_b.cia"), Q("3DS-real/Replace.cia"));
+            var r = RunJob(c => NoIntrovert.Core.Ctr.CtrJobs.ToCci(c, Q("3DS-real/Replace.cia"), compress: false),
+                s => { s.Output.SaveTo = SaveTo.ReplaceOriginals; s.Output.UseRecycleBin = false; });
+            return r.Status == JobStatus.Succeeded && File.Exists(Q("3DS-real/Replace.cci")) && !File.Exists(Q("3DS-real/Replace.cia")) ? null : $"{r.Status}: {r.Summary}";
+        });
+        NoIntrovert.Core.Ctr.CtrJobs.KeysForTests = null;
+    }
+    else Console.WriteLine($"SKIP  3DS through lib-3ds-kit: no fixtures at {ctrFixtures}");
 
     // A NoNpDrm folder: sce_sys/param.sfo (TITLE, TITLE_ID) and the game's files.
     byte[] Sfo(params (string Key, string Value)[] entries)

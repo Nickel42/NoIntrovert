@@ -27,7 +27,8 @@ public static class Hasher
 
     private static HashedFile Hash(string path, long skip, string name, CancellationToken token)
     {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, FileOptions.SequentialScan);
+        // Azahar's .zcci/.zcia (Z3DS) is hashed as the file it holds, which is what its DAT entry describes.
+        using var stream = OpenContents(path);
         stream.Position = skip;
         var crc = new System.IO.Hashing.Crc32();
         using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
@@ -45,6 +46,18 @@ public static class Hasher
         }
         return new HashedFile(name, size, crc.GetCurrentHashAsUInt32().ToString("X8"), Convert.ToHexString(sha.GetHashAndReset()),
             Md5: Convert.ToHexString(md5.GetHashAndReset()));
+    }
+
+    /// <summary>The bytes a file stands for: itself, or for a Z3DS file (.zcci, .zcia…) the file it holds, decompressed as it's read.</summary>
+    private static Stream OpenContents(string path)
+    {
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        if (ext is ".zcci" or ".zcia" or ".zcxi" or ".z3dsx")
+        {
+            try { if (Lib3dsKit.CtrFile.IsCompressed(path)) return Lib3dsKit.CtrFile.OpenRead(path); }
+            catch (Lib3dsKit.CtrFormatException) { } // damaged: hashed as it is, so it simply won't match
+        }
+        return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, FileOptions.SequentialScan);
     }
 
     /// <summary>
