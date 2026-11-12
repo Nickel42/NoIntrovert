@@ -116,8 +116,8 @@ shows the recommendation with no Convert button, and each converter gets its own
   - `.nsp`, `.xci` and `.xcz` become `.nsz` by default. `.xcz` keeps a cartridge image a cartridge
     image. "Uncompressed" turns an `.nsz` back into an `.nsp` and an `.xcz` into an `.xci`.
   - Every content file (NCA) is checked against its metadata hash as it's written. An `.nsz` turned
-    back into an `.nsp` holds the same files byte for byte; the order of the files inside the
-    package may differ from the original dump.
+    back into an `.nsp` is the original `.nsp` byte for byte: lib-nx-kit keeps the files' order and
+    the header's padding.
   - A package holding several games becomes one file per game, named like
     `Game Name [0100…][v0].nsz`. Replace the originals removes the original only when every title
     in it was written.
@@ -220,7 +220,7 @@ shows the recommendation with no Convert button, and each converter gets its own
 | 14 | `Game.cso` (PSP) | `*` / `.cso` → `leave` | Left as is |
 | 15 | `Game.cso` (PSP) | defaults | `Game.chd` (createdvd, 2048-byte hunks) |
 | 16 | NoNpDrm folder `PCSE00000` | launcher on | `Title (PCSE00000).zip` + `Title (PCSE00000).psvita` |
-| 17 | `Game.nsp` | defaults | `Game.nsz`; back to an `.nsp` holding the same files |
+| 17 | `Game.nsp` | defaults | `Game.nsz`; back to the same `Game.nsp`, byte for byte |
 | 17b | `Game.xci` | defaults / `switch` → `xcz` | Defaults: `Game.nsz`. With the override: `Game.xcz` |
 | 17c | `Game.nsp` | no `prod.keys` | The job fails and says where `prod.keys` goes; nothing is written |
 | 18 | `Game.v64` | header fixes off / on | Off: `Game.7z` holding `Game.v64`. On: `Game.7z` holding `Game.z64` |

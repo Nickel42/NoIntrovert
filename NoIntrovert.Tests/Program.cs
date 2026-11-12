@@ -2265,7 +2265,7 @@ if (SevenZipEngine.IsAvailable(out _))
             }));
         }
 
-        Test("Switch: an .nsp becomes an .nsz by default, and back to an .nsp holding the same files byte for byte (lib-nx-kit)", () =>
+        Test("Switch: an .nsp becomes an .nsz by default, and back to the same .nsp byte for byte (lib-nx-kit)", () =>
         {
             var o = ConvertTargets.For(Set3("Switch-real/Test Game.nsp"), new AppSettings());
             if (o.Plan.Text != "Convert → .nsz" || o.Default != TargetChoice.Nsz) return $"{o.Plan.Text} ({o.Default})";
@@ -2279,7 +2279,10 @@ if (SevenZipEngine.IsAvailable(out _))
             if (RunKind("Switch-real/Test Game.nsz", TargetKind.Nsp, s => s.Output.Folder = back) is { } p2) return p2;
             var original = Contents(Q("Switch-real/Test Game.nsp"));
             var restored = Contents(Path.Combine(back, "Test Game.nsp"));
-            return restored == original ? null : $"the files differ:\n  {original}\n  {restored}";
+            if (restored != original) return $"the files differ:\n  {original}\n  {restored}";
+            // lib-nx-kit keeps the file order and header padding, so the whole file is the original (R11).
+            return File.ReadAllBytes(Path.Combine(back, "Test Game.nsp")).AsSpan().SequenceEqual(File.ReadAllBytes(Q("Switch-real/Test Game.nsp")))
+                ? null : "same files, but not the same .nsp";
         });
 
         Test("Switch: an update with title-key crypto, as a cartridge image (.xcz) and back to .xci", () =>

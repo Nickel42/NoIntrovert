@@ -199,8 +199,9 @@ relying on it.
 Settings › Target formats to keep cartridge images as cartridge images, or
 "uncompressed" to turn an `.nsz` back into an `.nsp` (an `.xcz` back into an
 `.xci`). Every content file is checked against its metadata hash as it's
-written, so a damaged dump is caught rather than copied. A package holding
-several games becomes one file per game.
+written, so a damaged dump is caught rather than copied, and an `.nsz` turns
+back into the original `.nsp` byte for byte. A package holding several games
+becomes one file per game.
 
 This needs your own `prod.keys`, dumped from your Switch with Lockpick_RCM.
 NoIntrovert finds the one Ryujinx or a yuzu-family emulator (yuzu, Eden,

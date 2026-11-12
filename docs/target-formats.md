@@ -39,7 +39,7 @@ That's why cartridges go in a .7z while disc images become bare CHD, RVZ or WUA.
 | R8 | Any archive the app writes | 7z uses LZMA2 only and zip uses Deflate only. RetroArch can't open zstd, PPMd or Deflate64. |
 | R9 | Computer systems whose cores read zip themselves (C64, DOS, Amiga, ST, CPC, Atari 8-bit, MSX disks) | `.zip`, not .7z |
 | R10 | A file already in its target format and container | Nothing to do (Optimal) |
-| R11 | A target that changes the bytes on disk (CHD, RVZ, WUA, NSZ, XISO, ZCCI) | The original No-Intro/Redump hashes are kept in the library index (no extra files), so the file can still be verified. RVZ and CHD convert back exactly. NSZ gives back every file of the NSP exactly, though their order in the package may differ from the dump. WUA, XISO and ZCCI don't convert back. |
+| R11 | A target that changes the bytes on disk (CHD, RVZ, WUA, NSZ, XISO, ZCCI) | The original No-Intro/Redump hashes are kept in the library index (no extra files), so the file can still be verified. RVZ, NSZ and CHD convert back exactly (an NSZ gives back its NSP byte for byte, file order and header included). WUA, XISO and ZCCI don't. |
 | R12 | A wrong byte order or copier header (.v64/.n64, .smc with a 512-byte header, interleaved .smd) | Converted to the No-Intro form (.z64, headerless .sfc, .md), then R1. Off unless turned on (Decision D6). |
 | R13 | An already-compressed format (.nsz/.xcz/.chd/.rvz/.wua/.cso) | Never put inside a zip or 7z |
 
