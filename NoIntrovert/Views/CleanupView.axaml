@@ -72,12 +72,39 @@
             <StackPanel Spacing="12">
                 <Border Classes="card">
                     <StackPanel Spacing="4">
-                        <TextBlock Text="FILE LAYOUT" Classes="section" />
+                        <TextBlock Text="WHERE" Classes="section" />
+                        <RadioButton GroupName="CleanupWhere" IsChecked="{Binding InPlace}">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Tidy the Library in place" FontWeight="SemiBold" />
+                                <TextBlock Classes="hint" TextWrapping="Wrap"
+                                           Text="Games are converted, renamed and moved where they are." />
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton GroupName="CleanupWhere" IsChecked="{Binding BuildNewLibrary}">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Build a new library in another folder" FontWeight="SemiBold" />
+                                <TextBlock Classes="hint" TextWrapping="Wrap"
+                                           Text="Games are converted or copied into the new folder, named and laid out the same way. The Library stays exactly as it is." />
+                            </StackPanel>
+                        </RadioButton>
+                        <StackPanel Spacing="6" Margin="28,2,0,4" IsVisible="{Binding BuildNewLibrary}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                <TextBlock Text="{Binding NewLibraryFolder}" IsVisible="{Binding HasNewLibraryFolder}"
+                                           TextTrimming="PathSegmentEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding NewLibraryFolder}" />
+                                <TextBlock Text="No folder chosen yet" IsVisible="{Binding !HasNewLibraryFolder}" Classes="hint" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Classes="tool" Content="Choose…" Command="{Binding ChooseNewLibraryFolderCommand}"
+                                        ToolTip.Tip="An empty folder is best. It can't be inside a Library folder." />
+                            </Grid>
+                            <CheckBox IsChecked="{Binding CopyUnmatched}">
+                                <TextBlock TextWrapping="Wrap" Text="Also copy games that aren't matched, as they are" />
+                            </CheckBox>
+                        </StackPanel>
+                        <TextBlock Text="FILE LAYOUT" Classes="section" Margin="0,8,0,0" />
                         <RadioButton GroupName="CleanupLayout" IsChecked="{Binding EsDeLayout}">
                             <StackPanel Spacing="2">
                                 <TextBlock Text="ES-DE format (recommended)" FontWeight="SemiBold" />
                                 <TextBlock Classes="hint" TextWrapping="Wrap"
-                                           Text="A roms folder in each Library folder, one folder per system named as ES-DE names it, and the games' files inside. Only games that have to be folders stay folders (Wii U titles, PS3 games); a multi-disc game's .m3u sits in the system folder with its discs in hidden/." />
+                                           Text="A roms folder in each Library folder (or in the new library), one folder per system named as ES-DE names it, and the games' files inside. Only games that have to be folders stay folders (Wii U titles, PS3 games); a multi-disc game's .m3u sits in the system folder with its discs in hidden/." />
                             </StackPanel>
                         </RadioButton>
                         <Border Background="{DynamicResource RowAlt}" CornerRadius="4" Padding="8,6" Margin="28,0,0,4" IsVisible="{Binding EsDeLayout}">
@@ -94,8 +121,7 @@
                         <TextBlock Classes="hint" TextWrapping="Wrap" Margin="0,4,0,0"
                                    Text="The plan shows where every file would end up. Nothing moves until you click Run." />
                         <TextBlock Text="SAFETY" Classes="section" Margin="0,8,0,0" />
-                        <TextBlock Classes="hint" TextWrapping="Wrap"
-                                   Text="Nothing is overwritten. Originals and duplicates go to a .noi-trash folder in their Library folder, so a run can be undone (conversions too) until you empty its trash." />
+                        <TextBlock Classes="hint" TextWrapping="Wrap" Text="{Binding SafetyText}" />
                     </StackPanel>
                 </Border>
                 <Border Classes="card">

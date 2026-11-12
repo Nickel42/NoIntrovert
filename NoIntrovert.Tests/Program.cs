@@ -2694,6 +2694,96 @@ if (SevenZipEngine.IsAvailable(out _))
         return before.SetEquals(after) ? null : $"changed: {string.Join(", ", after.Except(before).Concat(before.Except(after)))}";
     });
 
+    // FR-8: the same plan, built as a new library in another folder; the Library itself must not change at all.
+    var newLib = Dir("m7-new/Library");
+    string RelN(string? path) => path is null ? "" : Path.GetRelativePath(newLib, path).Replace('\\', '/');
+    HashSet<string> TreeN() => Directory.EnumerateFileSystemEntries(newLib, "*", SearchOption.AllDirectories).Select(RelN).ToHashSet(PathNames.Comparer);
+    // The Library's every file with its size and date, so even a rename-and-back shows.
+    Dictionary<string, (long, DateTime)> Stamped() => Directory.EnumerateFiles(games7, "*", SearchOption.AllDirectories)
+        .ToDictionary(Rel, f => (new FileInfo(f).Length, File.GetLastWriteTimeUtc(f)), PathNames.Comparer);
+    string Same(Dictionary<string, (long, DateTime)> a, Dictionary<string, (long, DateTime)> b) =>
+        a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v == kv.Value) ? ""
+            : $"the Library changed: {string.Join(", ", a.Keys.Except(b.Keys).Concat(b.Keys.Except(a.Keys)).Concat(a.Keys.Where(k => b.TryGetValue(k, out var v) && v != a[k])))}";
+    NoIntrovert.Core.Cleanup.CleanupPlan PlanNew(bool copyUnmatched = true)
+    {
+        var s = new AppSettings { Library = { Layout = LibraryLayout.EsDe } };
+        return NoIntrovert.Core.Cleanup.CleanupPlanner.Plan(ScanAndVerify(s), s, NoIntrovert.Core.Dats.MatchStore.Default, newLib, copyUnmatched);
+    }
+    string DescribeN(NoIntrovert.Core.Cleanup.CleanupPlan plan) =>
+        string.Join("\n", plan.Steps.Select(st => $"{st.Kind} {st.Game}: {string.Join(",", st.Sources.Take(1).Select(Rel))} → {RelN(st.Target)} ({st.Reason})"));
+    NoIntrovert.Core.Cleanup.CleanupPlan? newPlan = null;
+
+    Test("Cleanup: a new library plans every game into the other folder, and copies or leaves out the rest (FR-8)", () =>
+    {
+        var plan = newPlan = PlanNew();
+        string? Check(string game, NoIntrovert.Core.Cleanup.CleanupKind kind, string? target)
+        {
+            var st = Find(plan, game);
+            return st is not null && st.Kind == kind && RelN(st.Target) == (target ?? "") && st.Destination is { } d && PathNames.Same(d, newLib) ? null : $"{game}: expected {kind} → {target}\n{DescribeN(plan)}";
+        }
+        if (plan.Steps.Any(st => st.Kind is NoIntrovert.Core.Cleanup.CleanupKind.Move or NoIntrovert.Core.Cleanup.CleanupKind.Rename or NoIntrovert.Core.Cleanup.CleanupKind.RemoveDuplicate))
+            return $"a new library's plan moves, renames or removes in the Library\n{DescribeN(plan)}";
+        if (plan.Steps.Any(st => st.Target is { } t && !RelN(t).StartsWith("roms/") && !RelN(t).StartsWith("Misc/")))
+            return $"a target outside the new library\n{DescribeN(plan)}";
+        var leftOut = PlanNew(copyUnmatched: false);
+        if (Find(leftOut, "Unknown") is not { Kind: NoIntrovert.Core.Cleanup.CleanupKind.Untouched } u || !u.Reason.EndsWith("not copied"))
+            return $"with Copy unmatched off, Unknown should be left out\n{DescribeN(leftOut)}";
+        return Check("Crash Bandicoot", NoIntrovert.Core.Cleanup.CleanupKind.Convert, "roms/psx/Crash Bandicoot (USA).chd")
+            ?? Check("Mario", NoIntrovert.Core.Cleanup.CleanupKind.Convert, "roms/nes/Super Mario Bros. (World).7z")
+            ?? Check("Epic (USA)", NoIntrovert.Core.Cleanup.CleanupKind.Convert, "roms/psx/Epic (USA).m3u")
+            ?? Check("Wrong Name", NoIntrovert.Core.Cleanup.CleanupKind.Copy, "roms/nes/Metroid (USA).7z")
+            ?? Check("Unknown", NoIntrovert.Core.Cleanup.CleanupKind.Copy, "roms/nes/Unknown.nes")
+            ?? Check("loose", NoIntrovert.Core.Cleanup.CleanupKind.Copy, "Misc/loose.bin");
+    });
+
+    NoIntrovert.Core.Cleanup.CleanupRun? newRun = null;
+    Test("Cleanup: running a new library's plan fills the other folder and leaves the Library as it was (FR-8)", () =>
+    {
+        var before = Stamped();
+        // Run only what can run: the junk "Zelda (USA).7z" and Zelda's conversion want the same name, so one is a clash.
+        newRun = RunPlan(newPlan!);
+        if (Same(before, Stamped()) is { Length: > 0 } changed) return changed;
+        var tree = TreeN();
+        var expected = new[]
+        {
+            "roms/psx/Crash Bandicoot (USA).chd", "roms/nes/Super Mario Bros. (World).7z", "roms/nes/Metroid (USA).7z",
+            "roms/psx/Epic (USA).m3u", "roms/psx/hidden/Epic (USA) (Disc 1).chd", "roms/psx/hidden/Epic (USA) (Disc 3).chd",
+            "roms/psx/hidden/noload.txt", "roms/nes/Unknown.nes", "Misc/loose.bin",
+        };
+        if (expected.FirstOrDefault(e => !tree.Contains(e)) is { } missing) return $"missing {missing}:\n{string.Join("\n", tree.Order())}";
+        if (tree.FirstOrDefault(t => t.Contains(".noi-")) is { } leftover) return $"left behind: {leftover}";
+        if (!File.ReadAllBytes(Path.Combine(newLib, "roms", "nes", "Unknown.nes")).SequenceEqual(File.ReadAllBytes(G7("NES/Unknown.nes")))) return "a copy differs from its original";
+        var m3u = File.ReadAllLines(Path.Combine(newLib, "roms", "psx", "Epic (USA).m3u"));
+        if (!m3u.SequenceEqual(Enumerable.Range(1, 3).Select(d => $"hidden/Epic (USA) (Disc {d}).chd"))) return string.Join(" | ", m3u);
+        return newRun.NewLibrary is { } nl && PathNames.Same(nl, newLib) && newRun.Entries.All(e => e.Action == NoIntrovert.Core.Cleanup.JournalAction.Created) ? null : "the journal isn't a new library's";
+    });
+
+    Test("Cleanup: making the plan again for the same new library shows clashes, not copies over what's there (FR-5, FR-8)", () =>
+    {
+        var plan = PlanNew();
+        var crash = Find(plan, "Crash Bandicoot");
+        return crash?.Kind == NoIntrovert.Core.Cleanup.CleanupKind.Clash && Find(plan, "Unknown")?.Kind == NoIntrovert.Core.Cleanup.CleanupKind.Clash ? null : DescribeN(plan);
+    });
+
+    Test("Cleanup: undoing a new library's run removes what it made and nothing in the Library (FR-8)", () =>
+    {
+        var before = Stamped();
+        var problems = NoIntrovert.Core.Cleanup.CleanupRunner.Undo(newRun!, useBin: false, log);
+        if (problems.Count > 0) return string.Join(" | ", problems);
+        if (Same(before, Stamped()) is { Length: > 0 } changed) return changed;
+        var files = Directory.EnumerateFiles(newLib, "*", SearchOption.AllDirectories).Select(RelN).ToList();
+        return files.Count == 0 ? null : $"still there: {string.Join(", ", files)}";
+    });
+
+    Test("Cleanup: a new library can't be inside a Library folder or hold one (FR-8)", () =>
+    {
+        var lib = Path.Combine(Path.GetTempPath(), "Lib");
+        string? P(string folder) => NoIntrovert.ViewModels.CleanupViewModel.NewLibraryProblem(folder, [lib]);
+        return P("") is not null && P(Path.Combine(lib, "new")) is not null && P(Path.GetTempPath()) is not null
+               && P(lib) is not null && P(Path.Combine(Path.GetTempPath(), "Lib2")) is null && P(Path.Combine(Path.GetTempPath(), "New")) is null
+            ? null : "wrong answer for one of the folders";
+    });
+
     NoIntrovert.Core.Cleanup.CleanupRun? firstRun = null;
     Test("Cleanup: running the plan gives the ES-DE layout, multi-disc playlist and trash (M7 1, 3, 4)", () =>
     {

@@ -748,6 +748,13 @@ public sealed partial class LibrarySettingsViewModel(AppSettings settings, IDial
 
     public bool HasFolders => S.Library.Folders.Count > 0;
 
+    /// <summary>The folder the Cleanup wizard builds a new library in (FR-8), remembered for next time.</summary>
+    public string NewLibraryFolder
+    {
+        get => S.Library.NewLibraryFolder;
+        set => Set(value ?? "", (s, v) => s.Library.NewLibraryFolder = v);
+    }
+
     /// <summary>Adds folders and rescans; set by the main window so the Library page follows. Without it the folders are just added.</summary>
     public Func<IReadOnlyList<string>, Task>? AddFoldersRequested { get; set; }
 

@@ -20,7 +20,7 @@ public partial class MainViewModel : ViewModelBase
         Library = new LibraryViewModel(Settings, Log, dialogs);
         Library.SendToConvert = paths => { Show("convert"); Convert.AddPaths(paths); };
         Library.SendToVerify = paths => { Show("verify"); Verify.AddPaths(paths); };
-        Cleanup = new CleanupViewModel(Settings, Log, queue, () => Library.Index)
+        Cleanup = new CleanupViewModel(Settings, Log, queue, () => Library.Index, dialogs)
         {
             SendToVerify = paths => { Show("verify"); Verify.AddPaths(paths); },
             Rescan = () => Library.RescanNowAsync(),
