@@ -9,16 +9,9 @@ namespace NoIntrovert.Core.Jobs;
 internal static class KnownHashes
 {
     /// <summary>The hash cache's hashes of <paramref name="path"/> while it's unchanged; null when it has none. Never hashes.</summary>
-    public static IReadOnlyList<HashedFile>? Cached(string path)
-    {
-        // GetOrAdd stores nothing when its hash function throws, so a miss leaves the cache as it was.
-        try { return HashCache.Default.GetOrAdd(path, () => throw new Miss()); }
-        catch (Miss) { return null; }
-    }
+    public static IReadOnlyList<HashedFile>? Cached(string path) => HashCache.Default.TryGet(path);
 
     /// <summary>The one whole-file hash of a single-file input (no headerless twin), with its SHA-1; else null.</summary>
     public static HashedFile? Single(IReadOnlyList<HashedFile>? files) =>
         files is [{ Headerless: false, Sha1: not null } only] ? only : null;
-
-    private sealed class Miss : Exception;
 }

@@ -127,6 +127,16 @@ public sealed class HashCache
     /// <summary>How many lookups found what they needed (tests use it to check nothing was hashed again).</summary>
     public int Hits;
 
+    /// <summary>The cached hashes of <paramref name="path"/> while it's unchanged, or null; never hashes.</summary>
+    public IReadOnlyList<HashedFile>? TryGet(string path)
+    {
+        if (!_entries.TryGetValue(path, out var e)) return null;
+        var (size, ticks) = Stamp(path);
+        if (e.Size != size || e.Ticks != ticks) return null;
+        Interlocked.Increment(ref Hits);
+        return e.Files;
+    }
+
     /// <summary>The input's hashes, from the cache while <paramref name="path"/> is unchanged, else from <paramref name="hash"/>.</summary>
     public IReadOnlyList<HashedFile> GetOrAdd(string path, Func<IReadOnlyList<HashedFile>> hash)
     {
