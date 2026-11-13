@@ -130,8 +130,8 @@
                         <v:PresetSettingsPanel DataContext="{Binding Custom}" />
                     </StackPanel>
 
-                    <!-- Wii U: encrypted titles and discs need the user's own keys (also in Settings › Advanced › Keys) -->
-                    <StackPanel Spacing="4" IsVisible="{Binding ShowsWiiUKeys}">
+                    <!-- Wii U: encrypted titles and discs need the user's own keys (also in Settings › Keys) -->
+                    <StackPanel x:Name="WiiUKeys" Spacing="4" IsVisible="{Binding ShowsWiiUKeys}">
                         <Border Classes="divider" />
                         <TextBlock Text="WII U KEYS" Classes="head" />
                         <TextBlock Classes="hint" Text="{Binding Settings.Keys.WiiUKeysSummary}" TextWrapping="Wrap" />
@@ -139,6 +139,35 @@
                             <Button Classes="tool" Content="Choose keys.txt…" Command="{Binding Settings.Keys.BrowseWiiUKeysCommand}" Margin="0,0,6,6" />
                             <Button Classes="tool" Content="Find automatically" Command="{Binding Settings.Keys.FindWiiUKeysAutomaticallyCommand}" Margin="0,0,6,6" />
                             <Button Classes="tool" Content="Refresh" Command="{Binding Settings.Keys.RefreshWiiUKeysCommand}" Margin="0,0,6,6" />
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <!-- 3DS: encrypted games and .cia files need the user's own keys (also in Settings › Keys) -->
+                    <StackPanel x:Name="ThreeDsKeys" Spacing="4" IsVisible="{Binding ShowsThreeDsKeys}">
+                        <Border Classes="divider" />
+                        <TextBlock Text="3DS KEYS" Classes="head" />
+                        <TextBlock Classes="hint" Text="{Binding Settings.Keys.ThreeDsKeysSummary}" TextWrapping="Wrap" />
+                        <WrapPanel Orientation="Horizontal">
+                            <Button Classes="tool" Content="Choose a folder…" Command="{Binding Settings.Keys.BrowseThreeDsKeysCommand}" Margin="0,0,6,6"
+                                    AutomationProperties.Name="Choose the 3DS keys folder" />
+                            <Button Classes="tool" Content="Find automatically" Command="{Binding Settings.Keys.FindThreeDsKeysAutomaticallyCommand}" Margin="0,0,6,6"
+                                    AutomationProperties.Name="Find 3DS keys automatically" />
+                            <Button Classes="tool" Content="Refresh" Command="{Binding Settings.Keys.RefreshThreeDsKeysCommand}" Margin="0,0,6,6"
+                                    AutomationProperties.Name="Refresh 3DS keys" />
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <!-- Switch: every conversion needs the user's own prod.keys (also in Settings › Keys) -->
+                    <StackPanel x:Name="SwitchKeys" Spacing="4" IsVisible="{Binding ShowsSwitchKeys}">
+                        <Border Classes="divider" />
+                        <TextBlock Text="SWITCH KEYS" Classes="head" />
+                        <TextBlock Classes="hint" Text="{Binding Settings.Keys.SwitchKeysSummary}" TextWrapping="Wrap" />
+                        <WrapPanel Orientation="Horizontal">
+                            <Button Classes="tool" Content="Choose prod.keys…" Command="{Binding Settings.Keys.BrowseSwitchKeysCommand}" Margin="0,0,6,6" />
+                            <Button Classes="tool" Content="Find automatically" Command="{Binding Settings.Keys.FindSwitchKeysAutomaticallyCommand}" Margin="0,0,6,6"
+                                    AutomationProperties.Name="Find Switch keys automatically" />
+                            <Button Classes="tool" Content="Refresh" Command="{Binding Settings.Keys.RefreshSwitchKeysCommand}" Margin="0,0,6,6"
+                                    AutomationProperties.Name="Refresh Switch keys" />
                         </WrapPanel>
                     </StackPanel>
                 </StackPanel>
