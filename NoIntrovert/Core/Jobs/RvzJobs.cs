@@ -27,8 +27,11 @@ public static class RvzJobs
     };
 
     /// <summary>One prepared GameCube/Wii disc → .rvz in <paramref name="outputFolder"/>, then optionally verified.</summary>
+    /// <param name="source">The job's input. When the disc is that file itself (not one unpacked from an archive), its
+    /// hashes come from the hash cache, where R11 has usually just put them, instead of decoding it again.</param>
     internal static (DiscResult Result, string Output, OperationStats? Stats) ConvertDisc(
-        JobContext c, PreparedDisc disc, string outputFolder, string discLabel, bool verify, double barStart = 0, double barSpan = 1)
+        JobContext c, PreparedDisc disc, string outputFolder, string discLabel, bool verify, double barStart = 0, double barSpan = 1,
+        string? source = null)
     {
         var s = c.Settings;
         var log = c.Log;
@@ -73,15 +76,47 @@ public static class RvzJobs
             return (DiscResult.Created, output, stats);
         }
         c.Band(barStart + barSpan * 0.8, barSpan * 0.2);
-        c.TrackRvz($"Verifying{discLabel}: reading the source");
-        var original = rvz.Hash(disc.InputPath, c.Token);
-        if (original.Sha1 != made.Sha1 || original.Size != made.Size)
+        var original = SourceHash(c, disc, source, discLabel);
+        if (!string.Equals(original.Sha1, made.Sha1, StringComparison.OrdinalIgnoreCase) || original.Size != (long)made.Size)
         {
             log.Error($"  verification of {Path.GetFileName(output)} failed: source SHA-1 {original.Sha1}, RVZ {made.Sha1}");
             return (DiscResult.VerifyFailed, output, stats);
         }
         log.Debug($"  verified, SHA-1 {made.Sha1} (CRC32 {made.Crc32})");
         return (DiscResult.Created, output, stats);
+    }
+
+    /// <summary>
+    /// The decoded source disc's SHA-1 and size, for the verify: from the hash cache when the disc is the job's own,
+    /// unchanged input (R11 or Verify &amp; match hashed it already), else by decoding it, which then fills the cache.
+    /// A disc unpacked from an archive is a temp file, so it's decoded and not cached.
+    /// </summary>
+    internal static (string Sha1, long Size) SourceHash(JobContext c, PreparedDisc disc, string? source, string discLabel = "")
+    {
+        (string, long) Decode()
+        {
+            c.TrackRvz($"Verifying{discLabel}: reading the source");
+            var h = c.Rvz.Hash(disc.InputPath, c.Token);
+            return (h.Sha1, (long)h.Size);
+        }
+        if (source is null || !PathNames.Same(source, disc.InputPath)) return Decode();
+
+        if (KnownHashes.Single(KnownHashes.Cached(source)) is { } known)
+        {
+            c.Log.Debug($"  source SHA-1 from the hash cache: {known.Sha1}");
+            return (known.Sha1!, known.Size);
+        }
+        // Cached in the form Verify & match gives a GameCube/Wii disc, so either can use the other's entry.
+        var ext = Path.GetExtension(source).ToLowerInvariant();
+        if (!(ext is ".rvz" or ".wia" or ".gcz" or ".gcm" || (ext == ".iso" && NintendoDisc.IsPlainDisc(source)))) return Decode();
+        var files = Dats.HashCache.Default.GetOrAdd(source, () =>
+        {
+            c.TrackRvz($"Verifying{discLabel}: reading the source");
+            var h = c.Rvz.Hash(source, c.Token);
+            return [new Dats.HashedFile(Path.GetFileName(source), (long)h.Size, h.Crc32.ToUpperInvariant(), h.Sha1.ToUpperInvariant(), Md5: h.Md5.ToUpperInvariant())];
+        });
+        var f = KnownHashes.Single(files);
+        return f is null ? Decode() : (f.Sha1!, f.Size);
     }
 
     /// <summary>

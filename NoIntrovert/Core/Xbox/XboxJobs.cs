@@ -31,6 +31,16 @@ public static class XboxJobs
         Overwrite = s.Output.Overwrite,
     };
 
+    /// <summary>
+    /// The hash cache's entry for a Redump image, when it's the whole file's with every hash R11 keeps (CRC32, MD5,
+    /// SHA-1); an older entry without MD5 doesn't count, so lib-xiso-kit hashes the image as before. A split image
+    /// (game.1.iso, game.2.iso…) is hashed as a whole by lib-xiso-kit, which one file's entry can't stand for.
+    /// </summary>
+    internal static IReadOnlyList<HashedFile>? KnownWhole(string source) =>
+        SplitParts.Resolve(source).Count == 1 && KnownHashes.Single(KnownHashes.Cached(source)) is { Md5: not null } f
+            ? [f with { Name = Path.GetFileName(source) }]
+            : null;
+
     public static JobOutcome Convert(JobContext c, string source, TargetKind kind, string? outputFolder = null)
     {
         var s = c.Settings;
@@ -47,6 +57,9 @@ public static class XboxJobs
         // The Redump image's own hashes, for Verify & match (R11): an XISO's were kept when it was made.
         var redump = !DiscProbe.IsXiso(source);
         var keepHashes = s.TargetFormats.RecordOriginalHashes;
+        // Already known (originals.json, or the hash cache from Verify & match): lib-xiso-kit needn't read the whole image again.
+        var recorded = OriginalHashes.Default.Get(source)?.Files; // read before the original may go
+        var cached = keepHashes && redump && recorded is null ? KnownWhole(source) : null;
         var progress = new InlineProgress<OperationProgress>(p =>
         {
             c.Report.SetStage(p.Stage.ToString());
@@ -55,7 +68,7 @@ public static class XboxJobs
         ShrinkResult result;
         try
         {
-            result = XisoShrinker.ShrinkAsync(source, output, OptionsFor(kind, s, keepHashes && redump), null, progress, c.Token)
+            result = XisoShrinker.ShrinkAsync(source, output, OptionsFor(kind, s, keepHashes && redump && recorded is null && cached is null), null, progress, c.Token)
                 .GetAwaiter().GetResult();
         }
         catch (Exception ex) when (ex is InvalidDataException or NotSupportedException or IOException or UnauthorizedAccessException
@@ -67,7 +80,10 @@ public static class XboxJobs
             return JobOutcome.Failed("the new image failed its check: " + string.Join("; ", v.Problems));
 
         var first = result.OutputFiles[0];
-        var recorded = OriginalHashes.Default.Get(source)?.Files; // read before the original may go
+        // What lib-xiso-kit just read goes to the hash cache too, while the image stays.
+        if (cached is null && !s.Output.ReplacesOriginals && result.SourceHashes is { } read && SplitParts.Resolve(source).Count == 1)
+            HashCache.Default.GetOrAdd(source, () =>
+                [new HashedFile(Path.GetFileName(source), read.Size, read.Crc32.ToUpperInvariant(), read.Sha1.ToUpperInvariant(), Md5: read.Md5.ToUpperInvariant())]);
         if (swap)
         {
             c.Report.SetStage("Replacing the original");
@@ -77,7 +93,7 @@ public static class XboxJobs
         }
         if (keepHashes)
         {
-            var original = recorded;
+            var original = recorded ?? cached;
             if (original is null && result.SourceHashes is { } h)
                 original = [new HashedFile(Path.GetFileName(source), h.Size, h.Crc32.ToUpperInvariant(), h.Sha1.ToUpperInvariant(), Md5: h.Md5.ToUpperInvariant())];
             if (original is not null) OriginalHashes.Default.Set(first, source, original);

@@ -58,7 +58,7 @@ public static class ChdJobs
 
             if (disc.IsNintendo && s.Nintendo.Target == NintendoTarget.Rvz)
             {
-                var (result, rvzOutput, rvzStats) = RvzJobs.ConvertDisc(c, disc, outputFolder, discLabel, mustVerify, discStart, discShare);
+                var (result, rvzOutput, rvzStats) = RvzJobs.ConvertDisc(c, disc, outputFolder, discLabel, mustVerify, discStart, discShare, source);
                 switch (result)
                 {
                     case RvzJobs.DiscResult.Skipped: skipped++; break;
