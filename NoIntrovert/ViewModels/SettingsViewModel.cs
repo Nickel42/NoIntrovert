@@ -726,7 +726,7 @@ public sealed partial class KeySettingsViewModel(AppSettings settings, IDialogs 
             var keys = Core.WiiU.WuaJobs.LoadKeys(S.Keys.WiiUKeysPath);
             return keys.Files.Count == 0
                 ? (string.IsNullOrWhiteSpace(S.Keys.WiiUKeysPath) ? "No keys.txt found in NoIntrovert's or Cemu's folder." : $"{S.Keys.WiiUKeysPath} doesn't exist.")
-                : $"{keys.Keys.Count} key(s) in {string.Join(", ", keys.Files)}";
+                : $"{keys.Keys.Count} key(s){(keys.TitleKeys.Count > 0 ? $" and {keys.TitleKeys.Count} title key(s)" : "")} in {string.Join(", ", keys.Files)}";
         }
     }
 
