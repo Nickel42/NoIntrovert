@@ -183,6 +183,75 @@ static class LayoutTests
             return title is null ? "no game row" : title.Bounds.Width >= 260 ? null : $"the game column is {title.Bounds.Width:F0} px wide";
         }));
 
+        test("Layout: the Library's column headings line up with their columns, with the list scrolling", () => Dispatch(() =>
+        {
+            var problems = new List<string>();
+            foreach (var (width, height) in new[] { (1366, 560), (1180, 820), (1920, 1080) })
+            {
+                f.Resize(width, height);
+                f.Show("library");
+                f.Layout();
+                foreach (var column in new[] { "col-system", "col-formats", "col-size", "col-status" })
+                {
+                    var cells = f.Window.GetVisualDescendants().OfType<Control>()
+                        .Where(c => c.Classes.Contains(column) && c.IsEffectivelyVisible).ToList();
+                    var heading = cells.FirstOrDefault(c => c.FindAncestorOfType<ListBoxItem>() is null);
+                    var cell = cells.FirstOrDefault(c => c.FindAncestorOfType<ListBoxItem>() is not null);
+                    if (heading is null && cell is null) continue; // hidden at this width
+                    if (heading is null || cell is null) { problems.Add($"{width}×{height} {column}: heading {heading is not null}, cell {cell is not null}"); continue; }
+                    var h = heading.TranslatePoint(new Point(0, 0), f.Window)!.Value.X;
+                    var c = cell.TranslatePoint(new Point(0, 0), f.Window)!.Value.X;
+                    if (Math.Abs(h - c) > 1 || Math.Abs(heading.Bounds.Width - cell.Bounds.Width) > 1)
+                        problems.Add($"{width}×{height} {column}: heading at {h:F0} ({heading.Bounds.Width:F0} wide), column at {c:F0} ({cell.Bounds.Width:F0} wide)");
+                }
+            }
+            f.Resize(1180, 820);
+            return problems.Count == 0 ? null : string.Join("; ", problems);
+        }));
+
+        test("Library: clicking a column heading sorts by it, again turns the order round, and the arrow shows which", () => Dispatch(() =>
+        {
+            var lib = f.Vm.Library;
+            f.Show("library");
+            f.Layout();
+            string Arrows() => $"{lib.GameArrow}|{lib.SystemArrow}|{lib.FormatsArrow}|{lib.SizeArrow}|{lib.StatusArrow}";
+            var byTitle = StringComparer.OrdinalIgnoreCase;
+            bool Ordered<T>(Func<GameRowViewModel, T> key, IComparer<T> comparer, bool descending)
+            {
+                var rows = lib.VisibleGames.ToList();
+                for (var i = 1; i < rows.Count; i++)
+                {
+                    var c = comparer.Compare(key(rows[i - 1]), key(rows[i]));
+                    if (descending ? c < 0 : c > 0) return false;
+                    if (c == 0 && byTitle.Compare(rows[i - 1].Title, rows[i].Title) > 0) return false; // ties go by title
+                }
+                return true;
+            }
+            try
+            {
+                if (Arrows() != "▲||||") return $"by default: {Arrows()}";
+                if (!Ordered(g => g.Title, byTitle, false)) return "not A to Z by title";
+                // The heading is a button bound to SortByCommand, as a click runs it.
+                var sizeHeading = f.Find<Button>(b => b.Classes.Contains("colsort") && b.CommandParameter is LibrarySortColumn.Size);
+                if (sizeHeading is null || sizeHeading.Command != lib.SortByCommand) return "the Size heading isn't a sort button";
+                lib.SortByCommand.Execute(LibrarySortColumn.Size);
+                if (Arrows() != "|||▲|" || !Ordered(g => g.Game.Size, Comparer<long>.Default, false)) return $"by size: {Arrows()}";
+                lib.SortByCommand.Execute(LibrarySortColumn.Size);
+                if (Arrows() != "|||▼|" || !Ordered(g => g.Game.Size, Comparer<long>.Default, true)) return $"by size, turned round: {Arrows()}";
+                lib.SortByCommand.Execute(LibrarySortColumn.System);
+                if (Arrows() != "|▲|||" || !Ordered(g => g.System, byTitle, false)) return $"by system: {Arrows()}";
+                lib.SortByCommand.Execute(LibrarySortColumn.Game);
+                lib.SortByCommand.Execute(LibrarySortColumn.Game);
+                if (Arrows() != "▼||||" || !Ordered(g => g.Title, byTitle, true)) return $"by title, Z to A: {Arrows()}";
+                return f.Settings.Library.SortColumn == LibrarySortColumn.Game && f.Settings.Library.SortDescending ? null : "the sort isn't kept in the settings";
+            }
+            finally
+            {
+                f.Settings.Library.SortColumn = LibrarySortColumn.System; // so the next click below lands on Game, A to Z
+                lib.SortByCommand.Execute(LibrarySortColumn.Game);
+            }
+        }));
+
         test("Layout: the title bar's moon/sun flips the Theme setting and the lilac follows the theme", () => Dispatch(() =>
         {
             var app = Avalonia.Application.Current!;

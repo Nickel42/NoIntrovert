@@ -28,7 +28,7 @@ public partial class MainViewModel : ViewModelBase
         Library.SendToCleanup = games => { Show("cleanup"); Cleanup.UseGames(games); };
         Library.IndexShown += index => _ = UpdateDatsAsync(index.Items.Select(i => i.System), startup: true);
         Settings.Dats.UpdateRequested = () => UpdateDatsAsync(Core.Library.LibraryIndex.Load().Items.Select(i => i.System), startup: false);
-        Library.IndexShown += _ => CheckEsdeAsync(startup: true);
+        Library.IndexShown += index => _ = CheckEsdeAsync(startup: true);
         Settings.Dats.EsdeCheckRequested = () => CheckEsdeAsync(startup: false);
         Settings.Library.AddFoldersRequested = Library.AddFoldersAsync;
         Settings.Library.RemoveFolderRequested = Library.RemoveFolderCommand.ExecuteAsync;

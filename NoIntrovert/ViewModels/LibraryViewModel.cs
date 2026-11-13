@@ -271,11 +271,62 @@ public partial class LibraryViewModel : ViewModelBase
             (SelectedSystem == AllSystems || g.System == SelectedSystem) &&
             (status is null || g.Status == status) &&
             words.All(w => g.Title.Contains(w, StringComparison.OrdinalIgnoreCase) || g.Formats.Contains(w, StringComparison.OrdinalIgnoreCase));
-        VisibleGames.ReplaceAll(_games.Where(Match));
+        VisibleGames.ReplaceAll(Sorted(_games.Where(Match)));
         var size = VisibleGames.Sum(g => g.Game.Size);
         var toConvert = VisibleGames.Count(g => g.Status == GameStatus.NeedsConverting);
         Summary = _games.Count == 0 ? "" :
             $"{VisibleGames.Count:N0} of {_games.Count:N0} games · {ChdJobs.Size(size)} · {toConvert:N0} need converting";
+    }
+
+    // ---- Sorting: a click on a column heading sorts by it; another click on it turns the order round ----
+
+    public LibrarySortColumn SortColumn => _settings.Library.SortColumn;
+
+    public bool SortDescending => _settings.Library.SortDescending;
+
+    /// <summary>Sorts by <paramref name="column"/>, A to Z (smallest first); the column already sorted by turns round.</summary>
+    [RelayCommand]
+    private void SortBy(LibrarySortColumn column)
+    {
+        if (_settings.Library.SortColumn == column) _settings.Library.SortDescending = !_settings.Library.SortDescending;
+        else
+        {
+            _settings.Library.SortColumn = column;
+            _settings.Library.SortDescending = false;
+        }
+        OnPropertyChanged(nameof(SortColumn));
+        OnPropertyChanged(nameof(SortDescending));
+        foreach (var name in new[] { nameof(GameArrow), nameof(SystemArrow), nameof(FormatsArrow), nameof(SizeArrow), nameof(StatusArrow) })
+            OnPropertyChanged(name);
+        var selected = SelectedGame;
+        RefreshVisible();
+        SelectedGame = selected is null ? null : VisibleGames.FirstOrDefault(g => g.Game.Key == selected.Game.Key);
+    }
+
+    /// <summary>The arrow beside a heading: ▲ ascending or ▼ descending on the column sorted by, nothing on the others.</summary>
+    private string Arrow(LibrarySortColumn column) => SortColumn != column ? "" : SortDescending ? "▼" : "▲";
+
+    public string GameArrow => Arrow(LibrarySortColumn.Game);
+    public string SystemArrow => Arrow(LibrarySortColumn.System);
+    public string FormatsArrow => Arrow(LibrarySortColumn.Formats);
+    public string SizeArrow => Arrow(LibrarySortColumn.Size);
+    public string StatusArrow => Arrow(LibrarySortColumn.Status);
+
+    /// <summary>The games in the chosen order. Ties go by title (always A to Z), then by the game's key, so the order is stable.</summary>
+    private IEnumerable<GameRowViewModel> Sorted(IEnumerable<GameRowViewModel> games)
+    {
+        var text = StringComparer.OrdinalIgnoreCase;
+        IOrderedEnumerable<GameRowViewModel> By<T>(Func<GameRowViewModel, T> key, IComparer<T>? comparer = null) =>
+            SortDescending ? games.OrderByDescending(key, comparer) : games.OrderBy(key, comparer);
+        var ordered = SortColumn switch
+        {
+            LibrarySortColumn.System => By(g => g.System, text),
+            LibrarySortColumn.Formats => By(g => g.Formats, text),
+            LibrarySortColumn.Size => By(g => g.Game.Size),
+            LibrarySortColumn.Status => By(g => g.StatusText, text),
+            _ => By(g => g.Title, text),
+        };
+        return ordered.ThenBy(g => g.Title, text).ThenBy(g => g.Game.Key, StringComparer.Ordinal);
     }
 
     // ---- Acting on games ----
