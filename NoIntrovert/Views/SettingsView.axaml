@@ -822,7 +822,8 @@
                                               ToolTip.Tip="Every message lib-chd-kit sends, shown as debug lines." />
                                     <CheckBox Content="Log progress every 10%" IsChecked="{Binding General.LogProgress}" />
                                     <Grid ColumnDefinitions="*,110" ColumnSpacing="8" Margin="0,4,0,0">
-                                        <TextBlock Text="Threads per job (0 = all)" VerticalAlignment="Center" />
+                                        <TextBlock Text="Threads per job (0 = automatic)" VerticalAlignment="Center"
+                                                   ToolTip.Tip="0 shares the processors between the jobs that run at once." />
                                         <NumericUpDown Grid.Column="1" AutomationProperties.Name="Threads per job" Value="{Binding Performance.ThreadsPerJob}" Minimum="0" Maximum="{Binding Performance.MaxThreads}"
                                                        Increment="1" FormatString="0" />
                                     </Grid>
