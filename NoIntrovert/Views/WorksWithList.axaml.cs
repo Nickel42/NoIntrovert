@@ -62,4 +62,7 @@ public static class WorksWithConverters
 
     /// <summary>An emulator that can't open the output has its name dimmed.</summary>
     public static readonly IValueConverter NameOpacity = new FuncValueConverter<SupportState, double>(s => s == SupportState.DoesNot ? 0.5 : 1.0);
+
+    /// <summary>Only an emulator that can't open the output shows why under its name; the others keep it in the tooltip.</summary>
+    public static readonly IValueConverter ShowsReason = new FuncValueConverter<SupportState, bool>(s => s == SupportState.DoesNot);
 }
