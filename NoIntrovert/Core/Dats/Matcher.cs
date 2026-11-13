@@ -91,12 +91,10 @@ public sealed class MatchStore
     private static readonly ConcurrentDictionary<string, MatchStore> Stores = new(StringComparer.OrdinalIgnoreCase);
     private static readonly JsonSerializerOptions JsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
     private readonly ConcurrentDictionary<string, Entry> _entries;
-    private readonly string _path;
-    private readonly object _saveLock = new();
+    private readonly ThrottledJsonFile _file;
 
     private MatchStore(string path)
     {
-        _path = path;
         Dictionary<string, Entry>? loaded = null;
         try
         {
@@ -104,6 +102,7 @@ public sealed class MatchStore
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
         _entries = new ConcurrentDictionary<string, Entry>(loaded ?? [], StringComparer.OrdinalIgnoreCase);
+        _file = new ThrottledJsonFile(path, () => JsonSerializer.Serialize(_entries, JsonOptions));
     }
 
     public static MatchStore Default => Stores.GetOrAdd(Path.Combine(AppSettings.SettingsDirectory, "matches.json"), p => new MatchStore(p));
@@ -116,20 +115,17 @@ public sealed class MatchStore
         return e.Size == size && e.Ticks == ticks ? e.Result : null;
     }
 
+    /// <summary>Remembers <paramref name="path"/>'s result; matches.json is written at most every two seconds, and when the job group ends.</summary>
     public void Set(string path, MatchResult result)
     {
         var (size, ticks) = HashCache.Stamp(path);
         _entries[path] = new Entry(size, ticks, result);
-        lock (_saveLock)
-        {
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-                var temp = _path + ".tmp";
-                File.WriteAllText(temp, JsonSerializer.Serialize(_entries, JsonOptions));
-                File.Move(temp, _path, overwrite: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
+        _file.Changed();
     }
+
+    /// <summary>How many times matches.json has been written.</summary>
+    public int Writes => _file.Writes;
+
+    /// <summary>Writes matches.json now if it changed.</summary>
+    public void Flush() => _file.Flush();
 }

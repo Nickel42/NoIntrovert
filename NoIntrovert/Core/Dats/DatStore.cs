@@ -81,9 +81,10 @@ public sealed class DatStore(string folder)
     /// when one there has the same header name, else the cached copy. Keys
     /// with neither are left out.
     /// </summary>
-    public List<DatFile> Load(IEnumerable<string> keys, string? ownFolder)
+    public List<DatFile> Load(IEnumerable<string> keys, string? ownFolder) => Load(keys, OwnDats(ownFolder));
+
+    private List<DatFile> Load(IEnumerable<string> keys, Dictionary<string, string> own)
     {
-        var own = OwnDats(ownFolder);
         var dats = new List<DatFile>();
         foreach (var key in keys)
         {
@@ -95,18 +96,39 @@ public sealed class DatStore(string folder)
     }
 
     /// <summary>The DATs covering <paramref name="system"/>, or every DAT on hand when it's unknown.</summary>
-    public List<DatFile> For(SystemInfo? system, string? ownFolder) =>
-        system is null
-            ? Load(CachedKeys(), ownFolder).Concat(OwnDats(ownFolder).Values.Select(Parse).OfType<DatFile>()).DistinctBy(d => d.Name).ToList()
-            : Load(system.Dats ?? [], ownFolder);
+    public List<DatFile> For(SystemInfo? system, string? ownFolder)
+    {
+        var own = OwnDats(ownFolder);
+        return system is null
+            ? Load(CachedKeys(), own).Concat(own.Values.Select(Parse).OfType<DatFile>()).DistinctBy(d => d.Name).ToList()
+            : Load(system.Dats ?? [], own);
+    }
 
-    /// <summary>The user's own DATs by header name (FR-3).</summary>
-    private static Dictionary<string, string> OwnDats(string? ownFolder)
+    private readonly ConcurrentDictionary<string, (long Size, DateTime Stamp, string? Name)> _headers = new(StringComparer.OrdinalIgnoreCase);
+    private int _headerReads;
+
+    /// <summary>How many own-DAT headers have been read from disk (tests use it to check each is read once).</summary>
+    public int HeaderReads => Volatile.Read(ref _headerReads);
+
+    /// <summary>
+    /// The user's own DATs by header name (FR-3). The folder is listed every
+    /// time, so a DAT added or removed counts at once, but a DAT's header is
+    /// read again only when its size or date changes.
+    /// </summary>
+    private Dictionary<string, string> OwnDats(string? ownFolder)
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (string.IsNullOrWhiteSpace(ownFolder) || !Directory.Exists(ownFolder)) return map;
-        foreach (var file in Directory.EnumerateFiles(ownFolder, "*.dat", SearchOption.AllDirectories))
-            if (DatFile.HeaderName(file) is { Length: > 0 } name) map.TryAdd(name, file);
+        foreach (var file in new DirectoryInfo(ownFolder).EnumerateFiles("*.dat", SearchOption.AllDirectories))
+        {
+            if (!_headers.TryGetValue(file.FullName, out var known) || known.Size != file.Length || known.Stamp != file.LastWriteTimeUtc)
+            {
+                Interlocked.Increment(ref _headerReads);
+                known = (file.Length, file.LastWriteTimeUtc, DatFile.HeaderName(file.FullName));
+                _headers[file.FullName] = known;
+            }
+            if (known.Name is { Length: > 0 } name) map.TryAdd(name, file.FullName);
+        }
         return map;
     }
 
