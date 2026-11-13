@@ -13,30 +13,40 @@
         Then the Advanced cards, collapsed and quieter: the presets' details,
         targets, databases, keys and diagnostics.
     -->
-    <UserControl.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.ThemeDictionaries>
-                <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="SettingsFieldBackground" Color="#1E1E2A" />
-                    <SolidColorBrush x:Key="SettingsFieldBorder" Color="#3A3A4E" />
-                    <SolidColorBrush x:Key="SettingsFieldText" Color="#C9C8D8" />
-                    <SolidColorBrush x:Key="SettingsLink" Color="#B4B5DA" />
-                    <SolidColorBrush x:Key="SettingsSegmentHover" Color="#2C2C3C" />
-                </ResourceDictionary>
-                <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="SettingsFieldBackground" Color="#F4F4F8" />
-                    <SolidColorBrush x:Key="SettingsFieldBorder" Color="#D4D4DE" />
-                    <SolidColorBrush x:Key="SettingsFieldText" Color="#4A4A5A" />
-                    <SolidColorBrush x:Key="SettingsLink" Color="#5A5C8A" />
-                    <SolidColorBrush x:Key="SettingsSegmentHover" Color="#E6E6EE" />
-                </ResourceDictionary>
-            </ResourceDictionary.ThemeDictionaries>
-            <SolidColorBrush x:Key="SettingsAccent" Color="#7C7EA6" />
-            <SolidColorBrush x:Key="SettingsWarning" Color="#FF8C42" />
-        </ResourceDictionary>
-    </UserControl.Resources>
+
+    <!-- A theme in the Dark theme / Light theme lists: a tile of its background with its primary and accent, and its name -->
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="vm:ThemeOption">
+            <!-- A grid, not a horizontal stack, so a long name ends in "…" rather than being cut off -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                <ToolTip.Tip>
+                    <StackPanel>
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding Origin}" />
+                    </StackPanel>
+                </ToolTip.Tip>
+                <Border Width="40" Height="18" CornerRadius="5" Background="{Binding Background}"
+                        BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="3">
+                        <Ellipse Width="8" Height="8" Fill="{Binding Surface}" />
+                        <Ellipse Width="8" Height="8" Fill="{Binding Primary}" />
+                        <Ellipse Width="8" Height="8" Fill="{Binding Accent}" />
+                    </StackPanel>
+                </Border>
+                <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.DataTemplates>
 
     <UserControl.Styles>
+        <!-- The theme editor: a quiet panel inside the General card -->
+        <Style Selector="Border.themeeditor">
+            <Setter Property="Background" Value="{DynamicResource SettingsFieldBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SettingsFieldBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="14,12" />
+        </Style>
         <Style Selector="TextBlock.overridden">
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
@@ -117,8 +127,8 @@
             <Setter Property="Background" Value="{DynamicResource SettingsSegmentHover}" />
         </Style>
         <Style Selector="RadioButton.segment:checked">
-            <Setter Property="Background" Value="{StaticResource SettingsAccent}" />
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource SettingsAccent}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}" />
             <Setter Property="FontWeight" Value="Bold" />
         </Style>
 
@@ -231,6 +241,97 @@
                                     </StackPanel>
                                 </Border>
                             </Grid>
+                            <!-- Which dark and which light theme: NoIntrovert's, custom or imported, and the Base16 schemes (Core/Themes) -->
+                            <TextBox Text="{Binding General.ColorThemes.Search}" Watermark="{Binding General.ColorThemes.SearchHint}"
+                                     IsVisible="{Binding !General.ColorThemes.IsEditing}"
+                                     ToolTip.Tip="Narrows both lists to themes whose name or author has these words (gruvbox, nord, solarized…)." />
+                            <!-- The picker is 270 px when there's room, narrower (not the label) when there isn't -->
+                            <Grid Classes="row" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="4*" MinWidth="180" MaxWidth="270" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Dark theme" Classes="name" />
+                                    <Button Classes="link" Content="Customize…" HorizontalAlignment="Left" Command="{Binding General.ColorThemes.CustomizeCommand}"
+                                            CommandParameter="Dark" ToolTip.Tip="Choose your own colours, starting from this theme, and save them as a theme you name." />
+                                </StackPanel>
+                                <ComboBox x:Name="DarkThemePicker" Grid.Column="2" Classes="control themes" HorizontalAlignment="Stretch" MaxDropDownHeight="420" ItemsSource="{Binding General.ColorThemes.DarkThemes}"
+                                          SelectedItem="{Binding General.ColorThemes.SelectedDark}" IsEnabled="{Binding !General.ColorThemes.IsEditing}" />
+                            </Grid>
+                            <!-- The picker is 270 px when there's room, narrower (not the label) when there isn't -->
+                            <Grid Classes="row" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="4*" MinWidth="180" MaxWidth="270" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Light theme" Classes="name" />
+                                    <Button Classes="link" Content="Customize…" HorizontalAlignment="Left" Command="{Binding General.ColorThemes.CustomizeCommand}"
+                                            CommandParameter="Light" ToolTip.Tip="Choose your own colours, starting from this theme, and save them as a theme you name." />
+                                </StackPanel>
+                                <ComboBox x:Name="LightThemePicker" Grid.Column="2" Classes="control themes" HorizontalAlignment="Stretch" MaxDropDownHeight="420" ItemsSource="{Binding General.ColorThemes.LightThemes}"
+                                          SelectedItem="{Binding General.ColorThemes.SelectedLight}" IsEnabled="{Binding !General.ColorThemes.IsEditing}" />
+                            </Grid>
+
+                            <!-- The theme editor: a colour per role, previewed in the whole app as it changes -->
+                            <Border Classes="themeeditor" IsVisible="{Binding General.ColorThemes.IsEditing}">
+                                <StackPanel Spacing="10" DataContext="{Binding General.ColorThemes.Editor}" x:DataType="vm:ThemeEditorViewModel">
+                                    <TextBlock Text="{Binding Title}" Classes="name" />
+                                    <TextBlock Text="{Binding BasedOn}" Classes="desc" TextWrapping="Wrap" />
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                        <TextBlock Text="Name" VerticalAlignment="Center" />
+                                        <TextBox Grid.Column="1" Text="{Binding Name}" Watermark="My theme" />
+                                    </Grid>
+                                    <ItemsControl ItemsSource="{Binding Rows}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:ThemeColorRow">
+                                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,2">
+                                                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    <ColorPicker Grid.Column="1" Color="{Binding Color}" IsAlphaEnabled="False" IsAlphaVisible="False"
+                                                                 ToolTip.Tip="{Binding Label}" />
+                                                    <TextBox Grid.Column="2" Width="96" MinHeight="30" FontSize="13" Text="{Binding Hex}"
+                                                             FontFamily="Consolas, Menlo, monospace" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <WrapPanel Orientation="Horizontal">
+                                        <Button Classes="primary" Content="Save theme" Command="{Binding SaveCommand}" Margin="0,0,8,6" />
+                                        <Button Content="Cancel" Command="{Binding CancelCommand}" Margin="0,0,8,6" />
+                                        <Button Classes="link" Content="Reset colours" Command="{Binding ResetCommand}" Margin="0,0,8,6" VerticalAlignment="Center" />
+                                        <Button Classes="link" Content="Delete theme" Command="{Binding DeleteCommand}" IsVisible="{Binding EditsOwn}"
+                                                VerticalAlignment="Center" Margin="0,0,0,6" />
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- More themes: files, the web, the folder they're kept in -->
+                            <StackPanel Spacing="6" IsVisible="{Binding !General.ColorThemes.IsEditing}">
+                                <TextBlock Text="More themes" Classes="name" />
+                                <TextBlock Classes="desc" TextWrapping="Wrap"
+                                           Text="Import an Avalonia theme (.axaml) or any Base16 or Base24 colour scheme (.yaml). Paste a scheme's web address to download it." />
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBox Text="{Binding General.ColorThemes.ImportUrl}" Watermark="https://…/gruvbox-dark.yaml" />
+                                    <Button Grid.Column="1" Classes="tool" Content="Import from web" Command="{Binding General.ColorThemes.ImportFromUrlCommand}" />
+                                </Grid>
+                                <WrapPanel Orientation="Horizontal">
+                                    <Button Classes="link" Content="Import file…" Command="{Binding General.ColorThemes.ImportCommand}" Margin="0,0,14,0" />
+                                    <Button Classes="link" Content="Export dark…" Command="{Binding General.ColorThemes.ExportCommand}" CommandParameter="Dark" Margin="0,0,14,0"
+                                            ToolTip.Tip="Save the dark theme as an .axaml file to share it, or use it in another Avalonia app." />
+                                    <Button Classes="link" Content="Export light…" Command="{Binding General.ColorThemes.ExportCommand}" CommandParameter="Light" Margin="0,0,14,0"
+                                            ToolTip.Tip="Save the light theme as an .axaml file to share it, or use it in another Avalonia app." />
+                                    <Button Classes="link" Content="Open themes folder" Command="{Binding General.ColorThemes.OpenFolderCommand}" Margin="0,0,14,0" />
+                                    <Button Classes="link" Content="Reload" Command="{Binding General.ColorThemes.RefreshCommand}" Margin="0,0,14,0"
+                                            ToolTip.Tip="Read the themes folder again, after adding or changing a file there yourself." />
+                                    <HyperlinkButton Content="Browse Base16 schemes" NavigateUri="{Binding General.ColorThemes.GalleryUrl}" Padding="0,2"
+                                                     ToolTip.Tip="tinted-theming's gallery: open a scheme's .yaml on GitHub and paste its address above." />
+                                </WrapPanel>
+                            </StackPanel>
+                            <TextBlock Text="{Binding General.ColorThemes.Status}" Classes="desc" TextWrapping="Wrap"
+                                       IsVisible="{Binding General.ColorThemes.Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                             <Grid Classes="row" ColumnDefinitions="*,Auto">
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="Start on" Classes="name" />
@@ -263,7 +364,7 @@
                                     </Grid>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <RadioButton Classes="choice" Content="Replace the originals" IsChecked="{Binding Output.ReplacesOriginals}" />
-                                        <TextBlock Text="⚠" Foreground="{StaticResource SettingsWarning}" FontSize="13" VerticalAlignment="Center"
+                                        <TextBlock Text="⚠" Foreground="{DynamicResource SettingsWarning}" FontSize="13" VerticalAlignment="Center"
                                                    ToolTip.Tip="Each original is removed once its new file checks out." />
                                     </StackPanel>
                                 </StackPanel>

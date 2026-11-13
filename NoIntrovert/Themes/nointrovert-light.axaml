@@ -1,0 +1,56 @@
+<!--
+  The design's warm light grey with the logo's lilac and orange (the colours from before themes, kept exactly).
+  A NoIntrovert theme: an Avalonia ResourceDictionary. Each ThemeXxx colour is one of the theme's roles; the
+  app works out the rest from them. Any other key sets one of the app's own colours exactly.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:String x:Key="ThemeName">NoIntrovert Light</x:String>
+    <x:String x:Key="ThemeVariant">Light</x:String>
+    <x:String x:Key="ThemeAuthor">NoIntrovert</x:String>
+    <Color x:Key="ThemeBackground">#F5F2F5</Color>
+    <Color x:Key="ThemeSurface">#FFFFFF</Color>
+    <Color x:Key="ThemeRaised">#FBF9FB</Color>
+    <Color x:Key="ThemeHeader">#FFFFFF</Color>
+    <Color x:Key="ThemeBorder">#E2DAE1</Color>
+    <Color x:Key="ThemeControlBorder">#C9BFC8</Color>
+    <Color x:Key="ThemeText">#2B2B3D</Color>
+    <Color x:Key="ThemeSubtleText">#77778F</Color>
+    <Color x:Key="ThemeSectionText">#616283</Color>
+    <Color x:Key="ThemePrimary">#616283</Color>
+    <Color x:Key="ThemeAccent">#FF8C42</Color>
+    <Color x:Key="ThemeDanger">#E02B27</Color>
+    <Color x:Key="ThemeWarning">#FF8C42</Color>
+    <Color x:Key="ThemeSuccess">#E8D84A</Color>
+
+    <!-- The design's own shades, where they aren't what the roles would give. -->
+    <SolidColorBrush x:Key="RowAlt" Color="#F7F4F7" />
+    <SolidColorBrush x:Key="LogBackground" Color="#FBF9FB" />
+    <SolidColorBrush x:Key="PrimaryTint" Color="#E4E4ED" />
+    <SolidColorBrush x:Key="WindowButtonBackground" Color="#F1EBF0" />
+    <SolidColorBrush x:Key="DangerTint" Color="#FFDCDB" />
+    <SolidColorBrush x:Key="PrimaryForeground" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="PanelHeadText" Color="#55568A" />
+    <SolidColorBrush x:Key="PanelGroupText" Color="#6E6D88" />
+    <SolidColorBrush x:Key="PanelTile" Color="#F1F1F8" />
+    <SolidColorBrush x:Key="PanelTileBorder" Color="#D9D9EA" />
+    <SolidColorBrush x:Key="TagGeneration" Color="#E3E3F2" />
+    <SolidColorBrush x:Key="TagMedia" Color="#E9E0F2" />
+    <SolidColorBrush x:Key="TagText" Color="#2B2B3D" />
+    <SolidColorBrush x:Key="WarningFill" Color="#FFF1E6" />
+    <SolidColorBrush x:Key="WarningText" Color="#7A3A10" />
+    <SolidColorBrush x:Key="OutlineButton" Color="#7C7EA6" />
+    <SolidColorBrush x:Key="SettingsFieldBackground" Color="#F4F4F8" />
+    <SolidColorBrush x:Key="SettingsFieldBorder" Color="#D4D4DE" />
+    <SolidColorBrush x:Key="SettingsFieldText" Color="#4A4A5A" />
+    <SolidColorBrush x:Key="SettingsLink" Color="#5A5C8A" />
+    <SolidColorBrush x:Key="SettingsSegmentHover" Color="#E6E6EE" />
+    <SolidColorBrush x:Key="SettingsAccent" Color="#7C7EA6" />
+    <SolidColorBrush x:Key="SelectionFill" Color="#2E8F86D9" />
+    <SolidColorBrush x:Key="SelectionHoverFill" Color="#3D8F86D9" />
+    <SolidColorBrush x:Key="FocusedRowFill" Color="#338F86D9" />
+    <Color x:Key="SukiControlTouchBackground">#F1EBF0</Color>
+    <Color x:Key="SukiLowText">#46475F</Color>
+    <Color x:Key="SukiDisabledText">#BDB8C3</Color>
+    <Color x:Key="SukiDangerColor">#FF3C38</Color>
+</ResourceDictionary>

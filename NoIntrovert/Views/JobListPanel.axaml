@@ -116,10 +116,10 @@
                         </Style>
                         <!-- Selected rows: a light lilac tint -->
                         <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
-                            <Setter Property="Background" Value="#2E8F86D9" />
+                            <Setter Property="Background" Value="{DynamicResource SelectionFill}" />
                         </Style>
                         <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                            <Setter Property="Background" Value="#3D8F86D9" />
+                            <Setter Property="Background" Value="{DynamicResource SelectionHoverFill}" />
                         </Style>
                         <!-- The focused row: a stronger fill, a 2 px orange outline and a 4 px orange bar on its left -->
                         <Style Selector="Border.rowframe">
@@ -129,8 +129,8 @@
                             <Setter Property="Padding" Value="10,3" />
                         </Style>
                         <Style Selector="Border.rowframe.focused">
-                            <Setter Property="BorderBrush" Value="#FF8C42" />
-                            <Setter Property="Background" Value="#338F86D9" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="Background" Value="{DynamicResource FocusedRowFill}" />
                         </Style>
                     </ListBox.Styles>
                     <ListBox.ItemTemplate>
@@ -189,7 +189,7 @@
                                 </StackPanel>
                             </Grid>
                             </Border>
-                            <Border Width="4" HorizontalAlignment="Left" Background="#FF8C42" CornerRadius="4,0,0,4" IsVisible="{Binding IsFocusedRow}" />
+                            <Border Width="4" HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" CornerRadius="4,0,0,4" IsVisible="{Binding IsFocusedRow}" />
                             </Panel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>

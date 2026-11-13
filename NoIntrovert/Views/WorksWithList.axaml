@@ -58,7 +58,7 @@
             <TextBlock Classes="hint" FontSize="11" Text="{Binding Footer}" TextWrapping="Wrap"
                        ToolTip.Tip="{Binding Source}" />
             <HyperlinkButton Content="Learn more" NavigateUri="{Binding LearnMoreUri}" HorizontalAlignment="Left"
-                             Padding="0" MinHeight="0" FontSize="11" FontWeight="Bold" Foreground="#B4B5DA"
+                             Padding="0" MinHeight="0" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource SectionText}"
                              ToolTip.Tip="RetroArch core documentation at docs.libretro.com" />
         </StackPanel>
     </StackPanel>
