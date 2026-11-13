@@ -46,16 +46,27 @@ public static partial class LibraryScanner
                     index.MissingFolders.Add(root);
                     continue;
                 }
-                foreach (var set in sets)
+                // Sizes and dates are read several at a time (a network or cloud folder answers each one slowly),
+                // a chunk at a time so progress keeps moving; describing stays in order, on this thread,
+                // since it shares one chdman.
+                var stamps = new (long Size, long Ticks)[sets.Count];
+                for (var start = 0; start < sets.Count; start += StampChunk)
                 {
-                    token.ThrowIfCancellationRequested();
-                    var (size, ticks) = Stamp(set);
-                    if (reuse && old.TryGetValue(set.Primary, out var known) && known.Size == size && known.ModifiedTicks == ticks
-                        && known.FormatId == set.Format.Id && string.Equals(known.Root, root, PathNames.Comparison))
-                        index.Items.Add(known);
-                    else
-                        index.Items.Add(Describe(set, root, size, ticks, settings, ref chdman));
-                    progress?.Report(index.Items.Count);
+                    var end = Math.Min(sets.Count, start + StampChunk);
+                    Parallel.For(start, end, new ParallelOptions { MaxDegreeOfParallelism = StampParallelism, CancellationToken = token },
+                        i => stamps[i] = Stamp(sets[i]));
+                    for (var i = start; i < end; i++)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        var set = sets[i];
+                        var (size, ticks) = stamps[i];
+                        if (reuse && old.TryGetValue(set.Primary, out var known) && known.Size == size && known.ModifiedTicks == ticks
+                            && known.FormatId == set.Format.Id && string.Equals(known.Root, root, PathNames.Comparison))
+                            index.Items.Add(known);
+                        else
+                            index.Items.Add(Describe(set, root, size, ticks, settings, ref chdman));
+                        progress?.Report(index.Items.Count);
+                    }
                 }
             }
         }
@@ -65,6 +76,9 @@ public static partial class LibraryScanner
         }
         return index;
     }
+
+    /// <summary>How many inputs are stat'ed at once, and how many before they're described (so progress shows).</summary>
+    private const int StampParallelism = 8, StampChunk = 256;
 
     /// <summary>The settings a status depends on, as text: an index made under others is described again.</summary>
     public static string TargetSettingsKey(AppSettings settings) =>

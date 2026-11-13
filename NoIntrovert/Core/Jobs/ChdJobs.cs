@@ -28,7 +28,11 @@ public static class ChdJobs
         log.Info($"Converting {name}");
         // R11: the source's own hashes, so the CHD or RVZ can still be checked against No-Intro and Redump.
         IReadOnlyList<Dats.HashedFile>? originals = null;
-        if (s.TargetFormats.RecordOriginalHashes)
+        // A GameCube/Wii disc on its way to RVZ is hashed beside the compression, which reads it anyway.
+        using var originalsBeside = s.TargetFormats.RecordOriginalHashes && s.Nintendo.Target == NintendoTarget.Rvz
+            ? RvzJobs.HashBeside(c, source, md5: false)
+            : null;
+        if (s.TargetFormats.RecordOriginalHashes && originalsBeside is null)
         {
             c.Report.SetStage("Hashing the original");
             originals = Dats.VerifyJobs.HashesOf(c, source);
@@ -37,7 +41,7 @@ public static class ChdJobs
         var prepShare = Path.GetExtension(source).ToLowerInvariant() is ".cue" or ".gdi" or ".toc" or ".nrg" or ".iso" or ".bin" or ".img" or ".gcm" ? 0.02 : 0.15;
         c.Band(0, prepShare);
         c.Report.SetStage("Preparing");
-        var preparer = new InputPreparer(s.Performance.EffectiveTempFolder, s.Chd.IsoMode, log);
+        var preparer = new InputPreparer(s.Performance.EffectiveTempFolder, s.Chd.IsoMode, log) { Threads = s.Performance.EffectiveThreadsPerJob };
         using var prepared = preparer.Prepare(source,
             new InlineProgress<(string Stage, double Fraction)>(p => { c.Report.SetStage(p.Stage); c.Report.SetProgress(p.Fraction); }), c.Token);
 
@@ -58,7 +62,7 @@ public static class ChdJobs
 
             if (disc.IsNintendo && s.Nintendo.Target == NintendoTarget.Rvz)
             {
-                var (result, rvzOutput, rvzStats) = RvzJobs.ConvertDisc(c, disc, outputFolder, discLabel, mustVerify, discStart, discShare);
+                var (result, rvzOutput, rvzStats) = RvzJobs.ConvertDisc(c, disc, outputFolder, discLabel, mustVerify, discStart, discShare, source);
                 switch (result)
                 {
                     case RvzJobs.DiscResult.Skipped: skipped++; break;
@@ -116,6 +120,7 @@ public static class ChdJobs
         if (created.Count == 0)
             return JobOutcome.Skipped(skipped > 0 ? "Already RVZ" : "Nothing to convert");
 
+        originals ??= originalsBeside?.Result();
         if (originals is not null)
             foreach (var (made, _) in created) Dats.OriginalHashes.Default.Set(made, source, originals);
 

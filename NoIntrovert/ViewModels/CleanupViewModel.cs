@@ -11,53 +11,6 @@ using NoIntrovert.Services;
 
 namespace NoIntrovert.ViewModels;
 
-/// <summary>One step in the dry run, with its tick box (FR-2).</summary>
-public sealed partial class CleanupStepRow(CleanupStep step, Action changed) : ObservableObject
-{
-    public CleanupStep Step { get; } = step;
-    public string Game => Step.Game;
-    public string Reason => Step.Reason;
-    public bool CanRun => Step.Kind is not (CleanupKind.Clash or CleanupKind.Untouched);
-
-    public string KindText => Step.Kind switch
-    {
-        CleanupKind.Convert => "Convert",
-        CleanupKind.Rename => "Rename",
-        CleanupKind.Move => "Move",
-        CleanupKind.Copy => "Copy",
-        CleanupKind.RemoveDuplicate => "Remove duplicate",
-        CleanupKind.Clash => "Clash",
-        _ => Step.Copies ? "Left out" : "Left alone",
-    };
-
-    /// <summary>
-    /// Before → after, as paths in the Library folder, so the dry run shows where each file ends up (FR-2).
-    /// For a new library (FR-8) the after is a path in the new library's folder.
-    /// </summary>
-    public string Change => Step.Target is { } target
-        ? $"{string.Join(", ", Step.Sources.Take(1).Select(Shorten))}{(Step.Sources.Count > 1 ? $" (+{Step.Sources.Count - 1})" : "")} → {Shorten(target, Step.WriteRoot)}"
-        : string.Join(", ", Step.Sources.Take(1).Select(Shorten)) + (Step.Kind == CleanupKind.RemoveDuplicate ? " → trash" : "");
-
-    public bool Enabled
-    {
-        get => Step.Enabled;
-        set { if (Step.Enabled == value) return; Step.Enabled = value; OnPropertyChanged(); changed(); }
-    }
-
-    private string Shorten(string path) => Shorten(path, Step.Root);
-
-    private static string Shorten(string path, string root) =>
-        Path.GetRelativePath(root, path) is var relative && !relative.StartsWith("..") && !Path.IsPathRooted(relative) ? relative.Replace('\\', '/') : path;
-}
-
-/// <summary>One past run, with Undo and Empty trash (FR-4).</summary>
-public sealed record CleanupRunRow(CleanupRun Run)
-{
-    public string Summary => Run.Summary;
-    public bool CanUndo => !Run.Undone;
-    public bool CanEmpty => !Run.Undone && !Run.TrashEmptied && Run.TrashFolders.Any(Directory.Exists);
-}
-
 /// <summary>
 /// The Cleanup wizard (M7, docs/requirements/cleanup-wizard.md): make a plan
 /// for the selected games or the whole Library, review it as a dry run, run
@@ -87,6 +40,10 @@ public partial class CleanupViewModel : ViewModelBase
             OnPropertyChanged(nameof(EsDeLayout));
             OnPropertyChanged(nameof(KeepLayout));
             if (HasPlan && !IsBusy) _ = MakePlan();
+        };
+        _settings.Output.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(OutputSettingsViewModel.UseRecycleBin)) OnPropertyChanged(nameof(EmptyTrashTip));
         };
         RefreshRuns();
     }
@@ -196,10 +153,66 @@ public partial class CleanupViewModel : ViewModelBase
     [ObservableProperty] public partial string ScopeText { get; set; } = "The whole Library";
     [ObservableProperty] public partial string Summary { get; set; } = "Make a plan to see what would change. Nothing is written until you run it.";
 
-    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(MakePlanCommand), nameof(RunCommand))]
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(MakePlanCommand), nameof(RunCommand), nameof(WholeLibraryCommand), nameof(UndoCommand), nameof(EmptyTrashCommand))]
+    [NotifyPropertyChangedFor(nameof(ShowsEmptyHint))]
     public partial bool IsBusy { get; set; }
 
+    /// <summary>What the page is doing while <see cref="IsBusy"/>: "Making the plan…", "Running 12 steps…".</summary>
+    [ObservableProperty] public partial string BusyText { get; set; } = "";
+
+    /// <summary>A run is on the queue, so it can be stopped.</summary>
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(CancelRunCommand))]
+    public partial bool IsRunning { get; set; }
+
     public bool HasPlan => Steps.Count > 0;
+
+    /// <summary>The "choose games" message shows only with no plan and nothing being worked on.</summary>
+    public bool ShowsEmptyHint => !HasPlan && !IsBusy;
+
+    /// <summary>Where emptied trash goes, as Settings › Output says.</summary>
+    public static string TrashFate(bool useRecycleBin) =>
+        useRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently";
+
+    public string EmptyTrashTip =>
+        $"This run's trash is {TrashFate(_settings.Output.UseRecycleBin)} (Settings › Output). The run can't be undone after that.";
+
+    // ---- Tick all: the header's box is on when every step that can run is ticked, half when some are ----
+
+    private bool _bulk;
+
+    public bool? AllEnabled
+    {
+        get
+        {
+            var runnable = Steps.Where(s => s.CanRun).ToList();
+            if (runnable.Count == 0) return false;
+            var on = runnable.Count(s => s.Enabled);
+            return on == runnable.Count ? true : on == 0 ? false : null;
+        }
+        set => SetEnabled(Steps.Where(s => s.CanRun), value != false);
+    }
+
+    public bool HasRunnableSteps => Steps.Any(s => s.CanRun);
+
+    /// <summary>One box per kind of step the plan can run (Convert, Rename, Move…), with its count.</summary>
+    public ObservableCollection<CleanupKindToggle> Kinds { get; } = [];
+
+    /// <summary>Ticks or unticks <paramref name="rows"/>, then updates the boxes and the summary once.</summary>
+    private void SetEnabled(IEnumerable<CleanupStepRow> rows, bool on)
+    {
+        _bulk = true;
+        try { foreach (var row in rows) row.Enabled = on; }
+        finally { _bulk = false; }
+        OnStepChanged();
+    }
+
+    private void OnStepChanged()
+    {
+        if (_bulk) return;
+        OnPropertyChanged(nameof(AllEnabled));
+        foreach (var kind in Kinds) kind.Refresh();
+        UpdateSummary();
+    }
     public bool HasRuns => Runs.Count > 0;
 
     /// <summary>The games the next plan covers (from the Library's Clean up selected); null for the whole Library.</summary>
@@ -210,7 +223,7 @@ public partial class CleanupViewModel : ViewModelBase
         _ = MakePlan();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanAct))]
     private Task WholeLibrary()
     {
         _scope = null;
@@ -220,36 +233,66 @@ public partial class CleanupViewModel : ViewModelBase
 
     private bool CanAct => !IsBusy;
 
+    /// <summary>A plan was asked for while the page was busy; it's made when the work is done.</summary>
+    private bool _planAgain;
+
     [RelayCommand(CanExecute = nameof(CanAct))]
     private async Task MakePlan()
     {
+        // One thing at a time: a second plan would clear the steps, and IsBusy, under a running one.
+        if (IsBusy) { _planAgain = true; return; }
         IsBusy = true;
-        try
-        {
-            var settings = _settings.Snapshot();
-            var games = _scope ?? _index().Games();
-            var keys = games.Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            // The games as the latest index has them (a scan may have run since they were chosen).
-            var current = _index().Games().Where(g => keys.Contains(g.Key)).ToList();
-            var problem = CurrentProblem;
-            var dest = BuildNewLibrary && problem is null ? NewLibraryFolder : null;
-            var copyUnmatched = CopyUnmatched;
-            if (problem is not null)
-            {
-                _plan = null;
-                Steps.Clear();
-                OnPropertyChanged(nameof(HasPlan));
-                Summary = problem;
-                RunCommand.NotifyCanExecuteChanged();
-                return;
-            }
-            _plan = await Task.Run(() => CleanupPlanner.Plan(current, settings, MatchStore.Default, dest, copyUnmatched));
-            Steps.Clear();
-            foreach (var s in _plan.Steps.OrderBy(s => s.Game, StringComparer.OrdinalIgnoreCase)) Steps.Add(new CleanupStepRow(s, UpdateSummary));
-            OnPropertyChanged(nameof(HasPlan));
-            UpdateSummary();
-        }
+        BusyText = "Making the plan…";
+        try { await PlanAsync(); }
         finally { IsBusy = false; }
+        if (_planAgain) await MakePlan();
+    }
+
+    private async Task PlanAsync()
+    {
+        _planAgain = false;
+        var settings = _settings.Snapshot();
+        var games = _scope ?? _index().Games();
+        var keys = games.Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // The games as the latest index has them (a scan may have run since they were chosen).
+        var current = _index().Games().Where(g => keys.Contains(g.Key)).ToList();
+        var problem = CurrentProblem;
+        var dest = BuildNewLibrary && problem is null ? NewLibraryFolder : null;
+        var copyUnmatched = CopyUnmatched;
+        if (problem is not null)
+        {
+            _plan = null;
+            Steps.Clear();
+            PlanChanged();
+            Summary = problem;
+            RunCommand.NotifyCanExecuteChanged();
+            return;
+        }
+        ShowPlan(await Task.Run(() => CleanupPlanner.Plan(current, settings, MatchStore.Default, dest, copyUnmatched)));
+    }
+
+    /// <summary>Shows <paramref name="plan"/> as the dry run: its steps by game, the per-kind boxes and the summary.</summary>
+    internal void ShowPlan(CleanupPlan plan)
+    {
+        _plan = plan;
+        Steps.Clear();
+        foreach (var s in plan.Steps.OrderBy(s => s.Game, StringComparer.OrdinalIgnoreCase)) Steps.Add(new CleanupStepRow(s, OnStepChanged));
+        PlanChanged();
+        UpdateSummary();
+    }
+
+    private void PlanChanged()
+    {
+        Kinds.Clear();
+        foreach (var kind in CleanupKindToggle.RunnableKinds)
+        {
+            var rows = Steps.Where(s => s.CanRun && s.Step.Kind == kind).ToList();
+            if (rows.Count > 0) Kinds.Add(new CleanupKindToggle(kind, rows, SetEnabled));
+        }
+        OnPropertyChanged(nameof(HasPlan));
+        OnPropertyChanged(nameof(ShowsEmptyHint));
+        OnPropertyChanged(nameof(HasRunnableSteps));
+        OnPropertyChanged(nameof(AllEnabled));
     }
 
     private void UpdateSummary()
@@ -263,7 +306,7 @@ public partial class CleanupViewModel : ViewModelBase
         if (_plan is null) return;
         var runs = _plan.Steps.Count(s => s.Runs);
         var copies = _plan.Steps.Any(s => s.Copies);
-        var parts = new[] { CleanupKind.Convert, CleanupKind.Copy, CleanupKind.Rename, CleanupKind.Move, CleanupKind.RemoveDuplicate }
+        var parts = CleanupKindToggle.RunnableKinds
             .Select(k => (Kind: k, Count: _plan.Steps.Count(s => s.Kind == k && s.Runs)))
             .Where(p => p.Count > 0)
             .Select(p => $"{p.Count} {p.Kind switch { CleanupKind.Convert => "to convert", CleanupKind.Copy => "to copy", CleanupKind.Rename => "to rename", CleanupKind.Move => "to move", _ => "duplicate(s) to remove" }}");
@@ -291,28 +334,51 @@ public partial class CleanupViewModel : ViewModelBase
 
     private bool CanRun => !IsBusy && _plan is not null && _plan.Steps.Any(s => s.Runs) && CurrentProblem is null;
 
+    private JobGroup? _group;
+
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task Run()
     {
-        if (_plan is null) return;
+        if (_plan is null || IsBusy) return;
         IsBusy = true;
         try
         {
             var runner = new CleanupRunner();
             var jobs = runner.Jobs(_plan).Select(j => new BatchJob(j.Name, new NullJobReport(), j.Work, _ => { }, _ => { }, j.Cost)).ToList();
-            _log.Info($"Cleanup: running {runner.Run.Steps} step(s) for {jobs.Count} game(s)"
+            BusyText = $"Running {runner.Run.Steps} step{(runner.Run.Steps == 1 ? "" : "s")} for {jobs.Count} game{(jobs.Count == 1 ? "" : "s")}…";
+            _log.Info($"Organize: running {runner.Run.Steps} step(s) for {jobs.Count} game(s)"
                       + (runner.Run.NewLibrary is { } lib ? $", building a new library in {lib}; the Library itself isn't changed" : ""));
-            var group = _queue.Submit("Cleanup", jobs, _settings.Snapshot(), _log);
-            await group.Completion;
+            var group = _group = _queue.Submit("Cleanup", jobs, _settings.Snapshot(), _log);
+            IsRunning = true;
+            try { await group.Completion; }
+            finally { IsRunning = false; _group = null; }
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
             _log.Info(runner.Run.NewLibrary is { } built
-                ? $"Cleanup: finished; the new library is in {built} ({runner.Run.Entries.Count} file(s) made). Undo on the Cleanup page removes them again."
-                : $"Cleanup: finished; the run can be undone from the Cleanup page ({runner.Run.Entries.Count} change(s) recorded).");
+                ? $"Organize: finished; the new library is in {built} ({runner.Run.Entries.Count} file(s) made). Undo on the Organize page removes them again."
+                : $"Organize: finished; the run can be undone from the Organize page ({runner.Run.Entries.Count} change(s) recorded).");
             RefreshRuns();
+            BusyText = "Looking through the Library again…";
             if (Rescan is not null) await Rescan();
-            await MakePlan();
+            BusyText = "Making the plan…";
+            await PlanAsync();
         }
         finally { IsBusy = false; }
+    }
+
+    private bool CanCancelRun => IsRunning;
+
+    /// <summary>Stops the page's own run. Steps already done stay done, and the run can still be undone.</summary>
+    [RelayCommand(CanExecute = nameof(CanCancelRun))]
+    private async Task CancelRun()
+    {
+        if (_group is not { } group) return;
+        if (!await _dialogs.ConfirmAsync("Stop the cleanup?",
+                "Steps already done stay done, and the run can still be undone. A file being written now is deleted.",
+                "Stop", "Keep running", destructive: true)) return;
+        if (_group != group) return; // it finished while the question was open
+        group.Cancel();
+        BusyText = "Stopping…";
+        _log.Warn("Organize: stopping; steps already done are kept.");
     }
 
     /// <summary>Sends the files that haven't been checked yet to Verify &amp; match.</summary>
@@ -320,27 +386,74 @@ public partial class CleanupViewModel : ViewModelBase
     private void VerifyUnchecked()
     {
         var paths = _plan?.Steps.Where(s => s.Kind == CleanupKind.Untouched && s.Reason.StartsWith("Not checked")).SelectMany(s => s.Sources.Take(1)).ToList() ?? [];
-        if (paths.Count == 0) { _log.Info("Cleanup: everything in the plan has been checked already."); return; }
+        if (paths.Count == 0) { _log.Info("Organize: everything in the plan has been checked already."); return; }
         SendToVerify?.Invoke(paths);
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanAct))]
     private async Task Undo(CleanupRunRow row)
     {
-        var useBin = _settings.Output.UseRecycleBin;
-        var problems = await Task.Run(() => CleanupRunner.Undo(row.Run, useBin, _log));
-        _log.Info(problems.Count == 0 ? "Cleanup: run undone." : $"Cleanup: run undone, except {problems.Count} item(s) (see above).");
-        RefreshRuns();
-        if (Rescan is not null) await Rescan();
+        if (IsBusy) return;
+        var message = row.Run.NewLibrary is { } lib
+            ? $"The files this run made in {lib} are removed again."
+            : "Every file this run converted, renamed, moved or removed is put back, and the Library is looked through again.";
+        if (!await _dialogs.ConfirmAsync("Undo this run?", $"{row.Summary}\n\n{message}", "Undo the run", "Cancel")) return;
+        IsBusy = true;
+        BusyText = "Undoing the run…";
+        try
+        {
+            var useBin = _settings.Output.UseRecycleBin;
+            var problems = await Task.Run(() => CleanupRunner.Undo(row.Run, useBin, _log));
+            _log.Info(problems.Count == 0 ? "Organize: run undone." : $"Organize: run undone, except {problems.Count} item(s) (see above).");
+            RefreshRuns();
+            BusyText = "Looking through the Library again…";
+            if (Rescan is not null) await Rescan();
+        }
+        finally { IsBusy = false; }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanAct))]
     private async Task EmptyTrash(CleanupRunRow row)
     {
+        if (IsBusy) return;
         var useBin = _settings.Output.UseRecycleBin;
-        await Task.Run(() => CleanupRunner.EmptyTrash(row.Run, useBin, _log));
-        _log.Info("Cleanup: trash emptied; that run's conversions can no longer be undone.");
-        RefreshRuns();
+        var (files, bytes) = await Task.Run(() => TrashContents(row.Run));
+        if (!await _dialogs.ConfirmAsync("Empty this run's trash?", EmptyTrashMessage(row, files, bytes, useBin),
+                useBin && FileRemover.CanUseBin ? $"Move to the {FileRemover.BinName}" : "Delete permanently", "Cancel", destructive: true)) return;
+        IsBusy = true;
+        BusyText = "Emptying the trash…";
+        try
+        {
+            await Task.Run(() => CleanupRunner.EmptyTrash(row.Run, useBin, _log));
+            _log.Info("Organize: trash emptied; that run's conversions can no longer be undone.");
+            RefreshRuns();
+        }
+        finally { IsBusy = false; }
+    }
+
+    /// <summary>Empty trash's question: the run, what its trash holds, and where it goes.</summary>
+    public static string EmptyTrashMessage(CleanupRunRow row, int files, long bytes, bool useRecycleBin) =>
+        $"{row.Summary}\n\n{files} file{(files == 1 ? "" : "s")} ({ChdJobs.Size(bytes)}) {(files == 1 ? "is" : "are")} {TrashFate(useRecycleBin)}. "
+        + "The run can't be undone after that.";
+
+    /// <summary>How many files a run's trash holds, and their size.</summary>
+    public static (int Files, long Bytes) TrashContents(CleanupRun run)
+    {
+        int files = 0;
+        long bytes = 0;
+        foreach (var folder in run.TrashFolders.Where(Directory.Exists))
+        {
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
+                {
+                    files++;
+                    bytes += new FileInfo(file).Length;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+        return (files, bytes);
     }
 
     private void RefreshRuns()

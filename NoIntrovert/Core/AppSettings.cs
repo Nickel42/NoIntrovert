@@ -294,7 +294,27 @@ public sealed class PerformanceSettings
     /// <summary>Jobs the shared queue runs at once, across every tab. New settings start at 2; a saved file keeps its value.</summary>
     public int ParallelJobs { get; set; } = 2;
 
-    public int ThreadsPerJob { get; set; } // 0 = all processors
+    public int ThreadsPerJob { get; set; } // 0 = automatic: the processors shared between the parallel jobs
+
+    /// <summary>
+    /// The threads each job uses: <see cref="ThreadsPerJob"/> when set, else the processors divided between
+    /// the jobs that run at once, so two parallel jobs on 8 cores get 4 each instead of 8 each.
+    /// </summary>
+    [JsonIgnore] public int EffectiveThreadsPerJob => EffectiveThreads(ThreadsPerJob, ParallelJobs, Environment.ProcessorCount);
+
+    /// <summary>The rule behind <see cref="EffectiveThreadsPerJob"/>, for any machine.</summary>
+    /// <param name="spinning">A job reading or writing a spinning hard drive: Automatic stops at <see cref="SpinningDriveThreads"/>,
+    /// since the drive, not the processors, sets its pace there. A number chosen in Settings is kept.</param>
+    public static int EffectiveThreads(int threadsPerJob, int parallelJobs, int processors, bool spinning = false)
+    {
+        processors = Math.Max(1, processors);
+        if (threadsPerJob > 0) return threadsPerJob;
+        var share = Math.Max(1, processors / Math.Clamp(parallelJobs, 1, processors));
+        return spinning ? Math.Min(share, SpinningDriveThreads) : share;
+    }
+
+    /// <summary>Automatic's most threads per job when its source or destination is on a spinning hard drive.</summary>
+    public const int SpinningDriveThreads = 4;
     public string TempFolder { get; set; } = ""; // empty = %TEMP%\NoIntrovert
 
     [JsonIgnore] public string EffectiveTempFolder => string.IsNullOrWhiteSpace(TempFolder) ? WorkPaths.DefaultTempRoot : TempFolder;

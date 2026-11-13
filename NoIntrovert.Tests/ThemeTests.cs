@@ -387,7 +387,9 @@ static class ThemeTests
             t.Editor.SaveCommand.Execute(null);
             if (t.LightThemes.Count(o => o.Name == "Paper") != 1 || t.ActiveLight[ThemeRole.Accent] != Color.Parse("#123456")) return "saving made a second Paper";
             t.Customize("Light");
-            t.Editor!.DeleteCommand.Execute(null);
+            t.Editor!.DeleteCommand.Execute(null); // NoDialogs answers no: nothing is deleted
+            if (t.LightThemes.All(o => o.Name != "Paper")) return "Delete didn't ask first";
+            t.DeleteEditor(t.Editor!);
             return t.SelectedLight?.Id == ThemeLibrary.DefaultLightId && t.LightThemes.All(o => o.Name != "Paper") ? null : "Delete didn't go back to the default";
         }));
     }

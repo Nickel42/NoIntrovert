@@ -1,6 +1,11 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Data.Converters;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using NoIntrovert.ViewModels;
 
 namespace NoIntrovert.Views;
@@ -22,6 +27,49 @@ public partial class SettingsView : UserControl
     {
         InitializeComponent();
         SizeChanged += (_, e) => Arrange(e.NewSize.Width);
+        // The "commit" text boxes save when they lose focus (their bindings) or when Enter is pressed (here).
+        AddHandler(KeyDownEvent, CommitOnEnter, RoutingStrategies.Tunnel);
+        // Set up keys (on a row that failed for missing keys) opens this page with the Keys card in view.
+        Loaded += (_, _) =>
+        {
+            if (DataContext is not SettingsViewModel vm) return;
+            _keysSource = vm;
+            vm.ShowKeysRequested += OnShowKeysRequested;
+            if (vm.ShowKeysPending) OnShowKeysRequested(vm, EventArgs.Empty);
+        };
+        Unloaded += (_, _) =>
+        {
+            if (_keysSource is not null) _keysSource.ShowKeysRequested -= OnShowKeysRequested;
+            _keysSource = null;
+        };
+    }
+
+    private SettingsViewModel? _keysSource;
+
+    /// <summary>Once the page is laid out (two columns or one), scrolls the Keys card to the top and focuses its first button.</summary>
+    private void OnShowKeysRequested(object? sender, EventArgs e) =>
+        Dispatcher.UIThread.Post(BringKeysIntoView, DispatcherPriority.Background);
+
+    internal void BringKeysIntoView()
+    {
+        if (DataContext is not SettingsViewModel { ShowKeysPending: true } vm || !KeysCard.IsEffectivelyVisible) return;
+        vm.ShowKeysPending = false;
+        if (KeysCard.FindAncestorOfType<ScrollViewer>() is { Content: Visual content } scroll
+            && KeysCard.TranslatePoint(default, content) is { } top)
+        {
+            var max = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+            scroll.Offset = new Vector(scroll.Offset.X, Math.Clamp(top.Y - 8, 0, max));
+        }
+        else KeysCard.BringIntoView();
+        KeysCard.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.IsEffectivelyEnabled)?.Focus(NavigationMethod.Tab);
+    }
+
+    /// <summary>Enter in a "commit" text box saves what's typed, as leaving the box does.</summary>
+    internal static void CommitOnEnter(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || e.Source is not Visual source) return;
+        if (source.FindAncestorOfType<TextBox>(includeSelf: true) is not { } box || !box.Classes.Contains("commit")) return;
+        BindingOperations.GetBindingExpressionBase(box, TextBox.TextProperty)?.UpdateSource();
     }
 
     protected override void OnDataContextChanged(EventArgs e)

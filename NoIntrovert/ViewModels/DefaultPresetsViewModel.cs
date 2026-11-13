@@ -15,7 +15,14 @@ namespace NoIntrovert.ViewModels;
 /// </summary>
 public sealed partial class DefaultPresetsViewModel : SettingsSectionViewModel
 {
-    public DefaultPresetsViewModel(AppSettings settings) : base(settings) => Rebuild();
+    private readonly Services.IDialogs? _dialogs;
+
+    /// <param name="dialogs">Asks before a saved preset is deleted; without it (tests), it's deleted at once.</param>
+    public DefaultPresetsViewModel(AppSettings settings, Services.IDialogs? dialogs = null) : base(settings)
+    {
+        _dialogs = dialogs;
+        Rebuild();
+    }
 
     public override string Title => "Default presets";
 
@@ -113,13 +120,37 @@ public sealed partial class DefaultPresetsViewModel : SettingsSectionViewModel
         Changed?.Invoke();
     }
 
-    internal void Rename(SavedPreset preset, string name)
+    /// <summary>
+    /// Renames <paramref name="preset"/>; returns why not when the name is
+    /// empty or another saved preset for the same system already has it
+    /// (null when renamed, or unchanged).
+    /// </summary>
+    internal string? Rename(SavedPreset preset, string? name)
     {
-        name = name.Trim();
-        if (name.Length == 0 || !Change(_ => preset.Name = name)) return;
+        name = name?.Trim() ?? "";
+        if (name.Length == 0) return "A preset needs a name.";
+        if (S.Presets.Saved.Any(p => p != preset && p.System == preset.System && p.Name.Equals(name, StringComparison.CurrentCultureIgnoreCase)))
+            return $"There's already a preset called “{name}”.";
+        if (!Change(_ => preset.Name = name)) return null;
         OnPropertyChanged(nameof(SavedSummary));
         RebuildSystems();
         Changed?.Invoke();
+        return null;
+    }
+
+    /// <summary>Deletes <paramref name="preset"/> once the user says yes (it can't be undone).</summary>
+    internal async Task DeleteAsync(SavedPreset preset)
+    {
+        if (_dialogs is not null)
+        {
+            var id = FormatPreset.SavedPrefix + preset.Id;
+            var defaults = S.Presets.DefaultBySystem.Count(p => p.Value == id);
+            var message = defaults == 0
+                ? "This can't be undone."
+                : $"It's the default for {Words.Count(defaults, "system")}; they go back to the recommended preset. This can't be undone.";
+            if (!await _dialogs.ConfirmAsync($"Delete the preset “{preset.Name}”?", message, "Delete preset", "Cancel", destructive: true)) return;
+        }
+        Delete(preset);
     }
 
     internal void Delete(SavedPreset preset)
@@ -181,16 +212,30 @@ public sealed class SystemDefaultViewModel(DefaultPresetsViewModel owner, string
 /// <summary>A saved preset in Manage…: its name (edited in place) and Delete.</summary>
 public sealed partial class SavedPresetItemViewModel(DefaultPresetsViewModel owner, SavedPreset preset) : ViewModelBase
 {
+    /// <summary>The name, saved when the box loses focus or Enter is pressed; an empty or taken name is refused and the old one comes back.</summary>
     public string Name
     {
         get => preset.Name;
-        set => owner.Rename(preset, value);
+        set
+        {
+            RenameProblem = owner.Rename(preset, value) ?? "";
+            if (value == preset.Name) return;
+            // Shows the name as saved: trimmed, or the old one when refused (again once the box is done, which may not listen while it writes).
+            OnPropertyChanged();
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(Name)));
+        }
     }
+
+    /// <summary>Why the last rename was refused; empty when it wasn't.</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasRenameProblem))]
+    public partial string RenameProblem { get; private set; } = "";
+
+    public bool HasRenameProblem => RenameProblem.Length > 0;
 
     /// <summary>"CHD · Sony PlayStation", or "CHD · any system".</summary>
     public string Detail => $"{FormatPresets.FormatOf(preset.Values.Target)} · " +
                             (preset.System.Length == 0 ? "any system" : Core.Systems.SystemFacts.For(preset.System)?.Name ?? TargetFormats.NameOf(preset.System));
 
     [RelayCommand]
-    private void Delete() => owner.Delete(preset);
+    private Task Delete() => owner.DeleteAsync(preset);
 }

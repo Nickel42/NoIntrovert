@@ -172,8 +172,12 @@ public sealed partial class TargetFormatSettingsViewModel : SettingsSectionViewM
     }
 
     [RelayCommand]
-    private void ResetAll()
+    private async Task ResetAll()
     {
+        var count = S.TargetFormats.Overrides.Count;
+        if (count > 0 && !await _dialogs.ConfirmAsync($"Reset {Words.Count(count, "override")}?",
+                "Every system and extension goes back to its recommended target. Export them first to keep a copy.",
+                "Reset all", "Cancel", destructive: true)) return;
         Change(s => s.TargetFormats.Overrides.Clear());
         Reload();
     }
@@ -202,8 +206,12 @@ public sealed partial class TargetFormatSettingsViewModel : SettingsSectionViewM
     {
         var file = await _dialogs.SaveFileAsync("Export target overrides", "target-overrides.json", "JSON", "*.json");
         if (file is null) return;
-        File.WriteAllText(file, JsonSerializer.Serialize(S.TargetFormats.Overrides, JsonOptions));
-        TransferNote = $"Exported {S.TargetFormats.Overrides.Count} override(s).";
+        try
+        {
+            File.WriteAllText(file, JsonSerializer.Serialize(S.TargetFormats.Overrides, JsonOptions));
+            TransferNote = $"Exported {Words.Count(S.TargetFormats.Overrides.Count, "override")}.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { TransferNote = $"Couldn't export: {ex.Message}"; }
     }
 
     [RelayCommand]
@@ -211,8 +219,12 @@ public sealed partial class TargetFormatSettingsViewModel : SettingsSectionViewM
     {
         var file = await _dialogs.PickFileAsync("Import target overrides", "JSON", ["*.json"]);
         if (file is null) return;
+        var count = S.TargetFormats.Overrides.Count;
+        if (count > 0 && !await _dialogs.ConfirmAsync($"Replace your {Words.Count(count, "override")}?",
+                "The imported file's overrides take their place. Export yours first to keep a copy.",
+                "Replace", "Cancel", destructive: true)) return;
         try { TransferNote = ImportFrom(File.ReadAllText(file)); }
-        catch (Exception ex) when (ex is IOException or JsonException) { TransferNote = $"Couldn't import: {ex.Message}"; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { TransferNote = $"Couldn't import: {ex.Message}"; }
     }
 
     /// <summary>Replaces the overrides with those in <paramref name="json"/>; ones the registry doesn't know are left out.</summary>
@@ -223,7 +235,12 @@ public sealed partial class TargetFormatSettingsViewModel : SettingsSectionViewM
         Change(s => s.TargetFormats.Overrides = valid);
         Reload();
         var skipped = imported.Count - valid.Count;
-        return $"Imported {valid.Count} override(s)" + (skipped > 0 ? $"; {skipped} named a system or target this version doesn't know and were left out." : ".");
+        return $"Imported {Words.Count(valid.Count, "override")}" + (skipped switch
+        {
+            0 => ".",
+            1 => "; 1 named a system or target this version doesn't know and was left out.",
+            _ => $"; {skipped} named a system or target this version doesn't know and were left out.",
+        });
     }
 
     // ---- The rules' options ----

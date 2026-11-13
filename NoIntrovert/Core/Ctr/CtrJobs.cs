@@ -97,10 +97,16 @@ public static class CtrJobs
 
         var name = Path.GetFileNameWithoutExtension(source);
         var output = OutputPaths.Available(Path.Combine(folder, name + (compress ? ".zcci" : ".cci")), s.Output.Overwrite);
+        // R11's hashes of a file not hashed yet: read beside the conversion, while the file is in the OS cache.
+        var cacheIt = PathNames.Same(input, source);
+        using var original = RecordsOriginal(s, facts, compress) && OriginalHashes.Default.Get(input) is null
+                                 && !(cacheIt && KnownHashes.Cached(input) is not null)
+            ? BackgroundHash.Start(input, token => OriginalOf(input, token, cacheIt), c.Token)
+            : null;
         var result = Convert(c, input, facts, output, compress);
         if (result.Outcome is { } failed) return failed;
 
-        RecordOriginal(c, source, input, output, facts, compress);
+        RecordOriginal(c, source, input, output, facts, compress, original);
         if (s.Output.ReplacesOriginals)
         {
             c.Report.SetStage("Removing the original");
@@ -112,9 +118,14 @@ public static class CtrJobs
             Path.GetFileName(output), Details: result.Warnings.Count > 0 ? string.Join("\n", result.Warnings) : null);
     }
 
-    /// <summary>The hashes the original had (R11), for a file whose bytes the conversion changed: its own record, else its contents.</summary>
-    public static IReadOnlyList<HashedFile> OriginalOf(string source, CancellationToken token) =>
-        OriginalHashes.Default.Get(source)?.Files ?? Hasher.HashFile(source, token);
+    /// <summary>
+    /// The hashes the original had (R11), for a file whose bytes the conversion changed: its own record, else its
+    /// contents, through the hash cache (a file Verify &amp; match already hashed isn't read again, and a new one is
+    /// remembered). <paramref name="cache"/> is false for a temp file unpacked from an archive.
+    /// </summary>
+    public static IReadOnlyList<HashedFile> OriginalOf(string source, CancellationToken token, bool cache = true) =>
+        OriginalHashes.Default.Get(source)?.Files
+        ?? (cache ? HashCache.Default.GetOrAdd(source, () => Hasher.HashFile(source, token)) : Hasher.HashFile(source, token));
 
     private sealed record Converted(JobOutcome? Outcome, IReadOnlyList<string> Warnings);
 
@@ -171,13 +182,17 @@ public static class CtrJobs
 
     /// <summary>R11: a decrypted or compressed file's bytes differ from its dump, so the dump's hashes are kept for Verify &amp; match.</summary>
     /// <param name="input">The game file itself: the source, or what was unpacked from it when it's an archive.</param>
-    private static void RecordOriginal(JobContext c, string source, string input, string output, CtrFacts facts, bool compress)
+    /// <param name="beside">The hashes already being worked out beside the conversion, when they were.</param>
+    private static void RecordOriginal(JobContext c, string source, string input, string output, CtrFacts facts, bool compress,
+        BackgroundHash<IReadOnlyList<HashedFile>>? beside)
     {
-        if (!c.Settings.TargetFormats.RecordOriginalHashes) return;
-        if (!(facts.NeedsConversion || compress)) return;
-        try { OriginalHashes.Default.Set(output, source, OriginalOf(input, c.Token)); }
+        if (!RecordsOriginal(c.Settings, facts, compress)) return;
+        try { OriginalHashes.Default.Set(output, source, beside?.Result() ?? OriginalOf(input, c.Token, cache: PathNames.Same(input, source))); }
         catch (IOException ex) { c.Log.Warn($"  couldn't record {Path.GetFileName(source)}'s original hashes: {ex.Message}"); }
     }
+
+    private static bool RecordsOriginal(AppSettings s, CtrFacts facts, bool compress) =>
+        s.TargetFormats.RecordOriginalHashes && (facts.NeedsConversion || compress);
 
     private static long SizeOf(string path)
     {
