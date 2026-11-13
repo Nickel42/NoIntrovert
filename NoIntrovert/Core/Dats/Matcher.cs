@@ -88,7 +88,8 @@ public sealed class MatchStore
 {
     public sealed record Entry(long Size, long Ticks, MatchResult Result);
 
-    private static readonly ConcurrentDictionary<string, MatchStore> Stores = new(StringComparer.OrdinalIgnoreCase);
+    // Lazy, so a lookup during the startup warm-up waits for that load instead of reading matches.json a second time.
+    private static readonly ConcurrentDictionary<string, Lazy<MatchStore>> Stores = new(StringComparer.OrdinalIgnoreCase);
     private static readonly JsonSerializerOptions JsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
     private readonly ConcurrentDictionary<string, Entry> _entries;
     private readonly ThrottledJsonFile _file;
@@ -105,7 +106,14 @@ public sealed class MatchStore
         _file = new ThrottledJsonFile(path, () => JsonSerializer.Serialize(_entries, JsonOptions));
     }
 
-    public static MatchStore Default => Stores.GetOrAdd(Path.Combine(AppSettings.SettingsDirectory, "matches.json"), p => new MatchStore(p));
+    public static MatchStore Default =>
+        Stores.GetOrAdd(Path.Combine(AppSettings.SettingsDirectory, "matches.json"), p => new Lazy<MatchStore>(() => new MatchStore(p))).Value;
+
+    /// <summary>
+    /// Reads matches.json on a pool thread, so the first Library selection doesn't wait for it; returns at once.
+    /// The task ends when it's read (tests wait for it); a read that fails leaves the store empty, as before.
+    /// </summary>
+    public static Task WarmInBackground() => Task.Run(() => { _ = Default; });
 
     /// <summary>The result for <paramref name="path"/> if it hasn't changed since it was checked.</summary>
     public MatchResult? Get(string path)

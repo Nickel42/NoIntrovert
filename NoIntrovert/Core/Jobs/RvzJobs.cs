@@ -55,6 +55,11 @@ public static class RvzJobs
             log.Warn($"  {Path.GetFileName(disc.InputPath)} is an NKit image: the RVZ will be NKit too, not a Redump-identical dump.");
 
         var settings = SettingsFor(s);
+        // The verify's source hash, when nothing has it yet: read beside the compression rather than after it.
+        using var beside = verify && !settings.Scrub && source is not null && PathNames.Same(source, disc.InputPath)
+                           && !BackgroundHash.IsRunning(source) && KnownHashes.Cached(source) is null
+            ? HashBeside(c, source, md5: true)
+            : null;
         var sw = Stopwatch.StartNew();
         c.Band(barStart, verify ? barSpan * 0.6 : barSpan);
         c.TrackRvz($"Compressing to RVZ{discLabel}");
@@ -101,22 +106,37 @@ public static class RvzJobs
         }
         if (source is null || !PathNames.Same(source, disc.InputPath)) return Decode();
 
+        BackgroundHash.WaitFor(source, c.Token); // hashed beside the compression: it lands in the cache
         if (KnownHashes.Single(KnownHashes.Cached(source)) is { } known)
         {
             c.Log.Debug($"  source SHA-1 from the hash cache: {known.Sha1}");
             return (known.Sha1!, known.Size);
         }
         // Cached in the form Verify & match gives a GameCube/Wii disc, so either can use the other's entry.
-        var ext = Path.GetExtension(source).ToLowerInvariant();
-        if (!(ext is ".rvz" or ".wia" or ".gcz" or ".gcm" || (ext == ".iso" && NintendoDisc.IsPlainDisc(source)))) return Decode();
+        if (!Dats.VerifyJobs.IsNintendoDisc(source)) return Decode();
         var files = Dats.HashCache.Default.GetOrAdd(source, () =>
         {
             c.TrackRvz($"Verifying{discLabel}: reading the source");
-            var h = c.Rvz.Hash(source, c.Token);
-            return [new Dats.HashedFile(Path.GetFileName(source), (long)h.Size, h.Crc32.ToUpperInvariant(), h.Sha1.ToUpperInvariant(), Md5: h.Md5.ToUpperInvariant())];
+            return Dats.VerifyJobs.DiscHashes(c.Rvz, source, c.Token, md5: true);
         });
         var f = KnownHashes.Single(files);
         return f is null ? Decode() : (f.Sha1!, f.Size);
+    }
+
+    /// <summary>
+    /// Starts hashing the GameCube/Wii disc file <paramref name="source"/> into the hash cache on another thread, with
+    /// its own lib-wii-gamecube-kit context (the job's is busy compressing), while the compression reads the same file;
+    /// in the form Verify &amp; match keeps (R11), or with MD5 for the verify. Null when it isn't such a disc, or when
+    /// it's on a spinning drive and is better read after the compression.
+    /// </summary>
+    internal static BackgroundHash<IReadOnlyList<Dats.HashedFile>>? HashBeside(JobContext c, string source, bool md5)
+    {
+        if (!(md5 ? Dats.VerifyJobs.IsNintendoDisc(source) : Dats.VerifyJobs.HashesAsNintendoDisc(source))) return null;
+        return BackgroundHash.Start(source, token => Dats.HashCache.Default.GetOrAdd(source, () =>
+        {
+            using var kit = new WiiGameCubeKit(1);
+            return Dats.VerifyJobs.DiscHashes(kit, source, token, md5);
+        }), c.Token);
     }
 
     /// <summary>

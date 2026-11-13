@@ -1,4 +1,3 @@
-using System.IO.Compression;
 using K4os.Compression.LZ4;
 
 namespace NoIntrovert.Core.Formats;
@@ -83,8 +82,7 @@ internal static class CsoDecoder
             }
             else
             {
-                using var deflate = new DeflateStream(new MemoryStream(compressed, offset, b.Length, writable: false), CompressionMode.Decompress);
-                var n = BlockBatches.ReadFully(deflate, slot);
+                var n = RawInflater.Decode(compressed.AsSpan(offset, b.Length), slot);
                 if (n < b.OutLength) throw new InvalidDataException($"CSO block {i} did not decompress fully.");
             }
         }

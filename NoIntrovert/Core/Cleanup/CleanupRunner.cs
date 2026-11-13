@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -270,42 +269,9 @@ public sealed class CleanupRunner
         }
     }
 
-    /// <summary>
-    /// Copies one file in 4 MiB chunks, so a multi-GB copy reports its
-    /// progress and stops as soon as it's cancelled. A copy that doesn't
-    /// finish is deleted. The copy keeps the source's modification date, as
-    /// File.Copy does.
-    /// </summary>
-    private static void CopyFile(string from, string to, CopyProgress progress)
-    {
-        var buffer = ArrayPool<byte>.Shared.Rent(4 << 20);
-        try
-        {
-            using (var source = new FileStream(from, FileMode.Open, FileAccess.Read, FileShare.Read, 1, FileOptions.SequentialScan))
-            using (var target = new FileStream(to, FileMode.Create, FileAccess.Write, FileShare.None, 1))
-            {
-                target.SetLength(source.Length);
-                int read;
-                while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    progress.Token.ThrowIfCancellationRequested();
-                    target.Write(buffer, 0, read);
-                    progress.Add(read);
-                }
-                target.SetLength(target.Position);
-            }
-            File.SetLastWriteTimeUtc(to, File.GetLastWriteTimeUtc(from));
-        }
-        catch
-        {
-            try { File.Delete(to); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-            throw;
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
-    }
+    /// <summary>One file in chunks (<see cref="FileCopy.Copy"/>): progress as it goes, removed when it doesn't finish.</summary>
+    private static void CopyFile(string from, string to, CopyProgress progress) =>
+        FileCopy.Copy(from, to, progress.Token, progress.Add);
 
     private string? MoveStep(JobContext c, CleanupStep step)
     {
