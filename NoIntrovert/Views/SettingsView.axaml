@@ -275,6 +275,26 @@
                                 <ComboBox x:Name="LightThemePicker" Grid.Column="2" Classes="control themes" HorizontalAlignment="Stretch" MaxDropDownHeight="420" ItemsSource="{Binding General.ColorThemes.LightThemes}"
                                           SelectedItem="{Binding General.ColorThemes.SelectedLight}" IsEnabled="{Binding !General.ColorThemes.IsEditing}" />
                             </Grid>
+                            <!-- Light brightness: every light theme a little dimmer, for a whole-white screen that's too bright -->
+                            <Grid Classes="row" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="4*" MinWidth="180" MaxWidth="270" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Light brightness" Classes="name" />
+                                    <TextBlock Text="Dims every light theme." Classes="desc" />
+                                </StackPanel>
+                                <Grid Grid.Column="2" ColumnDefinitions="*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
+                                    <Slider x:Name="LightBrightnessSlider" Minimum="70" Maximum="100"
+                                            SmallChange="1" LargeChange="5" TickFrequency="5" IsSnapToTickEnabled="True"
+                                            Value="{Binding General.ColorThemes.LightBrightness}" VerticalAlignment="Center"
+                                            ToolTip.Tip="100% shows light themes as they were made; lower softens their whites to a grey that's easier on the eyes." />
+                                    <TextBlock Grid.Column="1" Text="{Binding General.ColorThemes.LightBrightnessText}" MinWidth="36"
+                                               TextAlignment="Right" VerticalAlignment="Center" />
+                                </Grid>
+                            </Grid>
 
                             <!-- The theme editor: a colour per role, previewed in the whole app as it changes -->
                             <Border Classes="themeeditor" IsVisible="{Binding General.ColorThemes.IsEditing}">

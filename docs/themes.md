@@ -8,13 +8,17 @@ Built in:
 | Dark | Light |
 |---|---|
 | **NoIntrovert Dark**: the design's navy with the logo's lilac and orange (the default) | **NoIntrovert Light**: the design's warm grey, lilac and orange (the default) |
-| **Ember**: warm charcoal, the logo's orange door as primary, its lilac ring as accent | **Sunrise**: cream and the orange door, lilac accent |
-| **Cartridge**: the deep teal of the cartridge's screen, orange accent | **Seafoam**: cool sea-glass greys and teal, orange accent |
+| **NoIntrovert Ember**: warm charcoal, the logo's orange door as primary, its lilac ring as accent | **NoIntrovert Sunrise**: cream and the orange door, lilac accent |
+| **NoIntrovert Cartridge**: the deep teal of the cartridge's screen, orange accent | **NoIntrovert Seafoam**: cool sea-glass greys and teal, orange accent |
 
 Every Base16 scheme from [tinted-theming's collection](https://github.com/tinted-theming/schemes/tree/spec-0.11/base16)
 is built in as well: about 270 dark and 110 light (Gruvbox, Nord, Solarized, Catppuccin, Tokyo Night…). The lists show
 NoIntrovert's own themes first, then your custom and imported ones, then the Base16 schemes A to Z. The search box
 above them narrows both lists by name or author; a theme's tooltip says where it comes from and who made it.
+
+*Light brightness* (100% down to 70%) dims whichever light theme is chosen, for when its whites are too bright.
+Every colour of the theme is scaled toward black by the same amount, so text and borders keep their contrast with
+the background; dark themes aren't touched.
 
 Base16 names are tidied into theme names: words are capitalised, and commas and file-style dashes are dropped
 ("Gruvbox dark, hard" → "Gruvbox Dark Hard", "selenized-white" → "Selenized White"). Joining words and names cased
@@ -36,7 +40,7 @@ can merge one of these files as it is.
 ```xml
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <x:String x:Key="ThemeName">Ember</x:String>
+    <x:String x:Key="ThemeName">NoIntrovert Ember</x:String>
     <x:String x:Key="ThemeVariant">Dark</x:String>        <!-- Dark or Light; guessed from the background if left out -->
     <x:String x:Key="ThemeAuthor">NoIntrovert</x:String>
     <Color x:Key="ThemeBackground">#1A1614</Color>

@@ -140,6 +140,11 @@
             <Setter Property="MinHeight" Value="36" />
             <Setter Property="FontSize" Value="14" />
         </Style>
+        <!-- SukiUI colours only a plain text row; a row drawn from a template (a theme's swatches and name, a
+             preset) took the drop-down window's default black, hard to read on a dark theme. -->
+        <Style Selector="ComboBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
+        </Style>
         <Style Selector="CheckBox, RadioButton">
             <Setter Property="FontSize" Value="14" />
         </Style>

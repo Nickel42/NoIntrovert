@@ -185,6 +185,9 @@ public sealed class GeneralSettings
     /// <summary>The theme used when the app is light, by id, as <see cref="DarkTheme"/>.</summary>
     public string LightTheme { get; set; } = Themes.ThemeLibrary.DefaultLightId;
 
+    /// <summary>How bright light themes are shown, in percent (<see cref="Themes.ThemeDefinition.Dimmed"/>): 100 as made, down to 70.</summary>
+    public int LightBrightness { get; set; } = 100;
+
     /// <summary>The page the app opens on, by page id; empty = Optimize once the library has folders, otherwise Convert.</summary>
     public string StartPage { get; set; } = "";
 
