@@ -44,7 +44,7 @@ internal static class ChdmanExe
     private static RunResult Run(string exePath, IEnumerable<string> args, CancellationToken token, TimeSpan? timeout = null)
     {
         if (!File.Exists(exePath))
-            throw new FileNotFoundException("chdman was not found. Set its path on the Library tests tab.", exePath);
+            throw new FileNotFoundException("chdman was not found. Set its path in Settings › Diagnostics (Power-user mode).", exePath);
 
         var psi = new ProcessStartInfo(exePath)
         {

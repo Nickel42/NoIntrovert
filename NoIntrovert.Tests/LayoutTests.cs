@@ -351,6 +351,29 @@ static class LayoutTests
             }
         }));
 
+        test("Layout: Settings shows Keys without opening Advanced; Enter saves a working folder; the log bar counts in words", () => Dispatch(() =>
+        {
+            f.Show("settings");
+            f.Layout();
+            if (f.Find<Border>(b => b.Name == "KeysCard") is not { IsEffectivelyVisible: true } keys) return "the Keys card isn't showing";
+            if (keys.FindAncestorOfType<Expander>() is not null) return "Keys is still inside Advanced";
+            if (f.Find<TextBox>(t => t.Name == "TempFolderBox") is not { } box) return "no working folder box";
+            var before = f.Settings.Performance.TempFolder;
+            var folder = dir("layout-work");
+            try
+            {
+                box.Focus();
+                box.Text = folder;
+                if (f.Settings.Performance.TempFolder != before) return "the working folder was saved while typing";
+                box.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Enter, Source = box });
+                if (f.Settings.Performance.TempFolder != folder) return $"Enter didn't save the working folder (it's \"{f.Settings.Performance.TempFolder}\")";
+            }
+            finally { f.Vm.Settings.Performance.TempFolder = before; }
+            var counts = f.Find<TextBlock>(t => t.Classes.Contains("counts"));
+            var expected = LogViewModel.DescribeCounts(f.Vm.Log.ErrorCount, f.Vm.Log.WarningCount);
+            return counts?.Text == expected ? null : $"the log bar reads \"{counts?.Text}\", not \"{expected}\"";
+        }));
+
         Dispatch(() => { f.Window.Close(); return null; });
     }
 

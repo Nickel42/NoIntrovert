@@ -42,7 +42,7 @@ public partial class TestsViewModel : BatchTabViewModel
     public override string Title => "Library tests";
     public override string StartLabel => "Run tests";
     public override string EmptyHint =>
-        "Drop disc images here (any format the Convert tab takes).\n" +
+        "Drop disc images here (any format the Convert page takes).\n" +
         "Round trip: create → verify → extract, then compare with the original data.\n" +
         "Compare: create with lib-chd-kit and a chdman executable, then compare the CHDs byte for byte.";
     protected override string FilterName => "Disc images and archives";

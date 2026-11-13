@@ -23,7 +23,7 @@
     </suki:SukiWindow.LogoContent>
     <suki:SukiWindow.RightWindowTitleBarControls>
         <Button x:Name="ThemeToggle" Classes="WindowControlsButton themetoggle" Click="OnThemeToggleClick"
-                ToolTip.Tip="{DynamicResource ThemeToggleTip}">
+                ToolTip.Tip="{DynamicResource ThemeToggleTip}" AutomationProperties.Name="{DynamicResource ThemeToggleTip}">
             <Path Data="{DynamicResource ThemeToggleIcon}" Width="16" Height="16" Stretch="Uniform"
                   Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" />
         </Button>
@@ -196,9 +196,8 @@
                     <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,6">
                         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                             <TextBlock Text="Log" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
-                            <TextBlock Classes="hint counts" Classes.error="{Binding Log.HasErrors}" VerticalAlignment="Center">
-                                <Run Text="{Binding Log.ErrorCount}" /><Run Text=" errors · " /><Run Text="{Binding Log.WarningCount}" /><Run Text=" warnings" />
-                            </TextBlock>
+                            <TextBlock Classes="hint counts" Classes.error="{Binding Log.HasErrors}" VerticalAlignment="Center"
+                                       Text="{Binding Log.CountsText}" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
                             <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Log.IsExpanded}">

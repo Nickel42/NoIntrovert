@@ -1,6 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Data.Converters;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using NoIntrovert.ViewModels;
 
 namespace NoIntrovert.Views;
@@ -22,6 +26,16 @@ public partial class SettingsView : UserControl
     {
         InitializeComponent();
         SizeChanged += (_, e) => Arrange(e.NewSize.Width);
+        // The "commit" text boxes save when they lose focus (their bindings) or when Enter is pressed (here).
+        AddHandler(KeyDownEvent, CommitOnEnter, RoutingStrategies.Tunnel);
+    }
+
+    /// <summary>Enter in a "commit" text box saves what's typed, as leaving the box does.</summary>
+    internal static void CommitOnEnter(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || e.Source is not Visual source) return;
+        if (source.FindAncestorOfType<TextBox>(includeSelf: true) is not { } box || !box.Classes.Contains("commit")) return;
+        BindingOperations.GetBindingExpressionBase(box, TextBox.TextProperty)?.UpdateSource();
     }
 
     protected override void OnDataContextChanged(EventArgs e)

@@ -305,14 +305,106 @@ public sealed partial class PerformanceSettingsViewModel(AppSettings settings, I
     [RelayCommand(CanExecute = nameof(CanIncreaseJobs))]
     private void IncreaseJobs() => ParallelJobs++;
 
-    /// <summary>The working folder as typed; empty means the default, shown as the box's placeholder.</summary>
+    /// <summary>
+    /// The working folder; empty means the default, shown as the box's
+    /// placeholder. %VARIABLES% are expanded as it's set, and a path that isn't
+    /// a full one (D:\Work, not Work) is refused: the box goes back to the
+    /// saved folder and <see cref="TempFolderNote"/> says why.
+    /// </summary>
     public string TempFolder
     {
         get => S.Performance.TempFolder;
-        set { if (Set(value?.Trim() ?? "", (s, v) => s.Performance.TempFolder = v)) OnPropertyChanged(nameof(TempFolderHint)); }
+        set
+        {
+            var folder = Environment.ExpandEnvironmentVariables(value?.Trim() ?? "").Trim();
+            var wasRefused = _tempFolderRefused;
+            _tempFolderRefused = folder.Length > 0 && !IsFullPath(folder) ? folder : null;
+            var saved = _tempFolderRefused is null && Set(folder, (s, v) => s.Performance.TempFolder = v);
+            if (saved)
+            {
+                _tempFolderCheck = null;
+                OnPropertyChanged(nameof(TempFolderHint));
+            }
+            // The box shows the folder as saved: expanded, or the old one when refused.
+            else if (value != S.Performance.TempFolder) OnPropertyChanged();
+            if (saved || wasRefused != _tempFolderRefused)
+            {
+                OnPropertyChanged(nameof(TempFolderNote));
+                OnPropertyChanged(nameof(HasTempFolderProblem));
+            }
+        }
     }
 
+    private string? _tempFolderRefused;
+    private (string Note, bool Problem)? _tempFolderCheck;
+
+    /// <summary>The folder's check, made once per change (it writes a probe file).</summary>
+    private (string Note, bool Problem) TempFolderCheck => _tempFolderCheck ??= TempFolderProblem(S.Performance.EffectiveTempFolder) is { } problem
+        ? (problem, true)
+        : (DescribeTempFolder(S.Performance.EffectiveTempFolder), false);
+
     public string TempFolderHint => S.Performance.EffectiveTempFolder;
+
+    /// <summary>The line under the working folder: why a folder was refused or can't be used, otherwise its free space.</summary>
+    public string TempFolderNote => _tempFolderRefused is { } refused
+        ? $"“{refused}” isn't a full path. Use one like D:\\Work."
+        : TempFolderCheck.Note;
+
+    /// <summary>Whether <see cref="TempFolderNote"/> is a problem rather than the free space.</summary>
+    public bool HasTempFolderProblem => _tempFolderRefused is not null || TempFolderCheck.Problem;
+
+    private static bool IsFullPath(string path)
+    {
+        try { return Path.IsPathFullyQualified(path); }
+        catch (ArgumentException) { return false; }
+    }
+
+    /// <summary>"120 GB free.": the space on <paramref name="folder"/>'s drive; empty when it can't be told.</summary>
+    internal static string DescribeTempFolder(string folder)
+    {
+        try
+        {
+            var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(folder))!);
+            return $"{FileSize(drive.AvailableFreeSpace)} free.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { return ""; }
+    }
+
+    /// <summary>
+    /// Null when files can be written in <paramref name="folder"/> (or, when it
+    /// doesn't exist yet, in the nearest folder above it, where it will be
+    /// made); otherwise why not. Writes and removes a small probe file.
+    /// </summary>
+    internal static string? TempFolderProblem(string folder)
+    {
+        string? existing;
+        try
+        {
+            existing = Path.GetFullPath(folder);
+            while (existing is not null && !Directory.Exists(existing)) existing = Path.GetDirectoryName(existing);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return "That isn't a folder path."; }
+        if (existing is null) return $"{Path.GetPathRoot(folder)} isn't there. Choose a folder on a drive that's connected.";
+        var probe = Path.Combine(existing, $".nointrovert-probe-{Guid.NewGuid():N}");
+        try
+        {
+            File.WriteAllBytes(probe, []);
+            File.Delete(probe);
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return $"NoIntrovert can't write in {existing}. Choose another folder.";
+        }
+    }
+
+    /// <summary>"512 MB", "1.2 GB".</summary>
+    private static string FileSize(long bytes) => bytes switch
+    {
+        >= 1L << 40 => $"{bytes / (double)(1L << 40):0.#} TB",
+        >= 1L << 30 => $"{bytes / (double)(1L << 30):0.#} GB",
+        _ => $"{bytes / (double)(1L << 20):0} MB",
+    };
 
     /// <summary>"%TEMP%\NoIntrovert": the default working folder, as the empty box shows it.</summary>
     public static string DefaultTempFolderText => OperatingSystem.IsWindows() ? @"%TEMP%\NoIntrovert" : Path.Combine(Path.GetTempPath(), "NoIntrovert");
@@ -357,12 +449,20 @@ public sealed partial class LogSettingsViewModel(AppSettings settings, IDialogs 
     /// <summary>"1 day", "30 days", "1 year".</summary>
     internal static string DaysText(int days) => days switch { 1 => "1 day", 365 => "1 year", _ => $"{days} days" };
 
+    /// <summary>Why Open log folder didn't work; empty when it did.</summary>
+    [ObservableProperty] public partial string Status { get; set; } = "";
+
     /// <summary>Opens the folder the session logs are saved in, creating it first.</summary>
     [RelayCommand]
     private async Task OpenLogFolder()
     {
         try { Directory.CreateDirectory(AppSettings.LogDirectory); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Status = $"Couldn't open the log folder: {ex.Message}";
+            return;
+        }
+        Status = "";
         await dialogs.OpenFolderAsync(AppSettings.LogDirectory);
     }
 }
@@ -718,16 +818,27 @@ public sealed partial class KeySettingsViewModel(AppSettings settings, IDialogs 
         set { if (Set(value, (s, v) => s.Keys.WiiUKeysPath = v)) OnPropertyChanged(nameof(WiiUKeysSummary)); }
     }
 
-    /// <summary>Which keys.txt the Wii U tab will use, and how many keys it holds.</summary>
+    /// <summary>Which keys.txt Wii U conversions will use, how many keys it holds, and any lines that aren't keys.</summary>
     public string WiiUKeysSummary
     {
         get
         {
-            var keys = Core.WiiU.WuaJobs.LoadKeys(S.Keys.WiiUKeysPath);
-            return keys.Files.Count == 0
-                ? (string.IsNullOrWhiteSpace(S.Keys.WiiUKeysPath) ? "No keys.txt found in NoIntrovert's or Cemu's folder." : $"{S.Keys.WiiUKeysPath} doesn't exist.")
-                : $"{keys.Keys.Count} key(s){(keys.TitleKeys.Count > 0 ? $" and {keys.TitleKeys.Count} title key(s)" : "")} in {string.Join(", ", keys.Files)}";
+            var keys = Core.WiiU.WuaJobs.LoadKeys(S.Keys.WiiUKeysPath, out var readProblem);
+            return DescribeWiiUKeys(keys, S.Keys.WiiUKeysPath, readProblem);
         }
+    }
+
+    /// <summary>"12 keys and 3 title keys in C:\…\keys.txt.", with the file's problems after it.</summary>
+    internal static string DescribeWiiUKeys(LibWiiUKit.WiiUKeys keys, string chosenPath, string? readProblem)
+    {
+        if (readProblem is not null) return readProblem;
+        if (keys.Files.Count == 0)
+            return string.IsNullOrWhiteSpace(chosenPath) ? "No keys.txt found in NoIntrovert's or Cemu's folder." : $"{chosenPath} doesn't exist.";
+        var files = string.Join(", ", keys.Files);
+        var text = keys.IsEmpty
+            ? $"{files} has no keys in it."
+            : $"{Words.Count(keys.Keys.Count, "key")}{(keys.TitleKeys.Count > 0 ? $" and {Words.Count(keys.TitleKeys.Count, "title key")}" : "")} in {files}.";
+        return keys.Problems.Count == 0 ? text : text + " " + string.Join(" ", keys.Problems);
     }
 
     [RelayCommand]
@@ -917,9 +1028,9 @@ public sealed partial class LibrarySettingsViewModel(AppSettings settings, IDial
 
     public string FoldersSummary => S.Library.Folders.Count switch
     {
-        0 => "No folders yet: add them on the Library page.",
-        1 => "1 folder, managed on the Library page.",
-        var n => $"{n} folders, managed on the Library page.",
+        0 => "No folders yet: add them on the Optimize page.",
+        1 => "1 folder, managed on the Optimize page.",
+        var n => $"{n} folders, managed on the Optimize page.",
     };
 
     public bool RescanOnStart { get => S.Library.RescanOnStart; set => Set(value, (s, v) => s.Library.RescanOnStart = v); }
@@ -978,7 +1089,14 @@ public sealed partial class DiagnosticsSettingsViewModel(AppSettings settings, I
     /// <summary>The loaded native libraries and their versions (set once at startup).</summary>
     public string LibraryVersions { get; set; } = "";
 
-    public string ChdmanExePath { get => S.Diagnostics.ChdmanExePath; set => Set(value, (s, v) => s.Diagnostics.ChdmanExePath = v); }
+    public string ChdmanExePath
+    {
+        get => S.Diagnostics.ChdmanExePath;
+        set { if (Set(value?.Trim() ?? "", (s, v) => s.Diagnostics.ChdmanExePath = v)) OnPropertyChanged(nameof(ChdmanExeProblem)); }
+    }
+
+    /// <summary>"That file doesn't exist." under the chdman box; empty when it's unset or there.</summary>
+    public string ChdmanExeProblem => S.Diagnostics.ChdmanExePath.Length == 0 || File.Exists(S.Diagnostics.ChdmanExePath) ? "" : "That file doesn't exist.";
 
     [RelayCommand]
     private async Task BrowseChdmanExe()
