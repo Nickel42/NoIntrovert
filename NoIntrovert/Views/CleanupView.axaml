@@ -57,7 +57,7 @@
                 </Grid>
 
                 <Panel Grid.Row="4">
-                    <ListBox ItemsSource="{Binding Steps}" Background="Transparent" Margin="10,0">
+                    <ListBox ItemsSource="{Binding Steps}" SelectedItem="{Binding SelectedStep}" Background="Transparent" Margin="10,0">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:CleanupStepRow">
                                 <Grid ColumnDefinitions="40,120,1.2*,2*" ToolTip.Tip="{Binding Reason}">
@@ -115,6 +115,9 @@
 
         <ScrollViewer Grid.Column="1" Classes="sidepanel" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="12">
+                <Border Classes="card">
+                    <v:SelectedFilePanel DataContext="{Binding SelectedFile}" />
+                </Border>
                 <Border Classes="card">
                     <StackPanel Spacing="4">
                         <TextBlock Text="WHERE" Classes="section" />

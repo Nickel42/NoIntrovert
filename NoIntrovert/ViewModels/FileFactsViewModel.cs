@@ -146,6 +146,29 @@ public partial class FileFactsViewModel : ViewModelBase
         ShowFile(path, systemId, FileDescription.VerificationOf(match));
 
     /// <summary>
+    /// Follows a page's rows, the same on every page: the focused file (<paramref name="path"/>), or one line per
+    /// system when the selection spans several, or "Select a row…" with neither. <paramref name="match"/> gives the
+    /// file's Verify &amp; match result; by default it's read from <see cref="MatchStore.Default"/>.
+    /// </summary>
+    public void Follow(string? path, string? systemId, IReadOnlyCollection<string?> selectedSystems, Func<string, MatchResult?>? match = null)
+    {
+        if (selectedSystems.Select(s => s ?? "").Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+            ShowSystems(selectedSystems);
+        else if (path is not null)
+        {
+            if (path != Path || systemId != SystemId || Mode != FileFactsMode.File)
+                ShowFile(path, systemId, (match ?? MatchStore.Default.Get)(path));
+        }
+        else Clear();
+    }
+
+    /// <summary>Shows a Verify &amp; match result read later (off the UI thread), if <paramref name="path"/> is still the file shown.</summary>
+    public void ShowMatch(string path, MatchResult? match)
+    {
+        if (Mode == FileFactsMode.File && path == Path) Verification = FileDescription.VerificationOf(match);
+    }
+
+    /// <summary>
     /// Shows the several-systems view for the selected rows' systems, one id per
     /// row (null for an unknown system). With one system or none it clears instead,
     /// so call <see cref="ShowFile(string, string?, Verification, VerifyDatabase?)"/> for that case.

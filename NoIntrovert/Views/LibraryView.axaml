@@ -223,6 +223,10 @@
 
         <!-- Details of the selected game -->
         <ScrollViewer Grid.Column="1" Classes="details" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="12">
+            <Border Classes="card" IsVisible="{Binding SelectedGame, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <v:SelectedFilePanel DataContext="{Binding SelectedFile}" />
+            </Border>
             <Border Classes="card">
                 <Panel>
                     <TextBlock Text="Select a game to see its files." Classes="hint" IsVisible="{Binding SelectedGame, Converter={x:Static ObjectConverters.IsNull}}" />
@@ -281,6 +285,7 @@
                     </StackPanel>
                 </Panel>
             </Border>
+            </StackPanel>
         </ScrollViewer>
     </Grid>
 </UserControl>
