@@ -1,3 +1,5 @@
+using System.Buffers;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using NoIntrovert.Core.Dats;
@@ -23,7 +25,13 @@ public enum JournalAction
 /// </summary>
 public sealed record JournalEntry(JournalAction Action, string Path, string? From, long Size, long Ticks, int Step);
 
-/// <summary>One run of the wizard and its journal (FR-4), saved as it goes beside the settings.</summary>
+/// <summary>
+/// One run of the wizard and its journal (FR-4), saved as it goes beside the
+/// settings: the run itself in <c>&lt;id&gt;.json</c>, and each entry appended to
+/// <c>&lt;id&gt;.jsonl</c> as it happens, one line each, so a crash loses at most
+/// the entry being written. A run saved before the journal was split keeps its
+/// entries in the .json file, and is read the same way.
+/// </summary>
 public sealed class CleanupRun
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N")[..12];
@@ -56,6 +64,7 @@ public sealed class CleanupRun
 public sealed class CleanupRunner
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, Converters = { new JsonStringEnumConverter() } };
+    private static readonly JsonSerializerOptions LineOptions = new() { Converters = { new JsonStringEnumConverter() } };
     private readonly object _lock = new();
     private int _stepIds;
 
@@ -64,6 +73,10 @@ public sealed class CleanupRunner
     public static string RunsFolder => System.IO.Path.Combine(AppSettings.SettingsDirectory, "cleanup");
 
     public static string TrashFolder(string root, string runId) => System.IO.Path.Combine(root, ".noi-trash", runId);
+
+    private static string RunPath(string runId) => System.IO.Path.Combine(RunsFolder, runId + ".json");
+
+    private static string EntriesPath(string runId) => System.IO.Path.Combine(RunsFolder, runId + ".jsonl");
 
     /// <summary>The queue jobs for the plan's ticked steps: one per game.</summary>
     public IReadOnlyList<(string Name, long Cost, JobWork Work)> Jobs(CleanupPlan plan)
@@ -92,7 +105,7 @@ public sealed class CleanupRunner
                 var problem = step.Kind switch
                 {
                     CleanupKind.Convert => Convert(c, step),
-                    CleanupKind.Move or CleanupKind.Rename => MoveStep(step),
+                    CleanupKind.Move or CleanupKind.Rename => MoveStep(c, step),
                     CleanupKind.Copy => CopyStep(c, step),
                     CleanupKind.RemoveDuplicate when !step.Copies => TrashAll(step.Sources, step.Root, NextStep()),
                     _ => null,
@@ -193,11 +206,12 @@ public sealed class CleanupRunner
     /// <summary>
     /// FR-8: copies the step's files (or a folder game, whole) into the new
     /// library. Each lands under a temporary name first, so a copy that stops
-    /// halfway never looks finished. The sources aren't changed.
+    /// halfway never looks finished, and a cancelled one is removed. The
+    /// sources aren't changed.
     /// </summary>
     private string? CopyStep(JobContext c, CleanupStep step)
     {
-        if (step.Target!.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase)) return MovePlaylist(step);
+        if (step.Target!.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase)) return MovePlaylist(c, step);
         var id = NextStep();
         var folder = System.IO.Path.GetDirectoryName(step.Target!)!;
         Directory.CreateDirectory(folder);
@@ -206,6 +220,7 @@ public sealed class CleanupRunner
             (Source: source, Target: step.Sources.Count == 1 ? step.Target! : System.IO.Path.Combine(folder, System.IO.Path.GetFileName(source)))).ToList();
         if (copies.FirstOrDefault(x => File.Exists(x.Target) || Directory.Exists(x.Target)) is { Target: { } taken })
             return $"{System.IO.Path.GetFileName(taken)} already exists";
+        var progress = new CopyProgress(c, copies.Sum(x => HashCache.Stamp(x.Source).Size));
         foreach (var (source, target) in copies)
         {
             c.Token.ThrowIfCancellationRequested();
@@ -213,12 +228,17 @@ public sealed class CleanupRunner
             if (Directory.Exists(source))
             {
                 if (Directory.Exists(part)) Directory.Delete(part, recursive: true);
-                CopyFolder(source, part, c.Token);
+                try { CopyFolder(source, part, progress); }
+                catch
+                {
+                    try { Directory.Delete(part, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                    throw;
+                }
                 Directory.Move(part, target);
             }
             else
             {
-                File.Copy(source, part, overwrite: true);
+                CopyFile(source, part, progress);
                 File.Move(part, target);
             }
             if (OriginalHashes.Default.Get(source) is { } original) OriginalHashes.Default.Set(target, original.Source, original.Files); // R11 follows the copy
@@ -227,21 +247,69 @@ public sealed class CleanupRunner
         return null;
     }
 
-    private static void CopyFolder(string from, string to, CancellationToken token)
+    private static void CopyFolder(string from, string to, CopyProgress progress)
     {
         Directory.CreateDirectory(to);
         foreach (var dir in Directory.EnumerateDirectories(from, "*", SearchOption.AllDirectories))
             Directory.CreateDirectory(System.IO.Path.Combine(to, System.IO.Path.GetRelativePath(from, dir)));
         foreach (var file in Directory.EnumerateFiles(from, "*", SearchOption.AllDirectories))
+            CopyFile(file, System.IO.Path.Combine(to, System.IO.Path.GetRelativePath(from, file)), progress);
+    }
+
+    /// <summary>A copy step's progress across all its files, reported to the job's row as each chunk lands.</summary>
+    private sealed class CopyProgress(JobContext c, long total)
+    {
+        private long _done;
+
+        public CancellationToken Token => c.Token;
+
+        public void Add(long bytes)
         {
-            token.ThrowIfCancellationRequested();
-            File.Copy(file, System.IO.Path.Combine(to, System.IO.Path.GetRelativePath(from, file)));
+            _done += bytes;
+            c.Report.SetProgress(total > 0 ? (double)_done / total : 1);
         }
     }
 
-    private string? MoveStep(CleanupStep step)
+    /// <summary>
+    /// Copies one file in 4 MiB chunks, so a multi-GB copy reports its
+    /// progress and stops as soon as it's cancelled. A copy that doesn't
+    /// finish is deleted. The copy keeps the source's modification date, as
+    /// File.Copy does.
+    /// </summary>
+    private static void CopyFile(string from, string to, CopyProgress progress)
     {
-        if (step.Target!.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase)) return MovePlaylist(step);
+        var buffer = ArrayPool<byte>.Shared.Rent(4 << 20);
+        try
+        {
+            using (var source = new FileStream(from, FileMode.Open, FileAccess.Read, FileShare.Read, 1, FileOptions.SequentialScan))
+            using (var target = new FileStream(to, FileMode.Create, FileAccess.Write, FileShare.None, 1))
+            {
+                target.SetLength(source.Length);
+                int read;
+                while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    progress.Token.ThrowIfCancellationRequested();
+                    target.Write(buffer, 0, read);
+                    progress.Add(read);
+                }
+                target.SetLength(target.Position);
+            }
+            File.SetLastWriteTimeUtc(to, File.GetLastWriteTimeUtc(from));
+        }
+        catch
+        {
+            try { File.Delete(to); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            throw;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private string? MoveStep(JobContext c, CleanupStep step)
+    {
+        if (step.Target!.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase)) return MovePlaylist(c, step);
         var id = NextStep();
         var folder = System.IO.Path.GetDirectoryName(step.Target!)!;
         Directory.CreateDirectory(folder);
@@ -268,7 +336,7 @@ public sealed class CleanupRunner
     /// made is emptied this way, then removed. Into a new library (FR-8) the
     /// discs are copied instead, and the old playlists stay where they are.
     /// </summary>
-    private string? MovePlaylist(CleanupStep step)
+    private string? MovePlaylist(JobContext c, CleanupStep step)
     {
         var folder = System.IO.Path.GetDirectoryName(step.Target!)!;
         var name = System.IO.Path.GetFileName(step.Target!);
@@ -290,12 +358,14 @@ public sealed class CleanupRunner
         }
         var id = NextStep();
         TrashOldPlaylists(step, id);
+        var progress = new CopyProgress(c, step.Copies ? moves.Sum(m => HashCache.Stamp(m.From).Size) : 0);
         foreach (var (from, to) in moves)
         {
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(to)!);
             if (step.Copies)
             {
-                File.Copy(from, to + ".noi-part", overwrite: true);
+                c.Token.ThrowIfCancellationRequested();
+                CopyFile(from, to + ".noi-part", progress);
                 File.Move(to + ".noi-part", to);
                 if (OriginalHashes.Default.Get(from) is { } original) OriginalHashes.Default.Set(to, original.Source, original.Files);
                 Record(JournalAction.Created, to, null, id);
@@ -344,7 +414,14 @@ public sealed class CleanupRunner
     private string? TrashAll(IReadOnlyList<string> files, string root, int id)
     {
         var trash = TrashFolder(root, Run.Id);
-        lock (_lock) if (!Run.TrashFolders.Contains(trash)) Run.TrashFolders.Add(trash);
+        lock (_lock)
+        {
+            if (!Run.TrashFolders.Contains(trash))
+            {
+                Run.TrashFolders.Add(trash);
+                Save();
+            }
+        }
         foreach (var file in files.Where(f => File.Exists(f) || Directory.Exists(f)).Distinct(PathNames.Comparer))
         {
             var relative = System.IO.Path.GetRelativePath(root, file);
@@ -362,20 +439,40 @@ public sealed class CleanupRunner
 
     private int NextStep() => Interlocked.Increment(ref _stepIds);
 
+    /// <summary>Adds an entry to the journal, appending it to the run's .jsonl file before going on.</summary>
     private void Record(JournalAction action, string path, string? from, int step)
     {
         var (size, ticks) = HashCache.Stamp(path);
-        lock (_lock) Run.Entries.Add(new JournalEntry(action, path, from, size, ticks, step));
-        Save();
+        var entry = new JournalEntry(action, path, from, size, ticks, step);
+        var line = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(entry, LineOptions) + "\n");
+        lock (_lock)
+        {
+            Run.Entries.Add(entry);
+            Directory.CreateDirectory(RunsFolder);
+            using var stream = new FileStream(EntriesPath(Run.Id), FileMode.Append, FileAccess.Write, FileShare.Read);
+            stream.Write(line);
+        }
     }
 
+    /// <summary>Saves the run without its entries, which are in the .jsonl file: at the start, and when it fills another trash folder.</summary>
     private void Save()
     {
         lock (_lock)
         {
-            Directory.CreateDirectory(RunsFolder);
-            File.WriteAllText(System.IO.Path.Combine(RunsFolder, Run.Id + ".json"), JsonSerializer.Serialize(Run, JsonOptions));
+            WriteRun(new CleanupRun
+            {
+                Id = Run.Id, StartedUtc = Run.StartedUtc, Steps = Run.Steps, Undone = Run.Undone, TrashEmptied = Run.TrashEmptied,
+                TrashFolders = [.. Run.TrashFolders], NewLibrary = Run.NewLibrary,
+            });
         }
+    }
+
+    private static void WriteRun(CleanupRun run)
+    {
+        Directory.CreateDirectory(RunsFolder);
+        var path = RunPath(run.Id);
+        File.WriteAllText(path + ".tmp", JsonSerializer.Serialize(run, JsonOptions));
+        File.Move(path + ".tmp", path, overwrite: true);
     }
 
     private static long Size(string path)
@@ -386,22 +483,47 @@ public sealed class CleanupRunner
 
     // ---- The runs on record, undo and the trash ----
 
+    /// <summary>The runs on record, newest first, each with its journal from its .jsonl file or, for an older run, from its .json.</summary>
     public static List<CleanupRun> Runs()
     {
         if (!Directory.Exists(RunsFolder)) return [];
         var runs = new List<CleanupRun>();
-        foreach (var file in Directory.EnumerateFiles(RunsFolder, "*.json"))
+        foreach (var file in Directory.EnumerateFiles(RunsFolder, "*.json").Where(f => System.IO.Path.GetExtension(f) == ".json"))
         {
-            try { if (JsonSerializer.Deserialize<CleanupRun>(File.ReadAllText(file), JsonOptions) is { } run) runs.Add(run); }
-            catch (Exception ex) when (ex is IOException or JsonException) { }
+            try
+            {
+                if (JsonSerializer.Deserialize<CleanupRun>(File.ReadAllText(file), JsonOptions) is not { } run) continue;
+                if (ReadEntries(EntriesPath(run.Id)) is { } entries) run.Entries = entries;
+                runs.Add(run);
+            }
+            catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
         }
         return runs.OrderByDescending(r => r.StartedUtc).ToList();
     }
 
+    /// <summary>
+    /// A run's journal from its .jsonl file, or null when it has none. A line
+    /// cut short by a crash is left out.
+    /// </summary>
+    private static List<JournalEntry>? ReadEntries(string path)
+    {
+        if (!File.Exists(path)) return null;
+        var entries = new List<JournalEntry>();
+        using var reader = new StreamReader(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
+        while (reader.ReadLine() is { } line)
+        {
+            if (line.Length == 0) continue;
+            try { if (JsonSerializer.Deserialize<JournalEntry>(line, LineOptions) is { } entry) entries.Add(entry); }
+            catch (JsonException) { }
+        }
+        return entries;
+    }
+
+    /// <summary>Saves a run once it's undone or its trash is emptied: whole, in its .json file, which then needs no .jsonl.</summary>
     private static void SaveRun(CleanupRun run)
     {
-        Directory.CreateDirectory(RunsFolder);
-        File.WriteAllText(System.IO.Path.Combine(RunsFolder, run.Id + ".json"), JsonSerializer.Serialize(run, JsonOptions));
+        WriteRun(run);
+        try { File.Delete(EntriesPath(run.Id)); } catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 
     /// <summary>
