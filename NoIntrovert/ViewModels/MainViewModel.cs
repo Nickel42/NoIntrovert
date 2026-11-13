@@ -78,8 +78,8 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
         {
             LibraryVersion = "lib-chd-kit not loaded";
-            Log.Error("The CHD converter (chdkit) is missing or blocked, so CHD files can't be made or checked. " +
-                      "Reinstall NoIntrovert, or check whether your antivirus quarantined chdkit.");
+            Log.Error(ConvertViewModel.ChdMissingText);
+            Convert.ChdConverterMissing = true;
             Log.Debug($"chdkit didn't load: {ex.Message}");
         }
         try

@@ -52,6 +52,16 @@ public partial class ConvertViewModel : BatchTabViewModel
     /// <summary>The side panel: File, Preset and Preset settings for the focused row.</summary>
     public SidePanelViewModel Panel { get; }
 
+    /// <summary>
+    /// The CHD converter (chdkit) didn't load at start: the page shows a banner
+    /// that says so and what to do, as the log's error (<see cref="ChdMissingText"/>) does.
+    /// </summary>
+    [ObservableProperty] public partial bool ChdConverterMissing { get; set; }
+
+    /// <summary>The error logged at start when the CHD converter didn't load.</summary>
+    public const string ChdMissingText = "The CHD converter (chdkit) is missing or blocked, so CHD files can't be made or checked. " +
+                                         "Reinstall NoIntrovert, or check whether your antivirus quarantined chdkit.";
+
     protected override void OnFocusChanged() => _panel.Request();
 
     protected override void OnSelectionChanged() => _panel.Request();

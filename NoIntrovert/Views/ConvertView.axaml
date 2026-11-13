@@ -68,7 +68,18 @@
         when the row is on Custom. It scrolls as one panel.
     -->
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,10,0,0">
-        <v:JobListPanel />
+        <DockPanel>
+            <!-- The CHD converter didn't load: say so, and what to do, above the list -->
+            <Border x:Name="ChdMissingBanner" DockPanel.Dock="Top" IsVisible="{Binding ChdConverterMissing}" Margin="0,0,0,10" Padding="14,10"
+                    Background="{DynamicResource WarningFill}" BorderBrush="{DynamicResource DangerText}" BorderThickness="1" CornerRadius="8">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="The CHD converter (chdkit) is missing or blocked" FontWeight="Bold" Foreground="{DynamicResource DangerText}" TextWrapping="Wrap" />
+                    <TextBlock Text="CHD files can't be made or checked. Reinstall NoIntrovert, or check whether your antivirus quarantined chdkit."
+                               TextWrapping="Wrap" FontSize="13" />
+                </StackPanel>
+            </Border>
+            <v:JobListPanel />
+        </DockPanel>
 
         <Border Grid.Column="1" Classes="card sidepanel" Padding="0">
             <ScrollViewer DataContext="{Binding Panel}" x:DataType="vm:SidePanelViewModel" HorizontalScrollBarVisibility="Disabled">
