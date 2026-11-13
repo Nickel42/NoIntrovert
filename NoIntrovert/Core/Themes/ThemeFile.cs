@@ -34,7 +34,8 @@ public static class ThemeFile
         if (text.Length > MaxBytes) throw new FormatException("The file is too big to be a theme.");
         var trimmed = text.TrimStart('﻿', ' ', '\t', '\r', '\n');
         if (trimmed.StartsWith('<')) return ParseXaml(trimmed, id, fallbackName, builtIn, path);
-        if (Base16.Looks(trimmed)) return [Base16.Parse(trimmed, id, fallbackName, path)];
+        if (Base16.Looks(trimmed)) return [Base16.Parse(trimmed, id, fallbackName, path)]; // a NoIntrovert theme is never Base16
+
         throw new FormatException("This isn't a theme file: expected an Avalonia ResourceDictionary (.axaml) or a Base16/Base24 scheme (.yaml).");
     }
 
@@ -122,6 +123,7 @@ public static class ThemeFile
         return new ThemeDefinition
         {
             Id = id, Name = name.Trim(), Kind = kind, Author = author, IsBuiltIn = builtIn, FilePath = path,
+            Collection = builtIn ? ThemeCollection.NoIntrovert : ThemeCollection.Custom,
             Roles = ThemeRoles.Complete(kind, roles), Overrides = overrides,
         };
     }

@@ -91,7 +91,7 @@ static class LayoutTests
                 var link = f.Find<Button>(b => b.Content as string == "Import file…");
                 return link is not null && link.TryFindResource("SettingsLink", link.ActualThemeVariant, out var v) && v is ISolidColorBrush b ? b.Color : default;
             }
-            foreach (var id in new[] { "cartridge", "sunrise", "nointrovert-dark", "nointrovert-light" })
+            foreach (var id in new[] { "cartridge", "sunrise", "base16-gruvbox-dark-hard", "base16-penumbra-light-contrast-plus-plus", "nointrovert-dark", "nointrovert-light" })
             {
                 var dark = themes.DarkThemes.FirstOrDefault(o => o.Id == id);
                 if (dark is not null) { general.IsDarkTheme = true; themes.SelectedDark = dark; }

@@ -18,7 +18,8 @@ public static partial class Base16
     /// <summary>Whether <paramref name="text"/> looks like a Base16/Base24 scheme.</summary>
     public static bool Looks(string text) => Regex.IsMatch(text, @"^\s*base00\s*:", RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
-    public static ThemeDefinition Parse(string text, string id, string? fallbackName = null, string? path = null)
+    /// <param name="builtIn">One of the schemes NoIntrovert ships (NoIntrovert/Themes/Base16), rather than an imported one.</param>
+    public static ThemeDefinition Parse(string text, string id, string? fallbackName = null, string? path = null, bool builtIn = false)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var raw in text.Split('\n'))
@@ -62,12 +63,40 @@ public static partial class Base16
             [ThemeRole.Warning] = b[0x0A],
             [ThemeRole.Success] = b[0x0B],
         };
-        var name = values.GetValueOrDefault("name") ?? values.GetValueOrDefault("scheme") ?? fallbackName ?? "Base16 scheme";
+        var name = TidyName(values.GetValueOrDefault("name") ?? values.GetValueOrDefault("scheme") ?? fallbackName ?? "Base16 scheme");
         return new ThemeDefinition
         {
             Id = id, Name = name, Kind = kind, Author = values.GetValueOrDefault("author") ?? "", FilePath = path,
+            IsBuiltIn = builtIn, Collection = builtIn ? ThemeCollection.Base16 : ThemeCollection.Custom,
             Roles = Complete(kind, roles),
         };
+    }
+
+    /// <summary>Joining words that stay lower case inside a name ("Arroz con Dulce", "Shades of Purple").</summary>
+    private static readonly HashSet<string> SmallWords = new(StringComparer.Ordinal)
+    {
+        "a", "an", "and", "at", "by", "con", "de", "del", "el", "for", "in", "la", "of", "on", "or", "the", "to", "y",
+    };
+
+    /// <summary>
+    /// A scheme's name as a theme name: words capitalised ("darkmoss" → "Darkmoss", "Gruvbox dark, hard" →
+    /// "Gruvbox Dark Hard"), a file-style name split into words ("selenized-white" → "Selenized White"),
+    /// joining words and names cased on purpose left alone ("Arroz con Dulce", "iA Dark", "UwUnicorn").
+    /// </summary>
+    public static string TidyName(string name)
+    {
+        var n = name.Trim();
+        if (!n.Contains(' ')) n = n.Replace('-', ' ').Replace('_', ' ');
+        n = n.Replace(",", "");
+        var words = n.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        for (var i = 0; i < words.Length; i++)
+        {
+            var w = words[i];
+            if (!char.IsLower(w[0]) || w.Skip(1).Any(char.IsUpper)) continue; // "iA", "macOS": cased on purpose
+            if (i > 0 && SmallWords.Contains(w)) continue;
+            words[i] = char.ToUpperInvariant(w[0]) + w[1..];
+        }
+        return words.Length == 0 ? name.Trim() : string.Join(' ', words);
     }
 
     /// <summary>A YAML scalar without its quotes or trailing comment.</summary>

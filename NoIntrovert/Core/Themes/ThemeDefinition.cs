@@ -28,6 +28,9 @@ public enum ThemeRole
     Success,
 }
 
+/// <summary>Where a theme comes from, in the order the lists show them.</summary>
+public enum ThemeCollection { NoIntrovert, Custom, Base16 }
+
 /// <summary>One light or dark theme: a built-in one, or one in the themes folder.</summary>
 public sealed class ThemeDefinition
 {
@@ -38,6 +41,9 @@ public sealed class ThemeDefinition
     public required ThemeKind Kind { get; init; }
     public string Author { get; init; } = "";
     public bool IsBuiltIn { get; init; }
+
+    /// <summary>Where it comes from: NoIntrovert's own, tinted-theming's Base16 schemes, or the themes folder.</summary>
+    public ThemeCollection Collection { get; init; } = ThemeCollection.Custom;
 
     /// <summary>The file in the themes folder (null for a built-in theme, or one not saved yet).</summary>
     public string? FilePath { get; init; }

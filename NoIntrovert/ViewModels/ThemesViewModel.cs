@@ -14,7 +14,13 @@ public sealed class ThemeOption(ThemeDefinition theme)
     public ThemeDefinition Theme { get; } = theme;
     public string Id => Theme.Id;
     public string Name => Theme.Name;
-    public string Origin => Theme.IsBuiltIn ? "Built in" : "Custom";
+    /// <summary>Where it comes from, and who made it: "NoIntrovert", "Base16 scheme by …", "Custom".</summary>
+    public string Origin => Theme.Collection switch
+    {
+        ThemeCollection.NoIntrovert => "NoIntrovert's own theme",
+        ThemeCollection.Base16 => "Base16 scheme" + (Theme.Author.Length > 0 ? " by " + Theme.Author : ""),
+        _ => "Custom theme, in the themes folder",
+    };
     public IBrush Background { get; } = new SolidColorBrush(theme[ThemeRole.Background]);
     public IBrush Surface { get; } = new SolidColorBrush(theme[ThemeRole.Surface]);
     public IBrush Primary { get; } = new SolidColorBrush(theme[ThemeRole.Primary]);
@@ -52,6 +58,40 @@ public sealed partial class ThemesViewModel : ViewModelBase
 
     [ObservableProperty] private IReadOnlyList<ThemeOption> _darkThemes = [];
     [ObservableProperty] private IReadOnlyList<ThemeOption> _lightThemes = [];
+
+    private Dictionary<string, ThemeOption> _all = [];
+
+    /// <summary>Words a theme's name (or its author) must have to be listed; the chosen themes are always listed.</summary>
+    [ObservableProperty] private string _search = "";
+
+    partial void OnSearchChanged(string value) => Filter();
+
+    /// <summary>How many themes there are of each kind, for the search box's hint.</summary>
+    public string SearchHint => $"Search {DarkCount} dark and {LightCount} light themes";
+
+    public int DarkCount => Library.OfKind(ThemeKind.Dark).Count();
+    public int LightCount => Library.OfKind(ThemeKind.Light).Count();
+
+    private bool Matches(ThemeDefinition t)
+    {
+        var words = Search.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.All(w => t.Name.Contains(w, StringComparison.CurrentCultureIgnoreCase)
+            || t.Author.Contains(w, StringComparison.CurrentCultureIgnoreCase));
+    }
+
+    private void Filter()
+    {
+        List<ThemeOption> Of(ThemeKind kind)
+        {
+            var chosen = ActiveId(kind);
+            return Library.OfKind(kind).Where(t => t.Id == chosen || Matches(t)).Select(t => _all[t.Id]).ToList();
+        }
+        DarkThemes = Of(ThemeKind.Dark);
+        LightThemes = Of(ThemeKind.Light);
+        OnPropertyChanged(nameof(SelectedDark));
+        OnPropertyChanged(nameof(SelectedLight));
+        OnPropertyChanged(nameof(SearchHint));
+    }
 
     /// <summary>What the last import, save or delete did, or what went wrong.</summary>
     [ObservableProperty] private string _status = "";
@@ -102,8 +142,8 @@ public sealed partial class ThemesViewModel : ViewModelBase
     public void Refresh()
     {
         Library.Reload();
-        DarkThemes = Library.OfKind(ThemeKind.Dark).Select(t => new ThemeOption(t)).ToList();
-        LightThemes = Library.OfKind(ThemeKind.Light).Select(t => new ThemeOption(t)).ToList();
+        _all = Library.Themes.ToDictionary(t => t.Id, t => new ThemeOption(t));
+        Filter();
         OnPropertyChanged(nameof(SelectedDark));
         OnPropertyChanged(nameof(SelectedLight));
         if (Library.Problems.Count > 0) Status = "Couldn't read " + string.Join("; ", Library.Problems);

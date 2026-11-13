@@ -11,9 +11,21 @@ Built in:
 | **Ember**: warm charcoal, the logo's orange door as primary, its lilac ring as accent | **Sunrise**: cream and the orange door, lilac accent |
 | **Cartridge**: the deep teal of the cartridge's screen, orange accent | **Seafoam**: cool sea-glass greys and teal, orange accent |
 
+Every Base16 scheme from [tinted-theming's collection](https://github.com/tinted-theming/schemes/tree/spec-0.11/base16)
+is built in as well: about 270 dark and 110 light (Gruvbox, Nord, Solarized, Catppuccin, Tokyo Night…). The lists show
+NoIntrovert's own themes first, then your custom and imported ones, then the Base16 schemes A to Z. The search box
+above them narrows both lists by name or author; a theme's tooltip says where it comes from and who made it.
+
+Base16 names are tidied into theme names: words are capitalised, and commas and file-style dashes are dropped
+("Gruvbox dark, hard" → "Gruvbox Dark Hard", "selenized-white" → "Selenized White"). Joining words and names cased
+on purpose are kept ("Arroz con Dulce", "iA Dark"). A scheme's id is `base16-` plus its file name, so a saved choice
+survives a renamed scheme. The schemes sit unchanged in `NoIntrovert/Themes/Base16`;
+`python -I scripts/refresh-base16-themes.py` brings them up to date. Their MIT notice
+(`Themes/Base16/THIRD_PARTY_NOTICES.txt`) goes into every download as `THIRD_PARTY_NOTICES-base16-themes.txt`.
+
 *Customize…* opens the theme editor on the chosen theme: a colour for each of 14 roles, previewed in the whole
-app as you change them. Saving asks for a name and adds the theme to its list; a built-in theme is copied, never
-changed. Custom and imported themes live in `%AppData%\NoIntrovert\themes` (*Open themes folder*). A file you put
+app as you change them. Saving asks for a name and adds the theme to its list; a built-in theme (NoIntrovert's or
+a Base16 scheme) is copied, never changed. Custom and imported themes live in `%AppData%\NoIntrovert\themes` (*Open themes folder*). A file you put
 there yourself shows up after *Reload*.
 
 ## The theme file: an Avalonia ResourceDictionary
@@ -49,9 +61,9 @@ one theme of each. It also reads a dictionary made only of the app's own keys (`
 
 The file is only read, never run: no objects are created from it, a DTD is refused, and nothing over 1 MB is read.
 
-## Themes from the web: Base16 and Base24
+## More from the web: Base16 and Base24
 
-The large library of ready-made colour schemes is [tinted-theming's Base16/Base24](https://github.com/tinted-theming/schemes)
+Newer schemes, and Base24 ones, can be imported too. The library of ready-made colour schemes is [tinted-theming's Base16/Base24](https://github.com/tinted-theming/schemes)
 (browse them in the [gallery](https://tinted-theming.github.io/tinted-gallery/)). *Import file…* takes their
 `.yaml`. To download one, paste its address into *More themes* and choose *Import from web*. A GitHub page's
 address (`github.com/…/blob/…`) works too and is read from raw.githubusercontent.com. Both the current layout

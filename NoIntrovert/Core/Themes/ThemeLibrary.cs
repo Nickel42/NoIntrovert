@@ -41,7 +41,9 @@ public sealed class ThemeLibrary
 
     public IReadOnlyList<ThemeDefinition> Themes => _themes;
 
-    public IEnumerable<ThemeDefinition> OfKind(ThemeKind kind) => _themes.Where(t => t.Kind == kind);
+    /// <summary>The themes of one kind as the lists show them: NoIntrovert's, then custom and imported ones, then the Base16 schemes A to Z.</summary>
+    public IEnumerable<ThemeDefinition> OfKind(ThemeKind kind) => _themes.Where(t => t.Kind == kind).OrderBy(t => t.Collection); // a stable sort
+
 
     public static IReadOnlyList<ThemeDefinition> BuiltIn => _builtIn ??= LoadBuiltIn();
 
@@ -56,8 +58,23 @@ public sealed class ThemeLibrary
             using var reader = new StreamReader(stream);
             list.AddRange(ThemeFile.Parse(reader.ReadToEnd(), id, builtIn: true));
         }
+        // Then tinted-theming's Base16 schemes, A to Z by name: "base16-" and the scheme's file name.
+        const string prefix = "NoIntrovert.Themes.Base16.";
+        var schemes = new List<ThemeDefinition>();
+        foreach (var resource in asm.GetManifestResourceNames().Where(r => r.StartsWith(prefix, StringComparison.Ordinal)))
+        {
+            var file = resource[prefix.Length..];
+            using var stream = asm.GetManifestResourceStream(resource)!;
+            using var reader = new StreamReader(stream);
+            schemes.Add(Base16.Parse(reader.ReadToEnd(), Base16Prefix + Path.GetFileNameWithoutExtension(file),
+                Path.GetFileNameWithoutExtension(file), builtIn: true));
+        }
+        list.AddRange(schemes.OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase));
         return list;
     }
+
+    /// <summary>The start of a built-in Base16 scheme's id ("base16-gruvbox-dark-hard").</summary>
+    public const string Base16Prefix = "base16-";
 
     /// <summary>Reads the folder again.</summary>
     public void Reload()

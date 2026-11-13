@@ -129,6 +129,7 @@ jobs:
             Copy-Item app/native/lib-3ds-kit/LICENSE "$out/LICENSE-lib-3ds-kit.txt"
             Copy-Item app/native/lib-nx-kit/LICENSE "$out/LICENSE-lib-nx-kit.txt"
             Copy-Item app/NoIntrovert/Core/Emulators/Data/THIRD_PARTY_NOTICES.txt "$out/THIRD_PARTY_NOTICES-emulator-data.txt"
+            Copy-Item app/NoIntrovert/Themes/Base16/THIRD_PARTY_NOTICES.txt "$out/THIRD_PARTY_NOTICES-base16-themes.txt"
             Copy-Item app/native/lib-7z-zip-kit/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
             Copy-Item app/native/lib-7z-zip-kit/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
             Compress-Archive -Path "$out/*" -DestinationPath "dist/NoIntrovert-$env:VERSION-$rid.zip" -Force
@@ -193,6 +194,7 @@ jobs:
           cp app/native/lib-3ds-kit/LICENSE LICENSE-lib-3ds-kit.txt
           cp app/native/lib-nx-kit/LICENSE LICENSE-lib-nx-kit.txt
           cp app/NoIntrovert/Core/Emulators/Data/THIRD_PARTY_NOTICES.txt THIRD_PARTY_NOTICES-emulator-data.txt
+          cp app/NoIntrovert/Themes/Base16/THIRD_PARTY_NOTICES.txt THIRD_PARTY_NOTICES-base16-themes.txt
           cp app/native/lib-7z-zip-kit/_deps/7zip-src/DOC/License.txt LICENSE-7-Zip.txt
           cp app/native/lib-7z-zip-kit/_deps/bit7z-src/LICENSE LICENSE-bit7z.txt
           for rid in osx-arm64 osx-x64; do
@@ -208,7 +210,8 @@ jobs:
               app/README.md app/LICENSE LICENSE-lib-chd-kit.txt app/native/lib-chd-kit/THIRD_PARTY_NOTICES.md \
               LICENSE-lib-7z-zip-kit.txt LICENSE-7-Zip.txt LICENSE-bit7z.txt app/packaging/THIRD_PARTY_ARCHIVES.md \
               LICENSE-lib-wii-gamecube-kit.txt THIRD_PARTY_NOTICES-lib-wii-gamecube-kit.md LICENSES-lib-wii-gamecube-kit-bundled.txt \
-              LICENSE-lib-wii-u-kit.txt LICENSE-lib-3ds-kit.txt LICENSE-lib-nx-kit.txt THIRD_PARTY_NOTICES-emulator-data.txt
+              LICENSE-lib-wii-u-kit.txt LICENSE-lib-3ds-kit.txt LICENSE-lib-nx-kit.txt THIRD_PARTY_NOTICES-emulator-data.txt \
+              THIRD_PARTY_NOTICES-base16-themes.txt
           done
 
       - name: Check the Apple silicon zip unpacks to a validly signed app
@@ -335,6 +338,7 @@ jobs:
           cp app/native/lib-3ds-kit/LICENSE "$out/LICENSE-lib-3ds-kit.txt"
           cp app/native/lib-nx-kit/LICENSE "$out/LICENSE-lib-nx-kit.txt"
           cp app/NoIntrovert/Core/Emulators/Data/THIRD_PARTY_NOTICES.txt "$out/THIRD_PARTY_NOTICES-emulator-data.txt"
+          cp app/NoIntrovert/Themes/Base16/THIRD_PARTY_NOTICES.txt "$out/THIRD_PARTY_NOTICES-base16-themes.txt"
           cp app/native/lib-7z-zip-kit/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
           cp app/native/lib-7z-zip-kit/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
           # App icon in the freedesktop hicolor layout, plus a menu entry and its installer.

@@ -58,9 +58,9 @@ static class ThemeTests
 
     public static void Run(Action<string, Func<string?>> test, Func<string, string> dir)
     {
-        test("Themes: three dark and three light themes are built in, each kind's NoIntrovert one first", () =>
+        test("Themes: three dark and three light themes of NoIntrovert's own are built in, each kind's NoIntrovert one first", () =>
         {
-            var all = ThemeLibrary.BuiltIn;
+            var all = ThemeLibrary.BuiltIn.Where(t => t.Collection == ThemeCollection.NoIntrovert).ToList();
             var dark = all.Where(t => t.Kind == ThemeKind.Dark).Select(t => t.Id).ToList();
             var light = all.Where(t => t.Kind == ThemeKind.Light).Select(t => t.Id).ToList();
             if (!dark.SequenceEqual(["nointrovert-dark", "ember", "cartridge"])) return "dark: " + string.Join(", ", dark);
@@ -68,10 +68,10 @@ static class ThemeTests
             return all.All(t => t.IsBuiltIn && t.Author == "NoIntrovert") ? null : "a built-in theme isn't marked as one";
         });
 
-        test("Themes: every built-in theme's text, buttons and focus colours are readable", () =>
+        test("Themes: every NoIntrovert theme's text, buttons and focus colours are readable", () =>
         {
             var problems = new List<string>();
-            foreach (var t in ThemeLibrary.BuiltIn)
+            foreach (var t in ThemeLibrary.BuiltIn.Where(t => t.Collection == ThemeCollection.NoIntrovert))
             {
                 var c = ThemeResources.Colors(t);
                 // The design's own light theme, kept exactly as it was, is a hair under two of these.
@@ -186,7 +186,7 @@ static class ThemeTests
         test("Themes: a Base16 scheme becomes a theme (tinted-theming's current layout)", () =>
         {
             var t = ThemeFile.Parse(Gruvbox, "user:gruvbox").Single();
-            if (t.Name != "Gruvbox dark, hard" || t.Kind != ThemeKind.Dark || !t.Author.StartsWith("Dawid")) return $"{t.Name} ({t.Kind}) by {t.Author}";
+            if (t.Name != "Gruvbox Dark Hard" || t.Kind != ThemeKind.Dark || !t.Author.StartsWith("Dawid")) return $"{t.Name} ({t.Kind}) by {t.Author}";
             if (t[ThemeRole.Background] != Color.Parse("#1d2021") || t[ThemeRole.Surface] != Color.Parse("#3c3836")) return "base00/base01 aren't the window and the cards";
             if (t[ThemeRole.Text] != Color.Parse("#d5c4a1") || t[ThemeRole.Primary] != Color.Parse("#83a598") || t[ThemeRole.Accent] != Color.Parse("#fe8019"))
                 return "text, primary or accent isn't base05/base0D/base09";
@@ -227,6 +227,8 @@ static class ThemeTests
             lib.Delete(lib.Find("user:peach-fizz-2")!);
             if (lib.Find("user:peach-fizz-2") is not null || File.Exists(Path.Combine(folder, "peach-fizz-2.axaml"))) return "delete left the theme";
             lib.Delete(ThemeLibrary.BuiltIn[0]);
+            lib.Delete(lib.Find("base16-nord")!);
+            if (lib.Find("base16-nord") is null) return "a built-in Base16 scheme was deleted";
             return lib.Find(ThemeLibrary.BuiltIn[0].Id) is null ? "a built-in theme was deleted" : null;
         });
 
@@ -239,12 +241,61 @@ static class ThemeTests
                 ? null : "didn't fall back";
         });
 
+        test("Themes: every Base16 scheme from tinted-theming is built in, each with its own name and its author", () =>
+        {
+            var schemes = ThemeLibrary.BuiltIn.Where(t => t.Collection == ThemeCollection.Base16).ToList();
+            if (schemes.Count < 370) return $"only {schemes.Count} Base16 schemes";
+            if (schemes.Count(t => t.Kind == ThemeKind.Light) < 100) return "fewer than 100 light ones";
+            if (schemes.Any(t => !t.IsBuiltIn || !t.Id.StartsWith(ThemeLibrary.Base16Prefix))) return "a scheme isn't a built-in base16- theme";
+            var clash = schemes.GroupBy(t => (t.Kind, t.Name.ToLowerInvariant())).FirstOrDefault(g => g.Count() > 1);
+            if (clash is not null) return $"two {clash.Key.Kind} themes called {clash.First().Name}";
+            // A few schemes leave author empty in tinted-theming's own files (Seti UI); the rest credit theirs.
+            if (schemes.Count(t => t.Author.Length == 0) > 5) return $"{schemes.Count(t => t.Author.Length == 0)} schemes have no author";
+            if (schemes.FirstOrDefault(t => t.Name.Contains(',') || char.IsLower(t.Name[0]) && !t.Name.StartsWith("iA ")) is { } untidy) return $"untidy name: {untidy.Name}";
+            var nord = schemes.FirstOrDefault(t => t.Id == "base16-nord");
+            if (nord is not { Name: "Nord", Kind: ThemeKind.Dark }) return "Nord isn't there as a dark theme";
+            return schemes.Any(t => t.Id == "base16-cyberpunk") ? null : "the .yml scheme (cyberpunk) is missing";
+        });
+
+        test("Themes: scheme names are tidied into theme names", () =>
+        {
+            var cases = new (string In, string Out)[]
+            {
+                ("Gruvbox dark, hard", "Gruvbox Dark Hard"), ("darkmoss", "Darkmoss"), ("selenized-white", "Selenized White"),
+                ("boo-shnickle-light", "Boo Shnickle Light"), ("Arroz con Dulce", "Arroz con Dulce"), ("Shades of Purple", "Shades of Purple"),
+                ("iA Dark", "iA Dark"), ("UwUnicorn", "UwUnicorn"), ("Black Metal (Khold)", "Black Metal (Khold)"), ("Humanoid dark", "Humanoid Dark"),
+            };
+            var wrong = cases.Where(c => Base16.TidyName(c.In) != c.Out).Select(c => $"{c.In} → {Base16.TidyName(c.In)}").ToList();
+            return wrong.Count == 0 ? null : string.Join("; ", wrong);
+        });
+
+        test("Themes: the lists put NoIntrovert's themes first, then custom ones, then Base16 A to Z; search narrows both", () => WithThemes(dir("themes-lists"), null, (t, _) =>
+        {
+            t.Customize("Dark");
+            t.Editor!.Name = "Zebra";
+            t.Editor.SaveCommand.Execute(null);
+            var order = t.DarkThemes.Select(o => o.Theme.Collection).ToList();
+            if (order.Take(3).Any(c => c != ThemeCollection.NoIntrovert) || order[3] != ThemeCollection.Custom || order[4] != ThemeCollection.Base16)
+                return "out of order: " + string.Join(", ", t.DarkThemes.Take(6).Select(o => o.Name));
+            var base16 = t.DarkThemes.Where(o => o.Theme.Collection == ThemeCollection.Base16).Select(o => o.Name).ToList();
+            if (!base16.SequenceEqual(base16.OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase))) return "the Base16 schemes aren't A to Z";
+            if (!t.SearchHint.StartsWith("Search ")) return t.SearchHint;
+            t.Search = "gruvbox material";
+            if (t.DarkThemes.Count != 4 || t.DarkThemes.Skip(1).Any(o => !o.Name.StartsWith("Gruvbox Material Dark")))
+                return "searching found " + string.Join(", ", t.DarkThemes.Select(o => o.Name));
+            if (t.SelectedDark?.Name != "Zebra") return "the chosen theme left the list";
+            t.SelectedDark = t.DarkThemes.First(o => o.Name == "Gruvbox Material Dark Hard");
+            if (t.ActiveDark.Id != "base16-gruvbox-material-dark-hard") return "choosing a search result didn't use it";
+            t.Search = "";
+            return t.DarkThemes.Count > 250 ? null : "clearing the search didn't bring the list back";
+        }));
+
         test("Themes: Import from web downloads a scheme and uses it for its kind", () => WithThemes(dir("themes-web"), new FakeWeb(Gruvbox), (t, file) =>
         {
             t.ImportUrl = "https://github.com/tinted-theming/schemes/blob/spec-0.11/base16/gruvbox-dark-hard.yaml";
             t.ImportFromUrlCommand.ExecuteAsync(null).GetAwaiter().GetResult();
             if (t.SelectedDark?.Id != "user:gruvbox-dark-hard") return $"chose {t.SelectedDark?.Id}; {t.Status}";
-            if (!t.Status.StartsWith("Imported Gruvbox dark, hard (dark)")) return t.Status;
+            if (!t.Status.StartsWith("Imported Gruvbox Dark Hard (dark)")) return t.Status;
             return File.ReadAllText(file).Contains("\"DarkTheme\": \"user:gruvbox-dark-hard\"") ? null : "the choice wasn't saved";
         }));
 
@@ -261,7 +312,7 @@ static class ThemeTests
             t.Changed += () => changes++;
             t.SelectedLight = t.LightThemes.First(o => o.Id == "seafoam");
             if (changes != 1 || t.ActiveLight.Id != "seafoam") return "the app wasn't told";
-            if (t.DarkThemes.Count != 3 || t.LightThemes.Count != 3) return "the lists aren't three each";
+            if (t.DarkThemes.Count(o => o.Theme.Collection == ThemeCollection.NoIntrovert) != 3) return "the dark list hasn't NoIntrovert's three";
             return File.ReadAllText(file).Contains("\"LightTheme\": \"seafoam\"") ? null : "not saved";
         }));
 

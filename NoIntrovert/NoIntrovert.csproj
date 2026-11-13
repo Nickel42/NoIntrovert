@@ -24,6 +24,11 @@
   <ItemGroup>
     <AvaloniaXaml Remove="Themes\*.axaml" />
     <EmbeddedResource Include="Themes\*.axaml" LogicalName="NoIntrovert.Themes.%(Filename).axaml" />
+    <!-- tinted-theming's Base16 schemes, offered as built-in themes (scripts/refresh-base16-themes.py writes them). -->
+    <EmbeddedResource Include="Themes\Base16\*.yaml;Themes\Base16\*.yml" LogicalName="NoIntrovert.Themes.Base16.%(Filename)%(Extension)" />
+    <!-- Their MIT notice, next to the executable in a build; release.yml copies it into every download. -->
+    <None Include="Themes\Base16\THIRD_PARTY_NOTICES.txt" Link="THIRD_PARTY_NOTICES-base16-themes.txt"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
   </ItemGroup>
 
   <ItemGroup>
