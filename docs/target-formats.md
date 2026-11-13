@@ -87,7 +87,7 @@ roms/
 | D5 | Computer systems | `.zip` (Rule R9) |
 | D6 | Header and byte-order fixes (R12) | Off by default; turned on in Settings |
 | D7 | Dreamcast `.cdi` | Left as is; chdman can't convert DiscJuggler images reliably |
-| D8 | Systems the app can't convert to yet (Xbox, PS3, PS Vita) | For now the app shows the recommendation without a Convert button. A converter for each system comes later as its own requirement. |
+| D8 | Systems the app can't convert to yet (PS3, PS Vita) | For now the app shows the recommendation without a Convert button. A converter for each system comes later as its own requirement. |
 | D9 | 7z settings | LZMA2, Ultra (`-mx9`), non-solid for a single file |
 | D10 | Arcade (MAME/FBNeo) | Out of scope: reported only, never changed |
 
@@ -199,7 +199,7 @@ used in the settings file.
 | Wii (discs) | `wii` | .rvz | bare | .iso/.gcz/.wia → .rvz; .wbfs/.ciso can't be converted | bare .wbfs/.iso (USB loaders) | .wbfs and .ciso don't record the disc's exact size, so lib-wii-gamecube-kit (like Dolphin) won't convert them and they're left as is. Convert from the ISO. |
 | WiiWare / Virtual Console (Wii digital) | `wiiware-virtual-console` | .wad | bare | - | 7z for cold storage only | Install to emulated NAND for save compatibility. |
 | Wii U | `wii-u` | .wua | bare | .wux/.wud (a .wux inside .7z must be extracted first) + update + DLC → one .wua; NUS/loadiine folder → .wua | .wux (disc-verifiable compressed image); loadiine folder | Converting encrypted .wud/.wux needs keys.txt/disc key. Cemu cannot launch from .7z. WUA is not Redump-verifiable - keep hash map or the .wux. |
-| Xbox | `xbox` | .iso (XISO game partition) | bare | Redump .iso → XISO | CCI (modded hardware only - not xemu) | xemu supports no compressed format. XISO is not Redump-verifiable - keep hash map. |
+| Xbox | `xbox` | .iso (XISO game partition) | bare | Redump .iso → XISO; XISO → CCI on request | CCI for Cerbios (modded hardware only - not xemu), split below 4 GiB | xemu supports no compressed format. XISO is not Redump-verifiable, so the Redump hashes are kept (R11). lib-xiso-kit trims only: files keep their sectors, no XBE is patched. |
 | Xbox 360 | `xbox-360` | .iso | bare | - | extracted XEX folder; GOD; .zar (UNSURE) | UNSURE: Xenia Canary ZArchive (.zar) support - confirm before adopting. Don't archive ISOs. |
 
 

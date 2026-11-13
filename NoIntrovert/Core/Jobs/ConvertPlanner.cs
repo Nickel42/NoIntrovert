@@ -94,6 +94,11 @@ public static class ConvertPlanner
                 case TargetKind.Wua:
                     wiiu.Add(i);
                     break;
+                case TargetKind.Xiso or TargetKind.XboxCci:
+                    // Original Xbox discs: lib-xiso-kit makes and checks them.
+                    var xbox = row.Target;
+                    jobs.Add(new(name, [i], row.Size, c => Xbox.XboxJobs.Convert(c.WithSettings(With(c.Settings, at)), path, xbox)));
+                    break;
                 case TargetKind.Nsz or TargetKind.Xcz or TargetKind.Nsp or TargetKind.Xci:
                     // Switch packages: lib-nx-kit converts and checks them (prod.keys needed).
                     var kind = row.Target;
@@ -319,5 +324,5 @@ public static class ConvertPlanner
     private static bool RemovesOriginals(AppSettings s, TargetKind target) =>
         s.Output.ReplacesOriginals && target is TargetKind.Chd or TargetKind.Rvz or TargetKind.Wua
             or TargetKind.SevenZip or TargetKind.Zip or TargetKind.Files or TargetKind.Cci or TargetKind.Zcci
-            or TargetKind.Nsz or TargetKind.Xcz or TargetKind.Nsp or TargetKind.Xci;
+            or TargetKind.Nsz or TargetKind.Xcz or TargetKind.Nsp or TargetKind.Xci or TargetKind.Xiso or TargetKind.XboxCci;
 }

@@ -21,9 +21,9 @@ target for a whole system or for one file type in Advanced settings, including "
 - The override settings.
 - The docs.
 
-**Out of scope here (D8):** converters for formats the app can't produce yet: Xbox XISO, PS3
-decrypted folders and PS Vita `.pkg` → NoNpDrm. (3DS `.zcci` and Switch NSZ/XCZ were on this list;
-FR-9 and FR-11 now cover them.) For these systems the app
+**Out of scope here (D8):** converters for formats the app can't produce yet: PS3 decrypted
+folders and PS Vita `.pkg` → NoNpDrm. (3DS `.zcci`, Switch NSZ/XCZ and Xbox XISO were on this list;
+FR-9, FR-11 and FR-12 now cover them.) For these systems the app
 shows the recommendation with no Convert button, and each converter gets its own requirement later.
 
 ## 3. Today's code (starting point)
@@ -113,6 +113,18 @@ shows the recommendation with no Convert button, and each converter gets its own
   - The new file is checked against the hashes stored inside it (with *Check each file after
     converting*, or Replace the originals). The dump's own hashes are recorded (R11), and a `.zcci`
     or `.zcia` is hashed as the file it holds, so Verify & match still recognises both.
+- **FR-12 Xbox.**
+  - lib-xiso-kit (`native/lib-xiso-kit`) does every conversion; NoIntrovert only picks the output's
+    name and folder, keeps the hashes, and removes the original when asked.
+  - A Redump `.iso` (told apart from an XISO by where its XDVDFS header is) becomes an XISO: the game
+    partition only, which xemu reads. An XISO is already optimal.
+  - CCI (Cerbios) is the alternative, for modded consoles: compressed, and split below the FATX 4 GiB
+    limit. An XISO can become a CCI too.
+  - The conservative mode is used: files keep their original sectors, nothing is removed, no XBE is
+    patched. lib-xiso-kit re-reads the new image and checks it before anything is replaced.
+  - The Redump image's hashes are kept for Verify & match (R11), since an XISO can't match Redump.
+  - An XISO has the same name as its Redump image: with Replace the originals it takes the
+    original's place once it's checked; otherwise it gets " (2)", like any taken name.
 - **FR-11 Switch.**
   - lib-nx-kit (`native/lib-nx-kit`) does every conversion; NoIntrovert only picks the output's name
     and folder, and removes the original when asked.
@@ -228,6 +240,8 @@ shows the recommendation with no Convert button, and each converter gets its own
 | 17 | `Game.nsp` | defaults | `Game.nsz`; back to the same `Game.nsp`, byte for byte |
 | 17b | `Game.xci` | defaults / `switch` → `xcz` | Defaults: `Game.nsz`. With the override: `Game.xcz` |
 | 17c | `Game.nsp` | no `prod.keys` | The job fails and says where `prod.keys` goes; nothing is written |
+| 17d | Redump Xbox `Game.iso` | defaults | XISO `Game.iso` (its Redump hashes kept); CHD isn't offered |
+| 17e | Redump Xbox `Game.iso` | system `xbox` → `cci` | `Game.cci` (Cerbios), split below 4 GiB |
 | 18 | `Game.v64` | header fixes off / on | Off: `Game.7z` holding `Game.v64`. On: `Game.7z` holding `Game.z64` |
 | 19 | Exported overrides imported on another PC | — | Same rows are marked as overridden |
 
@@ -238,7 +252,7 @@ shows the recommendation with no Convert button, and each converter gets its own
 2. **Overrides:** FR-12 to FR-14.
 3. **Per-system extras:** FR-7 (multi-disc), FR-8, FR-9 (3DS), FR-10 (Vita zip and launcher),
    FR-11 (hashes and header fixes), R6 (splitting).
-4. **Later, a separate requirement each (D8):** XISO, Vita `.pkg` + zRIF, PS3.
+4. **Later, a separate requirement each (D8):** Vita `.pkg` + zRIF, PS3.
 
 ## 7. Resolved questions
 

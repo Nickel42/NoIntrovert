@@ -25,6 +25,10 @@ public enum TargetKind
     Nsp,
     /// <summary>A Switch package as an uncompressed cartridge image, .xci, by lib-nx-kit.</summary>
     Xci,
+    /// <summary>An original Xbox disc as an XISO (.iso): the game partition only, by lib-xiso-kit.</summary>
+    Xiso,
+    /// <summary>An original Xbox disc as a Cerbios CCI (.cci), split below the FATX 4 GiB limit, by lib-xiso-kit.</summary>
+    XboxCci,
     SevenZip,
     Zip,
     /// <summary>An archive's files, unpacked.</summary>
@@ -48,6 +52,8 @@ public sealed record TargetChoice(TargetKind Kind, string Label)
     public static readonly TargetChoice Xcz = new(TargetKind.Xcz, ".xcz");
     public static readonly TargetChoice Nsp = new(TargetKind.Nsp, ".nsp");
     public static readonly TargetChoice Xci = new(TargetKind.Xci, ".xci");
+    public static readonly TargetChoice Xiso = new(TargetKind.Xiso, "XISO");
+    public static readonly TargetChoice XboxCci = new(TargetKind.XboxCci, "CCI (Cerbios)");
     public static readonly TargetChoice SevenZip = new(TargetKind.SevenZip, "7z");
     public static readonly TargetChoice Zip = new(TargetKind.Zip, "zip");
     public static readonly TargetChoice Files = new(TargetKind.Files, "Unpack files");
@@ -83,6 +89,8 @@ public static class ConvertTargets
         // D2: a 3DS game is never packed into a 7z or zip (or unpacked as loose files); it becomes a .cci or .zcci.
         if (plan.System == "nintendo-3ds")
             choices = choices.Where(c => c != TargetChoice.SevenZip && c != TargetChoice.Zip && c != TargetChoice.Files).ToList();
+        // An Xbox disc becomes an XISO or a CCI; CHD and the other disc targets aren't Xbox formats.
+        if (plan.System == "xbox") choices = [];
         var list = new List<TargetChoice>();
         if (plan.Choice != TargetChoice.Leave) list.Add(plan.Choice);
         foreach (var c in plan.Alternatives.Concat(choices))

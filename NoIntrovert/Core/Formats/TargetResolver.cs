@@ -71,6 +71,8 @@ public static class TargetResolver
         // D2, FR-9: lib-3ds-kit decrypts a 3DS image, makes a .cia a .cci and reads Azahar's .zcci on the way to its target.
         if (id == "nintendo-3ds" && !isArchive && ThreeDs(set, system, ext, alternatives, settings) is { } ctr) return ctr;
         if (id == "nintendo-3ds" && isArchive && ThreeDsInArchive(set, system, contents, alternatives, settings) is { } packed) return packed;
+        // Original Xbox discs become an XISO or a CCI through lib-xiso-kit.
+        if (id == "xbox" && !isArchive) return Xbox(system, set, ext, settings);
         // Switch packages convert between NSP, NSZ, XCI and XCZ through lib-nx-kit.
         if (id == "switch" && !isArchive) return Switch(system, set, ext, alternatives, settings);
 
@@ -140,6 +142,26 @@ public static class TargetResolver
         var (target, overridden) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
         if (target is null && overridden) return null;
         return target is null || target.Container is TargetContainer.SevenZip or TargetContainer.Zip ? system.Target : target;
+    }
+
+    /// <summary>
+    /// An original Xbox disc image (.iso, told apart by its XDVDFS header). XISO is the target: the game partition
+    /// only, which xemu reads; CCI is for Cerbios on a modded console. A Redump image becomes either; an XISO is
+    /// already optimal, or becomes a CCI. lib-xiso-kit does the work.
+    /// </summary>
+    private static TargetPlan Xbox(SystemInfo system, FileSet set, string ext, AppSettings settings)
+    {
+        var id = system.Id;
+        if (ext != ".iso") return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, $"Left as is ({ext})");
+        var xiso = File.Exists(set.Primary) && DiscProbe.IsXiso(set.Primary);
+        var (target, _) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
+        if (target is null) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (your setting)");
+        var cci = target.Format == ".cci";
+        List<TargetChoice> alternatives = cci ? (xiso ? [] : [TargetChoice.Xiso]) : [TargetChoice.XboxCci];
+        if (cci) return Plan(id, TargetStatus.Convert, TargetChoice.XboxCci, "Convert → .cci (Cerbios)", alternatives);
+        return xiso
+            ? Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives)
+            : Plan(id, TargetStatus.Convert, TargetChoice.Xiso, "Convert → XISO (drops the video partition)", alternatives);
     }
 
     /// <summary>
@@ -215,9 +237,7 @@ public static class TargetResolver
         var label = choice == TargetChoice.Chd ? ".chd" : targetExt == ".cue" ? "cue/bin" : targetExt;
 
         if (!isArchive && (ext == targetExt || (id == "wii-u" && set.Format == KnownFormats.Wua)))
-            return id == "xbox" && !DiscProbe.IsXiso(set.Primary)
-                ? NotYet(id, target, alternatives)
-                : Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
+            return Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
         if (!target.Producible) return NotYet(id, target, alternatives, ext == ".xci" && targetExt == ".nsz" ? "repack to NSP first" : null);
         if (choice == TargetChoice.DiscImage || choice == TargetChoice.Iso)
             return Plan(id, TargetStatus.Convert, choice, $"Convert → {label}", alternatives);
