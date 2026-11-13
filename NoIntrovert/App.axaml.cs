@@ -37,6 +37,8 @@ public partial class App : Application
             BindThemes(vm.Settings.General);
             window.DataContext = vm;
             desktop.MainWindow = window;
+            // The Library's match results, read once the window shows so the first selection doesn't wait for them.
+            window.Opened += (_, _) => Core.Dats.MatchStore.WarmInBackground();
             if (desktop.Args is { Length: > 0 } args)
                 window.Opened += async (_, _) => await vm.ApplyCommandLineAsync(args);
         }
