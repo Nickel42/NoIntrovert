@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NoIntrovert.Core;
+using NoIntrovert.Core.Jobs;
 using NoIntrovert.Core.Presets;
 using NoIntrovert.ViewModels;
 using NoIntrovert.Views;
@@ -250,6 +251,77 @@ static class LayoutTests
                 f.Settings.Library.SortColumn = LibrarySortColumn.System; // so the next click below lands on Game, A to Z
                 lib.SortByCommand.Execute(LibrarySortColumn.Game);
             }
+        }));
+
+        test("Library: a search keeps the chosen order and the counts, and clearing it brings every game back in order", () => Dispatch(() =>
+        {
+            var lib = f.Vm.Library;
+            f.Show("library");
+            f.Layout();
+            var byTitle = StringComparer.OrdinalIgnoreCase;
+            try
+            {
+                lib.SortByCommand.Execute(LibrarySortColumn.Size);
+                lib.SortByCommand.Execute(LibrarySortColumn.Size); // largest first: the samples are all one size, so ties go by title
+                var all = lib.VisibleGames.ToList();
+                lib.Search = "castlevania usa";
+                f.Layout();
+                var found = lib.VisibleGames.ToList();
+                var expected = all.Where(g => g.Title.Contains("castlevania", StringComparison.OrdinalIgnoreCase)).ToList();
+                if (expected.Count < 2) return $"the samples have {expected.Count} Castlevania games";
+                if (!found.SequenceEqual(expected)) return $"search found {string.Join(" | ", found.Select(g => g.Title))}";
+                for (var i = 1; i < found.Count; i++)
+                    if (found[i - 1].Size < found[i].Size || found[i - 1].Size == found[i].Size && byTitle.Compare(found[i - 1].Title, found[i].Title) > 0)
+                        return "the search results aren't in the chosen order";
+                if (!lib.Summary.StartsWith($"{found.Count} of {all.Count} games")) return $"summary '{lib.Summary}'";
+                lib.SortByCommand.Execute(LibrarySortColumn.Game); // a new sort while searching re-sorts the results
+                var aToZ = lib.VisibleGames.ToList();
+                if (!aToZ.SequenceEqual(found.OrderBy(g => g.Title, byTitle))) return "sorting while searching didn't sort the results A to Z";
+                lib.Search = "";
+                f.Layout();
+                return lib.VisibleGames.Count == all.Count && lib.VisibleGames.SequenceEqual(all.OrderBy(g => g.Title, byTitle).ThenBy(g => g.Game.Key, StringComparer.Ordinal))
+                    ? null : "clearing the search didn't bring every game back, A to Z";
+            }
+            finally
+            {
+                lib.Search = "";
+                f.Settings.Library.SortColumn = LibrarySortColumn.System;
+                lib.SortByCommand.Execute(LibrarySortColumn.Game);
+                f.Layout();
+            }
+        }));
+
+        test("Library: a selected game's files and match summary are read in the background", () => Dispatch(() =>
+        {
+            var lib = f.Vm.Library;
+            f.Show("library");
+            f.Layout();
+            var game = lib.VisibleGames[0];
+            lib.SelectedGame = game;
+            if (game.Files.Count != game.Game.Items.Count) return "the file rows aren't there straight away";
+            if (!f.Pump(() => lib.DetailsLoaded.IsCompleted && game.MatchSummary.Length > 0)) return "the details never arrived";
+            if (!game.MatchSummary.StartsWith("Not checked")) return $"match summary '{game.MatchSummary}'";
+            if (lib.ShowsChdInfo) return "a game with no CHD shows the CHD panel";
+            var shown = f.Find<TextBlock>(t => t.Text == game.MatchSummary && t.IsEffectivelyVisible);
+            return shown is null ? "the details panel doesn't show the match summary" : null;
+        }));
+
+        test("Queue: the refresh timer runs only while jobs are queued or running", () => Dispatch(() =>
+        {
+            var queue = new JobQueue(() => 1);
+            var vm = new QueueViewModel(queue);
+            if (vm.IsTicking) return "the timer runs with an empty queue";
+            using var release = new ManualResetEventSlim();
+            var job = new BatchJob("Wait", new NullReport(), _ =>
+            {
+                release.Wait(TimeSpan.FromSeconds(20));
+                return new JobOutcome(JobStatus.Succeeded, "ok");
+            }, _ => { }, _ => { });
+            queue.Submit("Test", [job], new AppSettings(), f.Vm.Log);
+            if (!f.Pump(() => vm.IsTicking && vm.IsBusy)) return "the timer didn't start when a job was queued";
+            release.Set();
+            if (!f.Pump(() => !vm.IsTicking && vm.StatusText.StartsWith("Idle"))) return $"the timer still runs once the queue is idle ({vm.StatusText})";
+            return vm.Rows.Count == 1 ? null : $"{vm.Rows.Count} rows for one job";
         }));
 
         test("Layout: the title bar's moon/sun flips the Theme setting and the lilac follows the theme", () => Dispatch(() =>
