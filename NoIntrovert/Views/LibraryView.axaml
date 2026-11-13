@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NoIntrovert.ViewModels"
              xmlns:v="using:NoIntrovert.Views"
+             xmlns:core="using:NoIntrovert.Core"
              x:Class="NoIntrovert.Views.LibraryView"
              x:DataType="vm:LibraryViewModel"
              v:Responsive.Below="compact:1000,narrow:720">
@@ -30,6 +31,25 @@
 
         <Style Selector="v|LibraryView.narrow :is(Control).col-system"><Setter Property="IsVisible" Value="False" /></Style>
         <Style Selector="v|LibraryView.narrow ScrollViewer.details"><Setter Property="Width" Value="240" /></Style>
+
+        <!-- Column headings: a click sorts by the column (▲ ascending, ▼ descending). Plain text, not a boxed button. -->
+        <Style Selector="Button.colsort">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Name="PART_ContentPresenter" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"
+                                      Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalContentAlignment="Center" />
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.colsort TextBlock.arrow"><Setter Property="FontSize" Value="9" /></Style>
+        <Style Selector="Button.colsort.sorted TextBlock.colhead"><Setter Property="Foreground" Value="{DynamicResource SukiText}" /></Style>
+        <Style Selector="Button.colsort:pointerover TextBlock.colhead"><Setter Property="Foreground" Value="{DynamicResource SukiText}" /></Style>
     </UserControl.Styles>
 
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,10,0,0">
@@ -87,17 +107,58 @@
                            IsVisible="{Binding MissingNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
                 <!-- Column headings -->
-                <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="22,4,22,4">
-                    <TextBlock Text="GAME" Classes="colhead" />
-                    <TextBlock Grid.Column="1" Text="SYSTEM" Classes="colhead col-system" />
-                    <TextBlock Grid.Column="2" Text="FORMATS" Classes="colhead col-formats" />
-                    <TextBlock Grid.Column="3" Text="SIZE" Classes="colhead col-size" TextAlignment="Right" Padding="0,0,10,0" />
-                    <TextBlock Grid.Column="4" Text="STATUS" Classes="colhead col-status" />
+                <!-- Its left and right edges follow the rows' (LibraryView.axaml.cs), so it lines up with or without a scrollbar. -->
+                <Grid x:Name="Headings" Grid.Row="3" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="22,4,22,4">
+                    <Button Classes="colsort" HorizontalContentAlignment="Left"
+                            Classes.sorted="{Binding GameArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            Command="{Binding SortByCommand}" CommandParameter="{x:Static core:LibrarySortColumn.Game}"
+                            ToolTip.Tip="Sort by game; click again to turn the order round">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="GAME" Classes="colhead" />
+                            <TextBlock Text="{Binding GameArrow}" Classes="colhead arrow" />
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="1" Classes="colsort col-system" HorizontalContentAlignment="Left"
+                            Classes.sorted="{Binding SystemArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            Command="{Binding SortByCommand}" CommandParameter="{x:Static core:LibrarySortColumn.System}"
+                            ToolTip.Tip="Sort by system; click again to turn the order round">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="SYSTEM" Classes="colhead" />
+                            <TextBlock Text="{Binding SystemArrow}" Classes="colhead arrow" />
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="2" Classes="colsort col-formats" HorizontalContentAlignment="Left"
+                            Classes.sorted="{Binding FormatsArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            Command="{Binding SortByCommand}" CommandParameter="{x:Static core:LibrarySortColumn.Formats}"
+                            ToolTip.Tip="Sort by formats; click again to turn the order round">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="FORMATS" Classes="colhead" />
+                            <TextBlock Text="{Binding FormatsArrow}" Classes="colhead arrow" />
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="3" Classes="colsort col-size" HorizontalContentAlignment="Right" Padding="0,0,10,0"
+                            Classes.sorted="{Binding SizeArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            Command="{Binding SortByCommand}" CommandParameter="{x:Static core:LibrarySortColumn.Size}"
+                            ToolTip.Tip="Sort by size; click again to turn the order round">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="SIZE" Classes="colhead" />
+                            <TextBlock Text="{Binding SizeArrow}" Classes="colhead arrow" />
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="4" Classes="colsort col-status" HorizontalContentAlignment="Left"
+                            Classes.sorted="{Binding StatusArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            Command="{Binding SortByCommand}" CommandParameter="{x:Static core:LibrarySortColumn.Status}"
+                            ToolTip.Tip="Sort by status; click again to turn the order round">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="STATUS" Classes="colhead" />
+                            <TextBlock Text="{Binding StatusArrow}" Classes="colhead arrow" />
+                        </StackPanel>
+                    </Button>
                 </Grid>
 
                 <!-- Games -->
                 <Panel Grid.Row="4">
-                    <ListBox ItemsSource="{Binding VisibleGames}" SelectionMode="Multiple" SelectedItem="{Binding SelectedGame}"
+                    <ListBox x:Name="GameList" ItemsSource="{Binding VisibleGames}" SelectionMode="Multiple" SelectedItem="{Binding SelectedGame}"
                              SelectedItems="{Binding SelectedGames}" Background="Transparent" Margin="10,0">
                         <ListBox.Styles>
                             <Style Selector="ListBoxItem">

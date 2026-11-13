@@ -242,7 +242,7 @@
                                 </Border>
                             </Grid>
                             <!-- Which dark and which light theme: NoIntrovert's, custom or imported, and the Base16 schemes (Core/Themes) -->
-                            <TextBox Text="{Binding General.ColorThemes.Search}" Watermark="{Binding General.ColorThemes.SearchHint}"
+                            <TextBox Text="{Binding General.ColorThemes.Search}" PlaceholderText="{Binding General.ColorThemes.SearchHint}"
                                      IsVisible="{Binding !General.ColorThemes.IsEditing}"
                                      ToolTip.Tip="Narrows both lists to themes whose name or author has these words (gruvbox, nord, solarized…)." />
                             <!-- The picker is 270 px when there's room, narrower (not the label) when there isn't -->
@@ -283,7 +283,7 @@
                                     <TextBlock Text="{Binding BasedOn}" Classes="desc" TextWrapping="Wrap" />
                                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                                         <TextBlock Text="Name" VerticalAlignment="Center" />
-                                        <TextBox Grid.Column="1" Text="{Binding Name}" Watermark="My theme" />
+                                        <TextBox Grid.Column="1" Text="{Binding Name}" PlaceholderText="My theme" />
                                     </Grid>
                                     <ItemsControl ItemsSource="{Binding Rows}">
                                         <ItemsControl.ItemTemplate>
@@ -314,7 +314,7 @@
                                 <TextBlock Classes="desc" TextWrapping="Wrap"
                                            Text="Import an Avalonia theme (.axaml) or any Base16 or Base24 colour scheme (.yaml). Paste a scheme's web address to download it." />
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                    <TextBox Text="{Binding General.ColorThemes.ImportUrl}" Watermark="https://…/gruvbox-dark.yaml" />
+                                    <TextBox Text="{Binding General.ColorThemes.ImportUrl}" PlaceholderText="https://…/gruvbox-dark.yaml" />
                                     <Button Grid.Column="1" Classes="tool" Content="Import from web" Command="{Binding General.ColorThemes.ImportFromUrlCommand}" />
                                 </Grid>
                                 <WrapPanel Orientation="Horizontal">

@@ -376,7 +376,15 @@ public sealed class LibrarySettings
 
     /// <summary>The folder the Cleanup wizard last built a new library in (FR-8); empty until one is chosen.</summary>
     public string NewLibraryFolder { get; set; } = "";
+
+    /// <summary>The column the Library's game list is sorted by (a click on its heading), and which way.</summary>
+    public LibrarySortColumn SortColumn { get; set; } = LibrarySortColumn.Game;
+
+    public bool SortDescending { get; set; }
 }
+
+/// <summary>The Library list's columns, as its headings sort by them.</summary>
+public enum LibrarySortColumn { Game, System, Formats, Size, Status }
 
 /// <summary>
 /// Your changes to the recommended target formats (docs/target-formats.md,

@@ -808,6 +808,19 @@ public sealed partial class LibrarySettingsViewModel(AppSettings settings, IDial
 
     public bool HasFolders => S.Library.Folders.Count > 0;
 
+    /// <summary>The column the Library's list is sorted by, remembered between runs.</summary>
+    public LibrarySortColumn SortColumn
+    {
+        get => S.Library.SortColumn;
+        set => Set(value, (s, v) => s.Library.SortColumn = v);
+    }
+
+    public bool SortDescending
+    {
+        get => S.Library.SortDescending;
+        set => Set(value, (s, v) => s.Library.SortDescending = v);
+    }
+
     /// <summary>The folder the Cleanup wizard builds a new library in (FR-8), remembered for next time.</summary>
     public string NewLibraryFolder
     {
