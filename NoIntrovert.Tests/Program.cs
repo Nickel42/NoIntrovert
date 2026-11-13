@@ -3924,6 +3924,7 @@ if (rvzProblem is null)
 }
 
 JobPerformanceTests.Run(Test, Dir, log, (work, configure) => RunJob(work, configure), rvzLoads: rvzProblem is null);
+OptCoreTests.Run(Test, Dir, log, (work, configure) => RunJob(work, configure), rvzLoads: rvzProblem is null);
 
 // ---- Library tests tab -------------------------------------------------------
 
