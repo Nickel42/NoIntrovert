@@ -11,53 +11,6 @@ using NoIntrovert.Services;
 
 namespace NoIntrovert.ViewModels;
 
-/// <summary>One step in the dry run, with its tick box (FR-2).</summary>
-public sealed partial class CleanupStepRow(CleanupStep step, Action changed) : ObservableObject
-{
-    public CleanupStep Step { get; } = step;
-    public string Game => Step.Game;
-    public string Reason => Step.Reason;
-    public bool CanRun => Step.Kind is not (CleanupKind.Clash or CleanupKind.Untouched);
-
-    public string KindText => Step.Kind switch
-    {
-        CleanupKind.Convert => "Convert",
-        CleanupKind.Rename => "Rename",
-        CleanupKind.Move => "Move",
-        CleanupKind.Copy => "Copy",
-        CleanupKind.RemoveDuplicate => "Remove duplicate",
-        CleanupKind.Clash => "Clash",
-        _ => Step.Copies ? "Left out" : "Left alone",
-    };
-
-    /// <summary>
-    /// Before → after, as paths in the Library folder, so the dry run shows where each file ends up (FR-2).
-    /// For a new library (FR-8) the after is a path in the new library's folder.
-    /// </summary>
-    public string Change => Step.Target is { } target
-        ? $"{string.Join(", ", Step.Sources.Take(1).Select(Shorten))}{(Step.Sources.Count > 1 ? $" (+{Step.Sources.Count - 1})" : "")} → {Shorten(target, Step.WriteRoot)}"
-        : string.Join(", ", Step.Sources.Take(1).Select(Shorten)) + (Step.Kind == CleanupKind.RemoveDuplicate ? " → trash" : "");
-
-    public bool Enabled
-    {
-        get => Step.Enabled;
-        set { if (Step.Enabled == value) return; Step.Enabled = value; OnPropertyChanged(); changed(); }
-    }
-
-    private string Shorten(string path) => Shorten(path, Step.Root);
-
-    private static string Shorten(string path, string root) =>
-        Path.GetRelativePath(root, path) is var relative && !relative.StartsWith("..") && !Path.IsPathRooted(relative) ? relative.Replace('\\', '/') : path;
-}
-
-/// <summary>One past run, with Undo and Empty trash (FR-4).</summary>
-public sealed record CleanupRunRow(CleanupRun Run)
-{
-    public string Summary => Run.Summary;
-    public bool CanUndo => !Run.Undone;
-    public bool CanEmpty => !Run.Undone && !Run.TrashEmptied && Run.TrashFolders.Any(Directory.Exists);
-}
-
 /// <summary>
 /// The Cleanup wizard (M7, docs/requirements/cleanup-wizard.md): make a plan
 /// for the selected games or the whole Library, review it as a dry run, run
@@ -236,22 +189,28 @@ public partial class CleanupViewModel : ViewModelBase
             var on = runnable.Count(s => s.Enabled);
             return on == runnable.Count ? true : on == 0 ? false : null;
         }
-        set
-        {
-            var on = value != false;
-            _bulk = true;
-            try { foreach (var row in Steps.Where(s => s.CanRun)) row.Enabled = on; }
-            finally { _bulk = false; }
-            OnStepChanged();
-        }
+        set => SetEnabled(Steps.Where(s => s.CanRun), value != false);
     }
 
     public bool HasRunnableSteps => Steps.Any(s => s.CanRun);
+
+    /// <summary>One box per kind of step the plan can run (Convert, Rename, Move…), with its count.</summary>
+    public ObservableCollection<CleanupKindToggle> Kinds { get; } = [];
+
+    /// <summary>Ticks or unticks <paramref name="rows"/>, then updates the boxes and the summary once.</summary>
+    private void SetEnabled(IEnumerable<CleanupStepRow> rows, bool on)
+    {
+        _bulk = true;
+        try { foreach (var row in rows) row.Enabled = on; }
+        finally { _bulk = false; }
+        OnStepChanged();
+    }
 
     private void OnStepChanged()
     {
         if (_bulk) return;
         OnPropertyChanged(nameof(AllEnabled));
+        foreach (var kind in Kinds) kind.Refresh();
         UpdateSummary();
     }
     public bool HasRuns => Runs.Count > 0;
@@ -309,15 +268,27 @@ public partial class CleanupViewModel : ViewModelBase
             RunCommand.NotifyCanExecuteChanged();
             return;
         }
-        _plan = await Task.Run(() => CleanupPlanner.Plan(current, settings, MatchStore.Default, dest, copyUnmatched));
+        ShowPlan(await Task.Run(() => CleanupPlanner.Plan(current, settings, MatchStore.Default, dest, copyUnmatched)));
+    }
+
+    /// <summary>Shows <paramref name="plan"/> as the dry run: its steps by game, the per-kind boxes and the summary.</summary>
+    internal void ShowPlan(CleanupPlan plan)
+    {
+        _plan = plan;
         Steps.Clear();
-        foreach (var s in _plan.Steps.OrderBy(s => s.Game, StringComparer.OrdinalIgnoreCase)) Steps.Add(new CleanupStepRow(s, OnStepChanged));
+        foreach (var s in plan.Steps.OrderBy(s => s.Game, StringComparer.OrdinalIgnoreCase)) Steps.Add(new CleanupStepRow(s, OnStepChanged));
         PlanChanged();
         UpdateSummary();
     }
 
     private void PlanChanged()
     {
+        Kinds.Clear();
+        foreach (var kind in CleanupKindToggle.RunnableKinds)
+        {
+            var rows = Steps.Where(s => s.CanRun && s.Step.Kind == kind).ToList();
+            if (rows.Count > 0) Kinds.Add(new CleanupKindToggle(kind, rows, SetEnabled));
+        }
         OnPropertyChanged(nameof(HasPlan));
         OnPropertyChanged(nameof(ShowsEmptyHint));
         OnPropertyChanged(nameof(HasRunnableSteps));
@@ -335,7 +306,7 @@ public partial class CleanupViewModel : ViewModelBase
         if (_plan is null) return;
         var runs = _plan.Steps.Count(s => s.Runs);
         var copies = _plan.Steps.Any(s => s.Copies);
-        var parts = new[] { CleanupKind.Convert, CleanupKind.Copy, CleanupKind.Rename, CleanupKind.Move, CleanupKind.RemoveDuplicate }
+        var parts = CleanupKindToggle.RunnableKinds
             .Select(k => (Kind: k, Count: _plan.Steps.Count(s => s.Kind == k && s.Runs)))
             .Where(p => p.Count > 0)
             .Select(p => $"{p.Count} {p.Kind switch { CleanupKind.Convert => "to convert", CleanupKind.Copy => "to copy", CleanupKind.Rename => "to rename", CleanupKind.Move => "to move", _ => "duplicate(s) to remove" }}");

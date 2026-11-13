@@ -376,6 +376,7 @@ static class LayoutTests
 
         UxLayoutTests.Run(test, f, Dispatch);
         OptUxTests.RunLayout(test, f, Dispatch, screenshots);
+        OptCleanupTests.RunLayout(test, f, Dispatch, screenshots);
 
         Dispatch(() => { f.Window.Close(); return null; });
     }

@@ -42,7 +42,7 @@ Nothing happens until you've seen the whole plan, and everything the wizard did 
   Unknown-system and unmatched files are listed, never touched.
 - **FR-2 Dry run.**
   - The plan is shown as a list of before → after, grouped by game, with the space saved. Both sides are paths in the Library folder, so you see where each file ends up (`NES/Mario.nes → roms/nes/Super Mario Bros. (World).7z`).
-  - Every step can be unticked.
+  - Every step can be unticked, one at a time or a whole kind at once (every move, say): each kind has a box with its count.
   - Nothing is written until **Run**.
 - **FR-3 Run.**
   - Steps go to the shared queue.

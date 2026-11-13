@@ -15,7 +15,7 @@ Settings at the bottom ([information architecture](docs/information-architecture
 | Optimize | Your library: the folders you add, scanned into a list of games with their system, formats, size and status. From a selection (or the whole library) it hands games to Verify, Convert and Organize |
 | Convert | Each row has its own target and preset: disc images → CHD (GameCube/Wii discs → RVZ, or CHD if you choose), Wii U → .wua, CHD → cue/bin (one bin per track or a single bin), gdi, iso or raw img, RVZ/WIA/GCZ → iso, files and folders → .7z or .zip (Add folder as one archive…), zip ↔ 7z, and unpacking zip/7z. New files are verified (archives tested) |
 | Verify | Checks each game for damage (CHDs against their stored SHA-1, 7z and zip by testing every file), then looks it up in the No-Intro and Redump databases: a good dump, a misnamed one (with the name it should have), or not in the database. The databases come from [libretro-database](https://github.com/libretro/libretro-database), only for the systems in your Library, checked for updates when the app starts ([requirement](docs/requirements/verify-match.md)) |
-| Organize | The Cleanup wizard: for the selected games or the whole Library, a dry run of converting to the target formats, renaming to the No-Intro/Redump names, moving into ES-DE system folders (or keeping each game where it is) and removing duplicates. Every step can be unticked; a run can be undone, conversions included, until its trash is emptied ([requirement](docs/requirements/cleanup-wizard.md)) |
+| Organize | The Cleanup wizard: for the selected games or the whole Library, a dry run of converting to the target formats, renaming to the No-Intro/Redump names, moving into ES-DE system folders (or keeping each game where it is) and removing duplicates. Every step can be unticked, one at a time or a whole kind at once; a run can be undone, conversions included, until its trash is emptied ([requirement](docs/requirements/cleanup-wizard.md)) |
 | Library tests | Power-user mode only. Round trip (create → verify → extract → compare with the original data) and comparison with a chdman.exe (byte-for-byte output, timings); CSV export |
 | Settings | One page of cards, saved as you change them: General, Output, Performance, Log, Default presets, Library and About, with Advanced below them |
 
@@ -23,7 +23,9 @@ The side panel on Convert describes the focused row: its system, the file, the f
 row's preset and the emulators that can play the result ("Works with"). The emulator list comes from
 [libretro-core-info](https://github.com/libretro/libretro-core-info) and [ES-DE](https://gitlab.com/es-de/emulationstation-de)
 (both MIT), bundled with the app; Settings › Library › Check now downloads a newer copy
-([ui-redesign](docs/requirements/ui-redesign.md)).
+([ui-redesign](docs/requirements/ui-redesign.md)). For Wii U, 3DS and Switch files that need
+your own keys, it also says which keys were found and lets you choose them; a row that fails for missing keys
+has a Set up keys link to Settings › Keys.
 
 ### Save to
 

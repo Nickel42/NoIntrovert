@@ -55,6 +55,20 @@ public partial class SettingsViewModel : ViewModelBase
     public NintendoSettingsViewModel Nintendo { get; }
     public ArchiveSettingsViewModel Archives { get; }
     public KeySettingsViewModel Keys { get; }
+
+    /// <summary>Set by <see cref="ShowKeys"/> until the page has brought its Keys card into view.</summary>
+    public bool ShowKeysPending { get; internal set; }
+
+    /// <summary>Raised by <see cref="ShowKeys"/>, for a Settings page that's already showing.</summary>
+    public event EventHandler? ShowKeysRequested;
+
+    /// <summary>Asks the Settings page to bring its Keys card into view (the link on rows that failed for missing keys).</summary>
+    public void ShowKeys()
+    {
+        ShowKeysPending = true;
+        ShowKeysRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     public DiagnosticsSettingsViewModel Diagnostics { get; }
     public LibrarySettingsViewModel Library { get; }
     public DatSettingsViewModel Dats { get; }

@@ -16,7 +16,7 @@
     -->
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,10,0,0">
         <Border Classes="card" Padding="0">
-            <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Margin="12,10,12,4">
                     <StackPanel Spacing="2">
                         <TextBlock Text="CLEANUP" Classes="section" />
@@ -31,7 +31,22 @@
                 </Grid>
                 <TextBlock Grid.Row="1" Text="{Binding Summary}" Classes="hint" TextWrapping="Wrap" Margin="12,0,12,6" />
 
-                <Grid Grid.Row="2" ColumnDefinitions="40,120,1.2*,2*" Margin="22,4,22,4">
+                <!-- One box per kind of step, with its count: ticks or unticks them all, half-ticked when only some are -->
+                <ItemsControl Grid.Row="2" x:Name="KindToggles" ItemsSource="{Binding Kinds}" IsVisible="{Binding HasRunnableSteps}" Margin="12,0,12,2">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="18" LineSpacing="2" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CleanupKindToggle">
+                            <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}" Command="{Binding ToggleCommand}" Content="{Binding Label}"
+                                      ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding AccessibleName}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Grid Grid.Row="3" ColumnDefinitions="40,120,1.2*,2*" Margin="22,4,22,4">
                     <!-- Tick all: half-ticked when only some steps are -->
                     <CheckBox x:Name="TickAll" IsChecked="{Binding AllEnabled, Mode=OneWay}" IsVisible="{Binding HasRunnableSteps}"
                               MinWidth="0" Padding="0" VerticalAlignment="Center"
@@ -41,7 +56,7 @@
                     <TextBlock Grid.Column="3" Text="CHANGE" Classes="colhead" />
                 </Grid>
 
-                <Panel Grid.Row="3">
+                <Panel Grid.Row="4">
                     <ListBox ItemsSource="{Binding Steps}" Background="Transparent" Margin="10,0">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:CleanupStepRow">
@@ -78,7 +93,7 @@
                     </StackPanel>
                 </Panel>
 
-                <Border Grid.Row="4" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="12,10">
+                <Border Grid.Row="5" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="12,10">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="12,0,0,0">
                             <Button Content="Verify games not yet matched" Command="{Binding VerifyUncheckedCommand}"

@@ -922,6 +922,7 @@ StoreTests.Run(Test, Dir, log);
 UxReviewTests.Run(Test, Dir);
 UxReviewTests.RunSettingsConfirms(Test, Dir);
 OptUxTests.Run(Test, Dir);
+OptCleanupTests.Run(Test, Dir);
 FormatPresetTests.Run(Test, Dir, log);
 EmulatorTests.Run(Test);
 LayoutTests.Run(Test, Dir, ArgValue("--screenshots"));

@@ -42,14 +42,16 @@ finished batches, plus any with a failure, until Clear finished) and a status ba
     - A banner above the list when the CHD converter (chdkit) is missing or blocked: reinstall, or check the antivirus quarantine
     - Rows: File · Type · **Preset** (per row) · Size · Status · Progress · Time · Result
     - Side panel, for the focused row: File (system, facts, formats) · Preset (with Works with) · Preset
-      settings (Custom only)
+      settings (Custom only) · Wii U, 3DS or Switch keys (for selected files that need them)
+    - A row that failed for missing keys: Set up keys → Settings, scrolled to Keys
     - Run bar: **Save to** (Next to the originals · Folder: <path> · Change… · Replace the originals ⚠) ·
       Cancel · Convert
   - **Verify** (was Verify & match)
     - Job list (as Convert, no Preset column, no Save to)
     - Side panel: game databases (status, Update now) · *Checking games* preset
   - **Organize** (was Cleanup)
-    - Plan: scope (selected games or whole Library) · steps with tick boxes (Step · Game · Change)
+    - Plan: scope (selected games or whole Library) · steps with tick boxes (Step · Game · Change) · a box per kind
+      of step, with its count
     - Actions: Whole Library · Make the plan again · Verify the unchecked ones · **Run**
     - Side panel: file layout (ES-DE or keep) · safety note · past runs (Undo, Empty trash)
   - **Library tests** (Power-user mode only): round trip and chdman comparison, results table, CSV export
