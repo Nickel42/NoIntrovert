@@ -75,19 +75,24 @@ internal static class WorkPaths
 {
     public static string DefaultTempRoot => System.IO.Path.Combine(System.IO.Path.GetTempPath(), "NoIntrovert");
 
-    /// <summary>Removes job folders left behind by a run that crashed or was killed.</summary>
-    public static void SweepStale(string root)
+    /// <summary>Removes job folders left behind by a run that crashed or was killed; returns how many went.</summary>
+    public static int SweepStale(string root)
     {
-        if (!Directory.Exists(root)) return;
+        if (!Directory.Exists(root)) return 0;
+        var removed = 0;
         foreach (var dir in Directory.EnumerateDirectories(root, "job-*"))
         {
             try
             {
                 if (Directory.GetLastWriteTimeUtc(dir) < DateTime.UtcNow.AddHours(-12))
+                {
                     Directory.Delete(dir, recursive: true);
+                    removed++;
+                }
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
+        return removed;
     }
 }

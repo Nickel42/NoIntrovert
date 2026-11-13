@@ -96,7 +96,11 @@ public partial class MainViewModel : ViewModelBase
 
         // Job folders left by a crashed run are deleted in the background, so the window doesn't wait for them.
         var tempFolder = settings.Performance.EffectiveTempFolder;
-        _ = Task.Run(() => WorkPaths.SweepStale(tempFolder));
+        _ = Task.Run(() =>
+        {
+            var removed = WorkPaths.SweepStale(tempFolder);
+            if (removed > 0) Log.Info($"Removed {Words.Count(removed, "job folder")} an earlier run left in {tempFolder}.");
+        });
         foreach (var problem in Core.Formats.TargetOverrides.Problems(settings.TargetFormats)) Log.Warn($"Target formats: {problem}");
     }
 

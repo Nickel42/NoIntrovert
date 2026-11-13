@@ -204,7 +204,11 @@
 
                 <!-- Actions on the selected games -->
                 <Border Grid.Row="5" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="12,10">
-                    <WrapPanel Orientation="Horizontal" HorizontalAlignment="Right" ItemSpacing="8" LineSpacing="8">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <!-- Why the last action did nothing (it's in the log too, which may be closed) -->
+                    <TextBlock Text="{Binding ActionNote}" Classes="hint" VerticalAlignment="Center" TextWrapping="Wrap"
+                               IsVisible="{Binding ActionNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" ItemSpacing="8" LineSpacing="8">
                         <Button Content="Clean up selected" Command="{Binding CleanupSelectedCommand}"
                                 ToolTip.Tip="Plan converting, renaming, moving and removing duplicates for the selected games, as a dry run first." />
                         <Button Content="Verify selected" Command="{Binding VerifySelectedCommand}"
@@ -212,6 +216,7 @@
                         <Button Classes="primary" Content="Convert selected" Command="{Binding ConvertSelectedCommand}"
                                 ToolTip.Tip="Send what still needs converting in the selected games to the Convert page (Enter in the list)." />
                     </WrapPanel>
+                  </Grid>
                 </Border>
             </Grid>
         </Border>

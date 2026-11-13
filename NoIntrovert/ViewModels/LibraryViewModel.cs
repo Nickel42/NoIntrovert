@@ -178,6 +178,9 @@ public partial class LibraryViewModel : ViewModelBase
     [ObservableProperty] public partial string MissingNote { get; set; } = "";
     [ObservableProperty] public partial bool IsScanning { get; set; }
     [ObservableProperty] public partial string ScanStatus { get; set; } = "";
+
+    /// <summary>Why the last action on the selected games did nothing, beside the buttons; cleared when the selection changes.</summary>
+    [ObservableProperty] public partial string ActionNote { get; set; } = "";
     [ObservableProperty] public partial GameRowViewModel? SelectedGame { get; set; }
     [ObservableProperty] public partial System.Collections.IList? SelectedGames { get; set; }
 
@@ -414,6 +417,7 @@ public partial class LibraryViewModel : ViewModelBase
     /// <summary>Enables or disables the actions on the selected games (also called by the view when the list's selection changes).</summary>
     public void NotifySelectionChanged()
     {
+        ActionNote = "";
         ConvertSelectedCommand.NotifyCanExecuteChanged();
         VerifySelectedCommand.NotifyCanExecuteChanged();
         CleanupSelectedCommand.NotifyCanExecuteChanged();
@@ -428,7 +432,7 @@ public partial class LibraryViewModel : ViewModelBase
     private void ConvertSelected()
     {
         var paths = Chosen().SelectMany(g => g.Game.Items).Where(i => i.IsSource || i.FormatStatus == TargetStatus.Convert).Select(i => i.Path).Distinct().ToList();
-        if (paths.Count == 0) { _log.Warn("Library: nothing in the selected games needs converting."); return; }
+        if (paths.Count == 0) { Nothing("Nothing in the selected games needs converting."); return; }
         SendToConvert?.Invoke(paths);
     }
 
@@ -437,7 +441,7 @@ public partial class LibraryViewModel : ViewModelBase
     private void VerifySelected()
     {
         var paths = Chosen().SelectMany(g => g.Game.Items).Select(i => i.Path).Distinct().ToList();
-        if (paths.Count == 0) { _log.Warn("Library: no games are selected."); return; }
+        if (paths.Count == 0) { Nothing("No games are selected."); return; }
         SendToVerify?.Invoke(paths);
     }
 
@@ -446,8 +450,15 @@ public partial class LibraryViewModel : ViewModelBase
     private void CleanupSelected()
     {
         var games = Chosen().Select(g => g.Game).ToList();
-        if (games.Count == 0) { _log.Warn("Library: no games are selected."); return; }
+        if (games.Count == 0) { Nothing("No games are selected."); return; }
         SendToCleanup?.Invoke(games);
+    }
+
+    /// <summary>Says on the page, and in the log, why an action did nothing.</summary>
+    private void Nothing(string why)
+    {
+        ActionNote = why;
+        _log.Warn("Library: " + char.ToLowerInvariant(why[0]) + why[1..]);
     }
 
     [RelayCommand]

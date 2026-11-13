@@ -166,6 +166,16 @@ internal static class UxReviewTests
 
     internal static void RunSettingsConfirms(Action<string, Func<string?>> test, Func<string, string> dir)
     {
+        test("Library: an action that has nothing to do says why on the page, and a new selection clears it", () => WithSettingsFolder(dir("ux-action-note"), () =>
+        {
+            var app = new AppSettings();
+            var lib = new LibraryViewModel(new SettingsViewModel(app, new NoDialogs()), new LogViewModel(new NoDialogs(), app), new NoDialogs());
+            lib.ConvertSelectedCommand.Execute(null);
+            if (lib.ActionNote.Length == 0) return "nothing was said on the page";
+            lib.NotifySelectionChanged();
+            return lib.ActionNote.Length == 0 ? null : "a new selection didn't clear the note";
+        }));
+
         test("Settings: Delete preset and Reset all ask first; no keeps everything", () => WithSettingsFolder(dir("ux-settings-confirms"), () =>
         {
             var settings = AppSettings.Load();

@@ -22,6 +22,8 @@ public static class ThemeResources
         // The Settings page
         "SettingsFieldBackground", "SettingsFieldBorder", "SettingsFieldText", "SettingsLink", "SettingsSegmentHover",
         "SettingsAccent", "SettingsWarning",
+        // The Verified badge
+        "VerifiedFill", "VerifiedFillHover", "VerifiedFillPressed", "VerifiedText",
     };
 
     /// <summary>The colour of every key (brush keys and Color keys alike), with the theme file's own keys applied last.</summary>
@@ -41,6 +43,7 @@ public static class ThemeResources
         var accent = R(ThemeRole.Accent);
         var danger = R(ThemeRole.Danger);
         var warning = R(ThemeRole.Warning);
+        var success = R(ThemeRole.Success);
         var rowAlt = Mix(surface, raised, 0.5);
         var primaryTint = Mix(surface, primary, dark ? 0.25 : 0.15);
         var windowButton = Mix(raised, primary, dark ? 0.12 : 0.08);
@@ -88,6 +91,11 @@ public static class ThemeResources
             ["SettingsAccent"] = primary,
             ["SettingsWarning"] = accent,
 
+            ["VerifiedFill"] = success,
+            ["VerifiedFillHover"] = Mix(success, Avalonia.Media.Colors.White, 0.35),
+            ["VerifiedFillPressed"] = Mix(success, Avalonia.Media.Colors.Black, 0.08),
+            ["VerifiedText"] = TextOn(success, text),
+
             ["SukiStrongBackground"] = raised,
             ["SukiCardBackground"] = surface,
             ["SukiPopupBackground"] = surface,
@@ -109,7 +117,7 @@ public static class ThemeResources
             ["SukiDisabledText"] = Mix(surface, subtle, 0.45),
             ["SukiDangerColor"] = danger,
             ["SukiWarningColor"] = warning,
-            ["SukiSuccessColor"] = R(ThemeRole.Success),
+            ["SukiSuccessColor"] = success,
         };
         foreach (var (key, o) in theme.Overrides) c[key] = o.Color;
         return c;
