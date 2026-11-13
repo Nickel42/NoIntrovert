@@ -18,16 +18,36 @@ public sealed record GameFileRow(string Name, string Format, string Size, string
     public bool HasMatch => Match.Length > 0;
 }
 
-/// <summary>One game in the Library list.</summary>
-public sealed class GameRowViewModel(Game game)
+/// <summary>What the details panel shows for a game, read off the UI thread (<see cref="GameRowViewModel.ReadDetails"/>).</summary>
+public sealed record GameDetails(IReadOnlyList<GameFileRow> Files, string MatchSummary, string? ChdPath);
+
+/// <summary>
+/// One game in the Library list. Its texts are worked out once, here, so
+/// searching and sorting thousands of games doesn't rebuild them on every key.
+/// </summary>
+public sealed partial class GameRowViewModel : ObservableObject
 {
-    public Game Game { get; } = game;
-    public string Title => Game.Title;
-    public string System => Game.SystemName;
-    public string Formats => Game.Formats;
-    public string DiscsText => Game.Discs > 1 ? $"{Game.Discs} discs" : "";
-    public string SizeText => ChdJobs.Size(Game.Size);
-    public GameStatus Status { get; } = game.Status;
+    public GameRowViewModel(Game game)
+    {
+        Game = game;
+        Title = game.Title;
+        System = game.SystemName;
+        Formats = game.Formats;
+        Size = game.Size;
+        SizeText = ChdJobs.Size(Size);
+        var discs = game.Discs;
+        DiscsText = discs > 1 ? $"{discs} discs" : "";
+        Status = game.Status;
+    }
+
+    public Game Game { get; }
+    public string Title { get; }
+    public string System { get; }
+    public string Formats { get; }
+    public long Size { get; }
+    public string DiscsText { get; }
+    public string SizeText { get; }
+    public GameStatus Status { get; }
 
     public string StatusText => Status switch
     {
@@ -38,23 +58,46 @@ public sealed class GameRowViewModel(Game game)
         _ => "Ready",
     };
 
-    public IReadOnlyList<GameFileRow> Files => Game.Items.Select(i => new GameFileRow(
-        global::System.IO.Path.GetFileName(global::System.IO.Path.TrimEndingDirectorySeparator(i.Path)), i.FormatLabel, ChdJobs.Size(i.Size),
-        global::System.IO.Path.GetDirectoryName(i.Path) ?? "", i.Disc, i.Path, i.FormatStatusText,
-        Core.Dats.MatchStore.Default.Get(i.Path)?.Text ?? "")).ToList();
+    private IReadOnlyList<GameFileRow>? _files;
 
-    /// <summary>"2 of 2 files verified", or how many haven't been checked (FR-11).</summary>
-    public string MatchSummary
+    /// <summary>The details panel's file rows (made when first shown); their match results arrive with <see cref="ShowDetails"/>.</summary>
+    public IReadOnlyList<GameFileRow> Files => _files ??= FileRows(Game, matches: null);
+
+    /// <summary>"2 of 2 files verified", or how many haven't been checked (FR-11); empty until <see cref="ShowDetails"/>.</summary>
+    [ObservableProperty] public partial string MatchSummary { get; private set; } = "";
+
+    internal void ShowDetails(GameDetails details)
     {
-        get
+        _files = details.Files;
+        OnPropertyChanged(nameof(Files));
+        MatchSummary = details.MatchSummary;
+    }
+
+    private static List<GameFileRow> FileRows(Game game, IReadOnlyList<Core.Dats.MatchResult?>? matches) =>
+        game.Items.Select((i, n) => new GameFileRow(
+            global::System.IO.Path.GetFileName(global::System.IO.Path.TrimEndingDirectorySeparator(i.Path)), i.FormatLabel, ChdJobs.Size(i.Size),
+            global::System.IO.Path.GetDirectoryName(i.Path) ?? "", i.Disc, i.Path, i.FormatStatusText,
+            matches?[n]?.Text ?? "")).ToList();
+
+    /// <summary>
+    /// The game's file rows with their stored match results, the match summary and its first CHD on disk.
+    /// Each item's match is looked up once (a lookup stats the files, a Wii U title folder's thousands of them),
+    /// so this runs off the UI thread.
+    /// </summary>
+    internal static GameDetails ReadDetails(Game game)
+    {
+        var results = game.Items.Select(i => Core.Dats.MatchStore.Default.Get(i.Path)).ToList();
+        var checkedCount = results.Count(r => r is not null);
+        string summary;
+        if (checkedCount == 0) summary = "Not checked against the databases yet (Verify selected).";
+        else
         {
-            var results = Game.Items.Select(i => Core.Dats.MatchStore.Default.Get(i.Path)).ToList();
-            var checkedCount = results.Count(r => r is not null);
-            if (checkedCount == 0) return "Not checked against the databases yet (Verify selected).";
             var good = results.Count(r => r?.Status is Core.Dats.MatchStatus.Verified or Core.Dats.MatchStatus.NameDiffers);
             var text = $"{good} of {results.Count} file{(results.Count == 1 ? "" : "s")} verified";
-            return checkedCount < results.Count ? $"{text}; {results.Count - checkedCount} not checked yet." : text + ".";
+            summary = checkedCount < results.Count ? $"{text}; {results.Count - checkedCount} not checked yet." : text + ".";
         }
+        var chd = game.Items.FirstOrDefault(i => i.FormatId == "chd" && File.Exists(i.Path))?.Path;
+        return new GameDetails(FileRows(game, results), summary, chd);
     }
 }
 
@@ -124,6 +167,9 @@ public partial class LibraryViewModel : ViewModelBase
     public BulkObservableCollection<GameRowViewModel> VisibleGames { get; } = [];
     private List<GameRowViewModel> _games = [];
 
+    /// <summary><see cref="_games"/> in the chosen order: sorted again only when the sort or the index changes, not per search.</summary>
+    private List<GameRowViewModel> _sorted = [];
+
     [ObservableProperty] public partial string Search { get; set; } = "";
     [ObservableProperty] public partial string SelectedSystem { get; set; } = AllSystems;
     [ObservableProperty] public partial StatusFilter SelectedStatus { get; set; } = StatusFilters[0];
@@ -158,9 +204,25 @@ public partial class LibraryViewModel : ViewModelBase
 
     partial void OnSelectedGameChanged(GameRowViewModel? value)
     {
-        var chd = value?.Game.Items.FirstOrDefault(i => i.FormatId == "chd" && File.Exists(i.Path));
-        ShowsChdInfo = chd is not null;
-        if (chd is not null) _ = ChdInfo.LoadAsync(chd.Path);
+        // Until the files are looked at (off the UI thread), the CHD panel shows for a game that has one.
+        ShowsChdInfo = value?.Game.Items.Any(i => i.FormatId == "chd") == true;
+        if (value is not null) _ = ShowDetailsAsync(value);
+    }
+
+    /// <summary>The latest details read for the selection (tests wait on it).</summary>
+    internal Task DetailsLoaded { get; private set; } = Task.CompletedTask;
+
+    private Task ShowDetailsAsync(GameRowViewModel game) => DetailsLoaded = ShowDetailsCoreAsync(game);
+
+    private async Task ShowDetailsCoreAsync(GameRowViewModel game)
+    {
+        GameDetails details;
+        try { details = await Task.Run(() => GameRowViewModel.ReadDetails(game.Game)); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return; }
+        game.ShowDetails(details);
+        if (SelectedGame != game) return; // another game was picked meanwhile
+        ShowsChdInfo = details.ChdPath is not null;
+        if (details.ChdPath is { } chd) _ = ChdInfo.LoadAsync(chd);
     }
 
     // ---- Loading, scanning and saving ----
@@ -255,6 +317,7 @@ public partial class LibraryViewModel : ViewModelBase
         IndexShown?.Invoke(index);
         var keep = SelectedGame?.Game.Key;
         _games = index.Games().Select(g => new GameRowViewModel(g)).ToList();
+        _sorted = Sorted(_games).ToList();
         OnPropertyChanged(nameof(ShowsEmptyMessage));
         Systems = [AllSystems, .. _games.Select(g => g.System).Distinct().Order(StringComparer.OrdinalIgnoreCase)];
         if (!Systems.Contains(SelectedSystem)) SelectedSystem = AllSystems;
@@ -267,12 +330,15 @@ public partial class LibraryViewModel : ViewModelBase
     {
         var words = Search.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var status = SelectedStatus.Status;
+        var system = SelectedSystem;
+        var allSystems = system == AllSystems;
         bool Match(GameRowViewModel g) =>
-            (SelectedSystem == AllSystems || g.System == SelectedSystem) &&
+            (allSystems || g.System == system) &&
             (status is null || g.Status == status) &&
             words.All(w => g.Title.Contains(w, StringComparison.OrdinalIgnoreCase) || g.Formats.Contains(w, StringComparison.OrdinalIgnoreCase));
-        VisibleGames.ReplaceAll(Sorted(_games.Where(Match)));
-        var size = VisibleGames.Sum(g => g.Game.Size);
+        // _sorted is already in the chosen order, so filtering keeps it.
+        VisibleGames.ReplaceAll(_sorted.Where(Match));
+        var size = VisibleGames.Sum(g => g.Size);
         var toConvert = VisibleGames.Count(g => g.Status == GameStatus.NeedsConverting);
         Summary = _games.Count == 0 ? "" :
             $"{VisibleGames.Count:N0} of {_games.Count:N0} games · {ChdJobs.Size(size)} · {toConvert:N0} need converting";
@@ -299,6 +365,7 @@ public partial class LibraryViewModel : ViewModelBase
         foreach (var name in new[] { nameof(GameArrow), nameof(SystemArrow), nameof(FormatsArrow), nameof(SizeArrow), nameof(StatusArrow) })
             OnPropertyChanged(name);
         var selected = SelectedGame;
+        _sorted = Sorted(_games).ToList();
         RefreshVisible();
         SelectedGame = selected is null ? null : VisibleGames.FirstOrDefault(g => g.Game.Key == selected.Game.Key);
     }
@@ -322,7 +389,7 @@ public partial class LibraryViewModel : ViewModelBase
         {
             LibrarySortColumn.System => By(g => g.System, text),
             LibrarySortColumn.Formats => By(g => g.Formats, text),
-            LibrarySortColumn.Size => By(g => g.Game.Size),
+            LibrarySortColumn.Size => By(g => g.Size),
             LibrarySortColumn.Status => By(g => g.StatusText, text),
             _ => By(g => g.Title, text),
         };
