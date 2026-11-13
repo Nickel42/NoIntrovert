@@ -268,7 +268,8 @@ Needs the .NET 10 SDK and the native libraries built:
 - lib-7z-zip-kit, the archive engine, also a submodule (`native/lib-7z-zip-kit`),
   with its native build in its `artifacts/native/<platform>` (see "Archive engine" above).
 - lib-wii-u-kit, the Wii U library, also a submodule (`native/lib-wii-u-kit`).
-  It is managed code only, so it needs no build of its own.
+  It is managed code only, so it needs no build of its own. Its ZArchive
+  writer and reader handle any ZArchive, so it also writes the Xbox 360 `.zar`.
 - lib-3ds-kit, the Nintendo 3DS library, also a submodule (`native/lib-3ds-kit`),
   managed code only like lib-wii-u-kit.
 - lib-nx-kit, the Nintendo Switch library, also a submodule (`native/lib-nx-kit`),
