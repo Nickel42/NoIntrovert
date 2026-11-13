@@ -15,37 +15,33 @@ internal static class OptCoreTests
 {
     public static void Run(Action<string, Func<string?>> test, Func<string, string> dir, ILog log, JobPerformanceTests.RunJobFn runJob, bool rvzLoads)
     {
-        // ---- One inflater per thread ----
+        // ---- CSO and PBP decoding, many threads ----
 
         var iso = Path.Combine(dir("opt-inflate"), "mixed.iso");
         File.WriteAllBytes(iso, Mixed(3 << 20, 2048, seed: 21));
 
-        test("CSO decode: the reused zlib inflater gives the same image as a DeflateStream per block", () =>
+        test("CSO decode: 4 threads give back the original image", () =>
         {
-            if (!RawInflater.UsesNative) return "the runtime's zlib isn't used (the DeflateStream fallback is)";
             var folder = dir("opt-cso");
             var cso = Path.Combine(folder, "mixed.cso");
             Encoders.WriteCso(iso, cso, lz4: false);
-            var reused = Path.Combine(folder, "reused.iso");
-            var stream = Path.Combine(folder, "stream.iso");
-            CsoDecoder.Decode(cso, reused, null, CancellationToken.None, threads: 4, batchBytes: 64 * 1024);
-            Streamed(() => CsoDecoder.Decode(cso, stream, null, CancellationToken.None, threads: 4, batchBytes: 64 * 1024));
-            return Same(iso, reused, "reused inflater") ?? Same(iso, stream, "DeflateStream");
+            var decoded = Path.Combine(folder, "decoded.iso");
+            CsoDecoder.Decode(cso, decoded, null, CancellationToken.None, threads: 4, batchBytes: 64 * 1024);
+            return Same(iso, decoded, "decoded");
         });
 
-        test("PBP decode: the reused zlib inflater gives the same bin as a DeflateStream per block", () =>
+        test("PBP decode: 4 threads give back the original bin", () =>
         {
             var folder = dir("opt-pbp");
             var bin = Path.Combine(folder, "mixed.bin");
             File.WriteAllBytes(bin, Mixed(700 * 2352, 16 * 2352, seed: 22));
             var pbp = Path.Combine(folder, "EBOOT.PBP");
             Encoders.WritePbp(bin, pbp, "_SLUS_00002", [new(false, 0)]);
-            var reused = PbpExtractor.Extract(pbp, dir("opt-pbp-reused"), "reused", null, CancellationToken.None, threads: 4);
-            var stream = Streamed(() => PbpExtractor.Extract(pbp, dir("opt-pbp-stream"), "stream", null, CancellationToken.None, threads: 4));
-            return Same(bin, reused[0].BinPath, "reused inflater") ?? Same(bin, stream[0].BinPath, "DeflateStream");
+            var decoded = PbpExtractor.Extract(pbp, dir("opt-pbp-decoded"), "decoded", null, CancellationToken.None, threads: 4);
+            return Same(bin, decoded[0].BinPath, "decoded");
         });
 
-        test("CSO decode: a damaged deflate block fails with the same error, after the same bytes, either way", () =>
+        test("CSO decode: a damaged deflate block fails, with everything before it written", () =>
         {
             var folder = dir("opt-cso-damage");
             var cso = Path.Combine(folder, "mixed.cso");
@@ -66,52 +62,8 @@ internal static class OptCoreTests
                 try { CsoDecoder.Decode(cso, output, null, CancellationToken.None, threads: 4, batchBytes: 32 * 1024); return "decoded without an error"; }
                 catch (InvalidDataException ex) { return $"{ex.Message} after {new FileInfo(output).Length} bytes"; }
             }
-            var reused = Fail(Path.Combine(folder, "reused.iso"));
-            var stream = Streamed(() => Fail(Path.Combine(folder, "stream.iso")));
-            if (!reused.EndsWith($" after {damaged * 2048L} bytes", StringComparison.Ordinal)) return $"reused: {reused}";
-            return reused == stream ? null : $"reused: {reused}; DeflateStream: {stream}";
-        });
-
-        test("Raw inflate: data cut short, or longer than the slot, reads as a DeflateStream does", () =>
-        {
-            var plain = Mixed(4096, 512, seed: 23);
-            var packed = Deflate(plain);
-            foreach (var (what, input, slot) in new[] { ("whole", packed, 4096), ("cut short", packed[..(packed.Length / 2)], 4096), ("small slot", packed, 1000) })
-            {
-                var a = new byte[slot];
-                var b = new byte[slot];
-                var n = RawInflater.Decode(input, a);
-                var m = Streamed(() => RawInflater.Decode(input, b));
-                if (n != m || !a.AsSpan(0, n).SequenceEqual(b.AsSpan(0, m))) return $"{what}: {n} bytes, a DeflateStream gives {m}";
-            }
-            return null;
-        });
-
-        test("CSO decode speed: reused inflater against a DeflateStream per block (2 KiB blocks)", () =>
-        {
-            var folder = dir("opt-cso-speed");
-            var big = Path.Combine(folder, "big.iso");
-            File.WriteAllBytes(big, Mixed(48 << 20, 2048, seed: 24));
-            var cso = Path.Combine(folder, "big.cso");
-            Encoders.WriteCso(big, cso, lz4: false);
-            File.Delete(big);
-            double Time(Action decode)
-            {
-                var best = double.MaxValue;
-                for (var round = 0; round < 3; round++)
-                {
-                    var sw = Stopwatch.StartNew();
-                    decode();
-                    best = Math.Min(best, sw.Elapsed.TotalMilliseconds);
-                }
-                return best;
-            }
-            var output = Path.Combine(folder, "out.iso");
-            var reused = Time(() => CsoDecoder.Decode(cso, output, null, CancellationToken.None, threads: 1));
-            var stream = Streamed(() => Time(() => CsoDecoder.Decode(cso, output, null, CancellationToken.None, threads: 1)));
-            var text = $"48 MiB, one thread: reused {reused:F0} ms, DeflateStream {stream:F0} ms ({stream / reused:F2}x)";
-            log.Info(text);
-            return reused <= stream * 1.1 ? Note(text) : text;
+            var failed = Fail(Path.Combine(folder, "damaged.iso"));
+            return failed.EndsWith($" after {damaged * 2048L} bytes", StringComparison.Ordinal) ? null : failed;
         });
 
         // ---- The chunked copy ----
@@ -277,22 +229,6 @@ internal static class OptCoreTests
         public List<double> Values { get; } = [];
         public void SetStage(string s) => _stage = s;
         public void SetProgress(double fraction) { if (_stage == stage) Values.Add(fraction); }
-    }
-
-    private static T Streamed<T>(Func<T> run)
-    {
-        RawInflater.ForceStream = true;
-        try { return run(); }
-        finally { RawInflater.ForceStream = false; }
-    }
-
-    private static void Streamed(Action run) => Streamed(() => { run(); return 0; });
-
-    private static byte[] Deflate(byte[] data)
-    {
-        using var ms = new MemoryStream();
-        using (var d = new System.IO.Compression.DeflateStream(ms, System.IO.Compression.CompressionLevel.Optimal, leaveOpen: true)) d.Write(data);
-        return ms.ToArray();
     }
 
     /// <summary>Blocks of zeros, text and random bytes in turn: deflate blocks of different sizes, and stored ones.</summary>
