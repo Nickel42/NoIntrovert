@@ -7,10 +7,11 @@ namespace NoIntrovert.Core.Jobs;
 /// One job to queue: its work, where its row reports to, and how big it is
 /// (<paramref name="CostBytes"/> weights it in the overall progress).
 /// <paramref name="After"/> lists jobs that must succeed first; if one
-/// doesn't, this job is skipped.
+/// doesn't, this job is skipped. <paramref name="Sources"/> are the files it reads, so Automatic threads per job
+/// can stay low when they, or the Save to folder, are on a spinning hard drive.
 /// </summary>
 public sealed record BatchJob(string Name, IJobReport Report, JobWork Work, Action<JobStatus> OnStart, Action<JobOutcome> OnFinish,
-    long CostBytes = 0, IReadOnlyList<BatchJob>? After = null);
+    long CostBytes = 0, IReadOnlyList<BatchJob>? After = null, IReadOnlyList<string>? Sources = null);
 
 public enum QueuedState { Queued, Running, Finished }
 
@@ -250,7 +251,7 @@ public sealed class JobQueue
                     Finish(b, JobOutcome.Skipped("Skipped because an earlier step didn't succeed"));
                 if (job is null) continue;
 
-                var settings = job.Group.Settings;
+                var settings = SettingsFor(job.Group.Settings, job.Spec.Sources);
                 var threads = settings.Performance.EffectiveThreadsPerJob;
                 if (chdman is null || chdmanThreads != threads)
                 {
@@ -260,7 +261,7 @@ public sealed class JobQueue
                     if (rvz?.IsValueCreated == true) rvz.Value.Dispose();
                     rvz = new Lazy<WiiGameCubeKit>(() => new WiiGameCubeKit(threads));
                 }
-                Run(index, job, chdman, rvz!);
+                Run(index, job, settings, chdman, rvz!);
             }
         }
         finally
@@ -271,9 +272,24 @@ public sealed class JobQueue
         }
     }
 
-    private void Run(int index, QueuedJob job, Chdman chdman, Lazy<WiiGameCubeKit> rvz)
+    /// <summary>
+    /// The settings a job runs with: its group's, or with Automatic threads per job a copy capped at
+    /// <see cref="PerformanceSettings.SpinningDriveThreads"/> when a source or the Save to folder is on a spinning drive.
+    /// </summary>
+    internal static AppSettings SettingsFor(AppSettings group, IReadOnlyList<string>? sources)
     {
-        var settings = job.Group.Settings;
+        var p = group.Performance;
+        if (p.ThreadsPerJob > 0 || sources is null or { Count: 0 }) return group;
+        var spinning = sources.Any(Drives.IsSpinning) || Drives.IsSpinning(group.Output.TargetFolder);
+        var threads = PerformanceSettings.EffectiveThreads(0, p.ParallelJobs, Environment.ProcessorCount, spinning);
+        if (threads == p.EffectiveThreadsPerJob) return group;
+        var capped = group.Clone();
+        capped.Performance.ThreadsPerJob = threads;
+        return capped;
+    }
+
+    private void Run(int index, QueuedJob job, AppSettings settings, Chdman chdman, Lazy<WiiGameCubeKit> rvz)
+    {
         var log = Concurrency > 1 ? new PrefixedLog(job.Group.Log, $"[{index + 1}] ") : job.Group.Log;
         chdman.Log = (level, message) =>
         {

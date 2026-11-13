@@ -475,7 +475,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
                 _summary.Request();
                 if (Filter.Length > 0) _visible.Request(); // a status filter ("failed") follows the run
             }),
-            CostBytes: group.Sum(i => i.SizeBytes))).ToList();
+            CostBytes: group.Sum(i => i.SizeBytes), Sources: group.Select(i => i.Path).ToList())).ToList();
 
         try
         {
