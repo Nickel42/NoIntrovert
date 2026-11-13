@@ -1024,9 +1024,9 @@
     "category": "disc",
     "extensions": [],
     "folders": ["xbox", "originalxbox", "microsoftxbox"],
-    "target": {"format": ".iso", "container": "bare", "label": ".iso (XISO game partition)", "producible": false},
+    "target": {"format": ".iso", "container": "bare", "label": ".iso (XISO game partition)", "producible": true},
     "alternatives": [
-      {"id": "cci", "label": "CCI", "producible": false}
+      {"id": "cci", "label": "CCI (Cerbios)", "producible": true}
     ],
     "rules": ["R10", "R11", "R13"],
     "dats": ["redump/Microsoft - Xbox"],

@@ -117,6 +117,8 @@ public sealed record PresetValues
         TargetKind.Xcz => ".xcz",
         TargetKind.Nsp => ".nsp",
         TargetKind.Xci => ".xci",
+        TargetKind.Xiso => ".iso",
+        TargetKind.XboxCci => ".cci",
         TargetKind.SevenZip => ".7z",
         TargetKind.Zip => ".zip",
         TargetKind.DiscImage => ExtractFormat switch
