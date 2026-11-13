@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Core/Formats/RawInflater hands the runtime's zlib pointers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- The .exe's own icon; Windows only (macOS uses packaging/macos/NoIntrovert.icns). -->
     <ApplicationIcon Condition="'$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('win'))">Assets/nointrovert.ico</ApplicationIcon>
     <AssemblyTitle>NoIntrovert</AssemblyTitle>

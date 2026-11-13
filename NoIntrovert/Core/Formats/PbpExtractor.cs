@@ -1,4 +1,3 @@
-using System.IO.Compression;
 using System.Text;
 using NoIntrovert.Core.Cd;
 
@@ -135,9 +134,8 @@ internal static class PbpExtractor
                     compressed.AsSpan(offset, b.OutLength).CopyTo(slot);
                     return;
                 }
-                using var deflate = new DeflateStream(new MemoryStream(compressed, offset, b.Length, writable: false), CompressionMode.Decompress);
                 int got;
-                try { got = BlockBatches.ReadFully(deflate, slot); }
+                try { got = RawInflater.Decode(compressed.AsSpan(offset, b.Length), slot); }
                 catch (InvalidDataException) { throw new InvalidDataException($"Disc {number}: block {entry} won't decompress; the PBP may be encrypted or damaged."); }
                 if (got < b.OutLength)
                     throw new InvalidDataException($"Disc {number}: block {entry} decompressed short.");
