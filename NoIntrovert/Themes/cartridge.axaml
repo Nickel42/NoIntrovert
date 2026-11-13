@@ -5,7 +5,7 @@
 -->
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <x:String x:Key="ThemeName">Cartridge</x:String>
+    <x:String x:Key="ThemeName">NoIntrovert Cartridge</x:String>
     <x:String x:Key="ThemeVariant">Dark</x:String>
     <x:String x:Key="ThemeAuthor">NoIntrovert</x:String>
     <Color x:Key="ThemeBackground">#0F1A1C</Color>

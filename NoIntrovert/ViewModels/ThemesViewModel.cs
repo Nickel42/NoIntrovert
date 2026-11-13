@@ -120,7 +120,31 @@ public sealed partial class ThemesViewModel : ViewModelBase
     }
 
     public ThemeDefinition ActiveDark => Editor is { Kind: ThemeKind.Dark } e ? e.Preview : Library.Resolve(_s.General.DarkTheme, ThemeKind.Dark);
-    public ThemeDefinition ActiveLight => Editor is { Kind: ThemeKind.Light } e ? e.Preview : Library.Resolve(_s.General.LightTheme, ThemeKind.Light);
+    public ThemeDefinition ActiveLight => (Editor is { Kind: ThemeKind.Light } e ? e.Preview : Library.Resolve(_s.General.LightTheme, ThemeKind.Light))
+        .Dimmed(LightBrightness / 100.0);
+
+    public const int MinLightBrightness = 70;
+
+    /// <summary>
+    /// How bright every light theme is shown, in percent: 100 as made, down to <see cref="MinLightBrightness"/>.
+    /// Turning it down softens a light theme's whites without choosing another theme.
+    /// </summary>
+    public double LightBrightness
+    {
+        get => Math.Clamp(_s.General.LightBrightness, MinLightBrightness, 100);
+        set
+        {
+            var v = (int)Math.Clamp(Math.Round(value), MinLightBrightness, 100);
+            if (v == _s.General.LightBrightness) return;
+            _s.General.LightBrightness = v;
+            _s.Save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(LightBrightnessText));
+            Changed?.Invoke();
+        }
+    }
+
+    public string LightBrightnessText => $"{LightBrightness:0}%";
 
     private string ActiveId(ThemeKind kind) => Library.Resolve(kind == ThemeKind.Dark ? _s.General.DarkTheme : _s.General.LightTheme, kind).Id;
 
@@ -306,9 +330,17 @@ public sealed partial class ThemeEditorViewModel : ViewModelBase
         _owner = owner;
         _base = theme;
         EditsOwn = editsOwn;
-        _name = editsOwn ? theme.Name : "My " + theme.Name;
+        _name = editsOwn ? theme.Name : "My " + CopyName(theme);
         Rows = new(ThemeRoles.All.Select(r => new ThemeColorRow(r, theme[r], Preview_Changed)));
         Preview = Build(_name);
+    }
+
+    /// <summary>A built-in NoIntrovert theme's name without "NoIntrovert " ("My Ember"), unless that leaves only Dark or Light.</summary>
+    private static string CopyName(ThemeDefinition theme)
+    {
+        const string prefix = "NoIntrovert ";
+        var rest = theme.Collection == ThemeCollection.NoIntrovert && theme.Name.StartsWith(prefix, StringComparison.Ordinal) ? theme.Name[prefix.Length..] : null;
+        return rest is null or "Dark" or "Light" ? theme.Name : rest;
     }
 
     public ThemeKind Kind => _base.Kind;

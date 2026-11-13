@@ -65,6 +65,7 @@ static class ThemeTests
             var light = all.Where(t => t.Kind == ThemeKind.Light).Select(t => t.Id).ToList();
             if (!dark.SequenceEqual(["nointrovert-dark", "ember", "cartridge"])) return "dark: " + string.Join(", ", dark);
             if (!light.SequenceEqual(["nointrovert-light", "sunrise", "seafoam"])) return "light: " + string.Join(", ", light);
+            if (all.FirstOrDefault(t => !t.Name.StartsWith("NoIntrovert ", StringComparison.Ordinal)) is { } unnamed) return unnamed.Name + " isn't named NoIntrovert …";
             return all.All(t => t.IsBuiltIn && t.Author == "NoIntrovert") ? null : "a built-in theme isn't marked as one";
         });
 
@@ -134,7 +135,7 @@ static class ThemeTests
             if (!text.Contains("<ResourceDictionary xmlns=\"https://github.com/avaloniaui\"") || !text.Contains("x:Key=\"ThemePrimary\">#E0612C<"))
                 return "not a ResourceDictionary with the roles: " + text[..Math.Min(300, text.Length)];
             var back = ThemeFile.Parse(text, "x").Single();
-            if (back.Name != "Ember" || back.Kind != ThemeKind.Dark) return $"read back {back.Name} ({back.Kind})";
+            if (back.Name != "NoIntrovert Ember" || back.Kind != ThemeKind.Dark) return $"read back {back.Name} ({back.Kind})";
             var lilac = ThemeLibrary.BuiltIn.First(t => t.Id == ThemeLibrary.DefaultLightId);
             var lilacBack = ThemeFile.Parse(ThemeFile.Write(lilac), "y").Single();
             if (!ThemeResources.Colors(lilac).OrderBy(k => k.Key).SequenceEqual(ThemeResources.Colors(lilacBack).OrderBy(k => k.Key)))
@@ -316,6 +317,38 @@ static class ThemeTests
             return File.ReadAllText(file).Contains("\"LightTheme\": \"seafoam\"") ? null : "not saved";
         }));
 
+        test("Themes: Light brightness dims the light theme (every colour, in step) and is saved; dark themes stay as made", () => WithThemes(dir("themes-brightness"), null, (t, file) =>
+        {
+            var made = t.Library.Find(ThemeLibrary.DefaultLightId)!;
+            if (t.LightBrightness != 100 || t.ActiveLight[ThemeRole.Surface] != made[ThemeRole.Surface]) return "not at 100% to start";
+            var changes = 0;
+            t.Changed += () => changes++;
+            t.LightBrightness = 85;
+            var shown = t.ActiveLight;
+            if (changes != 1 || t.LightBrightnessText != "85%") return "the app wasn't told";
+            if (shown[ThemeRole.Surface] != Color.FromRgb(217, 217, 217)) return "white became " + shown[ThemeRole.Surface];
+            // The theme file's own shades dim as well, or they'd be bright patches on the grey.
+            if (ThemeResources.Colors(shown)["RowAlt"] != Color.FromRgb(210, 207, 210)) return "RowAlt is " + ThemeResources.Colors(shown)["RowAlt"];
+            if (ThemeContrast(shown) < 4.5) return "the text got hard to read";
+            if (t.ActiveDark[ThemeRole.Background] != t.Library.Find(ThemeLibrary.DefaultDarkId)![ThemeRole.Background]) return "the dark theme changed";
+            if (!File.ReadAllText(file).Contains("\"LightBrightness\": 85")) return "not saved";
+            t.LightBrightness = 40;
+            return t.LightBrightness == ThemesViewModel.MinLightBrightness ? null : "went below the minimum: " + t.LightBrightness;
+        }));
+
+        test("Themes: a copy of a built-in NoIntrovert theme is \"My Ember\", not \"My NoIntrovert Ember\"", () => WithThemes(dir("themes-copyname"), null, (t, _) =>
+        {
+            t.SelectedDark = t.DarkThemes.First(o => o.Id == "ember");
+            t.Customize("Dark");
+            var ember = t.Editor!.Name;
+            t.Editor.CancelCommand.Execute(null);
+            t.SelectedDark = t.DarkThemes.First(o => o.Id == ThemeLibrary.DefaultDarkId);
+            t.Customize("Dark");
+            var dark = t.Editor!.Name;
+            t.Editor.CancelCommand.Execute(null);
+            return (ember, dark) == ("My Ember", "My NoIntrovert Dark") ? null : $"{ember}; {dark}";
+        }));
+
         test("Themes: customizing a built-in theme previews it, then saves a named copy and uses it", () => WithThemes(dir("themes-edit"), null, (t, file) =>
         {
             t.SelectedDark = t.DarkThemes.First(o => o.Id == "cartridge");
@@ -327,7 +360,7 @@ static class ThemeTests
             e.Rows.First(r => r.Role == ThemeRole.Primary).Hex = "7a3cff";
             if (changes != 1 || t.ActiveDark[ThemeRole.Primary] != Color.Parse("#7A3CFF")) return "the change wasn't previewed";
             if (t.Library.Find("cartridge")![ThemeRole.Primary] == Color.Parse("#7A3CFF")) return "the built-in theme changed";
-            e.Name = "Ember"; // taken by a built-in dark theme
+            e.Name = "NoIntrovert Ember"; // taken by a built-in dark theme
             e.SaveCommand.Execute(null);
             if (t.Editor is null || !t.Status.Contains("already")) return "a taken name was saved";
             e.Name = "Grape Soda";
@@ -358,6 +391,8 @@ static class ThemeTests
             return t.SelectedLight?.Id == ThemeLibrary.DefaultLightId && t.LightThemes.All(o => o.Name != "Paper") ? null : "Delete didn't go back to the default";
         }));
     }
+
+    private static double ThemeContrast(ThemeDefinition theme) => ThemeRoles.Contrast(theme[ThemeRole.Text], theme[ThemeRole.Surface]);
 
     private static string? WithThemes(string folder, HttpMessageHandler? web, Func<ThemesViewModel, string, string?> body)
     {

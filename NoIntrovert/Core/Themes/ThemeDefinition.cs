@@ -56,6 +56,22 @@ public sealed class ThemeDefinition
 
     public Color this[ThemeRole role] => Roles[role];
 
+    /// <summary>
+    /// The theme with every colour (roles and the file's own keys) scaled toward black by <paramref name="brightness"/>
+    /// (1 = as made): a light theme's whites become a soft grey, and every colour keeps its place relative to them.
+    /// </summary>
+    public ThemeDefinition Dimmed(double brightness)
+    {
+        if (brightness >= 1) return this;
+        Color D(Color c) => Color.FromArgb(c.A, (byte)Math.Round(c.R * brightness), (byte)Math.Round(c.G * brightness), (byte)Math.Round(c.B * brightness));
+        return new ThemeDefinition
+        {
+            Id = Id, Name = Name, Kind = Kind, Author = Author, IsBuiltIn = IsBuiltIn, Collection = Collection, FilePath = FilePath,
+            Roles = Roles.ToDictionary(r => r.Key, r => D(r.Value)),
+            Overrides = Overrides.ToDictionary(o => o.Key, o => o.Value with { Color = D(o.Value.Color) }),
+        };
+    }
+
     public override string ToString() => Name;
 }
 
