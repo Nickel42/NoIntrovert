@@ -33,6 +33,13 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
 
     /// <summary>A failed row's Result is its reason, shown in red.</summary>
     public bool IsFailed => Status == JobStatus.Failed;
+
+    /// <summary>A row that failed for missing keys: it offers a link to Settings › Keys.</summary>
+    public bool NeedsKeys => IsFailed && (KeysLink.PointsToKeys(Result) || KeysLink.PointsToKeys(Details));
+
+    partial void OnResultChanged(string value) => OnPropertyChanged(nameof(NeedsKeys));
+    partial void OnDetailsChanged(string value) => OnPropertyChanged(nameof(NeedsKeys));
+
     public string StatusText => Status switch
     {
         JobStatus.Queued => "Queued",
@@ -210,6 +217,7 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
     {
         OnPropertyChanged(nameof(IsRunning));
         OnPropertyChanged(nameof(IsFailed));
+        OnPropertyChanged(nameof(NeedsKeys));
         OnPropertyChanged(nameof(StatusText));
     }
 

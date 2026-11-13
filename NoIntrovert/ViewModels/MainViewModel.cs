@@ -60,7 +60,10 @@ public partial class MainViewModel : ViewModelBase
         StartPages = StartPagesFor(Pages);
         Settings.General.StartPages = StartPages;
         foreach (var tab in new BatchTabViewModel[] { Convert, Verify, Tests })
+        {
             tab.OpenSettingsRequested = () => Show("settings");
+            tab.OpenKeysRequested = ShowKeys;
+        }
 
         // The Library tests are a developer bench: only in Power-user mode.
         UpdateVisibility();
@@ -264,6 +267,12 @@ public partial class MainViewModel : ViewModelBase
         if (page is null || !page.IsVisible) return false;
         SelectedPage = page;
         return true;
+    }
+
+    /// <summary>The deep link from a missing-keys failure: shows Settings with its Keys card in view.</summary>
+    public void ShowKeys()
+    {
+        if (Show("settings")) Settings.ShowKeys();
     }
 
     /// <summary>

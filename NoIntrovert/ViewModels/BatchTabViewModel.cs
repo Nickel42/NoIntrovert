@@ -49,6 +49,13 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     [RelayCommand]
     private void OpenSettings() => OpenSettingsRequested?.Invoke();
 
+    /// <summary>Asks the window to show Settings › Keys (set by the main view model).</summary>
+    public Action? OpenKeysRequested { get; set; }
+
+    /// <summary>A row that failed for missing keys: Set up keys opens Settings with the Keys card in view.</summary>
+    [RelayCommand]
+    private void OpenKeys() => OpenKeysRequested?.Invoke();
+
     /// <summary>
     /// Asks the user to confirm Replace the originals the first time it's
     /// chosen (set by the run bar's view). Without it, Replace can't be chosen

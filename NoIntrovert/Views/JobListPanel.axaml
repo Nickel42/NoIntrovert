@@ -190,6 +190,11 @@
                                     <TextBlock Text="{Binding Result}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Details}"
                                                Classes.failed="{Binding IsFailed}" />
                                     <TextBlock Text="{Binding SpeedText}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                    <!-- Failed for missing keys: a link to Settings › Keys -->
+                                    <HyperlinkButton Content="Set up keys" IsVisible="{Binding NeedsKeys}" Padding="0" MinHeight="0" FontSize="11"
+                                                     Command="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).OpenKeysCommand}"
+                                                     ToolTip.Tip="Open Settings › Keys"
+                                                     AutomationProperties.Name="{Binding Name, StringFormat='Set up keys for {0}'}" />
                                 </StackPanel>
                             </Grid>
                             </Border>
