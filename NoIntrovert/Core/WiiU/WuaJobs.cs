@@ -15,14 +15,29 @@ public static class WuaJobs
 {
     /// <summary>What a missing keys.txt is reported as.</summary>
     public const string NoKeysMessage =
-        "No keys.txt with keys was found. Put your own keys.txt (the same file Cemu uses) in NoIntrovert's settings folder or Cemu's, or choose it on the Wii U tab.";
+        "No keys.txt with keys was found. Put your own keys.txt (the same file Cemu uses) in NoIntrovert's settings folder or Cemu's, or choose it in Settings › Keys.";
 
     /// <summary>
     /// The keys.txt in <paramref name="path"/> if set, otherwise every one
     /// found in NoIntrovert's settings folder and Cemu's usual folder.
     /// </summary>
-    public static WiiUKeys LoadKeys(string? path) =>
-        WiiUKeys.Load(path, [Path.Combine(AppSettings.SettingsDirectory, "keys.txt"), .. WiiUKeys.DefaultLocations()]);
+    public static WiiUKeys LoadKeys(string? path) => LoadKeys(path, out _);
+
+    /// <summary>
+    /// As <see cref="LoadKeys(string?)"/>; a keys.txt that can't be read (open
+    /// in another program, or not allowed) gives no keys and
+    /// <paramref name="readProblem"/> says why, rather than throwing.
+    /// </summary>
+    public static WiiUKeys LoadKeys(string? path, out string? readProblem)
+    {
+        readProblem = null;
+        try { return WiiUKeys.Load(path, [Path.Combine(AppSettings.SettingsDirectory, "keys.txt"), .. WiiUKeys.DefaultLocations()]); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            readProblem = $"Couldn't read keys.txt: {ex.Message}";
+            return WiiUKeys.Empty;
+        }
+    }
 
     /// <summary>
     /// The paths in <paramref name="folder"/> worth listing: title folders and

@@ -28,8 +28,13 @@ public partial class LogViewModel : ViewModelBase, ILog
     public ObservableCollection<LogEntry> Entries { get; } = [];
 
     [ObservableProperty] public partial bool ShowDebug { get; set; }
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasErrors))] public partial int ErrorCount { get; set; }
-    [ObservableProperty] public partial int WarningCount { get; set; }
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasErrors), nameof(CountsText))] public partial int ErrorCount { get; set; }
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CountsText))] public partial int WarningCount { get; set; }
+
+    /// <summary>The bar's counts: "1 error · 0 warnings".</summary>
+    public string CountsText => DescribeCounts(ErrorCount, WarningCount);
+
+    internal static string DescribeCounts(int errors, int warnings) => $"{Words.Count(errors, "error")} · {Words.Count(warnings, "warning")}";
 
     /// <summary>The full log (Show log) rather than just its bar; remembered in <see cref="GeneralSettings.LogExpanded"/>.</summary>
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ToggleText))] public partial bool IsExpanded { get; set; }
@@ -121,28 +126,47 @@ public partial class LogViewModel : ViewModelBase, ILog
         WarningCount = 0;
     }
 
+    /// <summary>
+    /// What Copy and Save both write: every line this session has kept (not
+    /// just the last <see cref="MaxVisible"/> shown), debug lines only when
+    /// Show debug is on.
+    /// </summary>
+    internal IEnumerable<string> ExportLines() =>
+        _all.Where(e => ShowDebug || e.Level != LogLevel.Debug).Select(e => e.ToString());
+
     [RelayCommand]
     private async Task Copy() =>
-        await _dialogs.SetClipboardAsync(string.Join(Environment.NewLine, Entries.Select(e => e.ToString())));
+        await _dialogs.SetClipboardAsync(string.Join(Environment.NewLine, ExportLines()));
 
     [RelayCommand]
     private async Task Save()
     {
         var path = await _dialogs.SaveFileAsync("Save log", $"NoIntrovert-{DateTime.Now:yyyyMMdd-HHmmss}.log", "Log file", "*.log");
         if (path is null) return;
-        await File.WriteAllLinesAsync(path, _all.Select(e => e.ToString()));
-        Write(LogLevel.Info, $"Log saved to {path}");
+        try
+        {
+            await File.WriteAllLinesAsync(path, ExportLines().ToList());
+            Write(LogLevel.Info, $"Log saved to {path}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Write(LogLevel.Warning, $"Couldn't save the log to {path}: {ex.Message}");
+        }
     }
 
     /// <summary>Opens the folder of saved session logs (Settings › Log › Open log folder).</summary>
     [RelayCommand]
-    private Task OpenLogFolder() => OpenLogFolderAsync(_dialogs);
+    private Task OpenLogFolder() => OpenLogFolderAsync(_dialogs, this);
 
-    /// <summary>Opens <see cref="AppSettings.LogDirectory"/> in the file manager, creating it first if needed.</summary>
-    public static async Task OpenLogFolderAsync(IDialogs dialogs)
+    /// <summary>Opens <see cref="AppSettings.LogDirectory"/> in the file manager, creating it first if needed; a folder that can't be made is logged.</summary>
+    public static async Task OpenLogFolderAsync(IDialogs dialogs, ILog? log = null)
     {
         try { Directory.CreateDirectory(AppSettings.LogDirectory); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log?.Warn($"Couldn't open the log folder {AppSettings.LogDirectory}: {ex.Message}");
+            return;
+        }
         await dialogs.OpenFolderAsync(AppSettings.LogDirectory);
     }
 }

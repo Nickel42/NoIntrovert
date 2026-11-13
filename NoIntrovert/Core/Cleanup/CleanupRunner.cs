@@ -99,18 +99,18 @@ public sealed class CleanupRunner
                 };
                 if (problem is not null)
                 {
-                    c.Log.Error($"Cleanup: {step.Game}: {problem}; the steps after it were skipped.");
+                    c.Log.Error($"Organize: {step.Game}: {problem}; the steps after it were skipped.");
                     return new JobOutcome(JobStatus.Failed, problem);
                 }
                 done++;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                c.Log.Error($"Cleanup: {step.Game}: {ex.Message}; the steps after it were skipped.");
+                c.Log.Error($"Organize: {step.Game}: {ex.Message}; the steps after it were skipped.");
                 return new JobOutcome(JobStatus.Failed, ex.Message);
             }
         }
-        c.Log.Success($"Cleanup: {steps[0].Game}: {done} step(s) done");
+        c.Log.Success($"Organize: {steps[0].Game}: {done} step(s) done");
         return new JobOutcome(JobStatus.Succeeded, $"{done} step(s)");
     }
 
@@ -459,7 +459,7 @@ public sealed class CleanupRunner
         }
         run.Undone = true;
         SaveRun(run);
-        foreach (var p in problems) log.Warn($"Cleanup undo: {p}");
+        foreach (var p in problems) log.Warn($"Organize undo: {p}");
         return problems;
     }
 

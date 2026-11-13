@@ -113,13 +113,22 @@ public sealed partial class DefaultPresetsViewModel : SettingsSectionViewModel
         Changed?.Invoke();
     }
 
-    internal void Rename(SavedPreset preset, string name)
+    /// <summary>
+    /// Renames <paramref name="preset"/>; returns why not when the name is
+    /// empty or another saved preset for the same system already has it
+    /// (null when renamed, or unchanged).
+    /// </summary>
+    internal string? Rename(SavedPreset preset, string? name)
     {
-        name = name.Trim();
-        if (name.Length == 0 || !Change(_ => preset.Name = name)) return;
+        name = name?.Trim() ?? "";
+        if (name.Length == 0) return "A preset needs a name.";
+        if (S.Presets.Saved.Any(p => p != preset && p.System == preset.System && p.Name.Equals(name, StringComparison.CurrentCultureIgnoreCase)))
+            return $"There's already a preset called “{name}”.";
+        if (!Change(_ => preset.Name = name)) return null;
         OnPropertyChanged(nameof(SavedSummary));
         RebuildSystems();
         Changed?.Invoke();
+        return null;
     }
 
     internal void Delete(SavedPreset preset)
@@ -181,11 +190,25 @@ public sealed class SystemDefaultViewModel(DefaultPresetsViewModel owner, string
 /// <summary>A saved preset in Manage…: its name (edited in place) and Delete.</summary>
 public sealed partial class SavedPresetItemViewModel(DefaultPresetsViewModel owner, SavedPreset preset) : ViewModelBase
 {
+    /// <summary>The name, saved when the box loses focus or Enter is pressed; an empty or taken name is refused and the old one comes back.</summary>
     public string Name
     {
         get => preset.Name;
-        set => owner.Rename(preset, value);
+        set
+        {
+            RenameProblem = owner.Rename(preset, value) ?? "";
+            if (value == preset.Name) return;
+            // Shows the name as saved: trimmed, or the old one when refused (again once the box is done, which may not listen while it writes).
+            OnPropertyChanged();
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(Name)));
+        }
     }
+
+    /// <summary>Why the last rename was refused; empty when it wasn't.</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasRenameProblem))]
+    public partial string RenameProblem { get; private set; } = "";
+
+    public bool HasRenameProblem => RenameProblem.Length > 0;
 
     /// <summary>"CHD · Sony PlayStation", or "CHD · any system".</summary>
     public string Detail => $"{FormatPresets.FormatOf(preset.Values.Target)} · " +
