@@ -2448,6 +2448,93 @@ if (SevenZipEngine.IsAvailable(out _))
             using var volume = LibXisoKit.Xdvdfs.XdvdfsVolume.Open(parts.Order().First());
             return volume.Find("/Data/level2.bin") is not null ? Note(string.Join(", ", parts.Select(Path.GetFileName))) : "the CCI's files are missing";
         });
+
+        // ---- Xbox 360: a synthetic game (default.xex) as an XISO and in an XGD3 Redump layout, and STFS packages ----
+        var tree360 = Dir("x360-tree");
+        File.WriteAllBytes(Path.Combine(tree360, "default.xex"), TextBytes(70_000));
+        Directory.CreateDirectory(Path.Combine(tree360, "media", "audio"));
+        File.WriteAllBytes(Path.Combine(tree360, "media", "audio", "music.xma"), TextBytes(250_000));
+        File.WriteAllBytes(Path.Combine(tree360, "media", "level.pak"), TextBytes(130_000));
+        var packed360 = Path.Combine(Dir("x360-packed"), "game.iso");
+        LibXisoKit.Shrinking.XisoShrinker.PackFolder(tree360, packed360, LibXisoKit.IO.OutputFormat.Iso, new LibXisoKit.Xdvdfs.XisoBuildOptions { MediaPatch = false });
+        var xiso360 = File.ReadAllBytes(packed360);
+        var x360Dir = Dir("x360/Misc");
+        string Y(string name) => Path.Combine(x360Dir, name);
+        FileSet YSet(string name) => FormatRegistry.Default.Identify(Y(name))!;
+        File.WriteAllBytes(Y("Halo Test (USA).iso"), xiso360);
+        using (var f = new FileStream(Y("Redump 360 (USA).iso"), FileMode.Create))
+        {
+            f.SetLength(LibXisoKit.Xdvdfs.XdvdfsConstants.Xgd3PartitionOffset + xiso360.Length);
+            f.Position = LibXisoKit.Xdvdfs.XdvdfsConstants.Xgd3PartitionOffset;
+            f.Write(xiso360);
+        }
+        // A package header: LIVE, header size, content type, title ID, STFS (0) or SVOD (1), display name.
+        byte[] Package(uint type, uint kind)
+        {
+            var h = new byte[0xB000];
+            "LIVE"u8.CopyTo(h);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(h.AsSpan(0x340), 0x971A);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(h.AsSpan(0x344), type);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(h.AsSpan(0x360), 0x58410A5D);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(h.AsSpan(0x3A9), kind);
+            System.Text.Encoding.BigEndianUnicode.GetBytes("Package Test").CopyTo(h, 0x411);
+            return h;
+        }
+        File.WriteAllBytes(Y("58410A5D0000ABCD"), Package(0xD0000, 0));          // an XBLA game
+        File.WriteAllBytes(Y("4D5307E6GOD00001"), Package(0x7000, 1));           // Games on Demand…
+        Directory.CreateDirectory(Y("4D5307E6GOD00001.data"));                   // …and its disc data
+        File.WriteAllBytes(Path.Combine(Y("4D5307E6GOD00001.data"), "Data0000"), TextBytes(5000));
+
+        Test("Xbox 360: discs are told from original Xbox ones, and packages are found by their header", () =>
+        {
+            foreach (var (name, want) in new[] { ("Halo Test (USA).iso", "xbox-360"), ("Redump 360 (USA).iso", "xbox-360"), ("58410A5D0000ABCD", "xbox-360") })
+                if (TargetResolver.Resolve(YSet(name), new AppSettings()).System != want) return $"{name}: {TargetResolver.Resolve(YSet(name), new AppSettings()).System}";
+            if (YSet("58410A5D0000ABCD").Format != KnownFormats.XboxPackage) return "the XBLA package wasn't recognised";
+            var found = FormatRegistry.Default.Scan(x360Dir, recursive: true);
+            var god = found.FirstOrDefault(f => f.Primary.EndsWith("4D5307E6GOD00001"));
+            if (god is null || god.Members.Count != 2) return "the Games on Demand header didn't claim its .data folder";
+            if (found.Any(f => f.Primary.Contains("Data0000"))) return "a Games on Demand data file was listed on its own";
+            var xbox = ConvertTargets.For(XSet("Already (USA).iso"), new AppSettings()).Plan.System;
+            return xbox == "xbox" ? Note($"{found.Count} inputs") : $"an original Xbox XISO is now {xbox}";
+        });
+
+        Test("Xbox 360: an .iso is optimal with .zar offered; .zar when chosen; packages stay as they are", () =>
+        {
+            var o = ConvertTargets.For(YSet("Redump 360 (USA).iso"), new AppSettings());
+            if (o.Plan.Status != TargetStatus.Optimal || !o.Choices.SequenceEqual([TargetChoice.Zar, TargetChoice.Leave])) return $"{o.Plan.Text}: {string.Join(", ", o.Choices)}";
+            var s = new AppSettings();
+            s.TargetFormats.Overrides.Add(new TargetOverride("xbox-360", null, "zar"));
+            var z = ConvertTargets.For(YSet("Halo Test (USA).iso"), s);
+            if (z.Plan.Text != "Convert → .zar (Xenia Canary)" || z.Default != TargetChoice.Zar) return $"zar override: {z.Plan.Text}";
+            var p = ConvertTargets.For(YSet("58410A5D0000ABCD"), s);
+            return p.Plan.Status == TargetStatus.Optimal && p.Choices.SequenceEqual([TargetChoice.Leave]) ? null : $"package: {p.Plan.Text}, {string.Join(", ", p.Choices)}";
+        });
+
+        Test("Xbox 360: a Redump image becomes a .zar Xenia can read, checked, with its Redump hashes kept (R11)", () =>
+        {
+            var outDir = Dir("x360-zar");
+            var plan = ConvertPlanner.Plan([new PlanInput(Y("Redump 360 (USA).iso"), TargetKind.Zar, 1)], new AppSettings(), log);
+            var r = RunJob(plan.Jobs[0].Work, st => st.Output.Folder = outDir);
+            if (r.Status != JobStatus.Succeeded) return $"{r.Status}: {r.Summary}";
+            var made = Path.Combine(outDir, "Redump 360 (USA).zar");
+            if (Directory.GetFiles(outDir).Length != 1) return string.Join(", ", Directory.GetFiles(outDir).Select(Path.GetFileName));
+            using (var zar = LibWiiUKit.ZArchiveReader.Open(made))
+            {
+                if (!zar.CheckIntegrity()) return "the .zar's own hash is wrong";
+                var music = zar.Find("media/audio/music.xma");
+                if (zar.Find("default.xex") is null || music is null) return "files are missing from the .zar";
+                using var copy = new MemoryStream();
+                zar.CopyFile(music, copy);
+                if (!copy.ToArray().AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(tree360, "media", "audio", "music.xma")))) return "music.xma reads back differently";
+            }
+            var s = new AppSettings();
+            s.TargetFormats.Overrides.Add(new TargetOverride("xbox-360", null, "zar"));
+            var optimal = ConvertTargets.For(FormatRegistry.Default.Identify(made)!, s).Plan;
+            if (optimal.System != "xbox-360" || optimal.Status != TargetStatus.Optimal) return $".zar: {optimal.SystemName}, {optimal.Text}";
+            var original = NoIntrovert.Core.Dats.OriginalHashes.Default.Get(made)?.Files.FirstOrDefault();
+            var dump = NoIntrovert.Core.Dats.Hasher.HashFile(Y("Redump 360 (USA).iso"))[0];
+            return original?.Sha1 == dump.Sha1 && original?.Size == dump.Size ? Note($"{new FileInfo(made).Length:N0} bytes") : $"kept {original?.Sha1}, the dump is {dump.Sha1}";
+        });
     }
 
     // A NoNpDrm folder: sce_sys/param.sfo (TITLE, TITLE_ID) and the game's files.

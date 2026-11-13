@@ -99,6 +99,7 @@ public sealed class FormatRegistry
         new ChdHandler(),
         new ArchiveHandler(),
         new CartridgeHandler(),
+        new Xbox360PackageHandler(),
     ]);
 
     private readonly List<IFormatHandler> _handlers;
@@ -172,6 +173,7 @@ public sealed class FormatRegistry
             // NoIntrovert's own working folders (the Cleanup wizard's trash and staging, extraction staging).
             if (Path.GetFileName(dir).StartsWith(".noi-", StringComparison.OrdinalIgnoreCase)) continue;
             if (byPath.TryGetValue(dir, out var whole)) found.Add(whole);
+            else if (set.IsClaimed(dir)) continue; // part of another input (a Games on Demand package's .data folder)
             else if (depth > 1) ScanInto(dir, depth - 1, found, isRoot: false);
         }
     }

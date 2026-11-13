@@ -207,6 +207,20 @@ the Xbox code is lib-xiso-kit, a managed .NET library in its own repository
 out as a git submodule in `native/lib-xiso-kit`. The tests use a synthetic
 disc, so try a real dump of your own before relying on it.
 
+## Xbox 360
+
+A Redump or XISO `.iso` is already the target: Xenia plays it as it is.
+Choose `.zar` in Settings › Target formats for Xenia Canary, which reads a
+ZArchive without unpacking it. lib-xiso-kit reads the disc's files and
+lib-wii-u-kit writes them into the archive, which is re-read and checked
+(its own SHA-256 and every file's SHA-1) before it replaces anything. A
+`.zar` can't become the Redump image again, so the Redump hashes are kept
+and Verify & match still recognises the game. XBLA games, DLC, title updates
+and Games on Demand packages are recognised by their CON, LIVE or PIRS
+header (they usually have no extension) and left as they are; Xenia installs
+them. The tests use a synthetic disc and package headers, so try a real dump
+of your own before relying on it.
+
 ## Nintendo Switch
 
 `.nsp`, `.xci` and `.xcz` files become `.nsz` by default; choose `.xcz` in
@@ -259,7 +273,7 @@ Needs the .NET 10 SDK and the native libraries built:
   managed code only like lib-wii-u-kit.
 - lib-nx-kit, the Nintendo Switch library, also a submodule (`native/lib-nx-kit`),
   managed code only.
-- lib-xiso-kit, the original Xbox library, also a submodule (`native/lib-xiso-kit`),
+- lib-xiso-kit, the Xbox and Xbox 360 library, also a submodule (`native/lib-xiso-kit`),
   managed code only.
 
 ```

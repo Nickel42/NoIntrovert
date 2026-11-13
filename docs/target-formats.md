@@ -39,7 +39,7 @@ That's why cartridges go in a .7z while disc images become bare CHD, RVZ or WUA.
 | R8 | Any archive the app writes | 7z uses LZMA2 only and zip uses Deflate only. RetroArch can't open zstd, PPMd or Deflate64. |
 | R9 | Computer systems whose cores read zip themselves (C64, DOS, Amiga, ST, CPC, Atari 8-bit, MSX disks) | `.zip`, not .7z |
 | R10 | A file already in its target format and container | Nothing to do (Optimal) |
-| R11 | A target that changes the bytes on disk (CHD, RVZ, WUA, NSZ, XISO, ZCCI) | The original No-Intro/Redump hashes are kept in the library index (no extra files), so the file can still be verified. RVZ, NSZ and CHD convert back exactly (an NSZ gives back its NSP byte for byte, file order and header included). WUA, XISO and ZCCI don't. |
+| R11 | A target that changes the bytes on disk (CHD, RVZ, WUA, NSZ, XISO, ZAR, ZCCI) | The original No-Intro/Redump hashes are kept in the library index (no extra files), so the file can still be verified. RVZ, NSZ and CHD convert back exactly (an NSZ gives back its NSP byte for byte, file order and header included). WUA, XISO, ZAR and ZCCI don't. |
 | R12 | A wrong byte order or copier header (.v64/.n64, .smc with a 512-byte header, interleaved .smd) | Converted to the No-Intro form (.z64, headerless .sfc, .md), then R1. Off unless turned on (Decision D6). |
 | R13 | An already-compressed format (.nsz/.xcz/.chd/.rvz/.wua/.cso) | Never put inside a zip or 7z |
 
@@ -200,7 +200,7 @@ used in the settings file.
 | WiiWare / Virtual Console (Wii digital) | `wiiware-virtual-console` | .wad | bare | - | 7z for cold storage only | Install to emulated NAND for save compatibility. |
 | Wii U | `wii-u` | .wua | bare | .wux/.wud (a .wux inside .7z must be extracted first) + update + DLC → one .wua; NUS/loadiine folder → .wua | .wux (disc-verifiable compressed image); loadiine folder | Converting encrypted .wud/.wux needs keys.txt/disc key. Cemu cannot launch from .7z. WUA is not Redump-verifiable - keep hash map or the .wux. |
 | Xbox | `xbox` | .iso (XISO game partition) | bare | Redump .iso → XISO; XISO → CCI on request | CCI for Cerbios (modded hardware only - not xemu), split below 4 GiB | xemu supports no compressed format. XISO is not Redump-verifiable, so the Redump hashes are kept (R11). lib-xiso-kit trims only: files keep their sectors, no XBE is patched. |
-| Xbox 360 | `xbox-360` | .iso | bare | - | extracted XEX folder; GOD; .zar (UNSURE) | UNSURE: Xenia Canary ZArchive (.zar) support - confirm before adopting. Don't archive ISOs. |
+| Xbox 360 | `xbox-360` | .iso | bare | Redump or XISO .iso → .zar on request | .zar (Xenia Canary); extracted XEX folder; GOD | Xenia plays the .iso directly. Xenia Canary reads ZArchive (.zar): lib-xiso-kit reads the disc's files and lib-wii-u-kit writes the archive; it holds the files, not the disc, so the Redump hashes are kept (R11). XBLA, DLC, title update and Games on Demand packages (CON/LIVE/PIRS, usually no extension) are recognised by their header and left as is. Don't archive ISOs. |
 
 
 ## Overriding the defaults

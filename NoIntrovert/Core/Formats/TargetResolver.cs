@@ -73,6 +73,8 @@ public static class TargetResolver
         if (id == "nintendo-3ds" && isArchive && ThreeDsInArchive(set, system, contents, alternatives, settings) is { } packed) return packed;
         // Original Xbox discs become an XISO or a CCI through lib-xiso-kit.
         if (id == "xbox" && !isArchive) return Xbox(system, set, ext, settings);
+        // Xbox 360: a disc stays an .iso or becomes a .zar for Xenia Canary; packages (XBLA, DLC, updates) stay as they are.
+        if (id == "xbox-360" && !isArchive) return Xbox360(system, set, ext, settings);
         // Switch packages convert between NSP, NSZ, XCI and XCZ through lib-nx-kit.
         if (id == "switch" && !isArchive) return Switch(system, set, ext, alternatives, settings);
 
@@ -162,6 +164,30 @@ public static class TargetResolver
         return xiso
             ? Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives)
             : Plan(id, TargetStatus.Convert, TargetChoice.Xiso, "Convert → XISO (drops the video partition)", alternatives);
+    }
+
+    /// <summary>
+    /// An Xbox 360 file that isn't in an archive. A disc image (.iso, Redump or XISO) is optimal as it is, which
+    /// Xenia plays directly; choose .zar to have its files written into a ZArchive, which Xenia Canary reads without
+    /// unpacking. A .zar can't be turned back into an .iso, and an STFS or Games on Demand package (XBLA, DLC, a title
+    /// update) is what Xenia installs, so both are left as they are.
+    /// </summary>
+    private static TargetPlan Xbox360(SystemInfo system, FileSet set, string ext, AppSettings settings)
+    {
+        var id = system.Id;
+        if (set.Format == KnownFormats.XboxPackage)
+            return Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal");
+        var (target, _) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
+        if (target is null) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (your setting)");
+        var zar = target.Format == ".zar";
+        if (ext == ".zar")
+            return zar ? Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal")
+                : Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (a .zar can't be turned back into an .iso)");
+        if (ext != ".iso" || !File.Exists(set.Primary) || !DiscProbe.IsXdvdfs(set.Primary))
+            return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, $"Left as is ({(ext.Length > 0 ? ext : "not a disc image")})");
+        return zar
+            ? Plan(id, TargetStatus.Convert, TargetChoice.Zar, "Convert → .zar (Xenia Canary)")
+            : Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", [TargetChoice.Zar]);
     }
 
     /// <summary>

@@ -6,7 +6,7 @@ namespace NoIntrovert.Core.Formats;
 /// <summary>
 /// Tells a disc's system from the first sectors of its image, where that's
 /// quick and certain: GameCube and Wii headers (plain and in Dolphin's
-/// containers), Xbox's XDVDFS, Saturn, Mega-CD and 3DO boot sectors, the PSP
+/// containers), Xbox and Xbox 360 XDVDFS, Saturn, Mega-CD and 3DO boot sectors, the PSP
 /// UMD identifier, and PS1 vs PS2 by SYSTEM.CNF. Returns a registry id, or
 /// null when the image doesn't say.
 /// </summary>
@@ -74,13 +74,51 @@ internal static class DiscProbe
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
     }
 
-    /// <summary>An original Xbox image: XDVDFS at 64 KiB in an XISO, or past the video partition in a Redump image.</summary>
+    /// <summary>
+    /// An Xbox or Xbox 360 image, by where its XDVDFS volume starts: past the video partition in a Redump image
+    /// (XGD1 is original Xbox; XGD2, XGD3 and the XGD2 hybrid are 360), or at 64 KiB in an XISO of either, which
+    /// is a 360 game when its root holds default.xex.
+    /// </summary>
     private static string? Xbox(Stream s)
     {
-        Span<byte> magic = stackalloc byte[20];
-        foreach (var offset in new[] { 0x10000L, 0x18310000L })
-            if (ReadAt(s, offset, magic) && magic.SequenceEqual("MICROSOFT*XBOX*MEDIA"u8)) return "xbox";
-        return null;
+        var magic = new byte[20];
+        bool At(long partition) => ReadAt(s, partition + 0x10000, magic) && magic.AsSpan().SequenceEqual("MICROSOFT*XBOX*MEDIA"u8);
+        if (At(LibXisoKit.Xdvdfs.XdvdfsConstants.Xgd1PartitionOffset)) return "xbox";
+        if (At(LibXisoKit.Xdvdfs.XdvdfsConstants.Xgd2PartitionOffset) || At(LibXisoKit.Xdvdfs.XdvdfsConstants.Xgd3PartitionOffset)
+            || At(LibXisoKit.Xdvdfs.XdvdfsConstants.Xgd2HybridPartitionOffset)) return "xbox-360";
+        if (!At(0)) return null;
+        return RootHasDefaultXex(s) ? "xbox-360" : "xbox";
+    }
+
+    /// <summary>
+    /// Whether an XISO's root folder names default.xex (an Xbox 360 game; original Xbox games start from
+    /// default.xbe). One read of the root folder's table: the descriptor at 64 KiB gives its sector and size, and
+    /// each entry's name follows its length byte.
+    /// </summary>
+    private static bool RootHasDefaultXex(Stream s)
+    {
+        var descriptor = new byte[28];
+        if (!ReadAt(s, 0x10000, descriptor)) return false;
+        long sector = BinaryPrimitives.ReadUInt32LittleEndian(descriptor.AsSpan(20));
+        var size = (int)Math.Min(BinaryPrimitives.ReadUInt32LittleEndian(descriptor.AsSpan(24)), 64 * 1024);
+        var table = new byte[size];
+        if (size == 0 || !ReadAt(s, sector * 2048, table)) return false;
+        var name = "default.xex"u8;
+        for (var i = 0; i + 1 + name.Length <= table.Length; i++)
+            if (table[i] == name.Length && Ascii.EqualsIgnoreCase(table.AsSpan(i + 1, name.Length), name)) return true;
+        return false;
+    }
+
+    /// <summary>Whether <paramref name="path"/> holds an XDVDFS volume lib-xiso-kit can open (Xbox or Xbox 360, any layout).</summary>
+    public static bool IsXdvdfs(string path)
+    {
+        try
+        {
+            using var source = LibXisoKit.IO.ImageOpener.Open(path);
+            return LibXisoKit.Xdvdfs.XdvdfsVolume.IsXdvdfs(source);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or NotSupportedException
+                                       or ArgumentException or InvalidOperationException) { return false; }
     }
 
     /// <summary>

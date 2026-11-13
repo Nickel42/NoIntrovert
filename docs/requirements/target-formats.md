@@ -123,6 +123,18 @@ shows the recommendation with no Convert button, and each converter gets its own
   - The conservative mode is used: files keep their original sectors, nothing is removed, no XBE is
     patched. lib-xiso-kit re-reads the new image and checks it before anything is replaced.
   - The Redump image's hashes are kept for Verify & match (R11), since an XISO can't match Redump.
+- **FR-12b Xbox 360.**
+  - An Xbox 360 disc is told from an original Xbox one by where its XDVDFS volume is (XGD2, XGD3 or
+    the XGD2 hybrid), or, in an XISO, by a `default.xex` at its root.
+  - The bare `.iso` (Redump or XISO) is the target and already optimal: Xenia plays it as it is.
+  - `.zar` is the alternative, for Xenia Canary: lib-xiso-kit reads the disc's files and
+    lib-wii-u-kit writes them into a ZArchive (Cemu's format). The archive is re-read (its own
+    SHA-256 and every file's SHA-1 against the disc's) before it's moved into place. A `.zar` holds
+    the files, not the disc, so it can't become the `.iso` again; the Redump hashes are kept (R11).
+  - Xbox 360 packages (STFS or SVOD with a CON, LIVE or PIRS header: XBLA games, DLC, title updates,
+    Games on Demand) are recognised by their header, since they usually have no extension, and are
+    left as they are, which is what Xenia installs. A Games on Demand header takes its `.data`
+    folder with it.
   - An XISO has the same name as its Redump image: with Replace the originals it takes the
     original's place once it's checked; otherwise it gets " (2)", like any taken name.
 - **FR-11 Switch.**
@@ -242,6 +254,8 @@ shows the recommendation with no Convert button, and each converter gets its own
 | 17c | `Game.nsp` | no `prod.keys` | The job fails and says where `prod.keys` goes; nothing is written |
 | 17d | Redump Xbox `Game.iso` | defaults | XISO `Game.iso` (its Redump hashes kept); CHD isn't offered |
 | 17e | Redump Xbox `Game.iso` | system `xbox` → `cci` | `Game.cci` (Cerbios), split below 4 GiB |
+| 17f | Redump Xbox 360 `Game.iso` | defaults / `xbox-360` → `zar` | Defaults: optimal, `.zar` offered. With the override: `Game.zar` (its Redump hashes kept); CHD isn't offered |
+| 17g | XBLA package `58410A5D…` (no extension) | defaults | Xbox 360, optimal, nothing offered |
 | 18 | `Game.v64` | header fixes off / on | Off: `Game.7z` holding `Game.v64`. On: `Game.7z` holding `Game.z64` |
 | 19 | Exported overrides imported on another PC | — | Same rows are marked as overridden |
 
