@@ -917,6 +917,7 @@ SettingsDesignTests.Run(Test, Dir);
 ThemeTests.Run(Test, Dir);
 WiringTests.Run(Test, Dir);
 ReviewFixTests.Run(Test, Dir, log);
+UxReviewTests.Run(Test, Dir);
 FormatPresetTests.Run(Test, Dir, log);
 EmulatorTests.Run(Test);
 LayoutTests.Run(Test, Dir, ArgValue("--screenshots"));

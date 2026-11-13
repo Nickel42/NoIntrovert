@@ -279,6 +279,8 @@ static class LayoutTests
             }
         }));
 
+        UxLayoutTests.Run(test, f, Dispatch);
+
         Dispatch(() => { f.Window.Close(); return null; });
     }
 
