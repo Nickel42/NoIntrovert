@@ -175,6 +175,27 @@ public sealed class JobQueue
         Changed?.Invoke();
     }
 
+    /// <summary>How many finished groups the queue keeps before it forgets the oldest ones (<see cref="TrimFinished"/>).</summary>
+    public const int KeepFinishedGroups = 20;
+
+    /// <summary>
+    /// Forgets the oldest finished groups beyond the newest <paramref name="keep"/>,
+    /// so a long session's queue doesn't grow forever. Groups with a failed job
+    /// stay until Clear finished, and nothing still queued or running is touched.
+    /// Returns how many groups were forgotten. Runs on its own each time a group finishes.
+    /// </summary>
+    public int TrimFinished(int keep = KeepFinishedGroups)
+    {
+        lock (_gate)
+        {
+            var finished = _all.Select(j => j.Group).Distinct().Where(g => g.IsFinished).ToList();
+            var old = finished.Take(Math.Max(0, finished.Count - keep))
+                .Where(g => !g.Jobs.Any(j => j.Outcome?.Status == JobStatus.Failed)).ToHashSet();
+            if (old.Count > 0) _all.RemoveAll(j => old.Contains(j.Group));
+            return old.Count;
+        }
+    }
+
     private void DropQueued(Func<QueuedJob, bool> which)
     {
         List<QueuedJob> dropped;
@@ -331,6 +352,7 @@ public sealed class JobQueue
         {
             Dats.ThrottledJsonFile.FlushAll(); // hashes, matches and originals are on disk before the group reports done
             job.Group.Complete();
+            TrimFinished();
         }
         Changed?.Invoke();
         lock (_gate) StartWorkers(); // a dependency finishing can make queued jobs runnable
