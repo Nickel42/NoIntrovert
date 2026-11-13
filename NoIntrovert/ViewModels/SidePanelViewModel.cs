@@ -121,19 +121,10 @@ public sealed partial class SidePanelViewModel : ViewModelBase
         var selected = _page.Selected;
         var items = _page.Items;
 
-        Header = focused is not null
-            ? $"Focused: row {items.IndexOf(focused) + 1} of {items.Count} · {selected.Count} selected"
-            : selected.Count > 0 ? $"{selected.Count} selected" : "";
+        Header = BatchTabViewModel.SelectionHeader(focused, selected, items);
 
         // File: the focused file, or one line per system when the selection spans several.
-        if (selected.Select(r => r.SystemId ?? "").Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
-            File.ShowSystems(selected.Select(r => r.SystemId));
-        else if (focused is not null)
-        {
-            if (focused.Path != File.Path || File.Mode != FileFactsMode.File)
-                File.ShowFile(focused.Path, focused.SystemId, MatchStore.Default.Get(focused.Path));
-        }
-        else File.Clear();
+        File.Follow(focused?.Path, focused?.SystemId, selected.Select(r => r.SystemId).ToList());
 
         // Preset: the focused row, or the list's most common preset, read-only.
         var row = focused ?? items.Where(i => i.HasPresets)

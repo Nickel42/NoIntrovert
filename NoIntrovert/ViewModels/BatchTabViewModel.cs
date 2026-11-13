@@ -196,7 +196,34 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     public virtual bool ShowsTargets => false;
 
     /// <summary>The row for one input; the Convert page gives each row its targets.</summary>
-    protected virtual JobItemViewModel CreateItem(string path) => new(path);
+    protected virtual JobItemViewModel CreateItem(string path) => new(path) { SystemId = SystemOf(path) };
+
+    /// <summary>The system a file or folder is for, as Convert tells it; null when it can't be told or read.</summary>
+    internal static string? SystemOf(string path)
+    {
+        try { return FormatRegistry.Default.Identify(path) is { } set ? SystemDetector.SystemOf(set) : null; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { return null; }
+    }
+
+    // ---- Selected file: what the focused row is, as on Convert (pages without Convert's own side panel) ----
+
+    /// <summary>SELECTED FILE: the focused row's system, format, size and Verify &amp; match result.</summary>
+    public SelectedFileViewModel SelectedFile { get; } = new();
+
+    /// <summary>The header beside SELECTED FILE on every page with a job list.</summary>
+    public static string SelectionHeader(JobItemViewModel? focused, IReadOnlyList<JobItemViewModel> selected, IList<JobItemViewModel> items) =>
+        SelectedFileViewModel.HeaderFor(focused is null ? null : items.IndexOf(focused) + 1, items.Count, selected.Count);
+
+    /// <summary>Whether <see cref="SelectedFile"/> follows the rows; Convert's side panel has its own.</summary>
+    protected virtual bool FollowsSelectedFile => true;
+
+    private void RefreshSelectedFile()
+    {
+        if (!FollowsSelectedFile) return;
+        var selected = Selected;
+        SelectedFile.Follow(SelectionHeader(FocusedItem, selected, Items), FocusedItem?.Path, FocusedItem?.SystemId,
+            selected.Select(r => r.SystemId).ToList());
+    }
 
     /// <summary>What a folder added to the list becomes: by default the inputs the registry finds in it.</summary>
     protected virtual IEnumerable<string> ItemsForFolder(string folder)
@@ -266,6 +293,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     {
         if (oldValue is not null) oldValue.IsFocusedRow = false;
         if (newValue is not null) newValue.IsFocusedRow = true;
+        RefreshSelectedFile();
         OnFocusChanged();
     }
 
@@ -285,6 +313,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         OnPropertyChanged(nameof(AllSelected));
         OnPropertyChanged(nameof(Selected));
         _summary.Request();
+        RefreshSelectedFile();
         OnSelectionChanged();
     }
 

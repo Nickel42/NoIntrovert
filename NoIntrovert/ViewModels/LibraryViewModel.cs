@@ -19,7 +19,8 @@ public sealed record GameFileRow(string Name, string Format, string Size, string
 }
 
 /// <summary>What the details panel shows for a game, read off the UI thread (<see cref="GameRowViewModel.ReadDetails"/>).</summary>
-public sealed record GameDetails(IReadOnlyList<GameFileRow> Files, string MatchSummary, string? ChdPath);
+/// <param name="FirstMatch">The first file's Verify &amp; match result (SELECTED FILE shows that file).</param>
+public sealed record GameDetails(IReadOnlyList<GameFileRow> Files, string MatchSummary, string? ChdPath, Core.Dats.MatchResult? FirstMatch = null);
 
 /// <summary>
 /// One game in the Library list. Its texts are worked out once, here, so
@@ -97,7 +98,7 @@ public sealed partial class GameRowViewModel : ObservableObject
             summary = checkedCount < results.Count ? $"{text}; {results.Count - checkedCount} not checked yet." : text + ".";
         }
         var chd = game.Items.FirstOrDefault(i => i.FormatId == "chd" && File.Exists(i.Path))?.Path;
-        return new GameDetails(FileRows(game, results), summary, chd);
+        return new GameDetails(FileRows(game, results), summary, chd, results.FirstOrDefault());
     }
 }
 
@@ -225,6 +226,7 @@ public partial class LibraryViewModel : ViewModelBase
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return; }
         game.ShowDetails(details);
         if (SelectedGame != game) return; // another game was picked meanwhile
+        if (game.Game.Items.FirstOrDefault() is { } first) SelectedFile.Facts.ShowMatch(first.Path, details.FirstMatch);
         ShowsChdInfo = details.ChdPath is not null;
         if (details.ChdPath is { } chd) _ = ChdInfo.LoadAsync(chd);
     }
@@ -415,8 +417,22 @@ public partial class LibraryViewModel : ViewModelBase
     private void OnChosenChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => NotifySelectionChanged();
 
     /// <summary>Enables or disables the actions on the selected games (also called by the view when the list's selection changes).</summary>
+    /// <summary>SELECTED FILE: the selected game's first file, as Convert shows a file (its match result arrives with the details).</summary>
+    public SelectedFileViewModel SelectedFile { get; } = new();
+
+    private void RefreshSelectedFile()
+    {
+        var focused = SelectedGame;
+        var chosen = Chosen();
+        var row = focused is null ? -1 : VisibleGames.IndexOf(focused);
+        SelectedFile.Follow(SelectedFileViewModel.HeaderFor(row < 0 ? null : row + 1, VisibleGames.Count, chosen.Count),
+            focused?.Game.Items.FirstOrDefault()?.Path, focused?.Game.System, chosen.Select(g => (string?)g.Game.System).ToList(),
+            _ => null); // read with the details, off the UI thread
+    }
+
     public void NotifySelectionChanged()
     {
+        RefreshSelectedFile();
         ActionNote = "";
         ConvertSelectedCommand.NotifyCanExecuteChanged();
         VerifySelectedCommand.NotifyCanExecuteChanged();

@@ -69,6 +69,9 @@ public partial class ConvertViewModel : BatchTabViewModel
     public override string Title => "Convert";
     public override string StartLabel => "Convert";
     public override bool ShowsTargets => true;
+
+    /// <summary>The side panel (<see cref="Panel"/>) shows the selected file here.</summary>
+    protected override bool FollowsSelectedFile => false;
     public override bool ShowsSaveTo => true;
 
     public override string EmptyHint =>

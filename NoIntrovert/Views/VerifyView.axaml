@@ -13,6 +13,10 @@
         <v:JobListPanel />
 
         <ScrollViewer Grid.Column="1" Classes="sidepanel" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="12">
+            <Border Classes="card">
+                <v:SelectedFilePanel DataContext="{Binding SelectedFile}" />
+            </Border>
             <Border Classes="card">
                 <StackPanel Spacing="4">
                     <TextBlock Text="VERIFY &amp; MATCH" Classes="section" Margin="0,0,0,4" />
@@ -27,6 +31,7 @@
                     <v:PresetPicker DataContext="{Binding Settings.Presets.Verify}" Margin="0,8,0,0" />
                 </StackPanel>
             </Border>
+            </StackPanel>
         </ScrollViewer>
     </Grid>
 </UserControl>

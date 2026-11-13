@@ -39,6 +39,9 @@ public sealed class CleanupStep
     /// <summary>The library folder the files are in: the trash goes there, on the same drive (FR-4).</summary>
     public required string Root { get; init; }
 
+    /// <summary>The game's system (TargetFormats.json), for SELECTED FILE; null when it's unknown.</summary>
+    public string? SystemId { get; init; }
+
     /// <summary>
     /// FR-8: the new library's folder when the plan builds one. The step then
     /// writes only there (its trash too) and never changes its sources.
@@ -104,7 +107,7 @@ public static class CleanupPlanner
         var copy = dest is not null;
         CleanupStep Step(CleanupKind kind, LibraryItem item, IReadOnlyList<string> sources, string? target, string reason, long saved = 0,
             TargetKind convertTo = TargetKind.Leave, string? skipFile = null) =>
-            new() { Kind = kind, GameKey = game.Key, Game = game.Title, Sources = sources, Target = target, Reason = reason,
+            new() { Kind = kind, GameKey = game.Key, Game = game.Title, SystemId = game.System, Sources = sources, Target = target, Reason = reason,
                     BytesSaved = saved, Root = item.Root, ConvertTo = convertTo, SkipFile = skipFile, Destination = dest };
 
         var system = TargetFormats.ById(game.System);
@@ -364,7 +367,7 @@ public static class CleanupPlanner
             if (exists || !claimed.Add(target))
                 steps[i] = new CleanupStep
                 {
-                    Kind = CleanupKind.Clash, GameKey = s.GameKey, Game = s.Game, Sources = s.Sources, Target = s.Target, Root = s.Root, Destination = s.Destination,
+                    Kind = CleanupKind.Clash, GameKey = s.GameKey, Game = s.Game, SystemId = s.SystemId, Sources = s.Sources, Target = s.Target, Root = s.Root, Destination = s.Destination,
                     Reason = $"{Path.GetFileName(target)} {(exists ? "already exists" : "is another step's target too")}: nothing is overwritten",
                     Enabled = false,
                 };

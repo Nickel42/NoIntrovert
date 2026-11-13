@@ -150,6 +150,18 @@ public partial class CleanupViewModel : ViewModelBase
     public ObservableCollection<CleanupStepRow> Steps { get; } = [];
     public ObservableCollection<CleanupRunRow> Runs { get; } = [];
 
+    /// <summary>The step picked in the plan; SELECTED FILE shows its (first) file as Convert would.</summary>
+    [ObservableProperty] public partial CleanupStepRow? SelectedStep { get; set; }
+
+    public SelectedFileViewModel SelectedFile { get; } = new();
+
+    partial void OnSelectedStepChanged(CleanupStepRow? value)
+    {
+        var row = value is null ? -1 : Steps.IndexOf(value);
+        SelectedFile.Follow(SelectedFileViewModel.HeaderFor(row < 0 ? null : row + 1, Steps.Count, value is null ? 0 : 1),
+            value?.Step.Sources.FirstOrDefault(), value?.Step.SystemId, value is null ? [] : [value.Step.SystemId]);
+    }
+
     [ObservableProperty] public partial string ScopeText { get; set; } = "The whole Library";
     [ObservableProperty] public partial string Summary { get; set; } = "Make a plan to see what would change. Nothing is written until you run it.";
 

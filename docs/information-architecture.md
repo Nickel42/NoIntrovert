@@ -35,7 +35,7 @@ finished batches, plus any with a failure, until Clear finished) and a status ba
     - Filters: search · system · status · summary line
     - Game list: Game · System · Formats · Size · Status
     - Selection actions: Clean up selected · Verify selected · **Convert selected**
-    - Side panel: Details (status, match) · Files (each file, its planned conversion, Show)
+    - Side panel: Selected file (as on Convert, for the selected game) · Details (status, match) · Files (each file, its planned conversion, Show)
 - **Files**
   - **Convert** (start page with no library folders)
     - Toolbar: Add files… · Add folder… · Add folder as one archive… · Remove · Clear finished · Clear all · filter
@@ -49,12 +49,12 @@ finished batches, plus any with a failure, until Clear finished) and a status ba
       Cancel · Convert
   - **Verify** (was Verify & match)
     - Job list (as Convert, no Preset column, no Save to)
-    - Side panel: game databases (status, Update now) · *Checking games* preset
+    - Side panel: Selected file (as on Convert) · game databases (status, Update now) · *Checking games* preset
   - **Organize** (was Cleanup)
     - Plan: scope (selected games or whole Library) · steps with tick boxes (Step · Game · Change) · a box per kind
       of step, with its count
     - Actions: Whole Library · Make the plan again · Verify the unchecked ones · **Run**
-    - Side panel: file layout (ES-DE or keep) · safety note · past runs (Undo, Empty trash)
+    - Side panel: Selected file (the picked step's, as on Convert) · file layout (ES-DE or keep) · safety note · past runs (Undo, Empty trash)
   - **Library tests** (Power-user mode only): round trip and chdman comparison, results table, CSV export
 - **Settings** (one page of cards, saved as they change): General (theme, Start on) · Output (Save to's
   default, Folder layout, Overwrite existing files, working folder) · Performance · Log · Default presets · Library (folders,

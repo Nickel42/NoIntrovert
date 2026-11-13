@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             xmlns:v="using:NoIntrovert.Views"
+             x:Class="NoIntrovert.Views.SelectedFilePanel"
+             x:DataType="vm:SelectedFileViewModel">
+    <!-- SELECTED FILE on Optimize, Verify and Organize: Convert's File section (FileFacts), with the same heading. -->
+    <UserControl.Styles>
+        <Style Selector="v|SelectedFilePanel TextBlock.head">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource PanelHeadText}" />
+        </Style>
+        <Style Selector="v|SelectedFilePanel TextBlock.aside">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="Margin" Value="8,0,0,0" />
+        </Style>
+    </UserControl.Styles>
+    <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,8">
+            <TextBlock Text="SELECTED FILE" Classes="head" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding Header}" Classes="aside" ToolTip.Tip="{Binding Header}" />
+        </Grid>
+        <v:FileFacts DataContext="{Binding Facts}" />
+    </StackPanel>
+</UserControl>
