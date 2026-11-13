@@ -16,8 +16,9 @@ public interface IProgressIndicator
 /// <summary>
 /// The shared queue as the shell shows it: one status line and progress bar
 /// for everything in the queue (counted by item, see <see cref="OverallFraction"/>),
-/// plus the job list in the queue drawer. Refreshed from the UI thread a few
-/// times a second.
+/// plus the job list in the queue drawer. Refreshed from the UI thread when
+/// the queue changes, and a few times a second only while jobs are queued or
+/// running: an idle queue costs nothing.
 /// </summary>
 public partial class QueueViewModel : ViewModelBase
 {
@@ -33,12 +34,20 @@ public partial class QueueViewModel : ViewModelBase
     private double _bytesPerSecond;
     private bool _wasBusy;
 
+    private readonly Coalesced _changed;
+
     public QueueViewModel(JobQueue queue)
     {
         Queue = queue;
         _timer = new DispatcherTimer(Tick, DispatcherPriority.Background, (_, _) => Refresh());
-        _timer.Start();
+        _changed = new Coalesced(Refresh);
+        // Raised on worker threads: a job added, started or finished. Refresh starts the timer when there's work.
+        queue.Changed += _changed.Request;
+        Refresh();
     }
+
+    /// <summary>Whether the progress timer is running: only while jobs are queued or running.</summary>
+    internal bool IsTicking => _timer.IsEnabled;
 
     public JobQueue Queue { get; }
 
@@ -169,6 +178,10 @@ public partial class QueueViewModel : ViewModelBase
         }
         UpdateToggleText();
         Indicator?.Show(IsBusy ? overall ?? 0 : null, failed > 0);
+
+        // Progress moves on its own only while something is queued or running; the queue's Changed starts it again.
+        if (IsBusy && !_timer.IsEnabled) _timer.Start();
+        else if (!IsBusy && _timer.IsEnabled) _timer.Stop();
     }
 
     private void UpdateToggleText() =>
