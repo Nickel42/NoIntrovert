@@ -32,13 +32,13 @@
                 </StackPanel>
             </RadioButton>
             <Button Classes="link" Content="Change…" Command="{Binding ChangeSaveFolderCommand}" VerticalAlignment="Center"
-                    ToolTip.Tip="Choose the folder" />
+                    ToolTip.Tip="Choose the folder" AutomationProperties.Name="Change the save folder" />
         </StackPanel>
         <RadioButton IsChecked="{Binding SaveReplacingOriginals}" VerticalAlignment="Center"
                      ToolTip.Tip="Each original is removed only after its new file verifies. If verification fails, the original stays and the row shows why.">
             <StackPanel Orientation="Horizontal" Spacing="6">
                 <TextBlock Text="Replace the originals" VerticalAlignment="Center" />
-                <TextBlock Text="⚠" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="⚠" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" AutomationProperties.Name="Warning: originals are removed" />
             </StackPanel>
         </RadioButton>
     </WrapPanel>

@@ -158,6 +158,7 @@ public partial class LibraryViewModel : ViewModelBase
 
     partial void OnSelectedGameChanged(GameRowViewModel? value)
     {
+        NotifySelectionChanged();
         var chd = value?.Game.Items.FirstOrDefault(i => i.FormatId == "chd" && File.Exists(i.Path));
         ShowsChdInfo = chd is not null;
         if (chd is not null) _ = ChdInfo.LoadAsync(chd.Path);
@@ -331,12 +332,32 @@ public partial class LibraryViewModel : ViewModelBase
 
     // ---- Acting on games ----
 
+    /// <summary>Whether any game is chosen, so the actions on the selected games can run.</summary>
+    public bool HasChosen => SelectedGames is { Count: > 0 } || SelectedGame is not null;
+
+    partial void OnSelectedGamesChanged(System.Collections.IList? oldValue, System.Collections.IList? newValue)
+    {
+        if (oldValue is System.Collections.Specialized.INotifyCollectionChanged oldList) oldList.CollectionChanged -= OnChosenChanged;
+        if (newValue is System.Collections.Specialized.INotifyCollectionChanged newList) newList.CollectionChanged += OnChosenChanged;
+        NotifySelectionChanged();
+    }
+
+    private void OnChosenChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => NotifySelectionChanged();
+
+    /// <summary>Enables or disables the actions on the selected games (also called by the view when the list's selection changes).</summary>
+    public void NotifySelectionChanged()
+    {
+        ConvertSelectedCommand.NotifyCanExecuteChanged();
+        VerifySelectedCommand.NotifyCanExecuteChanged();
+        CleanupSelectedCommand.NotifyCanExecuteChanged();
+    }
+
     private List<GameRowViewModel> Chosen() =>
         SelectedGames?.OfType<GameRowViewModel>().ToList() is { Count: > 0 } many ? many
         : SelectedGame is { } one ? [one] : [];
 
     /// <summary>Sends the chosen games' sources (what still needs converting) to the Convert page.</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasChosen))]
     private void ConvertSelected()
     {
         var paths = Chosen().SelectMany(g => g.Game.Items).Where(i => i.IsSource || i.FormatStatus == TargetStatus.Convert).Select(i => i.Path).Distinct().ToList();
@@ -345,7 +366,7 @@ public partial class LibraryViewModel : ViewModelBase
     }
 
     /// <summary>Sends the chosen games' CHDs to the Verify page.</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasChosen))]
     private void VerifySelected()
     {
         var paths = Chosen().SelectMany(g => g.Game.Items).Select(i => i.Path).Distinct().ToList();
@@ -354,7 +375,7 @@ public partial class LibraryViewModel : ViewModelBase
     }
 
     /// <summary>Plans a cleanup of the chosen games (M7).</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasChosen))]
     private void CleanupSelected()
     {
         var games = Chosen().Select(g => g.Game).ToList();

@@ -29,7 +29,7 @@
         <Style Selector="v|JobListPanel.narrow :is(Control).col-result"><Setter Property="IsVisible" Value="False" /></Style>
 
         <!-- A failed row's reason -->
-        <Style Selector="TextBlock.failed"><Setter Property="Foreground" Value="#FF6F6B" /></Style>
+        <Style Selector="TextBlock.failed"><Setter Property="Foreground" Value="{DynamicResource DangerText}" /></Style>
 
         <!-- Run bar: progress and status at the left, then Save to, then Cancel and Convert.
              When the list is narrow, the status moves under the rest. -->
@@ -55,19 +55,22 @@
             <!-- Toolbar -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Margin="12,10,12,8">
                 <WrapPanel Orientation="Horizontal" ItemSpacing="6" LineSpacing="6" VerticalAlignment="Center">
-                    <Button Classes="tool" Content="Add files…" Command="{Binding AddFilesCommand}" IsEnabled="{Binding IsIdle}" />
+                    <Button Classes="tool" Content="Add files…" Command="{Binding AddFilesCommand}" IsEnabled="{Binding IsIdle}"
+                            ToolTip.Tip="Add files to the list (Ctrl+O)." />
                     <Button Classes="tool" Content="Add folder…" Command="{Binding AddFolderCommand}" IsEnabled="{Binding IsIdle}" />
                     <!-- Convert only -->
                     <Button Classes="tool" Content="Pack a folder…" Command="{ReflectionBinding PackFolderCommand}" IsVisible="{Binding ShowsTargets}"
                             IsEnabled="{Binding IsIdle}"
                             ToolTip.Tip="Add a folder as one row, to pack whole into 7z or zip without looking inside it." />
                     <Button Classes="tool" Content="Remove" Command="{Binding RemoveSelectedCommand}" IsEnabled="{Binding IsIdle}"
-                            ToolTip.Tip="Remove the selected rows from the list (files are not touched)." />
+                            ToolTip.Tip="Remove the selected rows from the list (Delete). Files are not touched." />
                     <Button Classes="tool" Content="Clear finished" Command="{Binding ClearFinishedCommand}" IsEnabled="{Binding IsIdle}" />
-                    <Button Classes="tool" Content="Clear all" Command="{Binding ClearAllCommand}" IsEnabled="{Binding IsIdle}" />
+                    <Button Classes="tool" Content="Clear all" Command="{Binding ClearAllCommand}" IsEnabled="{Binding IsIdle}"
+                            ToolTip.Tip="Empty the list. Files are not touched. You're asked first if any row failed or the list is long." />
                     <!-- The filter stays usable during a run: that's when you look for what failed. -->
-                    <TextBox Text="{Binding Filter}" PlaceholderText="Filter rows…" Width="240" VerticalAlignment="Center" Margin="4,0,0,0"
-                             ToolTip.Tip="Shows only rows whose name, folder, target or status contains every word. Ctrl+A then selects just those. A run still converts every row, shown or not.">
+                    <TextBox x:Name="FilterBox" Text="{Binding Filter, Delay=250}" PlaceholderText="Filter rows…" Width="240" VerticalAlignment="Center" Margin="4,0,0,0"
+                             AutomationProperties.Name="Filter rows"
+                             ToolTip.Tip="Shows only rows whose name, folder, target or status contains every word (Ctrl+F; Escape clears it). Ctrl+A then selects just those. A run still converts every row, shown or not.">
                         <TextBox.InnerLeftContent>
                             <!-- Search icon -->
                             <Path Width="16" Height="16" Margin="10,0,2,0" VerticalAlignment="Center" Stretch="None"
@@ -84,7 +87,7 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsScanning}" VerticalAlignment="Center">
                     <ProgressBar IsIndeterminate="True" Width="60" Height="6" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding ScanStatus}" Classes="hint" VerticalAlignment="Center" MaxWidth="180" TextTrimming="CharacterEllipsis" />
-                    <Button Classes="tool" Content="Stop" Command="{Binding CancelScanCommand}" />
+                    <Button Classes="tool" Content="Stop" Command="{Binding CancelScanCommand}" ToolTip.Tip="Stop looking through the folder (Escape)." />
                 </StackPanel>
             </Grid>
 
@@ -92,7 +95,7 @@
             <Grid Grid.Row="1" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="22,0,22,4">
                 <!-- Select all: – when only some rows are selected -->
                 <CheckBox x:Name="SelectAll" IsChecked="{Binding AllSelected, Mode=OneWay}" MinWidth="0" Padding="0"
-                          VerticalAlignment="Center" ToolTip.Tip="Select every row shown, or none" />
+                          VerticalAlignment="Center" ToolTip.Tip="Select every row shown, or none" AutomationProperties.Name="Select all rows" />
                 <TextBlock Grid.Column="1" Text="FILE" Classes="colhead" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="TYPE" Classes="colhead col-type" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="3" Text="PRESET" Classes="colhead" Width="210" Margin="0,0,8,0" IsVisible="{Binding ShowsTargets}" VerticalAlignment="Center" />
@@ -139,7 +142,7 @@
                             <Border Classes="rowframe" Classes.focused="{Binding IsFocusedRow}">
                             <Grid ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ToolTip.Tip="{Binding Path}">
                                 <CheckBox IsChecked="{Binding $parent[ListBoxItem].IsSelected}" MinWidth="0" Padding="0" VerticalAlignment="Center"
-                                          Focusable="False" />
+                                          Focusable="False" AutomationProperties.Name="{Binding Name, StringFormat='Select {0}'}" />
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
                                     <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Text="{Binding Folder}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="LeadingCharacterEllipsis" />
@@ -149,6 +152,7 @@
                                             IsVisible="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).ShowsTargets}">
                                     <ComboBox ItemsSource="{Binding PresetOptions}" SelectedItem="{Binding PresetChoice}" IsVisible="{Binding HasPresets}"
                                               HorizontalAlignment="Stretch" MaxDropDownHeight="520"
+                                              AutomationProperties.Name="{Binding Name, StringFormat='Preset for {0}'}"
                                               ToolTip.Tip="This file's preset: its format and settings.">
                                         <ComboBox.Styles>
                                             <Style Selector="ComboBoxItem" x:DataType="presets:PresetListItem">
@@ -218,7 +222,8 @@
                     </StackPanel>
                     <!-- Cancel and Convert, at the right -->
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="16,0,0,0">
-                        <Button Content="Cancel" Command="{Binding CancelCommand}" IsEnabled="{Binding IsRunning}" />
+                        <Button Content="Cancel run" Command="{Binding CancelCommand}" IsVisible="{Binding IsRunning}"
+                                ToolTip.Tip="Stop the run. Finished files are kept; the ones in progress are deleted. You're asked first unless only a few items are left." />
                         <!-- Pulses while there's a list ready to start -->
                         <c:GlowBorder Mode="Pulse" Palette="Cool" GlowSize="12">
                             <c:GlowBorder.IsActive>
@@ -227,7 +232,7 @@
                                     <Binding Path="IsIdle" />
                                 </MultiBinding>
                             </c:GlowBorder.IsActive>
-                            <Button Classes="primary" Content="{Binding StartLabel}" Command="{Binding StartCommand}" />
+                            <Button Classes="primary" Content="{Binding StartLabel}" Command="{Binding StartCommand}" ToolTip.Tip="Start (Ctrl+Enter)" />
                         </c:GlowBorder>
                     </StackPanel>
                     <!-- Save to, on the pages that write files: what's left between them -->

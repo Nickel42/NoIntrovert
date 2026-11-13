@@ -209,12 +209,13 @@
                                       ToolTip.Tip="Log lib-chd-kit progress reports every 10% (debug lines)." />
                             <Button Content="Copy" Command="{Binding Log.CopyCommand}" />
                             <Button Content="Save…" Command="{Binding Log.SaveCommand}" />
-                            <Button Content="Clear" Command="{Binding Log.ClearCommand}" />
+                            <Button Content="Clear" Command="{Binding Log.ClearCommand}"
+                                    ToolTip.Tip="Clear the lines shown here (and what Copy and Save… include). The session's log file keeps every line: Settings › Log › Open log folder." />
                             </StackPanel>
                             <Button Content="{Binding Log.ToggleText}" Command="{Binding Log.ToggleExpandedCommand}" MinWidth="84" />
                         </StackPanel>
                     </Grid>
-                    <ListBox Grid.Row="1" x:Name="LogList" ItemsSource="{Binding Log.Entries}" IsVisible="{Binding Log.IsExpanded}"
+                    <ListBox Grid.Row="1" x:Name="LogList" ItemsSource="{Binding Log.Entries}" IsVisible="{Binding Log.IsExpanded}" AutomationProperties.Name="Log"
                              Background="{DynamicResource LogBackground}" Padding="0,2">
                         <ListBox.Styles>
                             <Style Selector="ListBoxItem">
@@ -226,8 +227,11 @@
                             <DataTemplate x:DataType="core:LogEntry">
                                 <Grid ColumnDefinitions="64,34,*" Opacity="{Binding Level, Converter={x:Static v:Palette.LevelOpacity}}">
                                     <TextBlock Text="{Binding TimeText}" FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace" FontSize="12" FontWeight="Normal" Classes="hint" />
-                                    <Border Grid.Column="1" Width="4" Height="12" CornerRadius="2" HorizontalAlignment="Left"
-                                            Background="{Binding Level, Converter={x:Static v:Palette.LevelBrush}}" />
+                                    <!-- The level as a glyph (✕ ⚠ ✓ i ·), in its colour, so it doesn't rest on colour alone -->
+                                    <TextBlock Grid.Column="1" Classes="levelglyph" Text="{Binding Level, Converter={x:Static v:Palette.LevelGlyph}}"
+                                               Foreground="{Binding Level, Converter={x:Static v:Palette.LevelBrush}}"
+                                               FontSize="12" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                               AutomationProperties.Name="{Binding Level, Converter={x:Static v:Palette.LevelName}}" />
                                     <SelectableTextBlock Grid.Column="2" Text="{Binding Message}" FontWeight="Normal" FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace"
                                                          FontSize="12" TextWrapping="Wrap" />
                                 </Grid>

@@ -24,13 +24,33 @@ public static class Palette
         _ => Muted,
     });
 
+    /// <summary>A log line's level glyph colour; info and debug are muted.</summary>
     public static readonly IValueConverter LevelBrush = new FuncValueConverter<LogLevel, IBrush>(l => l switch
     {
         LogLevel.Success => Ok,
         LogLevel.Warning => Warn,
         LogLevel.Error => Bad,
-        LogLevel.Debug => Muted,
-        _ => Brushes.Transparent,
+        _ => Muted,
+    });
+
+    /// <summary>A log line's level as a glyph, so it doesn't rest on colour alone: ✕ error, ⚠ warning, ✓ success, i info, · debug.</summary>
+    public static readonly IValueConverter LevelGlyph = new FuncValueConverter<LogLevel, string>(l => l switch
+    {
+        LogLevel.Error => "✕",
+        LogLevel.Warning => "⚠",
+        LogLevel.Success => "✓",
+        LogLevel.Debug => "·",
+        _ => "i",
+    });
+
+    /// <summary>A log line's level in words, for screen readers.</summary>
+    public static readonly IValueConverter LevelName = new FuncValueConverter<LogLevel, string>(l => l switch
+    {
+        LogLevel.Error => "Error",
+        LogLevel.Warning => "Warning",
+        LogLevel.Success => "Success",
+        LogLevel.Debug => "Debug",
+        _ => "Info",
     });
 
     /// <summary>Plain text uses the theme's foreground; only debug lines are dimmed.</summary>

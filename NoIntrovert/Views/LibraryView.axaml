@@ -59,9 +59,10 @@
                 <!-- Folders -->
                 <Grid ColumnDefinitions="Auto,*" Margin="12,10,12,4">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <Button Classes="tool" Content="Add folder…" Command="{Binding AddFolderCommand}" />
+                        <Button Classes="tool" Content="Add folder…" Command="{Binding AddFolderCommand}"
+                                ToolTip.Tip="Add a folder where you keep games (Ctrl+O)." />
                         <Button Classes="tool" Content="Rescan" Command="{Binding RescanCommand}" IsEnabled="{Binding !IsScanning}"
-                                ToolTip.Tip="Look through the folders again. Files that haven't changed aren't reread." />
+                                ToolTip.Tip="Look through the folders again (F5). Files that haven't changed aren't reread." />
                     </StackPanel>
                     <ItemsControl Grid.Column="1" ItemsSource="{Binding Folders}" Margin="10,0,0,0">
                         <ItemsControl.ItemsPanel>
@@ -74,6 +75,7 @@
                                     <DockPanel>
                                         <Button DockPanel.Dock="Right" Classes="tool" Content="✕" Padding="6,0" FontSize="11" Margin="4,0,0,0"
                                                 ToolTip.Tip="Stop keeping track of this folder (no files are touched)."
+                                                AutomationProperties.Name="{Binding StringFormat='Remove folder {0}'}"
                                                 Command="{Binding $parent[UserControl].((vm:LibraryViewModel)DataContext).RemoveFolderCommand}" CommandParameter="{Binding}" />
                                         <TextBlock Text="{Binding}" VerticalAlignment="Center" FontSize="12" MaxWidth="320" TextTrimming="LeadingCharacterEllipsis"
                                                    ToolTip.Tip="{Binding}" />
@@ -88,9 +90,12 @@
                 <!-- Filters, then what they show (or the scan's progress) on a line of its own -->
                 <StackPanel Grid.Row="1" Margin="12,4,12,4" Spacing="6">
                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                        <TextBox Text="{Binding Search}" PlaceholderText="Search games…" MinWidth="120" />
-                        <ComboBox Grid.Column="1" Classes="systems" ItemsSource="{Binding Systems}" SelectedItem="{Binding SelectedSystem}" />
-                        <ComboBox Grid.Column="2" Classes="statuses" ItemsSource="{x:Static vm:LibraryViewModel.StatusFilters}" SelectedItem="{Binding SelectedStatus}" />
+                        <TextBox x:Name="SearchBox" Text="{Binding Search, Delay=250}" PlaceholderText="Search games…" MinWidth="120"
+                                 AutomationProperties.Name="Search games" ToolTip.Tip="Search by title (Ctrl+F; Escape clears it)." />
+                        <ComboBox Grid.Column="1" Classes="systems" ItemsSource="{Binding Systems}" SelectedItem="{Binding SelectedSystem}"
+                                  AutomationProperties.Name="Filter by system" />
+                        <ComboBox Grid.Column="2" Classes="statuses" ItemsSource="{x:Static vm:LibraryViewModel.StatusFilters}" SelectedItem="{Binding SelectedStatus}"
+                                  AutomationProperties.Name="Filter by status" />
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto" MinHeight="22">
                         <TextBlock Text="{Binding Summary}" Classes="hint" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Summary}"
@@ -99,7 +104,8 @@
                             <ProgressBar DockPanel.Dock="Left" IsIndeterminate="True" Width="80" Height="6" VerticalAlignment="Center" Margin="0,0,8,0" />
                             <TextBlock Text="{Binding ScanStatus}" Classes="hint" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         </DockPanel>
-                        <Button Grid.Column="1" Classes="tool" Content="Stop" Command="{Binding CancelScanCommand}" IsVisible="{Binding IsScanning}" Margin="8,0,0,0" />
+                        <Button Grid.Column="1" Classes="tool" Content="Stop" Command="{Binding CancelScanCommand}" IsVisible="{Binding IsScanning}" Margin="8,0,0,0"
+                                ToolTip.Tip="Stop the scan (Escape)." />
                     </Grid>
                 </StackPanel>
                 <TextBlock Grid.Row="2" Text="{Binding MissingNote}" Classes="hint" Margin="12,0,12,4" TextWrapping="Wrap"
@@ -158,8 +164,9 @@
 
                 <!-- Games -->
                 <Panel Grid.Row="4">
+                    <!-- The list hands its SelectedItems to the page in code (LibraryView.axaml.cs) -->
                     <ListBox x:Name="GameList" ItemsSource="{Binding VisibleGames}" SelectionMode="Multiple" SelectedItem="{Binding SelectedGame}"
-                             SelectedItems="{Binding SelectedGames}" Background="Transparent" Margin="10,0">
+                             Background="Transparent" Margin="10,0" AutomationProperties.Name="Games">
                         <ListBox.Styles>
                             <Style Selector="ListBoxItem">
                                 <Setter Property="Padding" Value="12,5" />
@@ -203,7 +210,7 @@
                         <Button Content="Verify selected" Command="{Binding VerifySelectedCommand}"
                                 ToolTip.Tip="Send the selected games to Verify &amp; match, to check them for damage and against the No-Intro and Redump databases." />
                         <Button Classes="primary" Content="Convert selected" Command="{Binding ConvertSelectedCommand}"
-                                ToolTip.Tip="Send what still needs converting in the selected games to the Convert page." />
+                                ToolTip.Tip="Send what still needs converting in the selected games to the Convert page (Enter in the list)." />
                     </WrapPanel>
                 </Border>
             </Grid>
@@ -244,6 +251,7 @@
                                             <TextBlock Text="{Binding Folder}" Classes="hint" FontSize="11" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding Folder}" />
                                         </StackPanel>
                                         <Button Grid.Column="1" Classes="tool" Content="Show" VerticalAlignment="Top" ToolTip.Tip="Open its folder"
+                                                AutomationProperties.Name="{Binding Name, StringFormat='Show {0} in its folder'}"
                                                 Command="{Binding $parent[UserControl].((vm:LibraryViewModel)DataContext).ShowInFolderCommand}" CommandParameter="{Binding Path}" />
                                     </Grid>
                                 </DataTemplate>

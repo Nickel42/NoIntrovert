@@ -417,13 +417,24 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         Items.RemoveWhere(i => i.Status is JobStatus.Succeeded or JobStatus.Warning or JobStatus.Skipped);
     }
 
+    /// <summary>Clear all asks first when the list holds failures or more rows than are quick to add back.</summary>
+    public const int ClearAllAsksAbove = 20;
+
     [RelayCommand]
-    private void ClearAll()
+    private async Task ClearAll()
     {
+        if (IsRunning || Items.Count == 0) return;
+        var failed = Items.Count(i => i.Status == JobStatus.Failed);
+        if ((failed > 0 || Items.Count > ClearAllAsksAbove)
+            && !await Dialogs.ConfirmAsync($"Clear all {Items.Count} rows?",
+                (failed > 0 ? $"The reasons {failed} {(failed == 1 ? "row" : "rows")} failed are lost, and so are the presets chosen for each row. " : "The presets chosen for each row are lost. ")
+                + "No files are touched.",
+                "Clear all", "Cancel", destructive: true))
+            return;
         if (!IsRunning) Items.Clear();
     }
 
-    private bool CanStart => !IsRunning && !IsScanning;
+    private bool CanStart => !IsRunning && !IsScanning && HasItems;
 
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task Start()
@@ -451,7 +462,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         var busy = Queue.IsBusy;
         RunStatus = busy ? $"Queued {pending.Count} item(s) behind the jobs already running…" : $"Working on {pending.Count} item(s)…";
         Log.Info($"{Title}: starting {pending.Count} item(s) with {snapshot.Performance.ParallelJobs} parallel job(s)" + (busy ? ", after the jobs already in the queue" : ""));
-        var started = DateTime.Now;
+        var started = _started = DateTime.Now;
 
         var jobs = GroupItems(pending).Select(group => new BatchJob(
             group.Count == 1 ? group[0].Name : $"{group[0].Name} (+{group.Count - 1})",
@@ -497,11 +508,23 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     protected virtual void AfterRun(IReadOnlyList<JobItemViewModel> items) { }
 
     private bool CanCancel => IsRunning;
+    private DateTime _started;
+
+    /// <summary>Cancel asks first once a run has more than this many items left, or has gone on for a minute.</summary>
+    public const int CancelAsksAbove = 3;
 
     [RelayCommand(CanExecute = nameof(CanCancel))]
-    private void Cancel()
+    private async Task Cancel()
     {
-        _group?.Cancel();
+        if (_group is not { } group) return;
+        var left = Items.Count(i => i.Status is JobStatus.Queued or JobStatus.Running);
+        if ((left > CancelAsksAbove || DateTime.Now - _started > TimeSpan.FromMinutes(1))
+            && !await Dialogs.ConfirmAsync($"Stop {left} remaining {(left == 1 ? "item" : "items")}?",
+                "Finished files are kept. The ones in progress are deleted, and their originals stay as they were.",
+                "Stop the run", "Keep running", destructive: true))
+            return;
+        if (_group != group) return; // it finished while the question was open
+        group.Cancel();
         RunStatus = "Cancelling…";
         Log.Warn($"{Title}: cancelling; partial outputs are deleted");
     }
@@ -517,6 +540,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     private void RefreshSummary()
     {
         OnPropertyChanged(nameof(HasItems));
+        StartCommand.NotifyCanExecuteChanged();
         var done = Items.Count(i => i.Status is JobStatus.Succeeded or JobStatus.Warning);
         var failed = Items.Count(i => i.Status == JobStatus.Failed);
         var selected = SelectedCount > 0 ? $"{SelectedCount} selected · " : "";
