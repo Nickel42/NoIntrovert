@@ -1,9 +1,0 @@
-/*
- * Linux and other ELF platforms: libchdkit.so exports only the C API.
- * Hidden visibility alone still leaves libstdc++ template instantiations
- * exported; this version script hides everything except chdman_*.
- */
-{
-  global: chdman_*;
-  local: *;
-};
