@@ -91,7 +91,10 @@ public static class ArchiveJobs
             .OrderBy(e => e, StringComparer.OrdinalIgnoreCase).ToList();
         if (entries.Count == 0) return JobOutcome.Skipped("Folder is empty");
 
-        var outputFolder = string.IsNullOrWhiteSpace(outputFolderOrEmpty) ? folder : outputFolderOrEmpty;
+        // Into the Save to folder: each entry where the folder layout puts it (roms/<system>, its own subfolders…).
+        string OutputFolder(string entry) => string.IsNullOrWhiteSpace(outputFolderOrEmpty) ? folder
+            : c.Settings.Output.TargetFolder is { } target && PathNames.Same(outputFolderOrEmpty, target) ? OutputPaths.FolderFor(c.Settings, entry)
+            : outputFolderOrEmpty;
         var names = UniqueNames(entries);
         int done = 0, failed = 0, skipped = 0;
         long inBytes = 0, outBytes = 0;
@@ -103,7 +106,7 @@ public static class ArchiveJobs
             var weight = 1.0 / entries.Count;
             var index = i;
             var sub = new SubReport(c.Report, index * weight, weight, $"{i + 1}/{entries.Count}: ");
-            var o = CompressOne(new JobContext(c.Chdman, c.Settings, c.Log, sub, c.Token, c.RvzSource), [entries[i]], names[i], outputFolder);
+            var o = CompressOne(new JobContext(c.Chdman, c.Settings, c.Log, sub, c.Token, c.RvzSource), [entries[i]], names[i], OutputFolder(entries[i]));
             switch (o.Status)
             {
                 case JobStatus.Succeeded or JobStatus.Warning: done++; break;

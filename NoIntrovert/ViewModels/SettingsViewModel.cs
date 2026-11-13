@@ -263,6 +263,48 @@ public sealed partial class OutputSettingsViewModel(AppSettings settings, IDialo
     public bool SavesToFolder { get => S.Output.SaveTo == SaveTo.Folder; set { if (value) _ = ChooseSaveToAsync(SaveTo.Folder); } }
     public bool ReplacesOriginals { get => S.Output.SaveTo == SaveTo.ReplaceOriginals; set { if (value) _ = ChooseSaveToAsync(SaveTo.ReplaceOriginals); } }
 
+    /// <summary>How Save to › Folder arranges what it saves.</summary>
+    public static IReadOnlyList<Choice<FolderLayout>> FolderLayouts { get; } =
+    [
+        new(FolderLayout.EsDe, "ES-DE: roms/<system>"),
+        new(FolderLayout.RomM, "RomM: roms/<platform>"),
+        new(FolderLayout.SameAsOriginals, "The same folders as the originals"),
+        new(FolderLayout.Flat, "All in the folder itself"),
+    ];
+
+    /// <summary>The same choices, with the short names the run bar has room for.</summary>
+    public static IReadOnlyList<Choice<FolderLayout>> ShortFolderLayouts { get; } =
+    [
+        new(FolderLayout.EsDe, "ES-DE"),
+        new(FolderLayout.RomM, "RomM"),
+        new(FolderLayout.SameAsOriginals, "Same folders"),
+        new(FolderLayout.Flat, "No subfolders"),
+    ];
+
+    public Choice<FolderLayout> SelectedShortFolderLayout
+    {
+        get => ShortFolderLayouts.FirstOrDefault(l => l.Value == S.Output.FolderLayout) ?? ShortFolderLayouts[0];
+        set
+        {
+            if (value is not null && Set(value.Value, (s, v) => s.Output.FolderLayout = v)) OnPropertyChanged(nameof(SelectedFolderLayout));
+        }
+    }
+
+    public const string FolderLayoutTip =
+        "ES-DE: each system in its own folder with ES-DE's names: roms/psx, roms/ps2, roms/gc…\n" +
+        "RomM: each system in its own folder with RomM's names: roms/psx, roms/ps2, roms/ngc…\n" +
+        "The same folders: the subfolders the originals are in, below the folder you added.\n" +
+        "All in the folder itself: no subfolders.";
+
+    public Choice<FolderLayout> SelectedFolderLayout
+    {
+        get => FolderLayouts.FirstOrDefault(l => l.Value == S.Output.FolderLayout) ?? FolderLayouts[0];
+        set
+        {
+            if (value is not null && Set(value.Value, (s, v) => s.Output.FolderLayout = v)) OnPropertyChanged(nameof(SelectedShortFolderLayout));
+        }
+    }
+
     /// <summary>The folder Save to › A folder uses.</summary>
     public string SaveFolderText => string.IsNullOrWhiteSpace(S.Output.Folder) ? "No folder chosen yet" : S.Output.Folder;
 

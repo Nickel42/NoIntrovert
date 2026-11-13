@@ -44,7 +44,8 @@ finished batches, plus any with a failure, until Clear finished) and a status ba
     - Side panel, for the focused row: File (system, facts, formats) · Preset (with Works with) · Preset
       settings (Custom only) · Wii U, 3DS or Switch keys (for selected files that need them)
     - A row that failed for missing keys: Set up keys → Settings, scrolled to Keys
-    - Run bar: **Save to** (Next to the originals · Folder: <path> · Change… · Replace the originals ⚠) ·
+    - Run bar: **Save to** (Next to the originals · Folder: <path> · Change… · Layout: ES-DE, RomM, Same folders or No subfolders ·
+      Replace the originals ⚠) ·
       Cancel · Convert
   - **Verify** (was Verify & match)
     - Job list (as Convert, no Preset column, no Save to)
@@ -56,7 +57,7 @@ finished batches, plus any with a failure, until Clear finished) and a status ba
     - Side panel: file layout (ES-DE or keep) · safety note · past runs (Undo, Empty trash)
   - **Library tests** (Power-user mode only): round trip and chdman comparison, results table, CSV export
 - **Settings** (one page of cards, saved as they change): General (theme, Start on) · Output (Save to's
-  default, Overwrite existing files, working folder) · Performance · Log · Default presets · Library (folders,
+  default, Folder layout, Overwrite existing files, working folder) · Performance · Log · Default presets · Library (folders,
   emulator data with Check now) · About. Under **Advanced**: Power user · How each action is done ·
   Default targets · Files and folders · Keys · Game databases (and ES-DE systems) · Target formats (by
   system, by file type, rule options) · Expert · Diagnostics (Power-user)

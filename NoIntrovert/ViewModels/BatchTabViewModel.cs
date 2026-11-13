@@ -21,6 +21,9 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     private readonly Coalesced _visible;
     private CancellationTokenSource? _scanCts;
 
+    /// <summary>The folders added to this page, which Save to › Folder's "same folders" layout keeps the subfolders below.</summary>
+    private readonly List<string> _addedFolders = [];
+
     protected BatchTabViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
     {
         Settings = settings;
@@ -131,7 +134,13 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     /// <summary>The run log's description of a Save to choice.</summary>
     public static string DescribeSaveTo(OutputSettings output) => output.SaveTo switch
     {
-        SaveTo.Folder when output.TargetFolder is { } folder => $"saving to {folder}",
+        SaveTo.Folder when output.TargetFolder is { } folder => $"saving to {folder}" + output.FolderLayout switch
+        {
+            FolderLayout.SameAsOriginals => ", in the same folders as the originals",
+            FolderLayout.Flat => ", with no subfolders",
+            FolderLayout.RomM => ", in RomM folders (roms/<platform>)",
+            _ => ", in ES-DE folders (roms/<system>)",
+        },
         SaveTo.ReplaceOriginals => "saving next to the originals and replacing them: each original is " +
                                    (output.UseRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently") +
                                    " once its new file verifies",
@@ -148,6 +157,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         // A page without Save to never removes originals, and Folder without a folder is next to the originals.
         snapshot.Output.SaveTo = ShowsSaveTo ? RunSaveTo : SaveTo.NextToOriginals;
         if (snapshot.Output.SaveTo == SaveTo.Folder && snapshot.Output.TargetFolder is null) snapshot.Output.SaveTo = SaveTo.NextToOriginals;
+        lock (_addedFolders) snapshot.Output.SourceRoots = [.. _addedFolders];
         return snapshot;
     }
 
@@ -352,6 +362,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
                     IEnumerable<string> candidates;
                     if (Directory.Exists(path))
                     {
+                        lock (_addedFolders) if (!_addedFolders.Contains(path, PathNames.Comparer)) _addedFolders.Add(path);
                         try { candidates = ItemsForFolder(path).ToList(); }
                         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                         {

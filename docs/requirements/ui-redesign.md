@@ -167,7 +167,7 @@ Extension lists were checked against libretro-core-info `master` on 2 Nov 2026.
 The "This run" section is gone from the side panel. Where files go is now chosen in the **run bar**, just left of Cancel / Convert, so it's visible right before the user commits. It's one row of three radio buttons:
 
 - **Next to the originals** (default)
-- **Folder: <path> · Change…**: the path shows the last folder used. Change… opens a folder picker.
+- **Folder: <path> · Change…**: the path shows the last folder used. Change… opens a folder picker. Beside it, **Layout** (13 Nov 2026) arranges the folder: **ES-DE** (default, `roms/<ES-DE system name>`), **RomM** (`roms/<RomM platform name>`), **Same folders** (the subfolders below the folder each original was added from), or **No subfolders**. It's one setting with Settings › Output › Folder layout.
 - **Replace the originals ⚠**: each original is deleted **only after its new file verifies**. If verification fails, the original stays and the row shows why. Choosing this option the first time asks for confirmation once.
 
 This is the **only** place originals can be deleted. The "CHD · Replace the originals" preset and the "Remove the originals" setting in Custom were removed, so presets never decide this. **Overwrite existing files** moves to Settings, because people rarely change it.

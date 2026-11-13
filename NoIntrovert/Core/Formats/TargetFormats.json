@@ -11,7 +11,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Nintendo - Nintendo Entertainment System"],
-    "esde": "nes"
+    "esde": "nes",
+    "romm": "nes"
   },
   {
     "id": "famicom-disk-system",
@@ -25,7 +26,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Nintendo - Family Computer Disk System"],
-    "esde": "fds"
+    "esde": "fds",
+    "romm": "fds"
   },
   {
     "id": "snes-super-famicom",
@@ -39,7 +41,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R12", "R13"],
     "dats": ["no-intro/Nintendo - Super Nintendo Entertainment System", "no-intro/Nintendo - Satellaview", "no-intro/Nintendo - Sufami Turbo"],
-    "esde": "snes"
+    "esde": "snes",
+    "romm": "snes"
   },
   {
     "id": "nintendo-64",
@@ -53,7 +56,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R12", "R13"],
     "dats": ["no-intro/Nintendo - Nintendo 64"],
-    "esde": "n64"
+    "esde": "n64",
+    "romm": "n64"
   },
   {
     "id": "nintendo-64dd",
@@ -67,7 +71,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Nintendo - Nintendo 64DD"],
-    "esde": "n64dd"
+    "esde": "n64dd",
+    "romm": "64dd"
   },
   {
     "id": "game-boy",
@@ -81,7 +86,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Nintendo - Game Boy"],
-    "esde": "gb"
+    "esde": "gb",
+    "romm": "gb"
   },
   {
     "id": "game-boy-color",
@@ -95,7 +101,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Nintendo - Game Boy Color"],
-    "esde": "gbc"
+    "esde": "gbc",
+    "romm": "gbc"
   },
   {
     "id": "game-boy-advance",
@@ -109,7 +116,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Nintendo - Game Boy Advance"],
-    "esde": "gba"
+    "esde": "gba",
+    "romm": "gba"
   },
   {
     "id": "nintendo-ds",
@@ -124,7 +132,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Nintendo - Nintendo DS", "no-intro/Nintendo - Nintendo DS (Download Play)"],
-    "esde": "nds"
+    "esde": "nds",
+    "romm": "nds"
   },
   {
     "id": "nintendo-dsi",
@@ -138,7 +147,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Nintendo - Nintendo DSi"],
-    "esde": "nds"
+    "esde": "nds",
+    "romm": "nintendo-dsi"
   },
   {
     "id": "nintendo-3ds",
@@ -152,7 +162,8 @@
     ],
     "rules": ["R6", "R10", "R13"],
     "dats": ["no-intro/Nintendo - Nintendo 3DS", "no-intro/Nintendo - New Nintendo 3DS"],
-    "esde": "n3ds"
+    "esde": "n3ds",
+    "romm": "3ds"
   },
   {
     "id": "virtual-boy",
@@ -166,7 +177,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Nintendo - Virtual Boy"],
-    "esde": "virtualboy"
+    "esde": "virtualboy",
+    "romm": "virtualboy"
   },
   {
     "id": "pokemon-mini",
@@ -180,7 +192,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Nintendo - Pokemon Mini"],
-    "esde": "pokemini"
+    "esde": "pokemini",
+    "romm": "pokemon-mini"
   },
   {
     "id": "game-watch-lcd-handhelds",
@@ -194,7 +207,8 @@
       {"id": "mgw", "label": ".mgw for the gw core", "producible": false}
     ],
     "rules": ["R5"],
-    "esde": "gameandwatch"
+    "esde": "gameandwatch",
+    "romm": "g-and-w"
   },
   {
     "id": "switch",
@@ -208,7 +222,8 @@
       {"id": "nsp", "label": ".nsp/.xci uncompressed", "producible": true}
     ],
     "rules": ["R10", "R11", "R13"],
-    "esde": "switch"
+    "esde": "switch",
+    "romm": "switch"
   },
   {
     "id": "master-system-mark-iii",
@@ -222,7 +237,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Sega - Master System - Mark III"],
-    "esde": "mastersystem"
+    "esde": "mastersystem",
+    "romm": "sms"
   },
   {
     "id": "game-gear",
@@ -236,7 +252,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Sega - Game Gear"],
-    "esde": "gamegear"
+    "esde": "gamegear",
+    "romm": "gamegear"
   },
   {
     "id": "sg-1000-sc-3000",
@@ -250,7 +267,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Sega - SG-1000"],
-    "esde": "sg-1000"
+    "esde": "sg-1000",
+    "romm": "sg1000"
   },
   {
     "id": "mega-drive-genesis",
@@ -264,7 +282,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R12", "R13"],
     "dats": ["no-intro/Sega - Mega Drive - Genesis"],
-    "esde": "megadrive"
+    "esde": "megadrive",
+    "romm": "genesis"
   },
   {
     "id": "32x",
@@ -278,7 +297,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Sega - 32X"],
-    "esde": "sega32x"
+    "esde": "sega32x",
+    "romm": "sega32"
   },
   {
     "id": "pico",
@@ -292,7 +312,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Sega - PICO"],
-    "esde": null
+    "esde": null,
+    "romm": "sega-pico"
   },
   {
     "id": "atari-2600",
@@ -306,7 +327,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Atari - 2600"],
-    "esde": "atari2600"
+    "esde": "atari2600",
+    "romm": "atari2600"
   },
   {
     "id": "atari-5200",
@@ -320,7 +342,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Atari - 5200"],
-    "esde": "atari5200"
+    "esde": "atari5200",
+    "romm": "atari5200"
   },
   {
     "id": "atari-7800",
@@ -334,7 +357,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Atari - 7800"],
-    "esde": "atari7800"
+    "esde": "atari7800",
+    "romm": "atari7800"
   },
   {
     "id": "atari-lynx",
@@ -348,7 +372,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Atari - Lynx"],
-    "esde": "atarilynx"
+    "esde": "atarilynx",
+    "romm": "lynx"
   },
   {
     "id": "atari-jaguar",
@@ -362,7 +387,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Atari - Jaguar"],
-    "esde": "atarijaguar"
+    "esde": "atarijaguar",
+    "romm": "jaguar"
   },
   {
     "id": "pc-engine-turbografx-16",
@@ -376,7 +402,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/NEC - PC Engine - TurboGrafx 16"],
-    "esde": "pcengine"
+    "esde": "pcengine",
+    "romm": "tg16"
   },
   {
     "id": "pc-engine-supergrafx",
@@ -390,7 +417,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/NEC - PC Engine SuperGrafx"],
-    "esde": "supergrafx"
+    "esde": "supergrafx",
+    "romm": "supergrafx"
   },
   {
     "id": "neo-geo-pocket-color",
@@ -404,7 +432,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/SNK - Neo Geo Pocket", "no-intro/SNK - Neo Geo Pocket Color"],
-    "esde": "ngpc"
+    "esde": "ngpc",
+    "romm": "neo-geo-pocket-color"
   },
   {
     "id": "wonderswan-color-swancrystal",
@@ -418,7 +447,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Bandai - WonderSwan", "no-intro/Bandai - WonderSwan Color"],
-    "esde": "wonderswancolor"
+    "esde": "wonderswancolor",
+    "romm": "wonderswan-color"
   },
   {
     "id": "colecovision",
@@ -432,7 +462,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Coleco - ColecoVision"],
-    "esde": "colecovision"
+    "esde": "colecovision",
+    "romm": "colecovision"
   },
   {
     "id": "intellivision",
@@ -446,7 +477,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Mattel - Intellivision"],
-    "esde": "intellivision"
+    "esde": "intellivision",
+    "romm": "intellivision"
   },
   {
     "id": "vectrex",
@@ -460,7 +492,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/GCE - Vectrex"],
-    "esde": "vectrex"
+    "esde": "vectrex",
+    "romm": "vectrex"
   },
   {
     "id": "odyssey2-videopac",
@@ -474,7 +507,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Magnavox - Odyssey2", "no-intro/Philips - Videopac+"],
-    "esde": "odyssey2"
+    "esde": "odyssey2",
+    "romm": "odyssey-2"
   },
   {
     "id": "channel-f",
@@ -488,7 +522,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Fairchild - Channel F"],
-    "esde": "channelf"
+    "esde": "channelf",
+    "romm": "fairchild-channel-f"
   },
   {
     "id": "supervision",
@@ -502,7 +537,8 @@
     ],
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Watara - Supervision"],
-    "esde": "supervision"
+    "esde": "supervision",
+    "romm": "supervision"
   },
   {
     "id": "arcadia-2001",
@@ -517,6 +553,7 @@
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Emerson - Arcadia 2001"],
     "esde": "arcadia",
+    "romm": "arcadia-2001",
     "alsoOptimal": ["zip"]
   },
   {
@@ -532,6 +569,7 @@
     "rules": ["R1", "R6", "R8", "R10", "R13"],
     "dats": ["no-intro/Microsoft - MSX", "no-intro/Microsoft - MSX2"],
     "esde": "msx",
+    "romm": "msx",
     "containerByExtension": {".dsk": "zip", ".cas": "zip"}
   },
   {
@@ -546,7 +584,8 @@
     ],
     "rules": ["R6", "R8", "R9", "R10", "R13"],
     "dats": ["no-intro/Commodore - 64", "no-intro/Commodore - VIC-20", "no-intro/Commodore - Plus-4"],
-    "esde": "c64"
+    "esde": "c64",
+    "romm": "c64"
   },
   {
     "id": "amiga",
@@ -562,6 +601,7 @@
     "rules": ["R6", "R8", "R9", "R10", "R13"],
     "dats": ["no-intro/Commodore - Amiga"],
     "esde": "amiga",
+    "romm": "amiga",
     "containerByExtension": {".lha": "bare"}
   },
   {
@@ -576,7 +616,8 @@
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
     "dats": ["redump/Commodore - CD32", "redump/Commodore - CDTV"],
-    "esde": "amigacd32"
+    "esde": "amigacd32",
+    "romm": "amiga-cd32"
   },
   {
     "id": "zx-spectrum-zx81",
@@ -591,6 +632,7 @@
     "rules": ["R6", "R8", "R9", "R10", "R13"],
     "dats": ["no-intro/Sinclair - ZX Spectrum +3"],
     "esde": "zxspectrum",
+    "romm": "zxs",
     "alsoOptimal": ["zip"]
   },
   {
@@ -605,7 +647,8 @@
       {"id": "7z", "label": "7z", "producible": true}
     ],
     "rules": ["R6", "R8", "R9", "R10", "R13"],
-    "esde": "amstradcpc"
+    "esde": "amstradcpc",
+    "romm": "acpc"
   },
   {
     "id": "atari-st-ste-falcon",
@@ -619,7 +662,8 @@
     ],
     "rules": ["R6", "R8", "R9", "R10", "R13"],
     "dats": ["no-intro/Atari - ST"],
-    "esde": "atarist"
+    "esde": "atarist",
+    "romm": "atari-st"
   },
   {
     "id": "atari-8-bit",
@@ -633,7 +677,8 @@
     ],
     "rules": ["R6", "R8", "R9", "R10", "R13"],
     "dats": ["no-intro/Atari - 8-bit Family"],
-    "esde": "atari800"
+    "esde": "atari800",
+    "romm": "atari8bit"
   },
   {
     "id": "pc-88-pc-98",
@@ -648,6 +693,7 @@
     "rules": ["R6", "R8", "R9", "R10", "R13"],
     "dats": ["redump/NEC - PC-98"],
     "esde": "pc98",
+    "romm": "pc-9800-series",
     "containerByExtension": {".hdi": "bare"}
   },
   {
@@ -663,6 +709,7 @@
     "rules": ["R6", "R8", "R9", "R10", "R13"],
     "dats": ["no-intro/Sharp - X68000", "no-intro/Sharp - X1"],
     "esde": "x68000",
+    "romm": "sharp-x68000",
     "containerByExtension": {".hdf": "bare"}
   },
   {
@@ -678,6 +725,7 @@
     ],
     "rules": ["R6", "R8", "R9", "R10", "R13"],
     "esde": "dos",
+    "romm": "dos",
     "containerByExtension": {".dosz": "bare"},
     "discTarget": ".chd"
   },
@@ -690,7 +738,8 @@
     "target": {"format": "folder", "container": "folder", "label": "folder", "producible": true},
     "alternatives": [],
     "rules": ["R10"],
-    "esde": "scummvm"
+    "esde": "scummvm",
+    "romm": "scummvm"
   },
   {
     "id": "mame",
@@ -703,7 +752,8 @@
       {"id": "7z", "label": "7z romsets", "producible": false}
     ],
     "rules": ["R5"],
-    "esde": "mame"
+    "esde": "mame",
+    "romm": "arcade"
   },
   {
     "id": "finalburn-neo",
@@ -716,7 +766,8 @@
       {"id": "7z", "label": "7z romsets", "producible": false}
     ],
     "rules": ["R5"],
-    "esde": "fbneo"
+    "esde": "fbneo",
+    "romm": "arcade"
   },
   {
     "id": "naomi-naomi-2-atomiswave",
@@ -730,7 +781,8 @@
     ],
     "rules": ["R5"],
     "dats": ["redump/Sega - Naomi", "redump/Sega - Naomi 2"],
-    "esde": "naomi"
+    "esde": "naomi",
+    "romm": "arcade"
   },
   {
     "id": "playstation",
@@ -745,7 +797,8 @@
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
     "dats": ["redump/Sony - PlayStation"],
-    "esde": "psx"
+    "esde": "psx",
+    "romm": "psx"
   },
   {
     "id": "playstation-2",
@@ -760,7 +813,8 @@
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
     "dats": ["redump/Sony - PlayStation 2"],
-    "esde": "ps2"
+    "esde": "ps2",
+    "romm": "ps2"
   },
   {
     "id": "playstation-3",
@@ -774,7 +828,8 @@
     ],
     "rules": ["R10", "R11", "R13"],
     "dats": ["redump/Sony - PlayStation 3"],
-    "esde": "ps3"
+    "esde": "ps3",
+    "romm": "ps3"
   },
   {
     "id": "playstation-portable",
@@ -789,7 +844,8 @@
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
     "dats": ["redump/Sony - PlayStation Portable", "no-intro/Sony - PlayStation Portable"],
-    "esde": "psp"
+    "esde": "psp",
+    "romm": "psp"
   },
   {
     "id": "playstation-vita",
@@ -805,6 +861,7 @@
     "rules": ["R10", "R11", "R13"],
     "dats": ["no-intro/Sony - PlayStation Vita"],
     "esde": "psvita",
+    "romm": "psvita",
     "containerByExtension": {".vpk": "bare"}
   },
   {
@@ -819,7 +876,8 @@
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
     "dats": ["redump/Sega - Mega-CD - Sega CD"],
-    "esde": "segacd"
+    "esde": "segacd",
+    "romm": "segacd"
   },
   {
     "id": "saturn",
@@ -833,7 +891,8 @@
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
     "dats": ["redump/Sega - Saturn"],
-    "esde": "saturn"
+    "esde": "saturn",
+    "romm": "saturn"
   },
   {
     "id": "dreamcast",
@@ -848,7 +907,8 @@
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
     "dats": ["redump/Sega - Dreamcast"],
-    "esde": "dreamcast"
+    "esde": "dreamcast",
+    "romm": "dc"
   },
   {
     "id": "pc-engine-cd-turbografx-cd",
@@ -862,7 +922,8 @@
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
     "dats": ["redump/NEC - PC Engine CD - TurboGrafx-CD"],
-    "esde": "pcenginecd"
+    "esde": "pcenginecd",
+    "romm": "turbografx-cd"
   },
   {
     "id": "pc-fx",
@@ -876,7 +937,8 @@
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
     "dats": ["redump/NEC - PC-FX"],
-    "esde": "pcfx"
+    "esde": "pcfx",
+    "romm": "pc-fx"
   },
   {
     "id": "neo-geo-cd",
@@ -890,7 +952,8 @@
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
     "dats": ["redump/SNK - Neo Geo CD"],
-    "esde": "neogeocd"
+    "esde": "neogeocd",
+    "romm": "neo-geo-cd"
   },
   {
     "id": "3do",
@@ -905,7 +968,8 @@
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
     "dats": ["redump/The 3DO Company - 3DO"],
-    "esde": "3do"
+    "esde": "3do",
+    "romm": "3do"
   },
   {
     "id": "cd-i",
@@ -919,7 +983,8 @@
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
     "dats": ["redump/Philips - CD-i"],
-    "esde": "cdimono1"
+    "esde": "cdimono1",
+    "romm": "philips-cd-i"
   },
   {
     "id": "jaguar-cd",
@@ -934,7 +999,8 @@
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
     "dats": ["redump/Atari - Jaguar CD"],
-    "esde": "atarijaguarcd"
+    "esde": "atarijaguarcd",
+    "romm": "atari-jaguar-cd"
   },
   {
     "id": "playdia",
@@ -946,7 +1012,8 @@
     "alternatives": [
       {"id": "cue-bin", "label": "cue/bin", "producible": true}
     ],
-    "rules": ["R2", "R7", "R10", "R11", "R13"]
+    "rules": ["R2", "R7", "R10", "R11", "R13"],
+    "romm": "playdia"
   },
   {
     "id": "other-redump-cd-dvd-systems",
@@ -973,7 +1040,8 @@
     ],
     "rules": ["R4", "R10", "R11", "R13"],
     "dats": ["redump/Nintendo - GameCube"],
-    "esde": "gc"
+    "esde": "gc",
+    "romm": "ngc"
   },
   {
     "id": "wii",
@@ -988,7 +1056,8 @@
     ],
     "rules": ["R4", "R10", "R11", "R13"],
     "dats": ["redump/Nintendo - Wii"],
-    "esde": "wii"
+    "esde": "wii",
+    "romm": "wii"
   },
   {
     "id": "wiiware-virtual-console",
@@ -1002,7 +1071,8 @@
     ],
     "rules": ["R10", "R13"],
     "dats": ["no-intro/Nintendo - Wii (Digital)"],
-    "esde": "wii"
+    "esde": "wii",
+    "romm": "wii"
   },
   {
     "id": "wii-u",
@@ -1016,7 +1086,8 @@
       {"id": "folder", "label": "loadiine folder", "producible": false}
     ],
     "rules": ["R3", "R10", "R11", "R13"],
-    "esde": "wiiu"
+    "esde": "wiiu",
+    "romm": "wiiu"
   },
   {
     "id": "xbox",
@@ -1030,7 +1101,8 @@
     ],
     "rules": ["R10", "R11", "R13"],
     "dats": ["redump/Microsoft - Xbox"],
-    "esde": "xbox"
+    "esde": "xbox",
+    "romm": "xbox"
   },
   {
     "id": "xbox-360",
@@ -1046,6 +1118,7 @@
     ],
     "rules": ["R10", "R11", "R13"],
     "dats": ["redump/Microsoft - Xbox 360"],
-    "esde": "xbox360"
+    "esde": "xbox360",
+    "romm": "xbox360"
   }
 ]

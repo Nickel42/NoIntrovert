@@ -34,6 +34,13 @@
             <Button Classes="link" Content="Change…" Command="{Binding ChangeSaveFolderCommand}" VerticalAlignment="Center"
                     ToolTip.Tip="Choose the folder" AutomationProperties.Name="Change the save folder" />
         </StackPanel>
+        <!-- How the folder is arranged: its own item, so a narrow run bar puts it on the next line -->
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding SaveInFolder}">
+            <TextBlock Text="Layout:" VerticalAlignment="Center" Foreground="{DynamicResource SubtleText}" />
+            <ComboBox x:Name="FolderLayoutPicker" VerticalAlignment="Center" MinHeight="0" Padding="8,2"
+                      ItemsSource="{x:Static vm:OutputSettingsViewModel.ShortFolderLayouts}" SelectedItem="{Binding Settings.Output.SelectedShortFolderLayout}"
+                      AutomationProperties.Name="Folder layout" ToolTip.Tip="{x:Static vm:OutputSettingsViewModel.FolderLayoutTip}" />
+        </StackPanel>
         <RadioButton IsChecked="{Binding SaveReplacingOriginals}" VerticalAlignment="Center"
                      ToolTip.Tip="Each original is removed only after its new file verifies. If verification fails, the original stays and the row shows why.">
             <StackPanel Orientation="Horizontal" Spacing="6">

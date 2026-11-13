@@ -37,6 +37,19 @@ Removed originals go to the Recycle Bin (or the Trash) unless that's turned off.
 run bar's starting choice and **Overwrite existing files**: when that's off, a name that's already taken gets
 " (2)".
 
+With **Folder**, **Layout** (beside it, and in Settings › Output) arranges what's saved there:
+
+- **ES-DE** (the default): each system in its own folder with ES-DE's names, `roms/psx`, `roms/gc`,
+  `roms/megadrive`…, the same layout Organize uses.
+- **RomM**: each system in its own folder with RomM's platform names, `roms/psx`, `roms/ngc`, `roms/genesis`…
+  (from RomM's list of supported platforms). MAME, FinalBurn Neo and NAOMI all go in RomM's `roms/arcade`.
+
+  With either, a file whose system can't be told goes in the folder itself, and a folder already named `roms`
+  isn't given another one.
+- **Same folders**: the subfolders each original is in, below the folder it was added from (or below its
+  Library folder). A file added on its own goes in the folder itself.
+- **No subfolders**: everything in the folder itself.
+
 ### The log
 
 The log sits under the job list, collapsed to one bar with the error and warning counts (red when there's an

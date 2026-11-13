@@ -33,7 +33,9 @@ public sealed record TargetAlternative(string Id, string Label, bool Producible)
 /// <see cref="Folders"/> the folder names people use for it, compared as
 /// lower-case letters and digits only. <see cref="Dats"/> names the
 /// libretro-database DATs that cover it ("no-intro/Nintendo - Game Boy"),
-/// and <see cref="Esde"/> the folder ES-DE keeps its games in ("gba").
+/// <see cref="Esde"/> the folder ES-DE keeps its games in ("gba"), and
+/// <see cref="Romm"/> RomM's folder for it, its platform slug ("ngc" for
+/// GameCube; docs.romm.app, Supported platforms).
 /// </summary>
 public sealed record SystemInfo(
     string Id,
@@ -48,7 +50,8 @@ public sealed record SystemInfo(
     IReadOnlyList<TargetContainer>? AlsoOptimal = null,
     string? DiscTarget = null,
     IReadOnlyList<string>? Dats = null,
-    string? Esde = null)
+    string? Esde = null,
+    string? Romm = null)
 {
     public bool Follows(string rule) => Rules.Contains(rule);
 
