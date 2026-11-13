@@ -152,6 +152,7 @@ public sealed class CleanupRunner
             void Safe(AppSettings x)
             {
                 x.Output.SaveTo = SaveTo.Folder; // the staging folder, and never Replace the originals
+                x.Output.FolderLayout = FolderLayout.Flat; // straight in it: the plan has already said where each file ends up
                 x.Output.LeaveSourcesAlone = copies; // FR-8: not even renamed for a moment
                 x.Chd.VerifyAfterCreate = true;
                 x.Archives.TestAfter = true;

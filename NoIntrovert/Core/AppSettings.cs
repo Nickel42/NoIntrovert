@@ -214,6 +214,25 @@ public enum SaveTo
     ReplaceOriginals,
 }
 
+/// <summary>How Save to › Folder arranges what it saves (see <see cref="Jobs.OutputPaths.FolderFor"/>).</summary>
+public enum FolderLayout
+{
+    /// <summary>
+    /// ES-DE: <c>roms/&lt;system&gt;</c> in the folder, with ES-DE's system names (psx, ps2, gc…), as
+    /// Organize does. A file whose system can't be told goes in the folder itself.
+    /// </summary>
+    EsDe,
+    /// <summary>
+    /// RomM: <c>roms/&lt;platform&gt;</c> in the folder, with RomM's platform names (psx, ps2, ngc…;
+    /// <see cref="Formats.SystemInfo.Romm"/>). A file whose system can't be told goes in the folder itself.
+    /// </summary>
+    RomM,
+    /// <summary>The same subfolders the originals are in, below the folder that was added (or the Library folder).</summary>
+    SameAsOriginals,
+    /// <summary>Everything in the folder itself.</summary>
+    Flat,
+}
+
 /// <summary>Where results go, and what happens to the files they were made from.</summary>
 public sealed class OutputSettings
 {
@@ -224,6 +243,17 @@ public sealed class OutputSettings
     public bool ReplaceConfirmed { get; set; }
 
     public string Folder { get; set; } = ""; // the folder for SaveTo.Folder; the last one used
+
+    /// <summary>How Save to › Folder arranges the files in <see cref="Folder"/>.</summary>
+    public FolderLayout FolderLayout { get; set; } = FolderLayout.EsDe;
+
+    /// <summary>
+    /// For one run, never set by the user: the folders the page's files were added from, which
+    /// <see cref="FolderLayout.SameAsOriginals"/> keeps the subfolders below. Kept through
+    /// <see cref="AppSettings.Clone"/>, never written to the settings file.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? SourceRoots { get; set; }
 
     /// <summary>Replace a file that's in the way; off, a taken name gets " (2)" (see <see cref="Jobs.OutputPaths.Available"/>).</summary>
     public bool Overwrite { get; set; }

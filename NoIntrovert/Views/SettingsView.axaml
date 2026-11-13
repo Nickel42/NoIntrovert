@@ -401,6 +401,14 @@
                                        Text="⚠ Each original is removed once its new file checks out." />
                             <Grid Classes="row" ColumnDefinitions="*,Auto">
                                 <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Folder layout" Classes="name" />
+                                    <TextBlock Text="How Save to › Folder arranges the files it saves." Classes="desc" />
+                                </StackPanel>
+                                <ComboBox Classes="control" Width="260" ItemsSource="{x:Static vm:OutputSettingsViewModel.FolderLayouts}" SelectedItem="{Binding Output.SelectedFolderLayout}"
+                                          AutomationProperties.Name="Folder layout" ToolTip.Tip="{x:Static vm:OutputSettingsViewModel.FolderLayoutTip}" />
+                            </Grid>
+                            <Grid Classes="row" ColumnDefinitions="*,Auto">
+                                <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="Overwrite existing files" Classes="name" />
                                     <TextBlock Text="When off, a new file whose name is taken gets a number added, e.g. “(2)”." Classes="desc" />
                                 </StackPanel>

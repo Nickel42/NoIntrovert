@@ -122,10 +122,15 @@ public delegate JobOutcome JobWork(JobContext context);
 
 public static class OutputPaths
 {
-    /// <summary>The folder results for <paramref name="source"/> go in: the Save to folder, or the source's own.</summary>
+    /// <summary>
+    /// The folder results for <paramref name="source"/> go in: the source's own, or in the Save to folder where its
+    /// <see cref="OutputSettings.FolderLayout"/> puts it (<see cref="FolderLayouts"/>).
+    /// </summary>
     public static string FolderFor(AppSettings settings, string source)
     {
-        var folder = settings.Output.TargetFolder ?? Path.GetDirectoryName(source)!;
+        var folder = settings.Output.TargetFolder is { } target
+            ? FolderLayouts.FolderIn(target, settings, source)
+            : Path.GetDirectoryName(source)!;
         Directory.CreateDirectory(folder);
         return folder;
     }

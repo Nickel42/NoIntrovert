@@ -1007,6 +1007,7 @@ Test("Remove originals after a verified conversion", () =>
 });
 
 SaveToTests.Run(Test, Dir, (work, configure) => RunJob(work, configure), synthCue, synthBin);
+FolderLayoutTests.Run(Test, Dir, (work, configure) => RunJob(work, configure), synthCue, synthBin);
 
 if (OperatingSystem.IsLinux())
     Test("Remove to the Trash (freedesktop.org, under a scratch XDG_DATA_HOME)", () =>
@@ -4152,7 +4153,9 @@ void ConvertTest(string name, object input, string? expectedRawSha1, Action<AppS
 
 JobOutcome RunJob(JobWork work, Action<AppSettings>? configure = null, CancellationToken token = default, IJobReport? report = null)
 {
-    var settings = new AppSettings { Performance = { TempFolder = Path.Combine(scratch, "_temp"), ParallelJobs = 1 }, Chd = { VerifyAfterCreate = true } };
+    // Output folders hold the result itself (no roms/<system>), unless a test chooses a folder layout.
+    var settings = new AppSettings { Performance = { TempFolder = Path.Combine(scratch, "_temp"), ParallelJobs = 1 }, Chd = { VerifyAfterCreate = true },
+                                     Output = { FolderLayout = FolderLayout.Flat } };
     configure?.Invoke(settings);
     // Tests name an output folder by setting it; the app also chooses Save to: Folder.
     if (settings.Output.SaveTo == SaveTo.NextToOriginals && settings.Output.Folder.Length > 0) settings.Output.SaveTo = SaveTo.Folder;
