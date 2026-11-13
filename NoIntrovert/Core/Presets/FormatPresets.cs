@@ -207,6 +207,11 @@ public static class FormatPresets
             new("xiso-standard", "XISO", "Game partition", "xemu and modded consoles read it; drops only the unused video partition", Kind(TargetKind.Xiso), Recommended: true),
             new("xbox-cci-standard", "CCI", "Cerbios", "Compressed, split for the console's hard drive; Cerbios BIOS only, not xemu", Kind(TargetKind.XboxCci)),
         ],
+        // Xbox 360 discs: the files read by lib-xiso-kit, written into a ZArchive by lib-wii-u-kit.
+        ["xbox-360"] =
+        [
+            new("zar-standard", "ZAR", "Compressed", "Xenia Canary plays it without unpacking; other emulators and the console can't read it", Kind(TargetKind.Zar)),
+        ],
         // Switch packages through lib-nx-kit, with your own prod.keys.
         ["switch"] =
         [
@@ -235,6 +240,7 @@ public static class FormatPresets
         TargetKind.Xci => new("xci-standard", "XCI", "Uncompressed", "A plain Switch cartridge image", Kind(TargetKind.Xci)),
         TargetKind.Xiso => new("xiso-standard", "XISO", "Game partition", "An Xbox disc's game partition", Kind(TargetKind.Xiso)),
         TargetKind.XboxCci => new("xbox-cci-standard", "CCI", "Cerbios", "A compressed Xbox disc for Cerbios", Kind(TargetKind.XboxCci)),
+        TargetKind.Zar => new("zar-standard", "ZAR", "Compressed", "An Xbox 360 disc's files in a ZArchive for Xenia Canary", Kind(TargetKind.Zar)),
         _ => Leave,
     };
 

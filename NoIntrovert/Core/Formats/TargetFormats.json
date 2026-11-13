@@ -1036,13 +1036,13 @@
     "id": "xbox-360",
     "name": "Xbox 360",
     "category": "disc",
-    "extensions": [],
+    "extensions": [".zar"],
     "folders": ["xbox360", "x360", "microsoftxbox360"],
-    "target": {"format": ".iso", "container": "bare", "label": ".iso", "producible": false},
+    "target": {"format": ".iso", "container": "bare", "label": ".iso", "producible": true},
     "alternatives": [
+      {"id": "zar", "label": ".zar (Xenia Canary)", "producible": true},
       {"id": "folder", "label": "Extracted XEX folder", "producible": false},
-      {"id": "god", "label": "GOD", "producible": false},
-      {"id": "zar", "label": ".zar", "producible": false}
+      {"id": "god", "label": "GOD", "producible": false}
     ],
     "rules": ["R10", "R11", "R13"],
     "dats": ["redump/Microsoft - Xbox 360"],

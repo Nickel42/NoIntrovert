@@ -34,6 +34,12 @@ public static class KnownFormats
     /// <summary>A decrypted PS3 disc game as a folder (PS3_GAME/PARAM.SFO), named "Game.ps3" for ES-DE.</summary>
     public static readonly FormatInfo Ps3Folder = new("ps3-folder", "PS3 game folder");
 
+    /// <summary>
+    /// An Xbox 360 package (CON, LIVE or PIRS): an XBLA game, DLC, a title update or a Games on Demand header. Such
+    /// files usually have no extension (they're named by content ID), so they're told by their first bytes.
+    /// </summary>
+    public static readonly FormatInfo XboxPackage = new("x360-package", "Xbox 360 package");
+
     /// <summary>Wii U inputs that are recognised only to say why they can't be used (NUS without a ticket, WUHB).</summary>
     public static readonly FormatInfo WiiUUnsupported = new("wiiu-unsupported", "Unsupported Wii U input", ".wuhb");
 
@@ -73,7 +79,7 @@ public static class KnownFormats
     public static FormatInfo? ById(string id) => AllById.GetValueOrDefault(id);
 
     private static readonly Dictionary<string, FormatInfo> AllById =
-        ((FormatInfo[])[.. ByNameFormats, SplitFile, WiiUFolder, Nus, VitaFolder, ConvertTargets.OtherFile, ConvertTargets.PackedFolder])
+        ((FormatInfo[])[.. ByNameFormats, SplitFile, WiiUFolder, Nus, VitaFolder, XboxPackage, ConvertTargets.OtherFile, ConvertTargets.PackedFolder])
             .GroupBy(f => f.Id).ToDictionary(g => g.Key, g => g.First());
 
     /// <summary>The format a file name says, without looking at the file (it may be inside an archive).</summary>
@@ -86,7 +92,7 @@ public static class KnownFormats
     /// </summary>
     public static readonly IReadOnlyList<string> AlreadyCompressed =
     [
-        ".chd", ".rvz", ".wia", ".gcz", ".cso", ".zso", ".jso", ".dax", ".isz", ".pbp", ".wua", ".wux",
+        ".chd", ".rvz", ".wia", ".gcz", ".cso", ".zso", ".jso", ".dax", ".isz", ".pbp", ".wua", ".wux", ".zar",
         ".7z", ".zip", ".rar", ".gz", ".tgz", ".xz", ".txz", ".bz2", ".zst", ".lz4", ".lzma", ".cab",
         ".jpg", ".jpeg", ".png", ".webp", ".mp3", ".ogg", ".opus", ".flac", ".mp4", ".mkv", ".webm",
     ];
@@ -174,6 +180,35 @@ public sealed class ArchiveHandler() : ExtensionHandler("archive", 50, KnownForm
 {
     public override IEnumerable<FileSet> Claim(ScanSet set) =>
         base.Claim(set).Select(s => s with { Inside = ArchivePeek.Inside(s.Primary) }).ToList();
+}
+
+/// <summary>
+/// Xbox 360 packages, by their CON, LIVE or PIRS header (lib-xiso-kit). Only files no other handler took are looked
+/// at, so the scan reads the first bytes of leftovers only. A Games on Demand header claims the "&lt;name&gt;.data"
+/// folder of disc data beside it.
+/// </summary>
+public sealed class Xbox360PackageHandler() : ExtensionHandler("x360-package", 10, [KnownFormats.XboxPackage])
+{
+    public override FormatInfo? Recognize(string file)
+    {
+        // Packages are named by content ID (no extension; a title update's looks like ".00000000000O2") or given
+        // one people pick; never a known format's, and the usual pictures, documents and media aren't opened.
+        if (KnownFormats.ByName(Path.GetFileName(file)) is not null || NotPackages.Contains(Path.GetExtension(file))) return null;
+        return LibXisoKit.Stfs.StfsHeader.IsPackage(file) ? KnownFormats.XboxPackage : null;
+    }
+
+    private static readonly HashSet<string> NotPackages = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".svg", ".txt", ".nfo", ".md", ".pdf", ".htm", ".html",
+        ".xml", ".json", ".ini", ".cfg", ".log", ".dat", ".sfv", ".md5", ".sha1", ".m3u", ".srm", ".sav", ".state",
+        ".mp3", ".mp4", ".mkv", ".avi", ".ogg", ".flac", ".wav", ".lnk", ".url", ".exe", ".dll", ".db", ".rar",
+    };
+
+    protected override IEnumerable<string> MembersOf(string file)
+    {
+        var data = file + ".data";
+        return Directory.Exists(data) ? [file, data] : [file];
+    }
 }
 
 /// <summary>PS Vita games as NoNpDrm folders: claimed whole, never looked inside.</summary>

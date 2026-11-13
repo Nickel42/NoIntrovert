@@ -76,5 +76,5 @@
   "wiiware-virtual-console": "WAD, or WAD in 7z for storage. A bare WAD is the default: Dolphin installs it straight to the emulated system memory.",
   "wii-u": "WUA, WUX or a game folder. WUA is the default: Cemu plays it directly, and the game, update and DLC go in one compressed file.",
   "xbox": "XISO, or CCI for modded consoles running Cerbios. XISO is the default: xemu reads it, and it drops only the disc's unused video partition.",
-  "xbox-360": "ISO, an extracted game folder, or GOD. ISO is the default: Xenia plays it directly from one file."
+  "xbox-360": "ISO, ZAR, an extracted game folder, or GOD; XBLA games, DLC and title updates come as packages. ISO is the default: Xenia plays it directly from one file. ZAR is smaller, for Xenia Canary."
 }

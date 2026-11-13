@@ -119,6 +119,7 @@ public sealed record PresetValues
         TargetKind.Xci => ".xci",
         TargetKind.Xiso => ".iso",
         TargetKind.XboxCci => ".cci",
+        TargetKind.Zar => ".zar",
         TargetKind.SevenZip => ".7z",
         TargetKind.Zip => ".zip",
         TargetKind.DiscImage => ExtractFormat switch
