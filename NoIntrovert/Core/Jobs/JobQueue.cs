@@ -327,7 +327,11 @@ public sealed class JobQueue
         }
         job.Spec.OnFinish(outcome);
         job.Dispose();
-        if (job.Group.Jobs.All(j => j.State == QueuedState.Finished)) job.Group.Complete();
+        if (job.Group.Jobs.All(j => j.State == QueuedState.Finished))
+        {
+            Dats.ThrottledJsonFile.FlushAll(); // hashes, matches and originals are on disk before the group reports done
+            job.Group.Complete();
+        }
         Changed?.Invoke();
         lock (_gate) StartWorkers(); // a dependency finishing can make queued jobs runnable
     }

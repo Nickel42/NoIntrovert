@@ -101,11 +101,10 @@ public sealed class HashCache
     private static readonly ConcurrentDictionary<string, HashCache> Caches = new(StringComparer.OrdinalIgnoreCase);
     private static readonly JsonSerializerOptions JsonOptions = new();
     private readonly ConcurrentDictionary<string, Entry> _entries;
-    private readonly string _path;
+    private readonly ThrottledJsonFile _file;
 
     private HashCache(string path)
     {
-        _path = path;
         Dictionary<string, Entry>? loaded = null;
         try
         {
@@ -113,12 +112,17 @@ public sealed class HashCache
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
         _entries = new ConcurrentDictionary<string, Entry>(loaded ?? [], StringComparer.OrdinalIgnoreCase);
+        _file = new ThrottledJsonFile(path, () => JsonSerializer.Serialize(_entries, JsonOptions));
     }
 
     /// <summary>The cache under the current settings folder.</summary>
     public static HashCache Default => Caches.GetOrAdd(Path.Combine(AppSettings.SettingsDirectory, "hashes.json"), p => new HashCache(p));
 
-    public bool IsDirty => _dirty;
+    /// <summary>True while a hash worked out hasn't been written to hashes.json yet.</summary>
+    public bool IsDirty => _file.IsDirty;
+
+    /// <summary>How many times hashes.json has been written.</summary>
+    public int Writes => _file.Writes;
 
     /// <summary>How many lookups found what they needed (tests use it to check nothing was hashed again).</summary>
     public int Hits;
@@ -134,8 +138,7 @@ public sealed class HashCache
         }
         var files = hash();
         _entries[path] = new Entry(size, ticks, files);
-        if (DateTime.UtcNow - _saved > TimeSpan.FromSeconds(2)) Flush();
-        else _dirty = true;
+        _file.Changed();
         return files;
     }
 
@@ -159,25 +162,6 @@ public sealed class HashCache
         return (-1, 0);
     }
 
-    private readonly object _saveLock = new();
-    private DateTime _saved;
-    private volatile bool _dirty;
-
-    /// <summary>Writes the cache now. It's written at most every two seconds while hashing; a run flushes it at the end.</summary>
-    public void Flush()
-    {
-        lock (_saveLock)
-        {
-            _saved = DateTime.UtcNow;
-            _dirty = false;
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-                var temp = _path + ".tmp";
-                File.WriteAllText(temp, JsonSerializer.Serialize(_entries, JsonOptions));
-                File.Move(temp, _path, overwrite: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
-    }
+    /// <summary>Writes the cache now if it changed. While hashing it's written at most every two seconds; a job group flushes it at the end.</summary>
+    public void Flush() => _file.Flush();
 }

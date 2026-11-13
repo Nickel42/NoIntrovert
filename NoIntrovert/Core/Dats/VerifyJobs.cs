@@ -44,8 +44,7 @@ public static class VerifyJobs
         else
         {
             c.Report.SetStage("Hashing");
-            try { files = cache.GetOrAdd(path, () => Hash(c, set)); }
-            finally { cache.Flush(); }
+            files = cache.GetOrAdd(path, () => Hash(c, set));
         }
 
         var result = Matcher.Match(path, files, dats.For(system, c.Settings.Dats.OwnFolder));
@@ -75,8 +74,7 @@ public static class VerifyJobs
     {
         var set = FormatRegistry.Default.Identify(path);
         if (set is null || !CanHash(set) || set.Format == KnownFormats.Chd) return null;
-        try { return HashCache.Default.GetOrAdd(path, () => Hash(c, set)); }
-        finally { HashCache.Default.Flush(); }
+        return HashCache.Default.GetOrAdd(path, () => Hash(c, set));
     }
 
     /// <summary>What's wrong with the file itself, or null: CHDs are verified, 7z and zip tested.</summary>
