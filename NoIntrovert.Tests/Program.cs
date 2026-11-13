@@ -1087,6 +1087,57 @@ Test("ISO extraction refuses a disc with audio", () =>
     return o.Status == JobStatus.Failed ? Note(o.Summary) : $"expected Failed, got {o.Status}";
 });
 
+Test("Streamed CHD hashes and CD-to-ISO match extracting to files first", () =>
+{
+    using var chdman = new Chdman();
+    // A GD-ROM, made from a .gdi, beside the CD and DVD reference discs.
+    var gdDir = Dir("stream-gd");
+    using (var o = File.Create(Path.Combine(gdDir, "track01.bin"))) CopyRange(crashBin, o, 0, 600 * 2352L);
+    using (var o = File.Create(Path.Combine(gdDir, "track02.raw"))) CopyRange(roarAudio, o, 0, 302 * 2352L);
+    File.WriteAllText(Path.Combine(gdDir, "gd.gdi"), "2\r\n1 0 4 2352 track01.bin 0\r\n2 750 0 2352 track02.raw 0\r\n");
+    var gdChd = Path.Combine(gdDir, "gd.chd");
+    chdman.CreateCd(Path.Combine(gdDir, "gd.gdi"), gdChd, new ChdOutputSettings { Force = true });
+    if (chdman.Info(gdChd).MediaType != "gd") return $"gd.chd is {chdman.Info(gdChd).MediaType}, not a GD-ROM";
+
+    // Hashes: the old way extracted to a temp folder and hashed the files (descriptors left out).
+    foreach (var chd in new[] { Path.Combine(scratch, "ref", "synth.chd"), gdChd, Path.Combine(scratch, "ref", "slice.chd") })
+    {
+        var work = Dir("stream-hash-" + Path.GetFileNameWithoutExtension(chd));
+        var (written, _) = ChdService.Extract(chdman, chd, work, ExtractFormat.Auto, splitBin: true, overwrite: true, log, CancellationToken.None);
+        var expected = written.Where(f => Path.GetExtension(f) is not (".cue" or ".gdi"))
+            .SelectMany(f => NoIntrovert.Core.Dats.Hasher.HashFile(f)).ToList();
+        var streamed = ChdService.HashTracks(chdman, chd, CancellationToken.None);
+        if (expected.Count == 0 || !expected.SequenceEqual(streamed))
+            return $"{Path.GetFileName(chd)}: streamed [{string.Join(", ", streamed)}] vs extracted [{string.Join(", ", expected)}]";
+        if (expected.Any(h => h.Md5 is null || h.Sha1 is null)) return $"{Path.GetFileName(chd)}: hashes missing";
+    }
+
+    // CD to ISO: the old way extracted a single bin to a temp folder and converted it with BinToIso.
+    var isoDir = Dir("stream-iso");
+    var bin = Path.Combine(isoDir, "m1.bin");
+    using (var o = File.Create(bin)) CopyRange(saturnMode1, o, 0, 2000 * 2352L);
+    File.WriteAllText(Path.Combine(isoDir, "m1.cue"), "FILE \"m1.bin\" BINARY\r\n  TRACK 01 MODE1/2352\r\n    INDEX 01 00:00:00\r\n");
+    var m1 = Path.Combine(isoDir, "m1.chd");
+    chdman.CreateCd(Path.Combine(isoDir, "m1.cue"), m1, new ChdOutputSettings { Force = true });
+    var oldDir = Dir("stream-iso-old");
+    chdman.ExtractCd(m1, Path.Combine(oldDir, "m1.cue"), force: true);
+    ChdService.BinToIso(Path.Combine(oldDir, "m1.bin"), Path.Combine(oldDir, "m1.iso"), CancellationToken.None);
+    var newDir = Dir("stream-iso-new");
+    var (isoFiles, _) = ChdService.Extract(chdman, m1, newDir, ExtractFormat.Iso, splitBin: false, overwrite: true, log, CancellationToken.None);
+    if (isoFiles.Count != 1 || Directory.GetFiles(newDir).Length != 1) return $"ISO extraction wrote {string.Join(", ", Directory.GetFiles(newDir).Select(Path.GetFileName))}";
+    if (SameFile(Path.Combine(oldDir, "m1.iso"), isoFiles[0]) is { } isoProblem) return "ISO: " + isoProblem;
+
+    // A disc with audio is refused before anything is written.
+    var refuseDir = Dir("stream-iso-refuse");
+    try
+    {
+        ChdService.Extract(chdman, Path.Combine(scratch, "ref", "synth.chd"), refuseDir, ExtractFormat.Iso, false, true, log, CancellationToken.None);
+        return "a disc with audio was written as an ISO";
+    }
+    catch (InvalidOperationException) { }
+    return Directory.GetFiles(refuseDir).Length == 0 ? null : "the refused ISO extraction left files behind";
+});
+
 Test("Extract a DVD CHD to ISO", () =>
 {
     var outDir = Dir("extract-dvd");

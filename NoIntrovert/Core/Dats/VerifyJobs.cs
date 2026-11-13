@@ -137,14 +137,12 @@ public static class VerifyJobs
             return [new HashedFile(Path.GetFileName(path), (long)h.Size, h.Crc32.ToUpperInvariant(), h.Sha1.ToUpperInvariant())];
         }
 
-        // CHD: its tracks, as they'd be extracted (one bin per track, or an iso).
+        // CHD: its tracks, as they'd be extracted (one bin per track, or an iso), hashed as they're
+        // decompressed rather than written to the temp folder first.
         if (set.Format == KnownFormats.Chd)
         {
-            Directory.CreateDirectory(c.Settings.Performance.EffectiveTempFolder);
-            using var work = new WorkDirectory(c.Settings.Performance.EffectiveTempFolder);
-            c.TrackChdman("Extracting to hash");
-            var (written, _) = ChdService.Extract(c.Chdman, path, work.Path, ExtractFormat.Auto, splitBin: true, overwrite: true, c.Log, c.Token);
-            return written.Where(f => !IsDescriptor(f)).SelectMany(f => Hasher.HashFile(f, c.Token)).ToList();
+            c.TrackChdman("Hashing the tracks");
+            return ChdService.HashTracks(c.Chdman, path, c.Token);
         }
 
         // cue/bin, gdi, ccd/img: each track or image file; anything else: the file itself.
