@@ -211,7 +211,10 @@ public sealed class JobQueue
     // Called with _gate held.
     private void StartWorkers()
     {
-        var wanted = Math.Min(Concurrency, _queued.Count);
+        // Workers busy with a job count toward _workers too, so a job queued behind a running one
+        // gets a worker of its own when Concurrency allows.
+        var running = _all.Count(j => j.State == QueuedState.Running);
+        var wanted = Math.Min(Concurrency, running + _queued.Count);
         while (_workers < wanted)
         {
             _workers++;

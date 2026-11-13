@@ -92,6 +92,31 @@ internal static class OptUxTests
                 running.Completion.Wait(TimeSpan.FromSeconds(20));
             }
         });
+
+        test("Queue: with 2 jobs at a time, a job added while a long one runs starts at once", () =>
+        {
+            if (Environment.ProcessorCount < 2) return null; // Concurrency is capped at the cores there are
+            var queue = new JobQueue(() => 2);
+            var log = new NullLog();
+            using var release = new ManualResetEventSlim();
+            var slow = queue.Submit("slow", [new BatchJob("wait", new NullReport(), _ =>
+            {
+                release.Wait(TimeSpan.FromSeconds(30));
+                return new JobOutcome(JobStatus.Succeeded, "ok");
+            }, _ => { }, _ => { })], new AppSettings(), log);
+            try
+            {
+                var quick = queue.Submit("quick", [new BatchJob("quick", new NullReport(), _ => new JobOutcome(JobStatus.Succeeded, "ok"), _ => { }, _ => { })],
+                    new AppSettings(), log);
+                if (!quick.Completion.Wait(TimeSpan.FromSeconds(10))) return "the second job waited for the first";
+                return slow.IsFinished ? "the long job finished early" : null;
+            }
+            finally
+            {
+                release.Set();
+                slow.Completion.Wait(TimeSpan.FromSeconds(20));
+            }
+        });
     }
 
     /// <summary>In the real window (headless): the banner, the reasons, the longer button label and the log toggle.</summary>
