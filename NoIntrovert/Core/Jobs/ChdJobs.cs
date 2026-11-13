@@ -37,7 +37,7 @@ public static class ChdJobs
         var prepShare = Path.GetExtension(source).ToLowerInvariant() is ".cue" or ".gdi" or ".toc" or ".nrg" or ".iso" or ".bin" or ".img" or ".gcm" ? 0.02 : 0.15;
         c.Band(0, prepShare);
         c.Report.SetStage("Preparing");
-        var preparer = new InputPreparer(s.Performance.EffectiveTempFolder, s.Chd.IsoMode, log);
+        var preparer = new InputPreparer(s.Performance.EffectiveTempFolder, s.Chd.IsoMode, log) { Threads = s.Performance.EffectiveThreadsPerJob };
         using var prepared = preparer.Prepare(source,
             new InlineProgress<(string Stage, double Fraction)>(p => { c.Report.SetStage(p.Stage); c.Report.SetProgress(p.Fraction); }), c.Token);
 
@@ -58,7 +58,7 @@ public static class ChdJobs
 
             if (disc.IsNintendo && s.Nintendo.Target == NintendoTarget.Rvz)
             {
-                var (result, rvzOutput, rvzStats) = RvzJobs.ConvertDisc(c, disc, outputFolder, discLabel, mustVerify, discStart, discShare);
+                var (result, rvzOutput, rvzStats) = RvzJobs.ConvertDisc(c, disc, outputFolder, discLabel, mustVerify, discStart, discShare, source);
                 switch (result)
                 {
                     case RvzJobs.DiscResult.Skipped: skipped++; break;

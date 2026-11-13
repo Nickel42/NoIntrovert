@@ -112,9 +112,14 @@ public static class CtrJobs
             Path.GetFileName(output), Details: result.Warnings.Count > 0 ? string.Join("\n", result.Warnings) : null);
     }
 
-    /// <summary>The hashes the original had (R11), for a file whose bytes the conversion changed: its own record, else its contents.</summary>
-    public static IReadOnlyList<HashedFile> OriginalOf(string source, CancellationToken token) =>
-        OriginalHashes.Default.Get(source)?.Files ?? Hasher.HashFile(source, token);
+    /// <summary>
+    /// The hashes the original had (R11), for a file whose bytes the conversion changed: its own record, else its
+    /// contents, through the hash cache (a file Verify &amp; match already hashed isn't read again, and a new one is
+    /// remembered). <paramref name="cache"/> is false for a temp file unpacked from an archive.
+    /// </summary>
+    public static IReadOnlyList<HashedFile> OriginalOf(string source, CancellationToken token, bool cache = true) =>
+        OriginalHashes.Default.Get(source)?.Files
+        ?? (cache ? HashCache.Default.GetOrAdd(source, () => Hasher.HashFile(source, token)) : Hasher.HashFile(source, token));
 
     private sealed record Converted(JobOutcome? Outcome, IReadOnlyList<string> Warnings);
 
@@ -175,7 +180,7 @@ public static class CtrJobs
     {
         if (!c.Settings.TargetFormats.RecordOriginalHashes) return;
         if (!(facts.NeedsConversion || compress)) return;
-        try { OriginalHashes.Default.Set(output, source, OriginalOf(input, c.Token)); }
+        try { OriginalHashes.Default.Set(output, source, OriginalOf(input, c.Token, cache: PathNames.Same(input, source))); }
         catch (IOException ex) { c.Log.Warn($"  couldn't record {Path.GetFileName(source)}'s original hashes: {ex.Message}"); }
     }
 

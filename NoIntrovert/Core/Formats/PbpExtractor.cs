@@ -35,10 +35,11 @@ internal static class PbpExtractor
         return fs.Read(head) == 4 && head.SequenceEqual("\0PBP"u8);
     }
 
+    /// <param name="threads">Blocks decoded at once; 0 for every processor.</param>
     public static IReadOnlyList<PbpDisc> Extract(string pbpPath, string outputDirectory, string baseName,
-        IProgress<double>? progress, CancellationToken token)
+        IProgress<double>? progress, CancellationToken token, int threads = 0, int batchBytes = BlockBatches.DefaultBatchBytes)
     {
-        using var fs = File.OpenRead(pbpPath);
+        using var fs = new FileStream(pbpPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, FileOptions.SequentialScan);
         using var r = new BinaryReader(fs);
 
         if (!r.ReadBytes(4).AsSpan().SequenceEqual("\0PBP"u8))
@@ -82,7 +83,7 @@ internal static class PbpExtractor
             var name = discStarts.Count == 1 ? baseName : $"{baseName} (Disc {d + 1})";
             var weight = 1.0 / discStarts.Count;
             var sub = progress is null ? null : new Progress<double>(f => progress.Report((d + f) * weight));
-            discs.Add(ExtractDisc(fs, r, discStarts[d], d + 1, outputDirectory, name, sub, token));
+            discs.Add(ExtractDisc(fs, r, discStarts[d], d + 1, outputDirectory, name, sub, token, threads, batchBytes));
         }
         progress?.Report(1);
         return discs;
@@ -91,7 +92,7 @@ internal static class PbpExtractor
     private sealed record TocTrack(int Number, bool IsAudio, long StartLba);
 
     private static PbpDisc ExtractDisc(FileStream fs, BinaryReader r, long start, int number, string outputDirectory,
-        string name, IProgress<double>? progress, CancellationToken token)
+        string name, IProgress<double>? progress, CancellationToken token, int threads, int batchBytes)
     {
         fs.Position = start;
         if (!Encoding.ASCII.GetString(r.ReadBytes(12)).Equals("PSISOIMG0000", StringComparison.Ordinal))
@@ -110,45 +111,40 @@ internal static class PbpExtractor
 
         using (var output = new BufferedStream(File.Create(binPath), 1 << 20))
         {
-            var compressed = new byte[BlockBytes + 1024];
-            var block = new byte[BlockBytes];
-            long written = 0;
-            var entry = 0;
-            while (written < totalBytes)
+            // The whole block index at once, so reading the blocks doesn't seek back to it each time.
+            var blockCount = (int)((totalBytes + BlockBytes - 1) / BlockBytes);
+            var index = new byte[blockCount * 32L];
+            fs.Position = start + IndexOffset;
+            var indexed = fs.ReadAtLeast(index, index.Length, throwOnEndOfStream: false) / 32;
+            const int maxLength = BlockBytes + 1024;
+
+            BlockBatches.Block Describe(int entry)
             {
-                if ((entry & 0x3F) == 0)
-                {
-                    token.ThrowIfCancellationRequested();
-                    progress?.Report((double)written / totalBytes);
-                }
-
-                fs.Position = start + IndexOffset + entry * 32L;
-                var offset = r.ReadUInt32();
-                var length = r.ReadUInt16();
-                if (length == 0 || length > compressed.Length)
+                if (entry >= indexed) throw new EndOfStreamException("Unable to read beyond the end of the stream.");
+                var offset = BitConverter.ToUInt32(index, entry * 32);
+                var length = BitConverter.ToUInt16(index, entry * 32 + 4);
+                if (length == 0 || length > maxLength)
                     throw new InvalidDataException($"Disc {number}: block index ends early or is corrupt (block {entry}).");
-
-                fs.Position = start + DataOffset + offset;
-                fs.ReadExactly(compressed, 0, length);
-
-                var outLength = (int)Math.Min(BlockBytes, totalBytes - written);
-                if (length == BlockBytes)
-                {
-                    output.Write(compressed, 0, outLength);
-                }
-                else
-                {
-                    using var deflate = new DeflateStream(new MemoryStream(compressed, 0, length), CompressionMode.Decompress);
-                    int got;
-                    try { got = CsoDecoder.ReadFully(deflate, block); }
-                    catch (InvalidDataException) { throw new InvalidDataException($"Disc {number}: block {entry} won't decompress; the PBP may be encrypted or damaged."); }
-                    if (got < outLength)
-                        throw new InvalidDataException($"Disc {number}: block {entry} decompressed short.");
-                    output.Write(block, 0, outLength);
-                }
-                written += outLength;
-                entry++;
+                return new BlockBatches.Block(start + DataOffset + offset, length, (int)Math.Min(BlockBytes, totalBytes - (long)entry * BlockBytes));
             }
+
+            void DecodeBlock(int entry, byte[] compressed, int offset, BlockBatches.Block b, Span<byte> slot)
+            {
+                if (b.Length == BlockBytes)
+                {
+                    compressed.AsSpan(offset, b.OutLength).CopyTo(slot);
+                    return;
+                }
+                using var deflate = new DeflateStream(new MemoryStream(compressed, offset, b.Length, writable: false), CompressionMode.Decompress);
+                int got;
+                try { got = BlockBatches.ReadFully(deflate, slot); }
+                catch (InvalidDataException) { throw new InvalidDataException($"Disc {number}: block {entry} won't decompress; the PBP may be encrypted or damaged."); }
+                if (got < b.OutLength)
+                    throw new InvalidDataException($"Disc {number}: block {entry} decompressed short.");
+            }
+
+            BlockBatches.Decode(fs, output, blockCount, Describe, DecodeBlock, maxLength, BlockBytes, threads,
+                progress is null ? null : done => progress.Report((double)done / blockCount), token, batchBytes);
         }
 
         var cue = new CueSheet();

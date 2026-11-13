@@ -251,13 +251,13 @@ public sealed class JobQueue
                 if (job is null) continue;
 
                 var settings = job.Group.Settings;
-                if (chdman is null || chdmanThreads != settings.Performance.ThreadsPerJob)
+                var threads = settings.Performance.EffectiveThreadsPerJob;
+                if (chdman is null || chdmanThreads != threads)
                 {
                     chdman?.Dispose();
-                    chdman = new Chdman(settings.Performance.ThreadsPerJob);
-                    chdmanThreads = settings.Performance.ThreadsPerJob;
+                    chdman = new Chdman(threads);
+                    chdmanThreads = threads;
                     if (rvz?.IsValueCreated == true) rvz.Value.Dispose();
-                    var threads = settings.Performance.ThreadsPerJob;
                     rvz = new Lazy<WiiGameCubeKit>(() => new WiiGameCubeKit(threads));
                 }
                 Run(index, job, chdman, rvz!);
