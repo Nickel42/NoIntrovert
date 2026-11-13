@@ -28,7 +28,11 @@ public static class ChdJobs
         log.Info($"Converting {name}");
         // R11: the source's own hashes, so the CHD or RVZ can still be checked against No-Intro and Redump.
         IReadOnlyList<Dats.HashedFile>? originals = null;
-        if (s.TargetFormats.RecordOriginalHashes)
+        // A GameCube/Wii disc on its way to RVZ is hashed beside the compression, which reads it anyway.
+        using var originalsBeside = s.TargetFormats.RecordOriginalHashes && s.Nintendo.Target == NintendoTarget.Rvz
+            ? RvzJobs.HashBeside(c, source, md5: false)
+            : null;
+        if (s.TargetFormats.RecordOriginalHashes && originalsBeside is null)
         {
             c.Report.SetStage("Hashing the original");
             originals = Dats.VerifyJobs.HashesOf(c, source);
@@ -116,6 +120,7 @@ public static class ChdJobs
         if (created.Count == 0)
             return JobOutcome.Skipped(skipped > 0 ? "Already RVZ" : "Nothing to convert");
 
+        originals ??= originalsBeside?.Result();
         if (originals is not null)
             foreach (var (made, _) in created) Dats.OriginalHashes.Default.Set(made, source, originals);
 

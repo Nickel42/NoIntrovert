@@ -77,6 +77,28 @@ public static class VerifyJobs
         return HashCache.Default.GetOrAdd(path, () => Hash(c, set));
     }
 
+    /// <summary>
+    /// Whether <see cref="HashesOf"/> hashes <paramref name="path"/> as a decoded GameCube/Wii disc, which
+    /// <see cref="DiscHashes"/> can then do on another thread with its own lib-wii-gamecube-kit context.
+    /// </summary>
+    internal static bool HashesAsNintendoDisc(string path) =>
+        IsNintendoDisc(path) && FormatRegistry.Default.Identify(path) is { } set && CanHash(set) && set.Format != KnownFormats.Chd;
+
+    /// <summary>A GameCube/Wii disc file, hashed as the disc it holds (any container lib-wii-gamecube-kit reads).</summary>
+    internal static bool IsNintendoDisc(string path)
+    {
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        return ext is ".rvz" or ".wia" or ".gcz" or ".gcm" || (ext == ".iso" && NintendoDisc.IsPlainDisc(path));
+    }
+
+    /// <summary>The decoded disc's hashes, as <see cref="HashesOf"/> keeps them (with MD5 when <paramref name="md5"/>).</summary>
+    internal static List<HashedFile> DiscHashes(LibWiiGameCubeKit.WiiGameCubeKit kit, string path, CancellationToken token, bool md5 = false)
+    {
+        var h = kit.Hash(path, token);
+        return [new HashedFile(Path.GetFileName(path), (long)h.Size, h.Crc32.ToUpperInvariant(), h.Sha1.ToUpperInvariant(),
+            Md5: md5 ? h.Md5.ToUpperInvariant() : null)];
+    }
+
     /// <summary>What's wrong with the file itself, or null: CHDs are verified, 7z and zip tested.</summary>
     private static string? Integrity(JobContext c, FileSet set)
     {
@@ -118,7 +140,6 @@ public static class VerifyJobs
     private static List<HashedFile> Hash(JobContext c, FileSet set)
     {
         var path = set.Primary;
-        var ext = Path.GetExtension(path).ToLowerInvariant();
 
         // zip/7z: the CRC32s the archive already holds, without unpacking.
         if (KnownFormats.Archives.Contains(set.Format))
@@ -128,11 +149,10 @@ public static class VerifyJobs
                 .ToList();
 
         // GameCube/Wii: the decoded disc, from any container lib-wii-gamecube-kit reads.
-        if (ext is ".rvz" or ".wia" or ".gcz" or ".gcm" || (ext == ".iso" && NintendoDisc.IsPlainDisc(path)))
+        if (IsNintendoDisc(path))
         {
             c.TrackRvz("Hashing the disc");
-            var h = c.Rvz.Hash(path, c.Token);
-            return [new HashedFile(Path.GetFileName(path), (long)h.Size, h.Crc32.ToUpperInvariant(), h.Sha1.ToUpperInvariant())];
+            return DiscHashes(c.Rvz, path, c.Token);
         }
 
         // CHD: its tracks, as they'd be extracted (one bin per track, or an iso), hashed as they're

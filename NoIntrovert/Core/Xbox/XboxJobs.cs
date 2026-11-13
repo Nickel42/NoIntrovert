@@ -1,4 +1,5 @@
 using LibXisoKit;
+using LibXisoKit.Identity;
 using LibXisoKit.IO;
 using LibXisoKit.Shrinking;
 using LibXisoKit.Xdvdfs;
@@ -65,23 +66,31 @@ public static class XboxJobs
             c.Report.SetStage(p.Stage.ToString());
             if (p.Fraction is { } f) c.Report.SetProgress(f);
         });
+        // Not known: hashed beside the conversion (while the image is in the OS cache) rather than by lib-xiso-kit
+        // first; on a spinning drive lib-xiso-kit still reads it once before writing, as two reads at once would seek.
+        var hashSource = keepHashes && redump && recorded is null && cached is null;
+        using var beside = hashSource
+            ? BackgroundHash.Start(source, token => FileHashes.Compute(SplitParts.Resolve(source), null, token), c.Token)
+            : null;
         ShrinkResult result;
+        FileHashes? sourceHashes;
         try
         {
-            result = XisoShrinker.ShrinkAsync(source, output, OptionsFor(kind, s, keepHashes && redump && recorded is null && cached is null), null, progress, c.Token)
+            result = XisoShrinker.ShrinkAsync(source, output, OptionsFor(kind, s, hashSource && beside is null), null, progress, c.Token)
                 .GetAwaiter().GetResult();
+            if (result.Verification is { Success: false } v)
+                return JobOutcome.Failed("the new image failed its check: " + string.Join("; ", v.Problems));
+            sourceHashes = result.SourceHashes ?? beside?.Result();
         }
         catch (Exception ex) when (ex is InvalidDataException or NotSupportedException or IOException or UnauthorizedAccessException
                                        or InvalidOperationException or ArgumentException)
         {
             return JobOutcome.Failed(ex.Message);
         }
-        if (result.Verification is { Success: false } v)
-            return JobOutcome.Failed("the new image failed its check: " + string.Join("; ", v.Problems));
 
         var first = result.OutputFiles[0];
-        // What lib-xiso-kit just read goes to the hash cache too, while the image stays.
-        if (cached is null && !s.Output.ReplacesOriginals && result.SourceHashes is { } read && SplitParts.Resolve(source).Count == 1)
+        // What was just read goes to the hash cache too, while the image stays.
+        if (cached is null && !s.Output.ReplacesOriginals && sourceHashes is { } read && SplitParts.Resolve(source).Count == 1)
             HashCache.Default.GetOrAdd(source, () =>
                 [new HashedFile(Path.GetFileName(source), read.Size, read.Crc32.ToUpperInvariant(), read.Sha1.ToUpperInvariant(), Md5: read.Md5.ToUpperInvariant())]);
         if (swap)
@@ -94,7 +103,7 @@ public static class XboxJobs
         if (keepHashes)
         {
             var original = recorded ?? cached;
-            if (original is null && result.SourceHashes is { } h)
+            if (original is null && sourceHashes is { } h)
                 original = [new HashedFile(Path.GetFileName(source), h.Size, h.Crc32.ToUpperInvariant(), h.Sha1.ToUpperInvariant(), Md5: h.Md5.ToUpperInvariant())];
             if (original is not null) OriginalHashes.Default.Set(first, source, original);
         }
