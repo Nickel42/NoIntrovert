@@ -116,9 +116,8 @@ WSL Ubuntu, install `libicu`, `libfontconfig1`, `libice6` and `libsm6` first.
 
 The workflow builds lib-chd-kit, lib-wii-gamecube-kit and lib-7z-zip-kit from
 source on each platform (and runs their tests on x64 Windows, macOS and Linux,
-plus the app's own quick self-test on Linux). Everything it builds is in this
-repository, except lib-wii-gamecube-kit and lib-7z-zip-kit, which it checks out
-as submodules.
+plus the app's own quick self-test on Linux). Each library comes from its own
+repository, checked out as a submodule.
 
 ## Archive engine
 
@@ -239,7 +238,9 @@ unpacked folder to add NoIntrovert to the app menu with its icon
 
 Needs the .NET 10 SDK and the native libraries built:
 
-- lib-chd-kit (`native/lib-chd-kit`, see its README) with its native library in
+- lib-chd-kit, the CHD library: its own repository
+  ([Nickel42/lib-chd-kit](https://github.com/Nickel42/lib-chd-kit)), checked out as
+  a git submodule in `native/lib-chd-kit` (see its README), with its native library in
   `native/lib-chd-kit/artifacts/native/win-x64`, `win-arm64`, `osx` or
   `linux-x64` (see `Directory.Build.props`). On Linux, copy its
   `build/libchdkit.so` (with `cp -L`, as it is a symlink) there.

@@ -2,8 +2,8 @@
   <!--
     Where lib-chd-kit lives and which native build of it to ship.
 
-    LibChdKitRoot defaults to native/lib-chd-kit in this repository (pass
-    -p:LibChdKitRoot=... to use another checkout). The native library is taken from
+    LibChdKitRoot defaults to native/lib-chd-kit, a git submodule of lib-chd-kit's own
+    repository (pass -p:LibChdKitRoot=... to use another checkout). The native library is taken from
     $(LibChdKitRoot)/artifacts/native/<dir>, where <dir> follows the
     RuntimeIdentifier being built or published:
 
