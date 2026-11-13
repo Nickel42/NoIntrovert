@@ -266,10 +266,12 @@
                                     <Grid ColumnDefinitions="2*,90,1.5*,180,44,84" Margin="0,3">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding Name}" />
                                         <TextBlock Grid.Column="1" Text="{Binding GroupTitle}" Classes="hint" VerticalAlignment="Center" />
-                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,10,0">
-                                            <Ellipse Width="8" Height="8" Fill="{Binding Status, Converter={x:Static v:Palette.StatusBrush}}" />
-                                            <TextBlock Text="{Binding Stage}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Stage}" />
-                                        </StackPanel>
+                                        <!-- A Grid, not a StackPanel: the stage gets only its column's width, so a long one trims
+                                             instead of running over the progress bar -->
+                                        <Grid Grid.Column="2" ColumnDefinitions="Auto,*" ColumnSpacing="6" VerticalAlignment="Center" Margin="0,0,10,0" ClipToBounds="True">
+                                            <Ellipse Width="8" Height="8" Fill="{Binding Status, Converter={x:Static v:Palette.StatusBrush}}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Stage}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Stage}" />
+                                        </Grid>
                                         <ProgressBar Grid.Column="3" Value="{Binding Percent}" Minimum="0" Maximum="100" Height="6" MinWidth="0" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="4" Text="{Binding PercentText}" HorizontalAlignment="Right" VerticalAlignment="Center" Classes="hint" />
                                         <Button Grid.Column="5" Classes="tool" Content="Cancel" Margin="8,0,0,0" HorizontalAlignment="Right" Command="{Binding CancelCommand}"

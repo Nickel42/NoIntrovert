@@ -379,6 +379,7 @@ static class LayoutTests
         OptCleanupTests.RunLayout(test, f, Dispatch, screenshots);
         FolderLayoutTests.RunLayout(test, f, Dispatch, screenshots);
         SelectedFileTests.RunLayout(test, f, Dispatch, screenshots);
+        QueueClearTests.RunLayout(test, f, Dispatch, screenshots);
 
         Dispatch(() => { f.Window.Close(); return null; });
     }

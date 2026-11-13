@@ -169,10 +169,19 @@ public sealed class JobQueue
         foreach (var g in groups) g.Cancel();
     }
 
-    /// <summary>Forgets groups that have finished, so the overall progress starts again from the jobs still to do.</summary>
+    /// <summary>
+    /// Forgets every finished job, also in a batch still running, so the overall progress starts again from the
+    /// jobs still to do. A finished job a queued one waits on (a disc before its .m3u) stays until that one is
+    /// done too: the queue reads its outcome to decide whether the next step runs.
+    /// </summary>
     public void ClearFinished()
     {
-        lock (_gate) _all.RemoveAll(j => j.Group.IsFinished);
+        lock (_gate)
+        {
+            var needed = _all.Where(j => j.State != QueuedState.Finished && j.Spec.After is { Count: > 0 })
+                .SelectMany(j => j.Spec.After!).ToHashSet(ReferenceEqualityComparer.Instance);
+            _all.RemoveAll(j => j.State == QueuedState.Finished && !needed.Contains(j.Spec));
+        }
         Changed?.Invoke();
     }
 
