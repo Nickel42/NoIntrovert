@@ -294,7 +294,21 @@ public sealed class PerformanceSettings
     /// <summary>Jobs the shared queue runs at once, across every tab. New settings start at 2; a saved file keeps its value.</summary>
     public int ParallelJobs { get; set; } = 2;
 
-    public int ThreadsPerJob { get; set; } // 0 = all processors
+    public int ThreadsPerJob { get; set; } // 0 = automatic: the processors shared between the parallel jobs
+
+    /// <summary>
+    /// The threads each job uses: <see cref="ThreadsPerJob"/> when set, else the processors divided between
+    /// the jobs that run at once, so two parallel jobs on 8 cores get 4 each instead of 8 each.
+    /// </summary>
+    [JsonIgnore] public int EffectiveThreadsPerJob => EffectiveThreads(ThreadsPerJob, ParallelJobs, Environment.ProcessorCount);
+
+    /// <summary>The rule behind <see cref="EffectiveThreadsPerJob"/>, for any machine.</summary>
+    public static int EffectiveThreads(int threadsPerJob, int parallelJobs, int processors)
+    {
+        processors = Math.Max(1, processors);
+        if (threadsPerJob > 0) return threadsPerJob;
+        return Math.Max(1, processors / Math.Clamp(parallelJobs, 1, processors));
+    }
     public string TempFolder { get; set; } = ""; // empty = %TEMP%\NoIntrovert
 
     [JsonIgnore] public string EffectiveTempFolder => string.IsNullOrWhiteSpace(TempFolder) ? WorkPaths.DefaultTempRoot : TempFolder;

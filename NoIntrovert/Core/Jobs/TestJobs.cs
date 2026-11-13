@@ -25,7 +25,7 @@ public static class TestJobs
         var s = c.Settings;
         Directory.CreateDirectory(s.Performance.EffectiveTempFolder);
         c.Report.SetStage("Preparing");
-        var preparer = new InputPreparer(s.Performance.EffectiveTempFolder, s.Chd.IsoMode, c.Log);
+        var preparer = new InputPreparer(s.Performance.EffectiveTempFolder, s.Chd.IsoMode, c.Log) { Threads = s.Performance.EffectiveThreadsPerJob };
         using var prepared = preparer.Prepare(source,
             new InlineProgress<(string Stage, double Fraction)>(p => { c.Report.SetStage(p.Stage); c.Report.SetProgress(p.Fraction); }), c.Token);
 

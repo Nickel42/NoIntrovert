@@ -83,7 +83,7 @@ public static class SwitchJobs
             {
                 Format = format,
                 Verify = true,
-                Ncz = new NczOptions { MaxDegreeOfParallelism = s.Performance.ThreadsPerJob > 0 ? s.Performance.ThreadsPerJob : Environment.ProcessorCount },
+                Ncz = new NczOptions { MaxDegreeOfParallelism = s.Performance.EffectiveThreadsPerJob },
             };
             var name = Path.GetFileNameWithoutExtension(source);
             for (var i = 0; i < plans.Count; i++)
