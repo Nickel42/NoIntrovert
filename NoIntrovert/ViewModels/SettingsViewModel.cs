@@ -26,10 +26,12 @@ public sealed record Choice<T>(T Value, string Label)
 public partial class SettingsViewModel : ViewModelBase
 {
     private readonly AppSettings _s;
+    private readonly IDialogs _dialogs;
 
     public SettingsViewModel(AppSettings settings, IDialogs dialogs)
     {
         _s = settings;
+        _dialogs = dialogs;
         General = new GeneralSettingsViewModel(settings, dialogs);
         Output = new OutputSettingsViewModel(settings, dialogs);
         Performance = new PerformanceSettingsViewModel(settings, dialogs);
@@ -62,7 +64,7 @@ public partial class SettingsViewModel : ViewModelBase
     public AboutViewModel About { get; }
 
     /// <summary>The Default presets card: one preset per system, then the saved presets with Manage….</summary>
-    public DefaultPresetsViewModel DefaultPresets => _defaultPresets ??= new DefaultPresetsViewModel(_s);
+    public DefaultPresetsViewModel DefaultPresets => _defaultPresets ??= new DefaultPresetsViewModel(_s, _dialogs);
 
     private DefaultPresetsViewModel? _defaultPresets;
 

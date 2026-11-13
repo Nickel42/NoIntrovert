@@ -920,6 +920,7 @@ WiringTests.Run(Test, Dir);
 ReviewFixTests.Run(Test, Dir, log);
 StoreTests.Run(Test, Dir, log);
 UxReviewTests.Run(Test, Dir);
+UxReviewTests.RunSettingsConfirms(Test, Dir);
 FormatPresetTests.Run(Test, Dir, log);
 EmulatorTests.Run(Test);
 LayoutTests.Run(Test, Dir, ArgValue("--screenshots"));

@@ -15,7 +15,14 @@ namespace NoIntrovert.ViewModels;
 /// </summary>
 public sealed partial class DefaultPresetsViewModel : SettingsSectionViewModel
 {
-    public DefaultPresetsViewModel(AppSettings settings) : base(settings) => Rebuild();
+    private readonly Services.IDialogs? _dialogs;
+
+    /// <param name="dialogs">Asks before a saved preset is deleted; without it (tests), it's deleted at once.</param>
+    public DefaultPresetsViewModel(AppSettings settings, Services.IDialogs? dialogs = null) : base(settings)
+    {
+        _dialogs = dialogs;
+        Rebuild();
+    }
 
     public override string Title => "Default presets";
 
@@ -131,6 +138,21 @@ public sealed partial class DefaultPresetsViewModel : SettingsSectionViewModel
         return null;
     }
 
+    /// <summary>Deletes <paramref name="preset"/> once the user says yes (it can't be undone).</summary>
+    internal async Task DeleteAsync(SavedPreset preset)
+    {
+        if (_dialogs is not null)
+        {
+            var id = FormatPreset.SavedPrefix + preset.Id;
+            var defaults = S.Presets.DefaultBySystem.Count(p => p.Value == id);
+            var message = defaults == 0
+                ? "This can't be undone."
+                : $"It's the default for {Words.Count(defaults, "system")}; they go back to the recommended preset. This can't be undone.";
+            if (!await _dialogs.ConfirmAsync($"Delete the preset “{preset.Name}”?", message, "Delete preset", "Cancel", destructive: true)) return;
+        }
+        Delete(preset);
+    }
+
     internal void Delete(SavedPreset preset)
     {
         var id = FormatPreset.SavedPrefix + preset.Id;
@@ -215,5 +237,5 @@ public sealed partial class SavedPresetItemViewModel(DefaultPresetsViewModel own
                             (preset.System.Length == 0 ? "any system" : Core.Systems.SystemFacts.For(preset.System)?.Name ?? TargetFormats.NameOf(preset.System));
 
     [RelayCommand]
-    private void Delete() => owner.Delete(preset);
+    private Task Delete() => owner.DeleteAsync(preset);
 }

@@ -1,5 +1,7 @@
 using NoIntrovert.Core;
 using NoIntrovert.Core.Cleanup;
+using NoIntrovert.Core.Formats;
+using NoIntrovert.Core.Presets;
 using NoIntrovert.Core.Jobs;
 using NoIntrovert.Core.Library;
 using NoIntrovert.ViewModels;
@@ -160,6 +162,32 @@ internal static class UxReviewTests
         AppSettings.SettingsDirectoryOverride = folder;
         try { return body(); }
         finally { AppSettings.SettingsDirectoryOverride = previous; }
+    }
+
+    internal static void RunSettingsConfirms(Action<string, Func<string?>> test, Func<string, string> dir)
+    {
+        test("Settings: Delete preset and Reset all ask first; no keeps everything", () => WithSettingsFolder(dir("ux-settings-confirms"), () =>
+        {
+            var settings = AppSettings.Load();
+            var dialogs = new AskingDialogs { Answer = false };
+            var presets = new DefaultPresetsViewModel(settings, dialogs);
+            presets.Save("Mine", "playstation", new PresetValues { Target = TargetKind.Chd });
+            presets.Saved[0].DeleteCommand.Execute(null);
+            if (dialogs.Asked.Count != 1 || !dialogs.Asked[0].Destructive || settings.Presets.Saved.Count != 1) return "Delete preset didn't ask, or deleted on no";
+            dialogs.Answer = true;
+            presets.Saved[0].DeleteCommand.Execute(null);
+            if (settings.Presets.Saved.Count != 0) return "Delete preset didn't delete on yes";
+
+            var formats = new TargetFormatSettingsViewModel(settings, dialogs);
+            settings.TargetFormats.Overrides.Add(new TargetOverride("playstation", null, "chd"));
+            var before = settings.TargetFormats.Overrides.Count;
+            dialogs.Answer = false;
+            formats.ResetAllCommand.Execute(null);
+            if (dialogs.Asked.Count != 3 || !dialogs.Asked[2].Title.StartsWith("Reset ") || settings.TargetFormats.Overrides.Count != before) return "Reset all didn't ask, or reset on no";
+            dialogs.Answer = true;
+            formats.ResetAllCommand.Execute(null);
+            return settings.TargetFormats.Overrides.Count == 0 ? null : "Reset all didn't reset on yes";
+        }));
     }
 
     /// <summary>Records each question and gives <see cref="Answer"/>.</summary>

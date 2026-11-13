@@ -62,7 +62,7 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <TextBlock Text="Choose games on the Library page and click Clean up selected, or plan for the whole Library."
+                    <TextBlock Text="Choose games on the Optimize page and click Clean up selected, or plan for the whole library."
                                IsVisible="{Binding ShowsEmptyHint}" Classes="hint" FontSize="13" TextWrapping="Wrap"
                                HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30" />
                     <!-- Making the plan (no steps yet): the progress in place of the message -->

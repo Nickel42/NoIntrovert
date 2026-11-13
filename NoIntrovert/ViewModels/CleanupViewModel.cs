@@ -375,7 +375,7 @@ public partial class CleanupViewModel : ViewModelBase
             var runner = new CleanupRunner();
             var jobs = runner.Jobs(_plan).Select(j => new BatchJob(j.Name, new NullJobReport(), j.Work, _ => { }, _ => { }, j.Cost)).ToList();
             BusyText = $"Running {runner.Run.Steps} step{(runner.Run.Steps == 1 ? "" : "s")} for {jobs.Count} game{(jobs.Count == 1 ? "" : "s")}…";
-            _log.Info($"Cleanup: running {runner.Run.Steps} step(s) for {jobs.Count} game(s)"
+            _log.Info($"Organize: running {runner.Run.Steps} step(s) for {jobs.Count} game(s)"
                       + (runner.Run.NewLibrary is { } lib ? $", building a new library in {lib}; the Library itself isn't changed" : ""));
             var group = _group = _queue.Submit("Cleanup", jobs, _settings.Snapshot(), _log);
             IsRunning = true;
@@ -383,8 +383,8 @@ public partial class CleanupViewModel : ViewModelBase
             finally { IsRunning = false; _group = null; }
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
             _log.Info(runner.Run.NewLibrary is { } built
-                ? $"Cleanup: finished; the new library is in {built} ({runner.Run.Entries.Count} file(s) made). Undo on the Cleanup page removes them again."
-                : $"Cleanup: finished; the run can be undone from the Cleanup page ({runner.Run.Entries.Count} change(s) recorded).");
+                ? $"Organize: finished; the new library is in {built} ({runner.Run.Entries.Count} file(s) made). Undo on the Organize page removes them again."
+                : $"Organize: finished; the run can be undone from the Organize page ({runner.Run.Entries.Count} change(s) recorded).");
             RefreshRuns();
             BusyText = "Looking through the Library again…";
             if (Rescan is not null) await Rescan();
@@ -407,7 +407,7 @@ public partial class CleanupViewModel : ViewModelBase
         if (_group != group) return; // it finished while the question was open
         group.Cancel();
         BusyText = "Stopping…";
-        _log.Warn("Cleanup: stopping; steps already done are kept.");
+        _log.Warn("Organize: stopping; steps already done are kept.");
     }
 
     /// <summary>Sends the files that haven't been checked yet to Verify &amp; match.</summary>
@@ -415,7 +415,7 @@ public partial class CleanupViewModel : ViewModelBase
     private void VerifyUnchecked()
     {
         var paths = _plan?.Steps.Where(s => s.Kind == CleanupKind.Untouched && s.Reason.StartsWith("Not checked")).SelectMany(s => s.Sources.Take(1)).ToList() ?? [];
-        if (paths.Count == 0) { _log.Info("Cleanup: everything in the plan has been checked already."); return; }
+        if (paths.Count == 0) { _log.Info("Organize: everything in the plan has been checked already."); return; }
         SendToVerify?.Invoke(paths);
     }
 
@@ -433,7 +433,7 @@ public partial class CleanupViewModel : ViewModelBase
         {
             var useBin = _settings.Output.UseRecycleBin;
             var problems = await Task.Run(() => CleanupRunner.Undo(row.Run, useBin, _log));
-            _log.Info(problems.Count == 0 ? "Cleanup: run undone." : $"Cleanup: run undone, except {problems.Count} item(s) (see above).");
+            _log.Info(problems.Count == 0 ? "Organize: run undone." : $"Organize: run undone, except {problems.Count} item(s) (see above).");
             RefreshRuns();
             BusyText = "Looking through the Library again…";
             if (Rescan is not null) await Rescan();
@@ -454,7 +454,7 @@ public partial class CleanupViewModel : ViewModelBase
         try
         {
             await Task.Run(() => CleanupRunner.EmptyTrash(row.Run, useBin, _log));
-            _log.Info("Cleanup: trash emptied; that run's conversions can no longer be undone.");
+            _log.Info("Organize: trash emptied; that run's conversions can no longer be undone.");
             RefreshRuns();
         }
         finally { IsBusy = false; }
