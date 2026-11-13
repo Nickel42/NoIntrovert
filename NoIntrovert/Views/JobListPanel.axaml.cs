@@ -41,6 +41,63 @@ public partial class JobListPanel : UserControl
         };
     }
 
+    // ---- Keyboard shortcuts, while this page shows: Ctrl+O adds files, Ctrl+F finds,
+    //      Ctrl+Enter starts, Escape stops a folder scan or clears the filter ----
+
+    private TopLevel? _top;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _top = TopLevel.GetTopLevel(this);
+        _top?.AddHandler(KeyDownEvent, OnShortcut, RoutingStrategies.Bubble);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _top?.RemoveHandler(KeyDownEvent, OnShortcut);
+        _top = null;
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnShortcut(object? sender, KeyEventArgs e)
+    {
+        if (e.Handled || DataContext is not BatchTabViewModel vm || !IsEffectivelyVisible) return;
+        e.Handled = Shortcut(vm, e.Key, e.KeyModifiers);
+    }
+
+    /// <summary>Runs the shortcut for <paramref name="key"/>; false when it isn't one (or can't run now).</summary>
+    public bool Shortcut(BatchTabViewModel vm, Key key, KeyModifiers modifiers)
+    {
+        var ctrl = modifiers == KeyModifiers.Control || modifiers == KeyModifiers.Meta;
+        switch (key)
+        {
+            case Key.O when ctrl:
+                if (!vm.IsIdle) return false;
+                vm.AddFilesCommand.Execute(null);
+                return true;
+            case Key.F when ctrl:
+                FilterBox.Focus();
+                FilterBox.SelectAll();
+                return true;
+            case Key.Enter when ctrl:
+                if (!vm.StartCommand.CanExecute(null)) return false;
+                vm.StartCommand.Execute(null);
+                return true;
+            case Key.Escape when modifiers == KeyModifiers.None:
+                if (vm.IsScanning) { vm.CancelScanCommand.Execute(null); return true; }
+                if (FilterBox.IsFocused && !string.IsNullOrEmpty(FilterBox.Text))
+                {
+                    FilterBox.Text = "";
+                    vm.Filter = "";
+                    return true;
+                }
+                return false;
+            default:
+                return false;
+        }
+    }
+
     private void ShareSelection()
     {
         if (DataContext is BatchTabViewModel vm && !ReferenceEquals(vm.SelectedItems, List.SelectedItems))

@@ -25,12 +25,17 @@
                     <WrapPanel Grid.Column="1" Orientation="Horizontal" ItemSpacing="6" LineSpacing="6" VerticalAlignment="Center" HorizontalAlignment="Right">
                         <Button Classes="tool" Content="Whole Library" Command="{Binding WholeLibraryCommand}"
                                 ToolTip.Tip="Plan for every game in the Library instead of the selected ones." />
-                        <Button Classes="tool" Content="Make the plan again" Command="{Binding MakePlanCommand}" />
+                        <Button Classes="tool" Content="Refresh plan" Command="{Binding MakePlanCommand}"
+                                ToolTip.Tip="Make the plan again from the Library as it is now." />
                     </WrapPanel>
                 </Grid>
                 <TextBlock Grid.Row="1" Text="{Binding Summary}" Classes="hint" TextWrapping="Wrap" Margin="12,0,12,6" />
 
                 <Grid Grid.Row="2" ColumnDefinitions="40,120,1.2*,2*" Margin="22,4,22,4">
+                    <!-- Tick all: half-ticked when only some steps are -->
+                    <CheckBox x:Name="TickAll" IsChecked="{Binding AllEnabled, Mode=OneWay}" IsVisible="{Binding HasRunnableSteps}"
+                              MinWidth="0" Padding="0" VerticalAlignment="Center"
+                              ToolTip.Tip="Tick every step that can run, or none" AutomationProperties.Name="Tick every step" />
                     <TextBlock Grid.Column="1" Text="STEP" Classes="colhead" />
                     <TextBlock Grid.Column="2" Text="GAME" Classes="colhead" />
                     <TextBlock Grid.Column="3" Text="CHANGE" Classes="colhead" />
@@ -41,29 +46,54 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:CleanupStepRow">
                                 <Grid ColumnDefinitions="40,120,1.2*,2*" ToolTip.Tip="{Binding Reason}">
-                                    <CheckBox IsChecked="{Binding Enabled}" IsVisible="{Binding CanRun}" VerticalAlignment="Center" />
+                                    <CheckBox IsChecked="{Binding Enabled}" IsVisible="{Binding CanRun}" VerticalAlignment="Center"
+                                              AutomationProperties.Name="{Binding Game, StringFormat='Run this step for {0}'}" />
+                                    <!-- A step that can't run (a clash, or left alone) says so instead of a tick box -->
+                                    <TextBlock Text="⚠" IsVisible="{Binding !CanRun}" VerticalAlignment="Center" FontSize="14"
+                                               Foreground="{DynamicResource WarningText}"
+                                               AutomationProperties.Name="{Binding Reason, StringFormat='Step not run: {0}'}" />
                                     <TextBlock Grid.Column="1" Text="{Binding KindText}" VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="2" Text="{Binding Game}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
                                     <StackPanel Grid.Column="3" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Change}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Reason}" Classes="hint" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Reason}" Classes="hint" FontSize="11" TextWrapping="Wrap" />
                                     </StackPanel>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
                     <TextBlock Text="Choose games on the Library page and click Clean up selected, or plan for the whole Library."
-                               IsVisible="{Binding !HasPlan}" Classes="hint" FontSize="13" TextWrapping="Wrap"
+                               IsVisible="{Binding ShowsEmptyHint}" Classes="hint" FontSize="13" TextWrapping="Wrap"
                                HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30" />
+                    <!-- Making the plan (no steps yet): the progress in place of the message -->
+                    <StackPanel x:Name="Planning" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30">
+                        <StackPanel.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="IsBusy" />
+                                <Binding Path="!HasPlan" />
+                            </MultiBinding>
+                        </StackPanel.IsVisible>
+                        <ProgressBar IsIndeterminate="True" Width="160" Height="6" HorizontalAlignment="Center" />
+                        <TextBlock Text="{Binding BusyText}" Classes="hint" FontSize="13" HorizontalAlignment="Center" />
+                    </StackPanel>
                 </Panel>
 
                 <Border Grid.Row="4" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="12,10">
-                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                        <Button Content="Verify the unchecked ones" Command="{Binding VerifyUncheckedCommand}"
-                                ToolTip.Tip="Only games Verify &amp; match recognised are renamed and moved. Send the rest there first." />
-                        <Button Classes="primary" Content="Run" Command="{Binding RunCommand}"
-                                ToolTip.Tip="Run the ticked steps on the queue. Every change is recorded, so the run can be undone." />
-                    </StackPanel>
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="12,0,0,0">
+                            <Button Content="Verify games not yet matched" Command="{Binding VerifyUncheckedCommand}"
+                                    ToolTip.Tip="Only games Verify &amp; match recognised are renamed and moved. Send the rest there first." />
+                            <Button Content="Stop" Command="{Binding CancelRunCommand}" IsVisible="{Binding IsRunning}"
+                                    ToolTip.Tip="Stop the run. Steps already done stay done, and the run can still be undone." />
+                            <Button Classes="primary" Content="Run" Command="{Binding RunCommand}"
+                                    ToolTip.Tip="Run the ticked steps on the queue. Every change is recorded, so the run can be undone." />
+                        </StackPanel>
+                        <!-- What the page is doing: "Running 12 steps for 5 games…" -->
+                        <StackPanel x:Name="BusyStatus" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsVisible="{Binding IsBusy}">
+                            <ProgressBar IsIndeterminate="True" Width="80" Height="6" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding BusyText}" Classes="hint" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </DockPanel>
                 </Border>
             </Grid>
         </Border>
@@ -135,9 +165,10 @@
                                         <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" />
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <Button Classes="tool" Content="Undo" IsVisible="{Binding CanUndo}"
+                                                    ToolTip.Tip="Put back everything this run changed. You're asked first."
                                                     Command="{Binding $parent[UserControl].((vm:CleanupViewModel)DataContext).UndoCommand}" CommandParameter="{Binding}" />
                                             <Button Classes="tool" Content="Empty trash" IsVisible="{Binding CanEmpty}"
-                                                    ToolTip.Tip="Send this run's trash to the Recycle Bin. Its conversions can't be undone after that."
+                                                    ToolTip.Tip="{Binding $parent[UserControl].((vm:CleanupViewModel)DataContext).EmptyTrashTip}"
                                                     Command="{Binding $parent[UserControl].((vm:CleanupViewModel)DataContext).EmptyTrashCommand}" CommandParameter="{Binding}" />
                                         </StackPanel>
                                     </StackPanel>

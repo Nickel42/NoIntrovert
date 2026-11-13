@@ -52,6 +52,14 @@ public static class WorksWithConverters
     public static readonly IValueConverter GlyphBrush = new FuncValueConverter<SupportState, IBrush>(s =>
         s == SupportState.Unknown ? LightGlyph : DarkGlyph);
 
+    /// <summary>The state in words, for screen readers.</summary>
+    public static readonly IValueConverter StateText = new FuncValueConverter<SupportState, string>(s => s switch
+    {
+        SupportState.Works => "works",
+        SupportState.DoesNot => "doesn't work",
+        _ => "not known",
+    });
+
     /// <summary>An emulator that can't open the output has its name dimmed.</summary>
     public static readonly IValueConverter NameOpacity = new FuncValueConverter<SupportState, double>(s => s == SupportState.DoesNot ? 0.5 : 1.0);
 }

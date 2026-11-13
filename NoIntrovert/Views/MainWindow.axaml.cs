@@ -122,15 +122,18 @@ public partial class MainWindow : SukiWindow, IDialogs
 
         if (!vm.IsAnyRunning || _closeConfirmed) return;
         e.Cancel = true;
-        var dialog = new ConfirmDialog("A batch is still running",
-            "Closing now cancels it; lib-chd-kit deletes the CHD it was writing. Close anyway?", "Close", "Keep running");
-        if (await dialog.ShowDialog<bool>(this))
+        if (await ConfirmAsync(CloseTitle, CloseMessage, "Close anyway", "Keep running", destructive: true))
         {
             vm.Queue.Queue.CancelAll();
             _closeConfirmed = true;
             Close();
         }
     }
+
+    /// <summary>What closing during a run asks: what happens to the user's files, whatever the jobs are.</summary>
+    public const string CloseTitle = "Jobs are still running";
+    public const string CloseMessage =
+        "Closing now stops them. Files that are finished are kept. A file still being written is deleted, and its original stays as it was.";
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
@@ -191,6 +194,9 @@ public partial class MainWindow : SukiWindow, IDialogs
     {
         if (Directory.Exists(folder)) await Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(folder));
     }
+
+    public Task<bool> ConfirmAsync(string title, string message, string yes, string no, bool destructive = false) =>
+        new ConfirmDialog(title, message, yes, no, destructive).ShowDialog<bool>(this);
 
     public async Task SetClipboardAsync(string text)
     {

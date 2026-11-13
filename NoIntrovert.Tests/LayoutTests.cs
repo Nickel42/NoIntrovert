@@ -374,6 +374,8 @@ static class LayoutTests
             return counts?.Text == expected ? null : $"the log bar reads \"{counts?.Text}\", not \"{expected}\"";
         }));
 
+        UxLayoutTests.Run(test, f, Dispatch);
+
         Dispatch(() => { f.Window.Close(); return null; });
     }
 
