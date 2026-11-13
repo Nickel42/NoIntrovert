@@ -27,7 +27,8 @@ public partial class MainViewModel : ViewModelBase
         };
         Library.SendToCleanup = games => { Show("cleanup"); Cleanup.UseGames(games); };
         Library.IndexShown += index => _ = UpdateDatsAsync(index.Items.Select(i => i.System), startup: true);
-        Settings.Dats.UpdateRequested = () => UpdateDatsAsync(Core.Library.LibraryIndex.Load().Items.Select(i => i.System), startup: false);
+        // The index already in memory (loaded at start, or the last scan), not library.json read again on the UI thread.
+        Settings.Dats.UpdateRequested = () => UpdateDatsAsync(Library.Index.Items.Select(i => i.System), startup: false);
         Library.IndexShown += index => _ = CheckEsdeAsync(startup: true);
         Settings.Dats.EsdeCheckRequested = () => CheckEsdeAsync(startup: false);
         Settings.Library.AddFoldersRequested = Library.AddFoldersAsync;
@@ -91,7 +92,9 @@ public partial class MainViewModel : ViewModelBase
         }
         Settings.Diagnostics.LibraryVersions = $"{LibraryVersion}\n{RvzLibraryVersion}";
 
-        WorkPaths.SweepStale(settings.Performance.EffectiveTempFolder);
+        // Job folders left by a crashed run are deleted in the background, so the window doesn't wait for them.
+        var tempFolder = settings.Performance.EffectiveTempFolder;
+        _ = Task.Run(() => WorkPaths.SweepStale(tempFolder));
         foreach (var problem in Core.Formats.TargetOverrides.Problems(settings.TargetFormats)) Log.Warn($"Target formats: {problem}");
     }
 
