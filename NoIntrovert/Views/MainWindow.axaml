@@ -201,7 +201,9 @@
                         </StackPanel>
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
                             <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Log.IsExpanded}">
-                            <CheckBox Content="Show debug" IsChecked="{Binding Log.ShowDebug}" />
+                            <CheckBox Content="Show debug" IsChecked="{Binding Log.ShowDebug}" IsEnabled="{Binding !Log.ShowOnlyErrors}" />
+                            <CheckBox Content="Show only errors" IsChecked="{Binding Log.ShowOnlyErrors}"
+                                      ToolTip.Tip="Show only the error lines. Copy and Save… then include only those too." />
                             <CheckBox Content="lib-chd-kit messages" IsChecked="{Binding Settings.General.VerboseLog}" IsVisible="{Binding Settings.General.PowerUserMode}"
                                       ToolTip.Tip="Log every message lib-chd-kit sends (shown as debug lines)." />
                             <CheckBox Content="Progress" IsChecked="{Binding Settings.General.LogProgress}" IsVisible="{Binding Settings.General.PowerUserMode}"

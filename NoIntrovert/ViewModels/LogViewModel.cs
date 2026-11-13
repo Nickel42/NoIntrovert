@@ -28,6 +28,12 @@ public partial class LogViewModel : ViewModelBase, ILog
     public BulkObservableCollection<LogEntry> Entries { get; } = [];
 
     [ObservableProperty] public partial bool ShowDebug { get; set; }
+
+    /// <summary>
+    /// Shows only error lines, and Copy and Save write only those. Show debug
+    /// makes no difference while it's on; the counts still count every line.
+    /// </summary>
+    [ObservableProperty] public partial bool ShowOnlyErrors { get; set; }
     [ObservableProperty, NotifyPropertyChangedFor(nameof(HasErrors), nameof(CountsText))] public partial int ErrorCount { get; set; }
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CountsText))] public partial int WarningCount { get; set; }
 
@@ -92,7 +98,7 @@ public partial class LogViewModel : ViewModelBase, ILog
             _all.Add(e);
             if (e.Level == LogLevel.Error) { ErrorCount++; errors = true; }
             if (e.Level == LogLevel.Warning) WarningCount++;
-            if (e.Level == LogLevel.Debug && !ShowDebug) continue;
+            if (!Shows(e)) continue;
             batch.Add(e);
         }
         var added = batch.Count > 0;
@@ -117,9 +123,16 @@ public partial class LogViewModel : ViewModelBase, ILog
         _settings.Save();
     }
 
-    partial void OnShowDebugChanged(bool value)
+    /// <summary>Whether a line is shown (and copied and saved) with the current Show debug and Show only errors.</summary>
+    private bool Shows(LogEntry e) => ShowOnlyErrors ? e.Level == LogLevel.Error : ShowDebug || e.Level != LogLevel.Debug;
+
+    partial void OnShowDebugChanged(bool value) => Refilter();
+
+    partial void OnShowOnlyErrorsChanged(bool value) => Refilter();
+
+    private void Refilter()
     {
-        Entries.ReplaceAll(_all.Where(e => value || e.Level != LogLevel.Debug).TakeLast(MaxVisible));
+        Entries.ReplaceAll(_all.Where(Shows).TakeLast(MaxVisible));
         EntriesAdded?.Invoke();
     }
 
@@ -138,10 +151,9 @@ public partial class LogViewModel : ViewModelBase, ILog
     /// <summary>
     /// What Copy and Save both write: every line this session has kept (not
     /// just the last <see cref="MaxVisible"/> shown), debug lines only when
-    /// Show debug is on.
+    /// Show debug is on, and only errors while Show only errors is on.
     /// </summary>
-    internal IEnumerable<string> ExportLines() =>
-        _all.Where(e => ShowDebug || e.Level != LogLevel.Debug).Select(e => e.ToString());
+    internal IEnumerable<string> ExportLines() => _all.Where(Shows).Select(e => e.ToString());
 
     [RelayCommand]
     private async Task Copy() =>
