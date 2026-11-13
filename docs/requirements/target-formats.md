@@ -109,7 +109,7 @@ shows the recommendation with no Convert button, and each converter gets its own
     decrypted on the way when it needs to be; one holding several is left for unpacking first.
   - Keys are the user's own: `boot9.bin` and `aes_keys.txt` (and `seeddb.bin` for eShop titles),
     found in Azahar's and Citra's folders, or a folder chosen in Settings › Keys. Without them the
-    job fails and says where they go; nothing is written.
+    job fails and says where they go, with a Set up keys link to Settings › Keys; nothing is written.
   - The new file is checked against the hashes stored inside it (with *Check each file after
     converting*, or Replace the originals). The dump's own hashes are recorded (R11), and a `.zcci`
     or `.zcia` is hashed as the file it holds, so Verify & match still recognises both.
@@ -150,7 +150,7 @@ shows the recommendation with no Convert button, and each converter gets its own
     in it was written.
   - Keys are the user's own `prod.keys` (and `title.keys` beside it), found where Ryujinx and the
     yuzu-family emulators keep them, or chosen in Settings › Keys. Without them the job fails, says
-    where the keys go, and writes nothing.
+    where the keys go (with a Set up keys link to Settings › Keys), and writes nothing.
 - **FR-10 PS Vita.**
   - A NoNpDrm game folder (`sce_sys/param.sfo` present) becomes `<Title> (<TitleID>).zip`.
   - The title and title ID come from `param.sfo`.

@@ -119,6 +119,19 @@
             <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
             <Setter Property="Opacity" Value="1" />
         </Style>
+        <!-- A button that deletes or throws work away: red text on a red tint, filled red on hover. -->
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="{DynamicResource DangerTint}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DangerText}" />
+            <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
+        </Style>
+        <Style Selector="Button.danger:pointerover">
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.danger:pointerover /template/ Border">
+            <Setter Property="Background" Value="{DynamicResource DangerText}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DangerText}" />
+        </Style>
         <Style Selector="Button.tool">
             <Setter Property="Padding" Value="12,6" />
             <Setter Property="FontSize" Value="13" />

@@ -173,7 +173,8 @@ public static class ConvertPlanner
         var keys = WiiUKeys.Empty;
         if (wiiu.Any(i => WiiUEncrypted.IsNusFolder(rows[i].Path) || WiiUEncrypted.IsDiscImage(rows[i].Path)))
         {
-            keys = WuaJobs.LoadKeys(settings.Keys.WiiUKeysPath);
+            keys = WuaJobs.LoadKeys(settings.Keys.WiiUKeysPath, out var readProblem);
+            if (readProblem is not null) log.Warn($"Wii U: {readProblem}");
             log.Info($"Wii U: {keys.Describe()}");
             foreach (var p in keys.Problems) log.Warn($"Wii U: {p}");
         }

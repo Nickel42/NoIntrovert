@@ -2,28 +2,76 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NoIntrovert.ViewModels"
              xmlns:local="using:NoIntrovert.Views"
+             xmlns:c="using:NoIntrovert.Controls"
              x:Class="NoIntrovert.Views.WorksWithList"
              x:DataType="vm:WorksWithViewModel">
     <!--
         "Works with this preset" (docs/requirements/ui-redesign.md, Preset
         section): every RetroArch core for the system, then the most common
         standalone emulators. Two columns per group; each entry is a 14 px
-        round ✓/✕/? icon and the name, with the detail in a tooltip.
+        round ✓/✕/? icon and the name; a ✕ entry also says why in small text
+        under its name. A row is as tall as its taller entry (ColumnsPanel),
+        so the other rows stay compact. Each entry is a plain button: a click,
+        or Enter with the keyboard, shows the detail (also its tooltip), and a
+        screen reader hears the name and whether it works.
     -->
+    <UserControl.Styles>
+        <Style Selector="Button.entry">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <!-- Beside a ✕ entry with its reason under it, the other entry keeps to the top of the row -->
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_Frame" Background="{TemplateBinding Background}" CornerRadius="4" BorderThickness="1" BorderBrush="Transparent">
+                        <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalContentAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.entry:focus-visible /template/ Border#PART_Frame">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        </Style>
+    </UserControl.Styles>
     <UserControl.Resources>
         <DataTemplate x:Key="EntryTemplate" x:DataType="vm:WorksWithItem">
-            <Grid ColumnDefinitions="14,*" ColumnSpacing="7" Margin="2,3,8,3" Background="Transparent"
-                  ToolTip.Tip="{Binding Detail}">
-                <Ellipse Width="14" Height="14" VerticalAlignment="Center"
+            <Button Classes="entry" ToolTip.Tip="{Binding Detail}">
+                <AutomationProperties.Name>
+                    <MultiBinding StringFormat="{}{0}: {1}">
+                        <Binding Path="Name" />
+                        <Binding Path="State" Converter="{x:Static local:WorksWithConverters.StateText}" />
+                    </MultiBinding>
+                </AutomationProperties.Name>
+                <Button.Flyout>
+                    <Flyout Placement="BottomEdgeAlignedLeft">
+                        <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" MaxWidth="320" />
+                    </Flyout>
+                </Button.Flyout>
+            <Grid ColumnDefinitions="14,*" ColumnSpacing="7" Margin="2,3,8,3" Background="Transparent">
+                <!-- The icon stays beside the name's line when a reason follows under it -->
+                <Ellipse Width="14" Height="14" VerticalAlignment="Top" Margin="0,2,0,0"
                          Fill="{Binding State, Converter={x:Static local:WorksWithConverters.Fill}}" />
-                <Path Width="14" Height="14" VerticalAlignment="Center" RenderTransform="scale(0.68)"
+                <Path Width="14" Height="14" VerticalAlignment="Top" Margin="0,2,0,0" RenderTransform="scale(0.68)"
                       Data="{Binding State, Converter={x:Static local:WorksWithConverters.Glyph}}"
                       Stroke="{Binding State, Converter={x:Static local:WorksWithConverters.GlyphBrush}}"
                       StrokeThickness="2.6" StrokeLineCap="Round" StrokeJoin="Round" />
-                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis"
-                           Opacity="{Binding State, Converter={x:Static local:WorksWithConverters.NameOpacity}}" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               Opacity="{Binding State, Converter={x:Static local:WorksWithConverters.NameOpacity}}" />
+                    <!-- Why it doesn't work: "No CHD support" -->
+                    <TextBlock Classes="reason" Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource SubtleText}"
+                               TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                               IsVisible="{Binding State, Converter={x:Static local:WorksWithConverters.ShowsReason}}" />
+                </StackPanel>
             </Grid>
+            </Button>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -40,7 +88,7 @@
         <ItemsControl ItemsSource="{Binding Cores}" ItemTemplate="{StaticResource EntryTemplate}" IsVisible="{Binding HasCores}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <UniformGrid Columns="2" />
+                    <c:ColumnsPanel Columns="2" />
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
         </ItemsControl>
@@ -49,7 +97,7 @@
         <ItemsControl ItemsSource="{Binding Standalone}" ItemTemplate="{StaticResource EntryTemplate}" IsVisible="{Binding HasStandalone}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <UniformGrid Columns="2" />
+                    <c:ColumnsPanel Columns="2" />
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
         </ItemsControl>

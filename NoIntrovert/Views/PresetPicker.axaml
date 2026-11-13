@@ -9,8 +9,9 @@
         others, then Custom. Only Custom shows the action's parameters.
     -->
     <StackPanel Spacing="4" Margin="0,0,0,6">
-        <TextBlock Text="{Binding Title}" Classes="section" />
-        <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch">
+        <TextBlock x:Name="PresetTitle" Text="{Binding Title}" Classes="section" />
+        <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding Selected}" HorizontalAlignment="Stretch"
+                  AutomationProperties.LabeledBy="{Binding #PresetTitle}">
             <ComboBox.ItemTemplate>
                 <DataTemplate x:DataType="presets:ActionPreset">
                     <TextBlock Text="{Binding Label}" />
@@ -63,11 +64,12 @@
                 <!-- Both disc conversions -->
                 <!-- Replace the originals (Save to, in the run bar) verifies whatever this says. -->
                 <StackPanel Spacing="4" IsVisible="{Binding IsChd}">
-                    <CheckBox Content="Verify each new CHD or RVZ" IsChecked="{Binding Settings.Chd.VerifyAfterCreate}" />
+                    <CheckBox Content="Verify each new file after converting" IsChecked="{Binding Settings.Chd.VerifyAfterCreate}" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="This setting is shared by CHD and RVZ." />
                 </StackPanel>
                 <StackPanel Spacing="4" IsVisible="{Binding IsRvz}">
-                    <CheckBox Content="Verify each new CHD or RVZ" IsChecked="{Binding Settings.Chd.VerifyAfterCreate}" />
-                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="Verify is shared with Custom for CHD." />
+                    <CheckBox Content="Verify each new file after converting" IsChecked="{Binding Settings.Chd.VerifyAfterCreate}" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="This setting is shared by CHD and RVZ." />
                 </StackPanel>
 
                 <!-- 7z and zip -->

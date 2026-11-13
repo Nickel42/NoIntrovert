@@ -48,13 +48,13 @@ jobs:
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: app
           submodules: true
           token: ${{ secrets.LIB_REPOS_TOKEN || github.token }}
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
 
@@ -137,7 +137,7 @@ jobs:
             Compress-Archive -Path "$out/*" -DestinationPath "dist/NoIntrovert-$env:VERSION-$rid.zip" -Force
           }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: dist/*.zip
@@ -149,13 +149,13 @@ jobs:
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: app
           submodules: true
           token: ${{ secrets.LIB_REPOS_TOKEN || github.token }}
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
 
@@ -228,7 +228,7 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' smoke/NoIntrovert.app/Contents/Info.plist)" = "NoIntrovert"
           file smoke/NoIntrovert.app/Contents/Resources/NoIntrovert.icns | grep -q 'Mac OS X icon'
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos
           path: dist/*.zip
@@ -242,13 +242,13 @@ jobs:
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: app
           submodules: true
           token: ${{ secrets.LIB_REPOS_TOKEN || github.token }}
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
 
@@ -296,7 +296,7 @@ jobs:
             -- --quick --synthetic
 
       # The .wua writer and reader (lib-wii-u-kit, through the app) against Exzap's reference implementation, both ways.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: Exzap/ZArchive
           ref: d2c717730092c7bf8cbb033b12fd4001b7c4d932 # v0.1.2
@@ -387,13 +387,13 @@ jobs:
           kill "$app" "$xvfb" || true
           cat smoke/app.log
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux
           path: dist/*.tar.gz
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: linux-screenshot
@@ -407,7 +407,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true

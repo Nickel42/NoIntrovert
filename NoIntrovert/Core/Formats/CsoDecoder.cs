@@ -24,9 +24,11 @@ internal static class CsoDecoder
         return fs.Read(head) == 4 ? System.Text.Encoding.ASCII.GetString(head) : "";
     }
 
-    public static void Decode(string inputPath, string outputPath, IProgress<double>? progress, CancellationToken token)
+    /// <param name="threads">Blocks decoded at once; 0 for every processor.</param>
+    public static void Decode(string inputPath, string outputPath, IProgress<double>? progress, CancellationToken token,
+        int threads = 0, int batchBytes = BlockBatches.DefaultBatchBytes)
     {
-        using var input = File.OpenRead(inputPath);
+        using var input = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, FileOptions.SequentialScan);
         using var output = new BufferedStream(File.Create(outputPath), 1 << 20);
 
         var header = new byte[24];
@@ -53,50 +55,42 @@ internal static class CsoDecoder
         var index = new uint[blockCount + 1];
         Buffer.BlockCopy(indexBytes, 0, index, 0, indexBytes.Length);
 
-        var compressed = new byte[blockSize * 2 + 64];
-        var block = new byte[blockSize];
-        long written = 0;
-
-        for (var i = 0; i < blockCount; i++)
+        var maxLength = blockSize * 2 + 64;
+        BlockBatches.Block Describe(int i)
         {
-            if ((i & 0xFF) == 0)
-            {
-                token.ThrowIfCancellationRequested();
-                progress?.Report((double)i / blockCount);
-            }
-
-            var storedPlain = (index[i] & 0x80000000) != 0;
             var start = (long)(index[i] & 0x7FFFFFFF) << shift;
             var end = (long)(index[i + 1] & 0x7FFFFFFF) << shift;
-            var length = (int)(end - start);
-            var outLength = (int)Math.Min(blockSize, totalBytes - written);
-            if (length < 0 || length > compressed.Length)
+            var length = end - start;
+            var outLength = (int)Math.Min(blockSize, totalBytes - (long)i * blockSize);
+            if (length < 0 || length > maxLength)
                 throw new InvalidDataException($"CSO block {i} has an invalid size; the file is damaged.");
+            return new BlockBatches.Block(start, (int)length, outLength);
+        }
 
-            input.Position = start;
-            input.ReadExactly(compressed, 0, length);
-
+        void DecodeBlock(int i, byte[] compressed, int offset, BlockBatches.Block b, Span<byte> slot)
+        {
             // Version 2 files mark raw blocks by size instead of the top bit.
-            if (storedPlain || length >= blockSize)
+            if ((index[i] & 0x80000000) != 0 || b.Length >= blockSize)
             {
-                output.Write(compressed, 0, outLength);
+                var copy = Math.Min(b.Length, b.OutLength);
+                compressed.AsSpan(offset, copy).CopyTo(slot);
+                slot[copy..b.OutLength].Clear(); // a short stored block (a damaged file): zeros, not stale bytes
             }
             else if (isLz4)
             {
-                var n = LZ4Codec.Decode(compressed, 0, length, block, 0, blockSize);
-                if (n < outLength) throw new InvalidDataException($"ZSO block {i} did not decompress fully.");
-                output.Write(block, 0, outLength);
+                var n = LZ4Codec.Decode(compressed.AsSpan(offset, b.Length), slot);
+                if (n < b.OutLength) throw new InvalidDataException($"ZSO block {i} did not decompress fully.");
             }
             else
             {
-                using var deflate = new DeflateStream(new MemoryStream(compressed, 0, length), CompressionMode.Decompress);
-                var n = ReadFully(deflate, block);
-                if (n < outLength) throw new InvalidDataException($"CSO block {i} did not decompress fully.");
-                output.Write(block, 0, outLength);
+                using var deflate = new DeflateStream(new MemoryStream(compressed, offset, b.Length, writable: false), CompressionMode.Decompress);
+                var n = BlockBatches.ReadFully(deflate, slot);
+                if (n < b.OutLength) throw new InvalidDataException($"CSO block {i} did not decompress fully.");
             }
-            written += outLength;
         }
-        progress?.Report(1);
+
+        BlockBatches.Decode(input, output, blockCount, Describe, DecodeBlock, maxLength, blockSize, threads,
+            progress is null ? null : done => progress.Report((double)done / blockCount), token, batchBytes);
     }
 
     internal static int ReadFully(Stream s, byte[] buffer)

@@ -89,6 +89,31 @@ public sealed partial class SidePanelViewModel : ViewModelBase
 
     [ObservableProperty] public partial bool ShowsWiiUKeys { get; private set; }
 
+    /// <summary>A selected (or the shown) row is a 3DS file that can't be converted without the user's keys.</summary>
+    [ObservableProperty] public partial bool ShowsThreeDsKeys { get; private set; }
+
+    /// <summary>A selected (or the shown) row is a Switch file: every Switch conversion needs prod.keys.</summary>
+    [ObservableProperty] public partial bool ShowsSwitchKeys { get; private set; }
+
+    /// <summary>Which 3DS files need keys, read once per file (it opens the file's headers).</summary>
+    private readonly Dictionary<string, bool> _threeDsNeedsKeys = new(Core.PathNames.Comparer);
+
+    private bool ThreeDsNeedsKeys(JobItemViewModel row)
+    {
+        if (row.SystemId != KeysLink.ThreeDsSystem) return false;
+        if (!_threeDsNeedsKeys.TryGetValue(row.Path, out var needs))
+            _threeDsNeedsKeys[row.Path] = needs = KeysLink.ThreeDsFileNeedsKeys(row.Path);
+        return needs;
+    }
+
+    private void RefreshKeys(JobItemViewModel? row)
+    {
+        ShowsWiiUKeys = row is not null && (row.SystemId == "wii-u" || row.Target?.Kind == TargetKind.Wua);
+        var rows = _page.Selected.Append(row).OfType<JobItemViewModel>().Distinct().ToList();
+        ShowsThreeDsKeys = rows.Any(ThreeDsNeedsKeys);
+        ShowsSwitchKeys = rows.Any(r => r.SystemId == KeysLink.SwitchSystem);
+    }
+
     /// <summary>Follows the page's focus and selection; called whenever either changes.</summary>
     public void Refresh()
     {
@@ -175,7 +200,7 @@ public sealed partial class SidePanelViewModel : ViewModelBase
         if (row is { IsCustom: true } && CanChoose)
             Custom ??= new PresetSettingsViewModel(row, _presets);
         else Custom = null;
-        ShowsWiiUKeys = row is not null && (row.SystemId == "wii-u" || row.Target?.Kind == TargetKind.Wua);
+        RefreshKeys(row);
         RefreshWorksWith();
         RefreshApply();
     }

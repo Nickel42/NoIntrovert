@@ -25,8 +25,8 @@ A shareable version of section 1 with diagrams and screenshots is in Google Docs
 
 One window. A navigation rail on the left: the NoIntrovert logo at the top, then two labelled sections,
 **Library** and **Files**, and Settings at the bottom below a divider. Under every page, a log collapsed to
-one bar (error and warning counts, Show log), a queue drawer (hidden until opened) and a status bar with
-overall queue progress. The redesign is specified in [ui-redesign](requirements/ui-redesign.md).
+one bar (error and warning counts, Show log), a queue drawer (hidden until opened; it keeps the 20 newest
+finished batches, plus any with a failure, until Clear finished) and a status bar with overall queue progress. The redesign is specified in [ui-redesign](requirements/ui-redesign.md).
 
 - **Library**
   - **Optimize** (was Library; start page once a library folder exists), with "Verify, Rename, Convert,
@@ -38,17 +38,20 @@ overall queue progress. The redesign is specified in [ui-redesign](requirements/
     - Side panel: Details (status, match) · Files (each file, its planned conversion, Show)
 - **Files**
   - **Convert** (start page with no library folders)
-    - Toolbar: Add files… · Add folder… · Pack a folder… · Remove · Clear finished · Clear all · filter
+    - Toolbar: Add files… · Add folder… · Add folder as one archive… · Remove · Clear finished · Clear all · filter
+    - A banner above the list when the CHD converter (chdkit) is missing or blocked: reinstall, or check the antivirus quarantine
     - Rows: File · Type · **Preset** (per row) · Size · Status · Progress · Time · Result
     - Side panel, for the focused row: File (system, facts, formats) · Preset (with Works with) · Preset
-      settings (Custom only)
+      settings (Custom only) · Wii U, 3DS or Switch keys (for selected files that need them)
+    - A row that failed for missing keys: Set up keys → Settings, scrolled to Keys
     - Run bar: **Save to** (Next to the originals · Folder: <path> · Change… · Replace the originals ⚠) ·
       Cancel · Convert
   - **Verify** (was Verify & match)
     - Job list (as Convert, no Preset column, no Save to)
     - Side panel: game databases (status, Update now) · *Checking games* preset
   - **Organize** (was Cleanup)
-    - Plan: scope (selected games or whole Library) · steps with tick boxes (Step · Game · Change)
+    - Plan: scope (selected games or whole Library) · steps with tick boxes (Step · Game · Change) · a box per kind
+      of step, with its count
     - Actions: Whole Library · Make the plan again · Verify the unchecked ones · **Run**
     - Side panel: file layout (ES-DE or keep) · safety note · past runs (Undo, Empty trash)
   - **Library tests** (Power-user mode only): round trip and chdman comparison, results table, CSV export

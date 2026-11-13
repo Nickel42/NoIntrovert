@@ -52,7 +52,12 @@ public static class RomJobs
             using var work = new WorkDirectory(s.Performance.EffectiveTempFolder);
             var copy = Path.Combine(work.Path, member);
             c.Report.SetStage(RomFixes.RenameOnly(rom) ? "Copying" : "Fixing the header");
-            if (RomFixes.RenameOnly(rom)) File.Copy(rom, copy);
+            if (RomFixes.RenameOnly(rom))
+            {
+                // A 4 GB 3DS image: in chunks, with progress, stopping when cancelled (the work folder goes either way).
+                long total = Math.Max(1, new FileInfo(rom).Length), done = 0;
+                FileCopy.Copy(rom, copy, c.Token, n => c.Report.SetProgress((double)(done += n) / total));
+            }
             else
             {
                 RomFixes.WriteFixed(rom, copy, c.Token);

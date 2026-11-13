@@ -75,7 +75,7 @@ public static class ArchiveJobs
         var sw = System.Diagnostics.Stopwatch.StartNew();
         using var engine = new SevenZipEngine();
         c.Report.SetStage(level == ArchiveLevel.Store ? "Storing" : "Compressing");
-        engine.Compress(s.Archives.Format, level, s.Performance.ThreadsPerJob, s.Archives.Solid, inputs, output,
+        engine.Compress(s.Archives.Format, level, s.Performance.EffectiveThreadsPerJob, s.Archives.Solid, inputs, output,
             contentsOnly: false, c.Report.SetProgress, c.Token);
         sw.Stop();
 
@@ -157,7 +157,7 @@ public static class ArchiveJobs
             return JobOutcome.Skipped("Archive is empty");
 
         c.Report.SetStage($"Compressing to {FormatName(target)}");
-        engine.Compress(target, s.Archives.Level, s.Performance.ThreadsPerJob, s.Archives.Solid, [contents], output,
+        engine.Compress(target, s.Archives.Level, s.Performance.EffectiveThreadsPerJob, s.Archives.Solid, [contents], output,
             contentsOnly: true, f => c.Report.SetProgress(0.4 + f * 0.6), c.Token);
         sw.Stop();
 
@@ -198,7 +198,7 @@ public static class ArchiveJobs
             return JobOutcome.Skipped("Archive is empty");
 
         c.Report.SetStage($"Compressing to {FormatName(format)}");
-        engine.Compress(format, s.Archives.Level, s.Performance.ThreadsPerJob, s.Archives.Solid, [contents], packed,
+        engine.Compress(format, s.Archives.Level, s.Performance.EffectiveThreadsPerJob, s.Archives.Solid, [contents], packed,
             contentsOnly: true, f => c.Report.SetProgress(0.4 + f * 0.5), c.Token);
         c.Report.SetStage("Testing");
         try { engine.Test(packed, f => c.Report.SetProgress(0.9 + f * 0.1), c.Token); }

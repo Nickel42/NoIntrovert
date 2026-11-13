@@ -25,7 +25,7 @@ public static class TestJobs
         var s = c.Settings;
         Directory.CreateDirectory(s.Performance.EffectiveTempFolder);
         c.Report.SetStage("Preparing");
-        var preparer = new InputPreparer(s.Performance.EffectiveTempFolder, s.Chd.IsoMode, c.Log);
+        var preparer = new InputPreparer(s.Performance.EffectiveTempFolder, s.Chd.IsoMode, c.Log) { Threads = s.Performance.EffectiveThreadsPerJob };
         using var prepared = preparer.Prepare(source,
             new InlineProgress<(string Stage, double Fraction)>(p => { c.Report.SetStage(p.Stage); c.Report.SetProgress(p.Fraction); }), c.Token);
 
@@ -50,7 +50,7 @@ public static class TestJobs
     {
         var exe = c.Settings.Diagnostics.ChdmanExePath;
         if (string.IsNullOrWhiteSpace(exe) || !File.Exists(exe))
-            throw new FileNotFoundException("Set the path to chdman on the Library tests tab to run comparisons.");
+            throw new FileNotFoundException("Set the path to chdman in Settings › Diagnostics (Power-user mode) to run comparisons.");
 
         var libOut = Path.Combine(work, disc.OutputName + ".lib.chd");
         var exeOut = Path.Combine(work, disc.OutputName + ".exe.chd");

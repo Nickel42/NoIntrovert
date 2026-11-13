@@ -7,10 +7,11 @@ namespace NoIntrovert.Core.Jobs;
 /// One job to queue: its work, where its row reports to, and how big it is
 /// (<paramref name="CostBytes"/> weights it in the overall progress).
 /// <paramref name="After"/> lists jobs that must succeed first; if one
-/// doesn't, this job is skipped.
+/// doesn't, this job is skipped. <paramref name="Sources"/> are the files it reads, so Automatic threads per job
+/// can stay low when they, or the Save to folder, are on a spinning hard drive.
 /// </summary>
 public sealed record BatchJob(string Name, IJobReport Report, JobWork Work, Action<JobStatus> OnStart, Action<JobOutcome> OnFinish,
-    long CostBytes = 0, IReadOnlyList<BatchJob>? After = null);
+    long CostBytes = 0, IReadOnlyList<BatchJob>? After = null, IReadOnlyList<string>? Sources = null);
 
 public enum QueuedState { Queued, Running, Finished }
 
@@ -175,6 +176,27 @@ public sealed class JobQueue
         Changed?.Invoke();
     }
 
+    /// <summary>How many finished groups the queue keeps before it forgets the oldest ones (<see cref="TrimFinished"/>).</summary>
+    public const int KeepFinishedGroups = 20;
+
+    /// <summary>
+    /// Forgets the oldest finished groups beyond the newest <paramref name="keep"/>,
+    /// so a long session's queue doesn't grow forever. Groups with a failed job
+    /// stay until Clear finished, and nothing still queued or running is touched.
+    /// Returns how many groups were forgotten. Runs on its own each time a group finishes.
+    /// </summary>
+    public int TrimFinished(int keep = KeepFinishedGroups)
+    {
+        lock (_gate)
+        {
+            var finished = _all.Select(j => j.Group).Distinct().Where(g => g.IsFinished).ToList();
+            var old = finished.Take(Math.Max(0, finished.Count - keep))
+                .Where(g => !g.Jobs.Any(j => j.Outcome?.Status == JobStatus.Failed)).ToHashSet();
+            if (old.Count > 0) _all.RemoveAll(j => old.Contains(j.Group));
+            return old.Count;
+        }
+    }
+
     private void DropQueued(Func<QueuedJob, bool> which)
     {
         List<QueuedJob> dropped;
@@ -189,7 +211,10 @@ public sealed class JobQueue
     // Called with _gate held.
     private void StartWorkers()
     {
-        var wanted = Math.Min(Concurrency, _queued.Count);
+        // Workers busy with a job count toward _workers too, so a job queued behind a running one
+        // gets a worker of its own when Concurrency allows.
+        var running = _all.Count(j => j.State == QueuedState.Running);
+        var wanted = Math.Min(Concurrency, running + _queued.Count);
         while (_workers < wanted)
         {
             _workers++;
@@ -250,17 +275,17 @@ public sealed class JobQueue
                     Finish(b, JobOutcome.Skipped("Skipped because an earlier step didn't succeed"));
                 if (job is null) continue;
 
-                var settings = job.Group.Settings;
-                if (chdman is null || chdmanThreads != settings.Performance.ThreadsPerJob)
+                var settings = SettingsFor(job.Group.Settings, job.Spec.Sources);
+                var threads = settings.Performance.EffectiveThreadsPerJob;
+                if (chdman is null || chdmanThreads != threads)
                 {
                     chdman?.Dispose();
-                    chdman = new Chdman(settings.Performance.ThreadsPerJob);
-                    chdmanThreads = settings.Performance.ThreadsPerJob;
+                    chdman = new Chdman(threads);
+                    chdmanThreads = threads;
                     if (rvz?.IsValueCreated == true) rvz.Value.Dispose();
-                    var threads = settings.Performance.ThreadsPerJob;
                     rvz = new Lazy<WiiGameCubeKit>(() => new WiiGameCubeKit(threads));
                 }
-                Run(index, job, chdman, rvz!);
+                Run(index, job, settings, chdman, rvz!);
             }
         }
         finally
@@ -271,9 +296,24 @@ public sealed class JobQueue
         }
     }
 
-    private void Run(int index, QueuedJob job, Chdman chdman, Lazy<WiiGameCubeKit> rvz)
+    /// <summary>
+    /// The settings a job runs with: its group's, or with Automatic threads per job a copy capped at
+    /// <see cref="PerformanceSettings.SpinningDriveThreads"/> when a source or the Save to folder is on a spinning drive.
+    /// </summary>
+    internal static AppSettings SettingsFor(AppSettings group, IReadOnlyList<string>? sources)
     {
-        var settings = job.Group.Settings;
+        var p = group.Performance;
+        if (p.ThreadsPerJob > 0 || sources is null or { Count: 0 }) return group;
+        var spinning = sources.Any(Drives.IsSpinning) || Drives.IsSpinning(group.Output.TargetFolder);
+        var threads = PerformanceSettings.EffectiveThreads(0, p.ParallelJobs, Environment.ProcessorCount, spinning);
+        if (threads == p.EffectiveThreadsPerJob) return group;
+        var capped = group.Clone();
+        capped.Performance.ThreadsPerJob = threads;
+        return capped;
+    }
+
+    private void Run(int index, QueuedJob job, AppSettings settings, Chdman chdman, Lazy<WiiGameCubeKit> rvz)
+    {
         var log = Concurrency > 1 ? new PrefixedLog(job.Group.Log, $"[{index + 1}] ") : job.Group.Log;
         chdman.Log = (level, message) =>
         {
@@ -327,7 +367,12 @@ public sealed class JobQueue
         }
         job.Spec.OnFinish(outcome);
         job.Dispose();
-        if (job.Group.Jobs.All(j => j.State == QueuedState.Finished)) job.Group.Complete();
+        if (job.Group.Jobs.All(j => j.State == QueuedState.Finished))
+        {
+            Dats.ThrottledJsonFile.FlushAll(); // hashes, matches and originals are on disk before the group reports done
+            job.Group.Complete();
+            TrimFinished();
+        }
         Changed?.Invoke();
         lock (_gate) StartWorkers(); // a dependency finishing can make queued jobs runnable
     }

@@ -87,12 +87,68 @@ internal static class ShellTests
             file.Write(new LogEntry(now, LogLevel.Debug, "debug line"));
             file.Write(new LogEntry(now, LogLevel.Info, "info line"));
             file.Write(new LogEntry(now, LogLevel.Error, "error line"));
-            string text;
-            using (var s = new FileStream(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-            using (var r = new StreamReader(s))
-                text = r.ReadToEnd();
+            file.Flush();
+            var text = ReadShared(file.Path);
+            file.Dispose();
             if (text.Contains("debug line")) return "debug lines shouldn't be saved";
             return text.Contains("info line") && text.Contains("[ERR] error line") ? null : $"missing lines: {text}";
         });
+
+        test("Session log: lines are buffered, reach the disk on the flush timer, and all of them on close", () =>
+        {
+            var dir = Path.Combine(scratch, "session-log-flush");
+            Directory.CreateDirectory(dir);
+            var file = SessionLogFile.Start(dir, new DateTime(2026, 11, 12, 10, 0, 0));
+            if (file is null) return "couldn't start the session log";
+            try
+            {
+                var when = DateTime.Now;
+                file.Write(new LogEntry(when, LogLevel.Info, "first line"));
+                // Not flushed per line any more: the timer writes it within a second or so.
+                var wait = SessionLogFile.FlushInterval * 5;
+                var until = DateTime.UtcNow + wait;
+                while (!ReadShared(file.Path).Contains("first line"))
+                {
+                    if (DateTime.UtcNow > until) return $"the timer didn't flush the buffered line within {wait.TotalSeconds:F0}s";
+                    Thread.Sleep(50);
+                }
+                // A burst right before closing: every line is written by the close, none lost.
+                for (var i = 0; i < 2000; i++) file.Write(new LogEntry(when, LogLevel.Info, $"burst {i}"));
+                file.Dispose();
+                var lines = File.ReadAllLines(file.Path);
+                if (lines.Length != 2001 || !lines[^1].EndsWith("burst 1999")) return $"{lines.Length} lines after closing, expected 2,001 ending with burst 1999";
+                file.Write(new LogEntry(when, LogLevel.Info, "after close")); // dropped, not thrown
+                file.Flush();
+                return File.ReadAllText(file.Path).Contains("after close") ? "a line written after closing reached the file" : null;
+            }
+            finally { file.Dispose(); }
+        });
+
+        test("Log pane: a burst past the 5,000-line cap keeps the newest 5,000, in order, in one change", () =>
+        {
+            var log = new LogViewModel(new NoDialogs(), new AppSettings());
+            var changes = 0;
+            log.Entries.CollectionChanged += (_, _) => changes++;
+            for (var i = 0; i < 3000; i++) log.Write(LogLevel.Info, $"line {i}");
+            log.Drain();
+            if (log.Entries.Count != 3000 || changes != 1) return $"3,000 lines: {log.Entries.Count} shown in {changes} changes, expected 3,000 in 1";
+            for (var i = 3000; i < 7000; i++) log.Write(LogLevel.Info, $"line {i}");
+            log.Drain();
+            if (changes != 2) return $"the burst past the cap took {changes - 1} changes, expected 1";
+            if (log.Entries.Count != LogViewModel.MaxVisible) return $"{log.Entries.Count} lines shown, expected {LogViewModel.MaxVisible}";
+            if (log.Entries[0].Message != "line 2000" || log.Entries[^1].Message != "line 6999") return $"kept {log.Entries[0].Message} … {log.Entries[^1].Message}";
+            for (var i = 7000; i < 13000; i++) log.Write(LogLevel.Info, $"line {i}"); // one burst bigger than the cap
+            log.Drain();
+            var inOrder = log.Entries.Select((e, n) => e.Message == $"line {8000 + n}").All(ok => ok);
+            return log.Entries.Count == LogViewModel.MaxVisible && inOrder ? null
+                : $"after a 6,000-line burst: {log.Entries.Count} lines, {log.Entries[0].Message} … {log.Entries[^1].Message}";
+        });
+    }
+
+    private static string ReadShared(string path)
+    {
+        using var s = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var r = new StreamReader(s);
+        return r.ReadToEnd();
     }
 }

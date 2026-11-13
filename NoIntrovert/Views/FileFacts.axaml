@@ -23,8 +23,8 @@
             <Setter Property="Foreground" Value="{DynamicResource TagText}" />
         </Style>
         <Style Selector="Button.verified">
-            <Setter Property="Background" Value="#FFF275" />
-            <Setter Property="Foreground" Value="#2B2B3D" />
+            <Setter Property="Background" Value="{DynamicResource VerifiedFill}" />
+            <Setter Property="Foreground" Value="{DynamicResource VerifiedText}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="CornerRadius" Value="13" />
@@ -35,12 +35,12 @@
             <Setter Property="Cursor" Value="Hand" />
         </Style>
         <Style Selector="Button.verified:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#FFF7A3" />
-            <Setter Property="Foreground" Value="#2B2B3D" />
+            <Setter Property="Background" Value="{DynamicResource VerifiedFillHover}" />
+            <Setter Property="Foreground" Value="{DynamicResource VerifiedText}" />
         </Style>
         <Style Selector="Button.verified:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="#F2E35A" />
-            <Setter Property="Foreground" Value="#2B2B3D" />
+            <Setter Property="Background" Value="{DynamicResource VerifiedFillPressed}" />
+            <Setter Property="Foreground" Value="{DynamicResource VerifiedText}" />
         </Style>
         <Style Selector="TextBlock.factLabel">
             <Setter Property="FontSize" Value="12" />

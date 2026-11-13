@@ -225,6 +225,14 @@ public sealed partial class ThemesViewModel : ViewModelBase
     }
 
     /// <summary>Removes the theme being edited from the themes folder; its kind goes back to the default theme if it was chosen.</summary>
+    internal async Task DeleteEditorAsync(ThemeEditorViewModel editor)
+    {
+        if (Library.Find(editor.OwnId) is not { IsBuiltIn: false } theme) return;
+        if (!await _dialogs.ConfirmAsync($"Delete the theme “{theme.Name}”?", "Its file is removed from the themes folder. This can't be undone.",
+                "Delete theme", "Cancel", destructive: true)) return;
+        DeleteEditor(editor);
+    }
+
     internal void DeleteEditor(ThemeEditorViewModel editor)
     {
         if (Library.Find(editor.OwnId) is not { IsBuiltIn: false } theme) return;
@@ -381,7 +389,7 @@ public sealed partial class ThemeEditorViewModel : ViewModelBase
 
     [RelayCommand] private void Save() => _owner.SaveEditor(this);
     [RelayCommand] private void Cancel() => _owner.CloseEditor();
-    [RelayCommand] private void Delete() => _owner.DeleteEditor(this);
+    [RelayCommand] private Task Delete() => _owner.DeleteEditorAsync(this);
 
     /// <summary>Puts every colour back as the theme had it.</summary>
     [RelayCommand]

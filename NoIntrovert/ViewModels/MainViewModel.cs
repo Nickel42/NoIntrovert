@@ -27,7 +27,8 @@ public partial class MainViewModel : ViewModelBase
         };
         Library.SendToCleanup = games => { Show("cleanup"); Cleanup.UseGames(games); };
         Library.IndexShown += index => _ = UpdateDatsAsync(index.Items.Select(i => i.System), startup: true);
-        Settings.Dats.UpdateRequested = () => UpdateDatsAsync(Core.Library.LibraryIndex.Load().Items.Select(i => i.System), startup: false);
+        // The index already in memory (loaded at start, or the last scan), not library.json read again on the UI thread.
+        Settings.Dats.UpdateRequested = () => UpdateDatsAsync(Library.Index.Items.Select(i => i.System), startup: false);
         Library.IndexShown += index => _ = CheckEsdeAsync(startup: true);
         Settings.Dats.EsdeCheckRequested = () => CheckEsdeAsync(startup: false);
         Settings.Library.AddFoldersRequested = Library.AddFoldersAsync;
@@ -59,7 +60,10 @@ public partial class MainViewModel : ViewModelBase
         StartPages = StartPagesFor(Pages);
         Settings.General.StartPages = StartPages;
         foreach (var tab in new BatchTabViewModel[] { Convert, Verify, Tests })
+        {
             tab.OpenSettingsRequested = () => Show("settings");
+            tab.OpenKeysRequested = ShowKeys;
+        }
 
         // The Library tests are a developer bench: only in Power-user mode.
         UpdateVisibility();
@@ -77,7 +81,9 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
         {
             LibraryVersion = "lib-chd-kit not loaded";
-            Log.Error($"chdkit.dll could not be loaded: {ex.Message}. Build lib-chd-kit and rebuild this app.");
+            Log.Error(ConvertViewModel.ChdMissingText);
+            Convert.ChdConverterMissing = true;
+            Log.Debug($"chdkit didn't load: {ex.Message}");
         }
         try
         {
@@ -91,7 +97,13 @@ public partial class MainViewModel : ViewModelBase
         }
         Settings.Diagnostics.LibraryVersions = $"{LibraryVersion}\n{RvzLibraryVersion}";
 
-        WorkPaths.SweepStale(settings.Performance.EffectiveTempFolder);
+        // Job folders left by a crashed run are deleted in the background, so the window doesn't wait for them.
+        var tempFolder = settings.Performance.EffectiveTempFolder;
+        _ = Task.Run(() =>
+        {
+            var removed = WorkPaths.SweepStale(tempFolder);
+            if (removed > 0) Log.Info($"Removed {Words.Count(removed, "job folder")} an earlier run left in {tempFolder}.");
+        });
         foreach (var problem in Core.Formats.TargetOverrides.Problems(settings.TargetFormats)) Log.Warn($"Target formats: {problem}");
     }
 
@@ -255,6 +267,12 @@ public partial class MainViewModel : ViewModelBase
         if (page is null || !page.IsVisible) return false;
         SelectedPage = page;
         return true;
+    }
+
+    /// <summary>The deep link from a missing-keys failure: shows Settings with its Keys card in view.</summary>
+    public void ShowKeys()
+    {
+        if (Show("settings")) Settings.ShowKeys();
     }
 
     /// <summary>

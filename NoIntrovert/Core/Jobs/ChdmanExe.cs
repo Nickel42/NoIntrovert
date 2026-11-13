@@ -23,7 +23,7 @@ internal static class ChdmanExe
         var args = new List<string> { CommandFor(disc.Kind), "-i", disc.InputPath, "-o", output, "-f" };
         if (!string.IsNullOrWhiteSpace(settings.Chd.Compression)) { args.Add("-c"); args.Add(settings.Chd.Compression.Trim()); }
         if (settings.Chd.HunkSize > 0) { args.Add("-hs"); args.Add(settings.Chd.HunkSize.ToString()); }
-        if (settings.Performance.ThreadsPerJob > 0) { args.Add("-np"); args.Add(settings.Performance.ThreadsPerJob.ToString()); }
+        args.Add("-np"); args.Add(settings.Performance.EffectiveThreadsPerJob.ToString());
         return Run(exePath, args, token);
     }
 
@@ -44,7 +44,7 @@ internal static class ChdmanExe
     private static RunResult Run(string exePath, IEnumerable<string> args, CancellationToken token, TimeSpan? timeout = null)
     {
         if (!File.Exists(exePath))
-            throw new FileNotFoundException("chdman was not found. Set its path on the Library tests tab.", exePath);
+            throw new FileNotFoundException("chdman was not found. Set its path in Settings › Diagnostics (Power-user mode).", exePath);
 
         var psi = new ProcessStartInfo(exePath)
         {

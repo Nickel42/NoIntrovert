@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using LibChdKit;
 using NoIntrovert.Core.Cd;
+using NoIntrovert.Core.Dats;
 
 namespace NoIntrovert.Core;
 
@@ -89,36 +90,20 @@ internal static class ChdService
 
             case ExtractFormat.Iso when IsCdLike(info):
             {
-                // CDs have no ISO form in chdman; extract a single bin and keep the 2048-byte user data.
-                var temp = Path.Combine(outputDirectory, $".noi-{Guid.NewGuid():N}");
-                Directory.CreateDirectory(temp);
-                try
-                {
-                    var cue = Path.Combine(temp, name + ".cue");
-                    chdman.ExtractCd(chdPath, cue, outputBin: null, splitBin: false, force: true, cancellationToken: token);
-                    var sheet = CueSheet.Load(cue);
-                    var tracks = sheet.Tracks.ToList();
-                    if (tracks.Count != 1 || tracks[0].IsAudio)
-                        throw new InvalidOperationException($"This CD has {tracks.Count} tracks; only a single data track can be written as an ISO. Use cue/bin instead.");
-                    var iso = Path.Combine(outputDirectory, name + ".iso");
-                    if (File.Exists(iso) && !overwrite)
-                        throw new IOException($"{Path.GetFileName(iso)} already exists.");
-                    BinToIso(Path.Combine(temp, sheet.Files[0].Name), iso, token);
-                    files.Add(iso);
-                }
-                finally
-                {
-                    try { Directory.Delete(temp, true); } catch (IOException) { }
-                }
+                // CDs have no ISO form in chdman: stream a single-bin cue/bin extraction and keep the 2048-byte
+                // user data of each sector, without writing the bin anywhere.
+                var iso = Path.Combine(outputDirectory, name + ".iso");
+                var cue = name + ".cue";
+                using var sink = new CdIsoSink(cue, iso, overwrite);
+                chdman.ExtractCdToSink(chdPath, cue, sink, outputBin: null, splitBin: false, cancellationToken: token);
+                sink.Complete();
+                files.Add(iso);
                 break;
             }
 
             case ExtractFormat.Iso or ExtractFormat.Raw:
             {
-                var ext = format == ExtractFormat.Iso || info.MediaType == "dvd" ? ".iso" : info.MediaType == "hd" ? ".img" : ".raw";
-                if (info.MediaType == "av")
-                    throw new NotSupportedException("Laserdisc CHDs can only be extracted to .avi, which this app doesn't do.");
-                var output = Path.Combine(outputDirectory, name + ext);
+                var output = Path.Combine(outputDirectory, name + RawExtension(info, format));
                 chdman.ExtractRaw(chdPath, output, overwrite, cancellationToken: token);
                 files.Add(output);
                 break;
@@ -128,6 +113,36 @@ internal static class ChdService
         sw.Stop();
         log.Debug($"Extracted {string.Join(", ", files.Select(Path.GetFileName))}");
         return (files, new OperationStats(sw.Elapsed, new FileInfo(chdPath).Length, files.Sum(f => File.Exists(f) ? new FileInfo(f).Length : 0)));
+    }
+
+    /// <summary>The extension of a raw (or DVD ISO) extraction; refuses laserdiscs.</summary>
+    private static string RawExtension(ChdInfo info, ExtractFormat format)
+    {
+        if (info.MediaType == "av")
+            throw new NotSupportedException("Laserdisc CHDs can only be extracted to .avi, which this app doesn't do.");
+        return format == ExtractFormat.Iso || info.MediaType == "dvd" ? ".iso" : info.MediaType == "hd" ? ".img" : ".raw";
+    }
+
+    /// <summary>
+    /// The hashes of the files <see cref="Extract"/> writes for Auto with one bin per track (the TOC left
+    /// out): the same names, sizes, CRC32s, SHA-1s and MD5s that hashing those files gives, but streamed
+    /// from the CHD so nothing is written to disk.
+    /// </summary>
+    public static List<HashedFile> HashTracks(Chdman chdman, string chdPath, CancellationToken token)
+    {
+        var info = chdman.Info(chdPath, cancellationToken: token);
+        var format = ResolveFormat(info, ExtractFormat.Auto);
+        var name = Path.GetFileNameWithoutExtension(chdPath);
+        if (format is ExtractFormat.CueBin or ExtractFormat.Gdi)
+        {
+            var toc = name + (format == ExtractFormat.Gdi ? ".gdi" : ".cue");
+            var cdSink = new HashingSink(toc);
+            chdman.ExtractCdToSink(chdPath, toc, cdSink, outputBin: null, splitBin: format == ExtractFormat.CueBin, cancellationToken: token);
+            return cdSink.Files;
+        }
+        var sink = new HashingSink();
+        chdman.ExtractRawToSink(chdPath, name + RawExtension(info, format), sink, cancellationToken: token);
+        return sink.Files;
     }
 
     /// <summary>Writes the 2048-byte user data of each Mode 1 / Mode 2 Form 1 sector of a raw bin.</summary>

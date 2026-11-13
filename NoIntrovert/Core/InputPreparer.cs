@@ -29,6 +29,9 @@ internal sealed class PreparedInput(WorkDirectory work) : IDisposable
 /// </summary>
 internal sealed class InputPreparer(string tempRoot, IsoMode isoMode, ILog log)
 {
+    /// <summary>Threads a CSO/ZSO or PBP decode may use; 0 for every processor.</summary>
+    public int Threads { get; init; }
+
     public PreparedInput Prepare(string path, IProgress<(string Stage, double Fraction)>? progress, CancellationToken token)
     {
         var prepared = new PreparedInput(new WorkDirectory(tempRoot));
@@ -93,7 +96,7 @@ internal sealed class InputPreparer(string tempRoot, IsoMode isoMode, ILog log)
             {
                 var iso = Path.Combine(work.Path, name + ".iso");
                 log.Info($"Decompressing {Path.GetFileName(path)} to a temporary ISO...");
-                CsoDecoder.Decode(path, iso, Stage("Decompressing CSO"), token);
+                CsoDecoder.Decode(path, iso, Stage("Decompressing CSO"), token, Threads);
                 AddIso(prepared, iso, name, ext[1..] + " → iso", cdIsAuto: false);
                 return;
             }
@@ -113,7 +116,7 @@ internal sealed class InputPreparer(string tempRoot, IsoMode isoMode, ILog log)
             case ".pbp":
             {
                 log.Info($"Rebuilding the disc image(s) inside {Path.GetFileName(path)}...");
-                var discs = PbpExtractor.Extract(path, work.Path, name, Stage("Unpacking PBP"), token);
+                var discs = PbpExtractor.Extract(path, work.Path, name, Stage("Unpacking PBP"), token, Threads);
                 foreach (var d in discs)
                 {
                     if (d.DiscId.Length > 0) log.Debug($"PBP disc {d.Number}: {d.DiscId}");

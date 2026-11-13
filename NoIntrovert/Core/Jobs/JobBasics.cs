@@ -30,7 +30,7 @@ public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJ
     public Chdman Chdman { get; } = chdman;
 
     /// <summary>The worker's lib-wii-gamecube-kit context, shared by its jobs (one runs at a time).</summary>
-    internal Lazy<WiiGameCubeKit> RvzSource { get; } = rvz ?? new Lazy<WiiGameCubeKit>(() => new WiiGameCubeKit(settings.Performance.ThreadsPerJob));
+    internal Lazy<WiiGameCubeKit> RvzSource { get; } = rvz ?? new Lazy<WiiGameCubeKit>(() => new WiiGameCubeKit(settings.Performance.EffectiveThreadsPerJob));
 
     public WiiGameCubeKit Rvz
     {
