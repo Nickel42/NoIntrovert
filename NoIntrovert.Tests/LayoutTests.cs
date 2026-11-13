@@ -606,13 +606,13 @@ static class LayoutTests
             Dispatcher.UIThread.RunJobs();
             if (Window.GetLastRenderedFrame() is { } frame && frame.PixelSize.Width == (int)Window.ClientSize.Width && Environment.GetEnvironmentVariable("NOINTROVERT_LAYOUT_FRAME") is not null)
             {
-                frame.Save(path);
+                frame.Save(path, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
                 return;
             }
             var size = Window.ClientSize;
             using var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize((int)size.Width, (int)size.Height));
             bitmap.Render(Window);
-            bitmap.Save(path);
+            bitmap.Save(path, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
         }
     }
 }
