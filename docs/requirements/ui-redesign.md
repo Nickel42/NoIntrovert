@@ -15,7 +15,7 @@ The right-hand column should explain the **selected job row** and make **presets
 
 - The column grows from 320 px to **440 px** and runs the full height of the window body, beside both the job list and the log. The job list and log get narrower.
 - The column scrolls as one panel. Its sections are, in order: **File**, **Preset**, **Preset settings** (only when the preset is Custom). Where files are saved is in the run bar (see "Save to").
-- The old "CONVERT" summary ("6 → CHD · 1 → RVZ") and the "Pack a folder…" button move out of the column. The summary is already shown in the run bar and toolbar. Pack a folder… sits next to Add folder… in the toolbar.
+- The old "CONVERT" summary ("6 → CHD · 1 → RVZ") and the "Pack a folder…" button move out of the column. The summary is already shown in the run bar and toolbar. Pack a folder… (now **Add folder as one archive…**) sits next to Add folder… in the toolbar.
 - When nothing is selected, the File section shows "Select a row to see what it is", and Preset shows the presets for the most common target in the list.
 - When rows from more than one system are selected, File shows "3 systems selected" with one line per system.
 
@@ -49,7 +49,7 @@ One scrolling page in the main area, titled "Settings · Changes are saved as yo
 Most users don't need the log, so it starts collapsed to a single bar: "Log", the error and warning counts, and a **Show log** button at the right. The job list takes the freed height.
 
 - The counts turn red when there's at least one error, so problems are still noticed while the log is collapsed. The failed row also shows its reason in Result.
-- Show log expands it to the full view, with Show debug, Copy, Save… and Clear, and the button becomes **Hide log**. The app remembers the choice.
+- Show log expands it to the full view, with Show debug, Show only errors, Copy, Save… and Clear, and the button becomes **Hide log**. The app remembers the choice. Show only errors leaves only the error lines (Show debug is off while it's on), and Copy and Save… then write only those; the counts still count every line.
 
 ## Queue progress (status bar, 3 Nov 2026)
 
@@ -101,7 +101,7 @@ The bottom status bar has an overall queue progress bar between the queue summar
 | Custom | any | Pick the format and settings yourself |
 
 - There is no description box under the dropdown; it was removed on 3 Nov 2026 because it repeated the preset name and dropdown descriptions. Codecs live in Custom's Preset settings. Warnings sit next to the setting that causes them, e.g. the Zstandard reader warning under Compression.
-- **Works with**: emulators that can open the output. **Every RetroArch core** for the system comes first, under "RetroArch cores", then the **most common standalone emulators** under "Standalone". Kept compact: each group is a two-column list, and each entry is just a small (14 px) status icon and the emulator name. There is no kind tag, since the group heading already says it, and no second line of text.
+- **Works with**: emulators that can open the output. **Every RetroArch core** for the system comes first, under "RetroArch cores", then the **most common standalone emulators** under "Standalone". Kept compact: each group is a two-column list, and each entry is just a small (14 px) status icon and the emulator name. There is no kind tag, since the group heading already says it. Only a ✕ entry has a second line: why it doesn't work, in small subtle text (only that row grows). Each entry is focusable; a click or Enter shows its detail.
   - the icon shows the support state for the **current preset**:
     - ✓ (green, #4ADE80; not the brand yellow, which reads as a warning next to red): the output's extension is supported, and so is the codec the preset uses
     - ✕ (red, name dimmed): not with this preset. Either the extension or the preset's codec isn't supported (e.g. Zstandard CHDs on an old reader)

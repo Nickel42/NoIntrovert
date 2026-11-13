@@ -25,8 +25,8 @@ A shareable version of section 1 with diagrams and screenshots is in Google Docs
 
 One window. A navigation rail on the left: the NoIntrovert logo at the top, then two labelled sections,
 **Library** and **Files**, and Settings at the bottom below a divider. Under every page, a log collapsed to
-one bar (error and warning counts, Show log), a queue drawer (hidden until opened) and a status bar with
-overall queue progress. The redesign is specified in [ui-redesign](requirements/ui-redesign.md).
+one bar (error and warning counts, Show log), a queue drawer (hidden until opened; it keeps the 20 newest
+finished batches, plus any with a failure, until Clear finished) and a status bar with overall queue progress. The redesign is specified in [ui-redesign](requirements/ui-redesign.md).
 
 - **Library**
   - **Optimize** (was Library; start page once a library folder exists), with "Verify, Rename, Convert,
@@ -38,7 +38,8 @@ overall queue progress. The redesign is specified in [ui-redesign](requirements/
     - Side panel: Details (status, match) · Files (each file, its planned conversion, Show)
 - **Files**
   - **Convert** (start page with no library folders)
-    - Toolbar: Add files… · Add folder… · Pack a folder… · Remove · Clear finished · Clear all · filter
+    - Toolbar: Add files… · Add folder… · Add folder as one archive… · Remove · Clear finished · Clear all · filter
+    - A banner above the list when the CHD converter (chdkit) is missing or blocked: reinstall, or check the antivirus quarantine
     - Rows: File · Type · **Preset** (per row) · Size · Status · Progress · Time · Result
     - Side panel, for the focused row: File (system, facts, formats) · Preset (with Works with) · Preset
       settings (Custom only)
