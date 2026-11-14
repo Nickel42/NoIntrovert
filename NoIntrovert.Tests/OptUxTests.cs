@@ -188,7 +188,7 @@ internal static class OptUxTests
             finally { f.ResetCustom(); }
         }));
 
-        test("Convert: 'Add folder as one archive…' fits the toolbar at every size", () => dispatch(() =>
+        test("Convert: 'Add folder as one archive…' is in the Add ▾ menu, and the toolbar fits at every size", () => dispatch(() =>
         {
             f.Show("convert");
             foreach (var (width, height) in LayoutTests.Sizes)
@@ -196,8 +196,8 @@ internal static class OptUxTests
                 f.Resize(width, height);
                 f.Layout();
                 if (f.Find<Button>(b => b.Content as string == "Pack a folder…" && b.IsEffectivelyVisible) is not null) return "the old 'Pack a folder…' label is still shown";
-                var button = f.Find<Button>(b => b.Content as string == "Add folder as one archive…" && b.IsEffectivelyVisible);
-                if (button is null) return $"{width}×{height}: no 'Add folder as one archive…' button";
+                // It's in the toolbar's Add ▾ menu (UX review R4), which fits on one line.
+                if (!JobListTests.AddMenu(f).Contains("Add folder as one archive…")) return $"{width}×{height}: no 'Add folder as one archive…' in the Add ▾ menu";
                 if (width == 900 && screenshots is not null) f.Save(Path.Combine(screenshots, "optux-add-folder-archive-900.png"));
                 // Check finds a cut-off label or a button pushed out of its card.
                 var problems = LayoutTests.Check(f.Window);

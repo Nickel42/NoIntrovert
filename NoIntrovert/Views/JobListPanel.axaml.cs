@@ -55,13 +55,40 @@ public partial class JobListPanel : UserControl
         base.OnAttachedToVisualTree(e);
         _top = TopLevel.GetTopLevel(this);
         _top?.AddHandler(KeyDownEvent, OnShortcut, RoutingStrategies.Bubble);
+        // The window takes the drop (MainWindow.axaml.cs); the empty list's drop zone only lights up meanwhile.
+        _top?.AddHandler(DragDrop.DragEnterEvent, OnDragOver, RoutingStrategies.Bubble, handledEventsToo: true);
+        _top?.AddHandler(DragDrop.DragOverEvent, OnDragOver, RoutingStrategies.Bubble, handledEventsToo: true);
+        _top?.AddHandler(DragDrop.DragLeaveEvent, OnDragEnded, RoutingStrategies.Bubble, handledEventsToo: true);
+        _top?.AddHandler(DragDrop.DropEvent, OnDragEnded, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _top?.RemoveHandler(KeyDownEvent, OnShortcut);
+        _top?.RemoveHandler(DragDrop.DragEnterEvent, OnDragOver);
+        _top?.RemoveHandler(DragDrop.DragOverEvent, OnDragOver);
+        _top?.RemoveHandler(DragDrop.DragLeaveEvent, OnDragEnded);
+        _top?.RemoveHandler(DragDrop.DropEvent, OnDragEnded);
+        if (DataContext is BatchTabViewModel vm) vm.IsDragOver = false;
         _top = null;
         base.OnDetachedFromVisualTree(e);
+    }
+
+    // ---- Drag and drop: files dragged over the window light up the empty list's drop zone ----
+
+    private void OnDragOver(object? sender, DragEventArgs e) =>
+        SetDragOver(IsEffectivelyVisible && e.DataTransfer.Contains(DataFormat.File));
+
+    /// <summary>
+    /// The drag left the window or dropped. Moving between controls raises a leave and then an enter, so the
+    /// zone stays lit; only leaving the window (or dropping) leaves it off.
+    /// </summary>
+    private void OnDragEnded(object? sender, DragEventArgs e) => SetDragOver(false);
+
+    /// <summary>Lights the drop zone up, or not (tests call it as a drag would).</summary>
+    public void SetDragOver(bool over)
+    {
+        if (DataContext is BatchTabViewModel vm && vm.IsDragOver != over) vm.IsDragOver = over;
     }
 
     private void OnShortcut(object? sender, KeyEventArgs e)
