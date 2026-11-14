@@ -97,11 +97,11 @@ static class ThemeTests
             return problems.Count == 0 ? null : string.Join("; ", problems);
         });
 
-        test("Themes: secondary text, control outlines, status colours and the focused row's outline read in every NoIntrovert theme and imported scheme", () =>
+        test("Themes: secondary text, control outlines, status colours and the focused row's outline read in every NoIntrovert and Classic theme", () =>
         {
             var problems = new List<string>();
             var themes = ThemeLibrary.BuiltIn.Where(t => t.Collection == ThemeCollection.NoIntrovert)
-                .Concat(ThemeLibrary.BuiltIn.Where(t => t.Collection == ThemeCollection.Base16));
+                .Concat(ThemeLibrary.BuiltIn.Where(t => t.Collection == ThemeCollection.Classic));
             foreach (var t in themes)
             {
                 var c = ThemeResources.Colors(t);
