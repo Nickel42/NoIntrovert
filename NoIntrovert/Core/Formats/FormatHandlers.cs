@@ -31,6 +31,9 @@ public static class KnownFormats
     /// <summary>A PS Vita game as a NoNpDrm folder (sce_sys/param.sfo), zipped for Vita3K (FR-10).</summary>
     public static readonly FormatInfo VitaFolder = new("vita-folder", "PS Vita game folder");
 
+    /// <summary>A PS Vita PlayStation Store package (game, DLC, update or PSM), told from PS3/PSP ones by its header (lib-psvita-kit).</summary>
+    public static readonly FormatInfo VitaPkg = new("vita-pkg", "PS Vita package (.pkg)", ".pkg");
+
     /// <summary>A decrypted PS3 disc game as a folder (PS3_GAME/PARAM.SFO), named "Game.ps3" for ES-DE.</summary>
     public static readonly FormatInfo Ps3Folder = new("ps3-folder", "PS3 game folder");
 
@@ -79,7 +82,7 @@ public static class KnownFormats
     public static FormatInfo? ById(string id) => AllById.GetValueOrDefault(id);
 
     private static readonly Dictionary<string, FormatInfo> AllById =
-        ((FormatInfo[])[.. ByNameFormats, SplitFile, WiiUFolder, Nus, VitaFolder, XboxPackage, ConvertTargets.OtherFile, ConvertTargets.PackedFolder])
+        ((FormatInfo[])[.. ByNameFormats, SplitFile, WiiUFolder, Nus, VitaFolder, VitaPkg, XboxPackage, ConvertTargets.OtherFile, ConvertTargets.PackedFolder])
             .GroupBy(f => f.Id).ToDictionary(g => g.Key, g => g.First());
 
     /// <summary>The format a file name says, without looking at the file (it may be inside an archive).</summary>
@@ -211,16 +214,20 @@ public sealed class Xbox360PackageHandler() : ExtensionHandler("x360-package", 1
     }
 }
 
-/// <summary>PS Vita games as NoNpDrm folders: claimed whole, never looked inside.</summary>
-public sealed class VitaHandler() : ExtensionHandler("vita", 400, [KnownFormats.VitaFolder])
+/// <summary>
+/// PS Vita games as NoNpDrm folders (claimed whole, never looked inside), and PS Vita .pkg files. A .pkg is
+/// opened to tell it from a PS3 or PSP package, which this handler leaves alone.
+/// </summary>
+public sealed class VitaHandler() : ExtensionHandler("vita", 400, [KnownFormats.VitaFolder, KnownFormats.VitaPkg])
 {
-    public override FormatInfo? Recognize(string file) => null;
+    public override FormatInfo? Recognize(string file) =>
+        KnownFormats.VitaPkg.HasExtension(file) && Vita.VitaJobs.IsVitaPackage(file) ? KnownFormats.VitaPkg : null;
 
     public override FormatInfo? RecognizeFolder(string folder) => VitaGame.IsGameFolder(folder) ? KnownFormats.VitaFolder : null;
 
     public override IEnumerable<FileSet> Claim(ScanSet set)
     {
-        var claimed = new List<FileSet>();
+        var claimed = base.Claim(set).ToList();
         foreach (var folder in set.UnclaimedFolders.ToList())
         {
             if (RecognizeFolder(folder) is not { } format) continue;

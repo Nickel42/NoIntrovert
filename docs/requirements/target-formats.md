@@ -21,9 +21,9 @@ target for a whole system or for one file type in Advanced settings, including "
 - The override settings.
 - The docs.
 
-**Out of scope here (D8):** converters for formats the app can't produce yet: PS Vita `.pkg` →
-NoNpDrm. (3DS `.zcci`, Switch NSZ/XCZ, Xbox XISO and the PS3 decrypted ISO and JB folder were on this
-list; FR-9, FR-11, FR-12 and lib-ps3-kit now cover them.) For these systems the app
+**Out of scope here (D8):** converters for formats the app can't produce yet. None are left now:
+3DS `.zcci`, Switch NSZ/XCZ, Xbox XISO, the PS3 decrypted ISO and JB folder, and PS Vita `.pkg` were on
+this list; FR-9, FR-10, FR-11, FR-12 and lib-ps3-kit now cover them. For a system added later, the app
 shows the recommendation with no Convert button, and each converter gets its own requirement later.
 
 ## 3. Today's code (starting point)
@@ -156,7 +156,16 @@ shows the recommendation with no Convert button, and each converter gets its own
   - The title and title ID come from `param.sfo`.
   - When the launcher option is on, the app also writes `<Title> (<TitleID>)<ext>`, containing the
     title ID, next to the zip.
-  - `.pkg` + zRIF conversion is a separate later requirement (D8).
+  - A PS Vita `.pkg` (game, DLC or update; told from PS3 and PSP packages by its header) becomes a
+    zip too: lib-psvita-kit decrypts and unpacks it as a NoNpDrm folder, which is zipped. The package
+    keys are built into lib-psvita-kit. Games and DLC need their zRIF license: a `.zrif` file next to
+    the `.pkg` (same name), else a list of zRIFs chosen in Settings › Keys (any text, NoPayStation's TSV
+    included: each zRIF is matched by the content ID inside it). Without one the job fails, says where
+    the zRIF goes, and writes nothing. Updates need none.
+  - Names: a game is `<Title> (<TitleID>).zip` (plus the launcher file), DLC
+    `<Title> (<TitleID>) [DLC].zip`, an update `<Title> (<TitleID>) [Update v<APP_VER>].zip`. Vita3K
+    installs each by its `param.sfo` category (an update needs the game installed first).
+  - PlayStation Mobile packages are recognised and left as they are.
 - **FR-11 Hashes (R11) and headers (R12).**
   - **R11:** when an output's bytes differ from the No-Intro/Redump original, the app records the
     original's name, size, CRC32, MD5 and SHA-1 in the library index (Q1). Verify then checks a
@@ -249,6 +258,9 @@ shows the recommendation with no Convert button, and each converter gets its own
 | 14 | `Game.cso` (PSP) | `*` / `.cso` → `leave` | Left as is |
 | 15 | `Game.cso` (PSP) | defaults | `Game.chd` (createdvd, 2048-byte hunks) |
 | 16 | NoNpDrm folder `PCSE00000` | launcher on | `Title (PCSE00000).zip` + `Title (PCSE00000).psvita` |
+| 16b | Vita `game.pkg` + `game.zrif` | launcher on | `Title (PCSE00000).zip` (with `work.bin`) + `Title (PCSE00000).psvita` |
+| 16c | Vita game `.pkg`, no zRIF | defaults | The job fails and says where the zRIF goes; nothing is written |
+| 16d | Vita DLC and update `.pkg`, zRIF list chosen | launcher on | `Title (ID) [DLC].zip`, `Title (ID) [Update v01.00].zip`; no launcher files |
 | 17 | `Game.nsp` | defaults | `Game.nsz`; back to the same `Game.nsp`, byte for byte |
 | 17b | `Game.xci` | defaults / `switch` → `xcz` | Defaults: `Game.nsz`. With the override: `Game.xcz` |
 | 17c | `Game.nsp` | no `prod.keys` | The job fails and says where `prod.keys` goes; nothing is written |
@@ -266,7 +278,7 @@ shows the recommendation with no Convert button, and each converter gets its own
 2. **Overrides:** FR-12 to FR-14.
 3. **Per-system extras:** FR-7 (multi-disc), FR-8, FR-9 (3DS), FR-10 (Vita zip and launcher),
    FR-11 (hashes and header fixes), R6 (splitting).
-4. **Later, a separate requirement each (D8):** Vita `.pkg` + zRIF. (PS3 is done: lib-ps3-kit.)
+4. **Later (D8):** nothing left. PS3 is done (lib-ps3-kit), and Vita `.pkg` + zRIF is part of FR-10.
 
 ## 7. Resolved questions
 
