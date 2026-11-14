@@ -56,6 +56,7 @@
     <ProjectReference Include="$(LibThreeDsKitRoot)src/lib-3ds-kit/lib-3ds-kit.csproj" />
     <ProjectReference Include="$(LibNxKitRoot)src/lib-nx-kit/lib-nx-kit.csproj" />
     <ProjectReference Include="$(LibXisoKitRoot)src/lib-xiso-kit/lib-xiso-kit.csproj" />
+    <ProjectReference Include="$(LibPsVitaKitRoot)src/lib-psvita-kit/lib-psvita-kit.csproj" />
   </ItemGroup>
 
   <ItemGroup>

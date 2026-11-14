@@ -90,6 +90,15 @@
   </PropertyGroup>
 
   <!--
+    lib-psvita-kit (PS Vita: param.sfo, zRIF, .pkg to NoNpDrm folder), its own repository,
+    checked out as a git submodule in native/lib-psvita-kit. It is pure managed code, so there
+    is nothing to build first. Pass -p:LibPsVitaKitRoot=... (ending in a slash) to use another checkout.
+  -->
+  <PropertyGroup>
+    <LibPsVitaKitRoot Condition="'$(LibPsVitaKitRoot)' == ''">$(MSBuildThisFileDirectory)native/lib-psvita-kit/</LibPsVitaKitRoot>
+  </PropertyGroup>
+
+  <!--
     lib-wii-gamecube-kit (Dolphin's GameCube/Wii disc code), its own
     repository, checked out as a git submodule in native/lib-wii-gamecube-kit
     (run "git submodule update" with init after cloning). Its build scripts put the native library
