@@ -23,9 +23,10 @@ A shareable version of section 1 with diagrams and screenshots is in Google Docs
 
 ## Current structure
 
-One window. A navigation rail on the left: the NoIntrovert logo at the top, then one list of pages (Optimize,
-Convert, Verify, Organize; the selected one is a pill in the theme's accent colour), and Settings at the bottom
-below a divider. At the bottom, a status bar that sums up every run: the queue (running, queued, done, time
+One window; the title bar carries the app icon and name. A navigation rail on the left with the pages in labelled
+groups: **LIBRARY** (Optimize), **FILES** (Convert, Verify, Organize) and, in Power-user mode, **TOOLS** (Library
+tests); Settings at the bottom below a divider. The selected page is a tint with an accent bar at its left. Below
+1100 px the rail shows only icons, with thin dividers between the groups instead of their headers. At the bottom, a status bar that sums up every run: the queue (running, queued, done, time
 left, speed), its overall progress, "2 failed" (filters the page to its failed rows), the log's error and warning
 counts (open the log), and **Activity** (Ctrl+J). Activity is a drawer above the status bar, closed until opened,
 with two tabs: **Queue** (every job from every page; it keeps the 20 newest finished batches, plus any with a
@@ -347,6 +348,7 @@ options above as the history of why.
 **Outcome so far (UI redesign, Nov 2026).** The rail took a mix of A and C: a **Library** section with one
 page, **Optimize**, named for the whole-collection job, and a **Files** section of verbs (Convert, Verify,
 Organize). CHD info was removed rather than moved to Tools, and Library tests stays in the rail only in
-Power-user mode. *Organize* was chosen over *Repair* and *Tidy up*; *Verify* dropped *& match*. Where files
+Power-user mode, under its own **Tools** label (it's a developer bench, not a file job). The section labels are
+shown in the rail (since 14 Nov 2026), so it's clear why Optimize stands apart. *Organize* was chosen over *Repair* and *Tidy up*; *Verify* dropped *& match*. Where files
 go moved out of the side panel into the run bar's Save to, which is also the only control that removes
 originals. The pipeline (C's steps 2–4) is not built.

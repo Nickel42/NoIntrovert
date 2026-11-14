@@ -19,16 +19,30 @@ The right-hand column should explain the **selected job row** and make **presets
 - When nothing is selected, the File section shows "Select a row to see what it is", and Preset shows the presets for the most common target in the list.
 - When rows from more than one system are selected, File shows "3 systems selected" with one line per system.
 
-## Navigation rail (revised 3 Nov 2026)
+## Navigation rail (revised 14 Nov 2026)
 
-The top of the rail shows the **NoIntrovert logo** (the cartridge peeking out of the door, with the "NO-INTROVERT" banner). It replaces the "N" badge, the app name and the version. It's 170 px wide, filling the rail's inner width, and keeps its transparent background. The version moves to Settings › About.
+The rail has **no logo**. The title bar right above it already shows the app icon and "NoIntrovert"; the 170 px
+illustration only repeated them and took a quarter of the rail's height. The full illustration
+(`/Assets/nointrovert-logo.png`, kept in the project) belongs in Settings › About and the empty job list. The version
+is in Settings › About.
 
-The left rail has two labelled sections, with Settings set apart at the bottom:
+The rail's pages are in labelled groups, each under a small, muted uppercase header (11 px bold, lined up with the
+buttons' icons), with Settings set apart at the bottom:
 
-- **Library**: one button, **Optimize**, with small text under it: "Verify, Rename, Convert, Organize". It runs all of those steps over the whole library.
-- **Files**: **Convert** (this screen), **Verify** (was "Verify & match") and **Organize** (was "Cleanup", now with a folder icon).
+- **LIBRARY**: one button, **Optimize**, with small text under it: "Verify, convert, organize". It runs all of those
+  steps over the whole library. It's drawn like every other item (no card of its own); the line under its title is
+  what explains it.
+- **FILES**: **Convert**, **Verify** (was "Verify & match") and **Organize** (was "Cleanup", with a folder icon).
+- **TOOLS**: **Library tests**, in Power-user mode only; the header is hidden with it.
 - **Settings** sits at the bottom of the rail, below a divider.
 - The **CHD info** page is removed.
+
+Every item is selected the same way: a tint with a 4 px accent bar at its left, the text in the normal colour. Each
+button's tooltip names it with its shortcut ("Convert (Ctrl+2)"). The groups come from the page list
+(`PageViewModel.Group`, `MainViewModel.RailGroups`), not from positions in the view.
+
+Below 1100 px the rail shows only icons (64 px wide): the headers are hidden and a thin divider separates the groups
+(none above the first).
 
 ## Settings page (mock-up on "Page 4 · Settings", 4 Nov 2026)
 
