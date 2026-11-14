@@ -13,6 +13,12 @@ public interface IDialogs
     Task OpenFolderAsync(string folder);
 
     /// <summary>
+    /// Shows these files in the system file manager, selected where the system allows it
+    /// (Explorer on Windows, Finder on macOS); otherwise opens their folder.
+    /// </summary>
+    Task RevealAsync(IReadOnlyList<string> paths) => FileReveal.RevealAsync(paths, OpenFolderAsync);
+
+    /// <summary>
     /// Asks a yes/no question; true when the user picks <paramref name="yes"/>.
     /// With <paramref name="destructive"/>, <paramref name="no"/> is the default
     /// button (Enter) and has focus, and <paramref name="yes"/> looks like a danger button.

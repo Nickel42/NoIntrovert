@@ -373,6 +373,7 @@ static class LayoutTests
         }));
 
         UxLayoutTests.Run(test, f, Dispatch);
+        ConventionsTests.RunLayout(test, f, Dispatch);
         OptUxTests.RunLayout(test, f, Dispatch, screenshots);
         OptCleanupTests.RunLayout(test, f, Dispatch, screenshots);
         FolderLayoutTests.RunLayout(test, f, Dispatch, screenshots);

@@ -32,9 +32,20 @@
 
     <Window.Resources>
         <ResourceDictionary>
+        <ResourceDictionary.ThemeDictionaries>
+            <!-- Windows caption buttons' hover and press: a neutral tint, as Windows 11 draws them -->
+            <ResourceDictionary x:Key="Dark">
+                <SolidColorBrush x:Key="CaptionHover" Color="#17FFFFFF" />
+                <SolidColorBrush x:Key="CaptionPressed" Color="#0FFFFFFF" />
+            </ResourceDictionary>
+            <ResourceDictionary x:Key="Light">
+                <SolidColorBrush x:Key="CaptionHover" Color="#10000000" />
+                <SolidColorBrush x:Key="CaptionPressed" Color="#0A000000" />
+            </ResourceDictionary>
+        </ResourceDictionary.ThemeDictionaries>
         <!-- One rail button: icon, title, and an optional line of small text under the title -->
         <DataTemplate x:Key="RailButton" x:DataType="vm:PageViewModel">
-            <Button Classes="rail" Classes.selected="{Binding IsSelected}" Classes.featured="{Binding HasSubtitle}" IsVisible="{Binding IsVisible}" ToolTip.Tip="{Binding Title}"
+            <Button Classes="rail" Classes.selected="{Binding IsSelected}" Classes.featured="{Binding HasSubtitle}" IsVisible="{Binding IsVisible}" ToolTip.Tip="{Binding ToolTipText}"
                     Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectPageCommand}" CommandParameter="{Binding}"
                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center" Margin="0,0,0,4">
                 <Grid ColumnDefinitions="Auto,*" Margin="0,10">
@@ -52,32 +63,64 @@
     </Window.Resources>
 
     <Window.Styles>
-        <!-- Title bar: the rail's colour, with round 28 px window buttons; close is red on a red tint. -->
-        <Style Selector="Button.WindowControlsButton">
+        <!-- Title bar on macOS and Linux: the rail's colour, with round 28 px window buttons; close is red on a red tint. -->
+        <Style Selector=":is(Window):not(.wincaption) Button.WindowControlsButton">
             <Setter Property="Width" Value="28" />
             <Setter Property="Height" Value="28" />
             <Setter Property="CornerRadius" Value="14" />
             <Setter Property="Background" Value="{DynamicResource WindowButtonBackground}" />
             <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
         </Style>
-        <Style Selector="Button.WindowControlsButton:pointerover">
+        <Style Selector=":is(Window):not(.wincaption) Button.WindowControlsButton:pointerover">
             <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
         </Style>
-        <Style Selector="Button.WindowControlsButton.Close">
+        <Style Selector=":is(Window):not(.wincaption) Button.WindowControlsButton.Close">
             <Setter Property="Background" Value="{DynamicResource DangerTint}" />
             <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
         </Style>
-        <Style Selector="Button.WindowControlsButton.Close:pointerover">
+        <Style Selector=":is(Window):not(.wincaption) Button.WindowControlsButton.Close:pointerover">
             <Setter Property="Background" Value="{DynamicResource DangerText}" />
             <Setter Property="Foreground" Value="White" />
         </Style>
-        <Style Selector="Button.WindowControlsButton.themetoggle">
+        <Style Selector=":is(Window):not(.wincaption) Button.WindowControlsButton.themetoggle">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
             <Setter Property="Margin" Value="0,0,7,0" />
         </Style>
-        <Style Selector="Button.WindowControlsButton.themetoggle:pointerover">
+        <Style Selector=":is(Window):not(.wincaption) Button.WindowControlsButton.themetoggle:pointerover">
             <Setter Property="Background" Value="{DynamicResource WindowButtonBackground}" />
+            <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
+        </Style>
+
+        <!-- Title bar on Windows (the window gets .wincaption, see MainWindow.axaml.cs): Windows 11's caption buttons,
+             46×32 rectangles flush with the top-right corner, transparent at rest with a neutral tint on hover;
+             Close turns red (#C42B1C) with a white glyph only on hover and press. The theme button matches. -->
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
+        </Style>
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource CaptionHover}" />
+        </Style>
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton:pressed">
+            <Setter Property="Background" Value="{DynamicResource CaptionPressed}" />
+        </Style>
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton.Close:pointerover">
+            <Setter Property="Background" Value="#C42B1C" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton.Close:pressed">
+            <Setter Property="Background" Value="#E6C42B1C" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton.themetoggle">
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+        </Style>
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton.themetoggle:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
         </Style>
 

@@ -37,6 +37,12 @@ public sealed partial class PageViewModel(string id, string title, string icon, 
     /// <summary>What dropping files on this page does; null means it doesn't take drops (they go to Convert).</summary>
     public Func<IReadOnlyList<string>, Task>? Accept { get; } = accept;
 
+    /// <summary>The page's keyboard shortcut as shown ("Ctrl+2"), or "" for none.</summary>
+    public string Shortcut { get; } = PageShortcuts.LabelFor(id);
+
+    /// <summary>The rail button's tooltip: "Convert (Ctrl+2)".</summary>
+    public string ToolTipText => Shortcut.Length > 0 ? $"{Title} ({Shortcut})" : Title;
+
     [ObservableProperty] public partial bool IsSelected { get; set; }
     [ObservableProperty] public partial bool IsVisible { get; set; } = true;
 }
