@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             x:Class="NoIntrovert.Views.LastRunBar"
+             x:DataType="vm:PlanTabViewModel"
+             IsVisible="{Binding HasLastRun}">
+    <!--
+        Over the list on Optimize and Organize once a run that changed files is done: what it did, and Undo
+        (which asks first). Stays until closed, the list is cleared, or another run starts.
+    -->
+    <Border x:Name="Bar" Margin="0,0,0,10" Padding="14,8,8,8" CornerRadius="8" BorderThickness="1"
+            Background="{DynamicResource PrimaryTint}" BorderBrush="{DynamicResource AccentBrush}">
+        <DockPanel>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="12,0,0,0">
+                <Button x:Name="UndoButton" Classes="tool" Content="Undo" Command="{Binding UndoCommand}" CommandParameter="{Binding LastRun}"
+                        ToolTip.Tip="Put back everything this run changed. You're asked first." />
+                <Button x:Name="CloseButton" Classes="tool" Content="✕" Command="{Binding CloseLastRunCommand}"
+                        ToolTip.Tip="Close" AutomationProperties.Name="Close" />
+            </StackPanel>
+            <TextBlock Text="{Binding LastRunText}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </DockPanel>
+    </Border>
+</UserControl>

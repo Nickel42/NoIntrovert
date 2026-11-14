@@ -61,6 +61,13 @@ public partial class MainViewModel : ViewModelBase
             tab.OpenSettingsRequested = () => Show("settings");
             tab.OpenKeysRequested = ShowKeys;
         }
+        // Organize's callout for files not checked yet: Verify them (on the Verify page's rows, staying on Organize), or use Optimize.
+        Cleanup.VerifyRequested = async paths =>
+        {
+            await Verify.SyncAsync();
+            await Verify.StartRunAsync(paths);
+        };
+        Cleanup.OpenOptimizeRequested = () => Show("optimize");
         if (settings.Library.RescanOnStart) Workspace.Add(settings.Library.Folders.Where(Directory.Exists));
         _ = CheckEsdeAsync(startup: true);
 

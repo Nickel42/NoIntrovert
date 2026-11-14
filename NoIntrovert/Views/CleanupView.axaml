@@ -9,10 +9,15 @@
     </UserControl.Styles>
     <!--
         Organize (the Cleanup wizard, M7): the files in the list, each row's CHANGES column the dry run;
-        a box per kind of step turns that kind on or off. Past runs can be undone, or their trash emptied.
+        a box per kind of step turns that kind on or off. Files Verify & match hasn't checked get a callout
+        (Verify them now, or Use Optimize instead). Past runs, under the plan, can be undone, or their trash emptied.
     -->
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,10,0,0">
-        <v:JobListPanel />
+        <DockPanel>
+            <!-- After a run that changed files: what it did, with Undo -->
+            <v:LastRunBar DockPanel.Dock="Top" />
+            <v:JobListPanel />
+        </DockPanel>
 
         <ScrollViewer Grid.Column="1" Classes="sidepanel" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="12">
@@ -26,6 +31,19 @@
                                    Text="Only files Verify &amp; match recognised are renamed and moved; Optimize checks them first. Nothing changes until you click Organize." />
                         <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" Text="{Binding PlanSummary}"
                                    IsVisible="{Binding PlanSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        <!-- Files Verify & match hasn't checked are left alone: check them now, or use Optimize, which checks first -->
+                        <Border x:Name="UncheckedCallout" IsVisible="{Binding HasUnchecked}" Padding="12,10" CornerRadius="8" BorderThickness="1"
+                                Background="{DynamicResource PrimaryTint}" BorderBrush="{DynamicResource AccentBrush}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{Binding UncheckedText}" TextWrapping="Wrap" />
+                                <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="6">
+                                    <Button x:Name="VerifyNowButton" Classes="primary" Content="Verify them now" Command="{Binding VerifyNowCommand}"
+                                            ToolTip.Tip="Check these files against the No-Intro and Redump databases, then make the plan again. You stay on Organize." />
+                                    <Button x:Name="UseOptimizeButton" Content="Use Optimize instead" Command="{Binding UseOptimizeCommand}"
+                                            ToolTip.Tip="Optimize checks each file first, then converts, names and moves it in one click." />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
                         <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsPlanning}">
                             <ProgressBar IsIndeterminate="True" Width="60" Height="6" VerticalAlignment="Center" />
                             <TextBlock Text="Making the plan…" Classes="hint" VerticalAlignment="Center" />
@@ -51,30 +69,10 @@
                     </StackPanel>
                 </Border>
                 <Border Classes="card">
-                    <v:OrganizeOptionsPanel DataContext="{Binding Options}" />
+                    <v:PastRunsPanel />
                 </Border>
                 <Border Classes="card">
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="PAST RUNS" Classes="section" />
-                        <TextBlock Text="No runs yet." Classes="hint" IsVisible="{Binding !HasRuns}" />
-                        <ItemsControl ItemsSource="{Binding Runs}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:CleanupRunRow">
-                                    <StackPanel Spacing="4" Margin="0,0,0,10">
-                                        <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" />
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <Button Classes="tool" Content="Undo" IsVisible="{Binding CanUndo}"
-                                                    ToolTip.Tip="Put back everything this run changed. You're asked first."
-                                                    Command="{Binding $parent[UserControl].((vm:CleanupViewModel)DataContext).UndoCommand}" CommandParameter="{Binding}" />
-                                            <Button Classes="tool" Content="Empty trash" IsVisible="{Binding CanEmpty}"
-                                                    ToolTip.Tip="{Binding $parent[UserControl].((vm:CleanupViewModel)DataContext).EmptyTrashTip}"
-                                                    Command="{Binding $parent[UserControl].((vm:CleanupViewModel)DataContext).EmptyTrashCommand}" CommandParameter="{Binding}" />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
+                    <v:OrganizeOptionsPanel DataContext="{Binding Options}" />
                 </Border>
             </StackPanel>
         </ScrollViewer>

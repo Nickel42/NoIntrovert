@@ -23,15 +23,11 @@ public partial class CleanupViewModel : PlanTabViewModel
     public CleanupViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue, OrganizeOptions options)
         : base(settings, log, dialogs, queue, options)
     {
-        Settings.Output.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(OutputSettingsViewModel.UseRecycleBin)) OnPropertyChanged(nameof(EmptyTrashTip));
-        };
-        RefreshRuns();
     }
 
     public override string Title => "Organize";
     public override string StartLabel => "Organize";
+    protected override string DoneVerb => "Organized";
     public override string EmptyHint =>
         "Drop games here, or a folder of them.\n" +
         "Files Verify & match recognised are converted, named as in the database and moved into their system's folder; " +
@@ -70,6 +66,7 @@ public partial class CleanupViewModel : PlanTabViewModel
             if (rows.Count > 0) Kinds.Add(new CleanupKindToggle(kind, rows, SetEnabled));
         }
         OnPropertyChanged(nameof(HasRunnableSteps));
+        FollowPlan();
     }
 
     /// <summary>A kind's box: ticks or unticks every step of that kind, and remembers it for the next plan.</summary>
@@ -108,20 +105,84 @@ public partial class CleanupViewModel : PlanTabViewModel
             row.ChangesDetails = DetailsFor(item, steps);
         }
         if (Plan is { } plan) PlanSummary = Summarize(plan);
+        FollowPlan();
     }
+
+    // ---- Files not checked yet ----
+
+    /// <summary>"33 files haven't been checked yet. Organize renames and moves only games it recognises."</summary>
+    public string UncheckedText => UncheckedCount == 1
+        ? "1 file hasn't been checked yet. Organize renames and moves only games it recognises."
+        : $"{UncheckedCount} files haven't been checked yet. Organize renames and moves only games it recognises.";
+
+    /// <summary>The plan has rows Verify &amp; match hasn't checked: the callout offers to check them.</summary>
+    public bool HasUnchecked => UncheckedCount > 0;
+
+    /// <summary>Runs Verify &amp; match on these files on the Verify page (the main window sets it).</summary>
+    public Func<IReadOnlyList<string>, Task>? VerifyRequested { get; set; }
+
+    /// <summary>Shows the Optimize page, which verifies first (the main window sets it).</summary>
+    public Action? OpenOptimizeRequested { get; set; }
+
+    protected override void UncheckedChanged()
+    {
+        OnPropertyChanged(nameof(UncheckedText));
+        OnPropertyChanged(nameof(HasUnchecked));
+        VerifyNowCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanVerifyNow => !IsBusy && !IsRunning && UncheckedCount > 0;
+
+    /// <summary>
+    /// Verify them now: Verify &amp; match checks the files the plan hasn't got a result for, on the Verify page's
+    /// rows and the shared queue, and the plan is made again when it's done. The page stays on Organize.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanVerifyNow))]
+    private async Task VerifyNow()
+    {
+        if (!CanVerifyNow || VerifyRequested is not { } verify) return;
+        var paths = UncheckedPaths;
+        IsBusy = true;
+        BusyText = $"Verifying {Words.Count(paths.Count, "file")}…";
+        try
+        {
+            Log.Info($"Organize: verifying {Words.Count(paths.Count, "file")} it hasn't checked yet");
+            await verify(paths);
+        }
+        finally { IsBusy = false; }
+        await MakePlanAsync();
+    }
+
+    [RelayCommand]
+    private void UseOptimize() => OpenOptimizeRequested?.Invoke();
 
     // ---- Running ----
 
-    /// <summary>Undo or Empty trash is under way: the page waits for it.</summary>
-    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(UndoCommand), nameof(EmptyTrashCommand))]
-    public partial bool IsBusy { get; set; }
+    /// <summary>The plan has a ticked step to run.</summary>
+    public bool HasWorkToDo => Plan?.Steps.Any(s => s.Runs) == true;
 
-    /// <summary>What the page is doing while <see cref="IsBusy"/>: "Undoing the run…".</summary>
-    [ObservableProperty] public partial string BusyText { get; set; } = "";
+    /// <summary>The run bar's words when there's nothing to run.</summary>
+    public const string NothingToOrganize = "Nothing to organize yet";
+
+    protected override bool StartAllowed => !IsBusy && HasWorkToDo;
+
+    /// <summary>The run button follows the plan: off, with the run bar saying so, when it has nothing to run.</summary>
+    private void FollowPlan()
+    {
+        StartCommand.NotifyCanExecuteChanged();
+        VerifyNowCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(HasWorkToDo));
+        if (IsRunning) return;
+        var idle = Plan is not null && Items.Count > 0 && !HasWorkToDo;
+        if (idle && RunStatus.Length == 0) RunStatus = NothingToOrganize;
+        else if (!idle && RunStatus == NothingToOrganize) RunStatus = "";
+    }
+
+    protected override void BusyChanged() => FollowPlan();
 
     protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
     {
-        if (IsBusy) return false;
+        if (!base.BeforeStart(pending)) return false;
         if (Options.BuildNewLibrary && Options.Problem(Workspace?.Folders ?? []) is { } problem)
         {
             Log.Warn($"Organize: {problem}");
@@ -137,97 +198,5 @@ public partial class CleanupViewModel : PlanTabViewModel
         Log.Info(run.NewLibrary is { } built
             ? $"Organize: finished; the new library is in {built} ({run.Entries.Count} file(s) made). Undo under Past runs removes them again."
             : $"Organize: finished; the run can be undone under Past runs ({run.Entries.Count} change(s) recorded).");
-        RefreshRuns();
-    }
-
-    // ---- Past runs: undo, empty trash ----
-
-    public ObservableCollection<CleanupRunRow> Runs { get; } = [];
-    public bool HasRuns => Runs.Count > 0;
-
-    /// <summary>Where emptied trash goes, as Settings › Output says.</summary>
-    public static string TrashFate(bool useRecycleBin) =>
-        useRecycleBin && FileRemover.CanUseBin ? $"moved to the {FileRemover.BinName}" : "deleted permanently";
-
-    public string EmptyTrashTip =>
-        $"This run's trash is {TrashFate(Settings.Output.UseRecycleBin)} (Settings › Output). The run can't be undone after that.";
-
-    private bool CanAct => !IsBusy && !IsRunning;
-
-    [RelayCommand(CanExecute = nameof(CanAct))]
-    private async Task Undo(CleanupRunRow row)
-    {
-        if (!CanAct) return;
-        var message = row.Run.NewLibrary is { } lib
-            ? $"The files this run made in {lib} are removed again."
-            : "Every file this run converted, renamed, moved or removed is put back.";
-        if (!await Dialogs.ConfirmAsync("Undo this run?", $"{row.Summary}\n\n{message}", "Undo the run", "Cancel")) return;
-        IsBusy = true;
-        BusyText = "Undoing the run…";
-        try
-        {
-            var useBin = Settings.Output.UseRecycleBin;
-            var problems = await Task.Run(() => CleanupRunner.Undo(row.Run, useBin, Log));
-            Log.Info(problems.Count == 0 ? "Organize: run undone." : $"Organize: run undone, except {problems.Count} item(s) (see above).");
-            // The rows go back to the files' old paths, on every page.
-            var (moves, _) = MovesOf(row.Run, row.Run.Entries.Select(e => e.From).OfType<string>());
-            var back = moves.GroupBy(m => m.Value, PathNames.Comparer).ToDictionary(g => g.Key, g => g.First().Key, PathNames.Comparer);
-            ReplaceRows(back);
-            Workspace?.Move(back);
-            RefreshRuns();
-            RequestPlan();
-        }
-        finally { IsBusy = false; }
-    }
-
-    [RelayCommand(CanExecute = nameof(CanAct))]
-    private async Task EmptyTrash(CleanupRunRow row)
-    {
-        if (!CanAct) return;
-        var useBin = Settings.Output.UseRecycleBin;
-        var (files, bytes) = await Task.Run(() => TrashContents(row.Run));
-        if (!await Dialogs.ConfirmAsync("Empty this run's trash?", EmptyTrashMessage(row, files, bytes, useBin),
-                useBin && FileRemover.CanUseBin ? $"Move to the {FileRemover.BinName}" : "Delete permanently", "Cancel", destructive: true)) return;
-        IsBusy = true;
-        BusyText = "Emptying the trash…";
-        try
-        {
-            await Task.Run(() => CleanupRunner.EmptyTrash(row.Run, useBin, Log));
-            Log.Info("Organize: trash emptied; that run's conversions can no longer be undone.");
-            RefreshRuns();
-        }
-        finally { IsBusy = false; }
-    }
-
-    /// <summary>Empty trash's question: the run, what its trash holds, and where it goes.</summary>
-    public static string EmptyTrashMessage(CleanupRunRow row, int files, long bytes, bool useRecycleBin) =>
-        $"{row.Summary}\n\n{files} file{(files == 1 ? "" : "s")} ({ChdJobs.Size(bytes)}) {(files == 1 ? "is" : "are")} {TrashFate(useRecycleBin)}. "
-        + "The run can't be undone after that.";
-
-    /// <summary>How many files a run's trash holds, and their size.</summary>
-    public static (int Files, long Bytes) TrashContents(CleanupRun run)
-    {
-        int files = 0;
-        long bytes = 0;
-        foreach (var folder in run.TrashFolders.Where(Directory.Exists))
-        {
-            try
-            {
-                foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
-                {
-                    files++;
-                    bytes += new FileInfo(file).Length;
-                }
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-        }
-        return (files, bytes);
-    }
-
-    private void RefreshRuns()
-    {
-        Runs.Clear();
-        foreach (var run in CleanupRunner.Runs().Take(20)) Runs.Add(new CleanupRunRow(run));
-        OnPropertyChanged(nameof(HasRuns));
     }
 }

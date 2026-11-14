@@ -28,6 +28,7 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
         _replan = new Coalesced(() => _ = MakePlanAsync());
         Items.CollectionChanged += (_, _) => RequestPlan();
         options.Changed += RequestPlan;
+        WatchRuns();
     }
 
     /// <summary>The layout and where the files go, shared by Optimize and Organize.</summary>
@@ -71,11 +72,21 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
     /// <summary>What the plan does in all ("12 to convert · 30 to rename · frees about 4 GB"), or why it can't run.</summary>
     [ObservableProperty] public partial string PlanSummary { get; set; } = "";
 
+    /// <summary>How many rows are files Verify &amp; match hasn't checked yet, as of the plan shown.</summary>
+    [ObservableProperty] public partial int UncheckedCount { get; set; }
+
+    /// <summary>The rows' paths Verify &amp; match hasn't checked yet, as of the plan shown.</summary>
+    public IReadOnlyList<string> UncheckedPaths { get; private set; } = [];
+
     /// <summary>The latest plan being made (tests wait on it).</summary>
     internal Task PlanMade { get; private set; } = Task.CompletedTask;
 
     /// <summary>Makes the plan again soon (the page was opened: Verify may have matched files since).</summary>
-    public void Replan() => RequestPlan();
+    public void Replan()
+    {
+        RefreshRuns(); // the other page may have run, undone or emptied a run since
+        RequestPlan();
+    }
 
     /// <summary>Makes the plan again soon (the rows or options changed); not while a run is changing the files.</summary>
     protected void RequestPlan()
@@ -158,6 +169,8 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
             }
         ItemsByRow = items;
         StepsByRow = steps.ToDictionary(p => p.Key, p => (IReadOnlyList<CleanupStep>)p.Value, PathNames.Comparer);
+        UncheckedPaths = plan is null ? [] : rows.Where(r => items.ContainsKey(r.Path) && !Checked.Contains(r.Path)).Select(r => r.Path).ToList();
+        UncheckedCount = UncheckedPaths.Count;
         foreach (var row in rows)
         {
             if (row.IsRunning) continue;
@@ -260,6 +273,7 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
         foreach (var row in rowsOf.GetValueOrDefault("") ?? [])
             row.Finished(RowOutcome(row, new JobOutcome(JobStatus.Skipped, StepsText(ItemsByRow.GetValueOrDefault(row.Path), stepsOf.GetValueOrDefault(row.Path) ?? []))));
         var keys = plan.Steps.Where(s => s.Runs).Select(s => s.GameKey).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        int done = 0, failed = 0;
         var batch = jobs.Select((j, n) =>
         {
             var group = rowsOf.GetValueOrDefault(keys[n]) ?? [];
@@ -268,6 +282,8 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
                 _ => Dispatcher.UIThread.Post(() => { foreach (var r in group) r.Started(); }),
                 outcome => Dispatcher.UIThread.Post(() =>
                 {
+                    if (outcome.Status is JobStatus.Succeeded or JobStatus.Warning) done++;
+                    else if (outcome.Status == JobStatus.Failed) failed++;
                     foreach (var r in group) r.Finished(RowOutcome(r, Done(outcome, stepsOf.GetValueOrDefault(r.Path) ?? [])));
                 }),
                 j.Cost);
@@ -282,6 +298,8 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
         {
             FollowFiles(runner.Run);
             RunFinished(runner.Run);
+            RefreshRuns();
+            ShowLastRun(runner.Run, done, failed, plan.Count(CleanupKind.Untouched));
         }
     }
 

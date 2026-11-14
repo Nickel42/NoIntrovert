@@ -14,7 +14,11 @@
     </UserControl.Styles>
     <!-- Optimize: Verify, Convert and Organize in one click; the CHANGES column says what happens to each file. -->
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,10,0,0">
-        <v:JobListPanel />
+        <DockPanel>
+            <!-- After a run that changed files: what it did, with Undo -->
+            <v:LastRunBar DockPanel.Dock="Top" />
+            <v:JobListPanel />
+        </DockPanel>
 
         <ScrollViewer Grid.Column="1" Classes="sidepanel" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="12">
@@ -48,6 +52,9 @@
                             <TextBlock Text="Making the plan…" Classes="hint" VerticalAlignment="Center" />
                         </StackPanel>
                     </StackPanel>
+                </Border>
+                <Border Classes="card">
+                    <v:PastRunsPanel />
                 </Border>
                 <Border Classes="card">
                     <v:OrganizeOptionsPanel DataContext="{Binding Options}" />
