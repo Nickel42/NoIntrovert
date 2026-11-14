@@ -66,6 +66,23 @@ The bottom status bar has an overall queue progress bar between the queue summar
 - The toolbar summary starts with the selection count: "3 selected · 9 items · 2 done · 1 failed".
 - The panel header says "Focused: row 3 of 9 · 3 selected".
 
+## Row density (14 Nov 2026)
+
+The job list (Optimize, Convert, Verify, Organize) has two densities, chosen in Settings › General › **Row density** and saved as `General.ListDensity`. Compact is the default for new and existing users. It's a visual change only. The list stays virtualised (a `VirtualizingStackPanel`) at the 5,000-game scale.
+
+- **Compact**: one line per row, about 32 px. At the default 1180×820 window, Convert shows about 13 rows, against about 7 in Comfortable.
+  - The folder is not shown under the name. The row's tooltip has the full path.
+  - **Preset** is still a dropdown, so the keyboard and screen readers work as before, but it's drawn flat: no border or background at rest, so it reads as text. A chevron shows when the pointer is over the row, when the row is focused, or when the dropdown itself is pointed at or focused. Open, it has the full dropdown look; with keyboard focus it gets an accent outline.
+  - "Convert → .chd" moves into the dropdown's tooltip, with the system's name. A muted note follows the preset's name only when it says something the name doesn't:
+    - why a file the rules leave is left ("Optimal", "Left as is (your setting)");
+    - the extension when the preset's name doesn't contain it ("→ .rvz" for Custom or for a saved preset named "My PS1").
+    "CHD · Standard ★" making a .chd, or Leave as is chosen by hand, adds no note.
+  - CHANGES (Optimize, Organize) is one line with an ellipsis. Its tooltip has the steps in full.
+  - Progress is the bar only, hidden until the row runs. The stage is in the bar's tooltip.
+  - Result is one line, with "Set up keys" beside it. The speed is in its tooltip.
+- **Comfortable**: the earlier two-line layout. It has the folder under the name, a bordered dropdown with the note under it, the stage under the bar, and the speed and "Set up keys" under the result.
+- In both densities, a row whose preset isn't the recommended one gets a small **accent dot** before the preset, and its tooltip says "Not the recommended preset (CHD · Standard ★)." The recommended preset is the system's ★ preset, or Leave as is when the rules leave the file. A row with nothing to recommend (an unknown system, or a ★ preset the file can't use) is never marked. The dot's slot is kept on every row, so the names line up.
+
 ## 1. File section (focused row)
 
 | Item | Content | Source |

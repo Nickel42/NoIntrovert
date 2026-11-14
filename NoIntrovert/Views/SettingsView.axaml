@@ -357,6 +357,21 @@
                             </StackPanel>
                             <TextBlock Text="{Binding General.ColorThemes.Status}" Classes="desc" TextWrapping="Wrap"
                                        IsVisible="{Binding General.ColorThemes.Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            <!-- Row density: how many rows the job lists show at once -->
+                            <Grid Classes="row" ColumnDefinitions="*,Auto">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Row density" Classes="name" />
+                                    <TextBlock Text="How tall the job list's rows are." Classes="desc" />
+                                </StackPanel>
+                                <Border Classes="segmented control">
+                                    <StackPanel Orientation="Horizontal" Spacing="2">
+                                        <RadioButton Classes="segment" Content="Compact" IsChecked="{Binding General.IsCompactRows}" GroupName="ListDensity"
+                                                     ToolTip.Tip="One line per row, so more files fit. The folder, notes and speed are in each row's tooltips." />
+                                        <RadioButton Classes="segment" Content="Comfortable" IsChecked="{Binding General.IsComfortableRows}" GroupName="ListDensity"
+                                                     ToolTip.Tip="Two lines per row: the folder under the name, the note under the preset, the speed under the result." />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
                             <Grid Classes="row" ColumnDefinitions="*,Auto">
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="Start on" Classes="name" />
