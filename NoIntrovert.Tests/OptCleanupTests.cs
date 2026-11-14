@@ -74,6 +74,80 @@ internal static class OptCleanupTests
                 return cleanup.Kinds.Count == 0 && !cleanup.HasRunnableSteps ? null : $"{cleanup.Kinds.Count} box(es) for a plan of a clash and a game left alone";
             }));
 
+        test("Organize: with files nothing has checked yet, the plan offers Verify them now or Optimize, and the run is off", () =>
+            WithSettingsFolder(dir("opt-unchecked-settings"), () =>
+            {
+                var cleanup = NewCleanup();
+                var folder = dir("opt-unchecked");
+                var files = new[] { "Alpha.nes", "Beta.nes", "Gamma.nes" }.Select(n => Path.Combine(folder, n)).ToList();
+                for (var i = 0; i < files.Count; i++)
+                    File.WriteAllBytes(files[i], [.. "NES\u001a"u8, 1, 1, .. Enumerable.Repeat((byte)(i + 7), 16384 + 8192 - 6)]);
+                foreach (var file in files) cleanup.Items.Add(new JobItemViewModel(file));
+                cleanup.MakePlanAsync().GetAwaiter().GetResult();
+                if (cleanup.UncheckedCount != 3 || !cleanup.HasUnchecked) return $"{cleanup.UncheckedCount} file(s) unchecked, not 3 (plan: \"{cleanup.PlanSummary}\")";
+                if (cleanup.UncheckedText != "3 files haven't been checked yet. Organize renames and moves only games it recognises.")
+                    return $"the callout reads \"{cleanup.UncheckedText}\"";
+                if (cleanup.HasWorkToDo || cleanup.StartCommand.CanExecute(null)) return "Organize can start with nothing to organize";
+                if (cleanup.RunStatus != CleanupViewModel.NothingToOrganize) return $"the run bar reads \"{cleanup.RunStatus}\"";
+
+                // Verify them now: the unchecked files go to Verify, and the plan is made again.
+                IReadOnlyList<string>? verified = null;
+                cleanup.VerifyRequested = paths => { verified = paths; return Task.CompletedTask; };
+                if (!cleanup.VerifyNowCommand.CanExecute(null)) return "Verify them now is off";
+                cleanup.VerifyNowCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+                if (verified is null || verified.Count != 3 || !files.All(f => verified.Contains(f, StringComparer.OrdinalIgnoreCase)))
+                    return $"Verify was asked for {verified?.Count ?? 0} file(s), not the 3 unchecked";
+                if (cleanup.IsBusy) return "the page stayed busy after Verify";
+                var opened = false;
+                cleanup.OpenOptimizeRequested = () => opened = true;
+                cleanup.UseOptimizeCommand.Execute(null);
+                if (!opened) return "Use Optimize instead didn't ask for the Optimize page";
+
+                // One file reads in the singular; with no rows there's nothing to say.
+                cleanup.Items.RemoveWhere(r => r.Path != files[0]);
+                cleanup.MakePlanAsync().GetAwaiter().GetResult();
+                if (cleanup.UncheckedText != "1 file hasn't been checked yet. Organize renames and moves only games it recognises.")
+                    return $"one file's callout reads \"{cleanup.UncheckedText}\"";
+                cleanup.Items.Clear();
+                cleanup.MakePlanAsync().GetAwaiter().GetResult();
+                if (cleanup.HasUnchecked) return "an empty list shows the callout";
+                // A plan with something to run turns the run back on and the run bar's note off.
+                cleanup.Items.Add(new JobItemViewModel(files[0]));
+                cleanup.ShowPlan(SamplePlan());
+                return cleanup.HasWorkToDo && cleanup.StartCommand.CanExecute(null) && cleanup.RunStatus.Length == 0
+                    ? null : $"a plan with steps to run: can start {cleanup.StartCommand.CanExecute(null)}, run bar \"{cleanup.RunStatus}\"";
+            }));
+
+        test("Organize and Optimize: the bar after a run says what it did, in the singular or plural", () =>
+        {
+            var said = new[]
+            {
+                PlanTabViewModel.LastRunSummary("Organized", 27, 0, 4, null),
+                PlanTabViewModel.LastRunSummary("Optimized", 1, 2, 0, null),
+                PlanTabViewModel.LastRunSummary("Organized", 3, 0, 1, "D:/New"),
+            };
+            string[] want = ["Organized 27 games · 4 left alone", "Optimized 1 game · 2 failed", "Organized 3 games into D:/New · 1 left out"];
+            return said.SequenceEqual(want) ? null : $"the bar reads \"{string.Join("\", \"", said)}\"";
+        });
+
+        test("Organize and Optimize: the run bar's Undo and close; it goes when the list is cleared or another run starts", () =>
+            WithSettingsFolder(dir("opt-lastrun-settings"), () =>
+            {
+                var cleanup = NewCleanup();
+                cleanup.Items.Add(new JobItemViewModel(Path.Combine(dir("opt-lastrun"), "A.nes")));
+                cleanup.LastRun = new CleanupRunRow(new CleanupRun { Steps = 1 });
+                if (!cleanup.HasLastRun || !cleanup.UndoCommand.CanExecute(cleanup.LastRun)) return "the bar's Undo is off";
+                cleanup.CloseLastRunCommand.Execute(null);
+                if (cleanup.HasLastRun) return "close left the bar showing";
+                cleanup.LastRun = new CleanupRunRow(new CleanupRun { Steps = 1 });
+                cleanup.IsRunning = true;
+                cleanup.IsRunning = false;
+                if (cleanup.HasLastRun) return "another run started and the bar stayed";
+                cleanup.LastRun = new CleanupRunRow(new CleanupRun { Steps = 1 });
+                cleanup.Items.Clear();
+                return cleanup.HasLastRun ? "clearing the list left the bar showing" : null;
+            }));
+
         test("Keys: a row that failed for missing Wii U, 3DS or Switch keys needs keys; other rows don't", () =>
         {
             var row = new JobItemViewModel(Path.Combine(dir("opt-keys-row"), "Game.3ds"));

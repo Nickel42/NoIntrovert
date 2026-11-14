@@ -22,6 +22,7 @@ public sealed partial class OptimizeViewModel(SettingsViewModel settings, LogVie
 {
     public override string Title => "Optimize";
     public override string StartLabel => "Optimize";
+    protected override string DoneVerb => "Optimized";
     public override string EmptyHint =>
         "Drop games here, or a folder of them: ROMs, archives, disc images, CHDs, GameCube/Wii discs.\n" +
         "One click checks each file against the No-Intro and Redump databases, converts it to its best format, " +

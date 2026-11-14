@@ -576,12 +576,23 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         else Items.Clear();
     }
 
-    private bool CanStart => !IsRunning && !IsScanning && HasItems;
+    private bool CanStart => !IsRunning && !IsScanning && HasItems && StartAllowed;
+
+    /// <summary>Whether the page itself lets a run start (Organize: its plan has something to do). Call <c>StartCommand.NotifyCanExecuteChanged</c> when it changes.</summary>
+    protected virtual bool StartAllowed => true;
 
     [RelayCommand(CanExecute = nameof(CanStart))]
-    private async Task Start()
+    private Task Start() => StartRunAsync(null);
+
+    /// <summary>
+    /// Runs the page on the rows not done yet; with <paramref name="only"/>, on just the rows for those paths
+    /// (Organize's "Verify them now" runs Verify on the files it hasn't checked). Does nothing while a run or scan is under way.
+    /// </summary>
+    public async Task StartRunAsync(IReadOnlyCollection<string>? only)
     {
-        var pending = Items.Where(i => i.Status != JobStatus.Succeeded).ToList();
+        if (IsRunning || IsScanning) return;
+        var wanted = only is null ? null : new HashSet<string>(only, PathNames.Comparer);
+        var pending = Items.Where(i => i.Status != JobStatus.Succeeded && (wanted is null || wanted.Contains(i.Path))).ToList();
         if (pending.Count == 0)
         {
             Log.Warn(Items.Count == 0 ? $"{Title}: add some files first." : $"{Title}: everything in the list is already done. Clear it or add more files.");
