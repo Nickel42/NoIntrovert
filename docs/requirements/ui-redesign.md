@@ -15,7 +15,7 @@ The right-hand column should explain the **selected job row** and make **presets
 
 - The column grows from 320 px to **440 px** and runs the full height of the window body, beside both the job list and the log. The job list and log get narrower.
 - The column scrolls as one panel. Its sections are, in order: **File**, **Preset**, **Preset settings** (only when the preset is Custom). Where files are saved is in the run bar (see "Save to").
-- The old "CONVERT" summary ("6 → CHD · 1 → RVZ") and the "Pack a folder…" button move out of the column. The summary is already shown in the run bar and toolbar. Pack a folder… (now **Add folder as one archive…**) sits next to Add folder… in the toolbar.
+- The old "CONVERT" summary ("6 → CHD · 1 → RVZ") and the "Pack a folder…" button move out of the column. The summary is already shown in the run bar and toolbar. Pack a folder… (now **Add folder as one archive…**) is in the toolbar's **Add ▾** menu, after Add folder… (see "Job list toolbar").
 - When nothing is selected, the File section shows "Select a row to see what it is", and Preset shows the presets for the most common target in the list.
 - When rows from more than one system are selected, File shows "3 systems selected" with one line per system.
 
@@ -125,11 +125,35 @@ The job list (Optimize, Convert, Verify, Organize) has two densities, chosen in 
     - why a file the rules leave is left ("Optimal", "Left as is (your setting)");
     - the extension when the preset's name doesn't contain it ("→ .rvz" for Custom or for a saved preset named "My PS1").
     "CHD · Standard ★" making a .chd, or Leave as is chosen by hand, adds no note.
-  - CHANGES (Optimize, Organize) is one line with an ellipsis. Its tooltip has the steps in full.
+  - CHANGES (Optimize, Organize) is one line: the destination, trimmed at its start so the file name stays in view. Its tooltip has the step chips and the steps in full (see "CHANGES").
   - Progress is the bar only, hidden until the row runs. The stage is in the bar's tooltip.
   - Result is one line, with "Set up keys" beside it. The speed is in its tooltip.
 - **Comfortable**: the earlier two-line layout. It has the folder under the name, a bordered dropdown with the note under it, the stage under the bar, and the speed and "Set up keys" under the result.
 - In both densities, a row whose preset isn't the recommended one gets a small **accent dot** before the preset, and its tooltip says "Not the recommended preset (CHD · Standard ★)." The recommended preset is the system's ★ preset, or Leave as is when the rules leave the file. A row with nothing to recommend (an unknown system, or a ★ preset the file can't use) is never marked. The dot's slot is kept on every row, so the names line up.
+
+## Job list toolbar (14 Nov 2026, UX review R4)
+
+- One line, on every page and at every window size: **Add ▾**, a gap, **Remove**, then **⋯**; the summary and the filter box sit at the right.
+- **Add ▾** is a split button. Its main part adds files (Ctrl+O; accessible name "Add files"). Its arrow opens a menu with Add files… (Ctrl+O), Add folder… and, on Convert only, Add folder as one archive….
+- **⋯** ("More list actions") holds Clear finished and Clear all. Clear all still asks first when a row failed or the list is long.
+- The filter narrows with the list (240 px, down to 150 px). When the list is narrow, the summary moves under the filter. Ctrl+F still focuses it, and Delete still removes the selected rows.
+
+## CHANGES (14 Nov 2026, UX review R5)
+
+On Optimize and Organize, CHANGES leads with the outcome, not with the steps in run order:
+
+- **Where the file ends up**, relative to its library folder: "roms/gc/Baldur's Gate - Dark Alliance (USA).rvz". With a new library, it starts "New library: ".
+- **Before Verify** (Optimize), the folder is known but the name isn't: "roms/nes/….7z, name after Verify". A file the databases turn out not to know is still converted where it is, under its own name, as the tooltip says.
+- **Why nothing happens**, muted: "Left alone: not verified yet", "Already named and in place", "Stays as it is: its box is unticked".
+- **A clash**, in the warning colour with a warning glyph: "Clash: X.chd already exists". **A duplicate**: "To the trash (duplicate)".
+- The **steps** are chips in run order: Verify · Convert · Rename · Move (Copy for a new library, Remove for a duplicate). In Comfortable they're a second line under the destination. In Compact the row stays one line: the destination is trimmed at its start, so the file name stays in view, and the chips are in the tooltip with the steps in full.
+
+## Empty list (14 Nov 2026, UX review R8)
+
+- An empty list is a dashed drop zone filling the list area: an icon, one line ("Drop games, folders or archives here", worded for each page), **Add files…** and **Add folder…**, and a small **What can I add?** that shows the page's longer description of what it takes.
+- The column headings are hidden while the list is empty.
+- While files are dragged over the window, the zone's border turns the accent colour with a light tint. The window still takes the drop wherever it lands.
+- The zone has an empty slot above the icon for the NoIntrovert illustration.
 
 ## 1. File section (focused row)
 

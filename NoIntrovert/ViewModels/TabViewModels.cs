@@ -18,8 +18,9 @@ public partial class VerifyViewModel(SettingsViewModel settings, LogViewModel lo
 {
     public override string Title => "Verify";
     public override string StartLabel => "Verify";
+    public override string DropHint => "Drop games or folders here";
     public override string EmptyHint =>
-        "Drop games here: ROMs, archives, disc images, CHDs, GameCube/Wii discs.\n" +
+        "Games, or a folder of them: ROMs, archives, disc images, CHDs, GameCube/Wii discs.\n" +
         "Each is checked for damage, then looked up in the No-Intro and Redump databases, which say whether it's a good dump and what it should be called.";
     protected override string FilterName => "Games";
     protected override IReadOnlyList<FormatInfo>? InputFormats => null;
@@ -41,8 +42,9 @@ public partial class TestsViewModel : BatchTabViewModel
 
     public override string Title => "Library tests";
     public override string StartLabel => "Run tests";
+    public override string DropHint => "Drop disc images here";
     public override string EmptyHint =>
-        "Drop disc images here (any format the Convert page takes).\n" +
+        "Disc images, in any format the Convert page takes.\n" +
         "Round trip: create → verify → extract, then compare with the original data.\n" +
         "Compare: create with lib-chd-kit and a chdman executable, then compare the CHDs byte for byte.";
     protected override string FilterName => "Disc images and archives";

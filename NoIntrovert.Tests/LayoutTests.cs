@@ -196,7 +196,7 @@ static class LayoutTests
             return fill.Color == Accent() ? null : $"the bar is {fill.Color}, not the accent {Accent()}";
         }));
 
-        test("Every page: the same Add files…, Add folder…, checkboxes and filter on Optimize, Convert, Verify and Organize", () => Dispatch(() =>
+        test("Every page: the same Add ▾, Remove, ⋯, checkboxes and filter on Optimize, Convert, Verify and Organize", () => Dispatch(() =>
         {
             f.Resize(1366, 768);
             foreach (var page in new[] { "optimize", "convert", "verify", "cleanup" })
@@ -206,8 +206,8 @@ static class LayoutTests
                 var tab = (BatchTabViewModel)f.Vm.SelectedPage.Content;
                 if (!f.Pump(() => tab.Items.Count > 0 && !tab.IsScanning)) return $"{page}: no rows";
                 f.Layout();
-                foreach (var name in new[] { "Add files…", "Add folder…", "Remove", "Clear all" })
-                    if (f.Find<Button>(b => b.Content as string == name && b.IsEffectivelyVisible) is null) return $"{page}: no {name} button";
+                foreach (var name in new[] { "AddButton", "AddMenuButton", "RemoveButton", "MoreButton" })
+                    if (f.Find<Button>(b => b.Name == name && b.IsEffectivelyVisible) is null) return $"{page}: no {name}";
                 if (f.Find<CheckBox>(c => c.Name == "SelectAll" && c.IsEffectivelyVisible) is null) return $"{page}: no select-all box";
                 if (f.Find<CheckBox>(c => c.IsEffectivelyVisible && c.FindAncestorOfType<ListBoxItem>() is not null && c.DataContext is JobItemViewModel) is null)
                     return $"{page}: the rows have no checkboxes";
@@ -261,19 +261,19 @@ static class LayoutTests
             f.Resize(1366, 768);
             f.Show("optimize");
             var tab = f.Vm.Optimize;
-            if (!f.Pump(() => tab.Items.Count > 0 && !tab.IsScanning && tab.PlanMade.IsCompleted && !tab.IsPlanning && tab.Items.All(i => i.Changes.Length > 0)))
+            if (!f.Pump(() => tab.Items.Count > 0 && !tab.IsScanning && tab.PlanMade.IsCompleted && !tab.IsPlanning && tab.Items.All(i => i.ChangesTarget.Length > 0)))
                 return "the rows never got their changes";
             f.Layout();
-            var bad = tab.Items.FirstOrDefault(i => !i.Changes.StartsWith("Verify"));
-            if (bad is not null) return $"{bad.Name}: \"{bad.Changes}\"";
+            var bad = tab.Items.FirstOrDefault(i => i.ChangesSteps.FirstOrDefault() != "Verify");
+            if (bad is not null) return $"{bad.Name}: \"{bad.ChangesTarget}\" ({bad.ChangesStepsText})";
             var ps = tab.Items.FirstOrDefault(i => i.SystemId == "playstation");
             if (ps is null) return "no PlayStation row";
-            if (!ps.Changes.Contains("Convert → .chd")) return $"the cue/bin's changes: \"{ps.Changes}\"";
+            if (!ps.ChangesSteps.Contains("Convert") || !ps.ChangesTarget.Contains(".chd")) return $"the cue/bin's changes: \"{ps.ChangesTarget}\" ({ps.ChangesStepsText})";
             var list = f.Find<ListBox>(l => l.Name == "List" && l.IsEffectivelyVisible)!;
             list.ScrollIntoView(ps);
             f.Layout();
             var heading = f.Find<TextBlock>(t => t.Text == "CHANGES" && t.IsEffectivelyVisible);
-            var cell = f.Find<TextBlock>(t => t.Text == ps.Changes && t.IsEffectivelyVisible);
+            var cell = f.Find<TextBlock>(t => t.Text == ps.ChangesTarget && t.Classes.Contains("changestarget") && t.IsEffectivelyVisible);
             if (heading is null || cell is null) return "no CHANGES column";
             // Every column's cells sit the list's scroll bar to the left of their heading; CHANGES lines up as STATUS does.
             double X(Control c) => c.TranslatePoint(new Point(0, 0), f.Window)!.Value.X;
@@ -433,6 +433,7 @@ static class LayoutTests
         OptimizeTests.RunLayout(test, f, Dispatch, screenshots);
         DensityTests.RunLayout(test, f, Dispatch, screenshots);
         SettingsNavTests.RunLayout(test, f, Dispatch, screenshots);
+        JobListTests.RunLayout(test, f, Dispatch, screenshots);
 
         Dispatch(() => { f.Window.Close(); return null; });
     }

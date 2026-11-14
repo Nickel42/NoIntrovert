@@ -312,11 +312,60 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
 
     // ---- Optimize and Organize: what the run does to this file ----
 
-    /// <summary>The steps planned for this file, in the order they run ("Verify → Convert → .chd → Move into roms/psx/"); empty elsewhere.</summary>
-    [ObservableProperty] public partial string Changes { get; set; } = "";
+    /// <summary>
+    /// The CHANGES column leads with the outcome: where the file ends up, relative to its library folder
+    /// ("roms/gc/Baldur's Gate - Dark Alliance (USA).rvz"), or why nothing happens ("Left alone: not verified yet",
+    /// "Clash: … already exists", "To the trash (duplicate)"). Empty on the other pages.
+    /// </summary>
+    [ObservableProperty] public partial string ChangesTarget { get; set; } = "";
+
+    /// <summary>What kind of outcome <see cref="ChangesTarget"/> is: it sets the cell's style (a path, muted, a clash).</summary>
+    [ObservableProperty] public partial ChangesKind ChangesKind { get; set; }
+
+    /// <summary>The steps that get it there, in run order ("Verify", "Convert", "Rename", "Move"): the cell's chips.</summary>
+    [ObservableProperty] public partial IReadOnlyList<string> ChangesSteps { get; set; } = [];
 
     /// <summary>The planned steps one per line, with where each file ends up and why (the column's tooltip).</summary>
     [ObservableProperty] public partial string ChangesDetails { get; set; } = "";
+
+    /// <summary>The steps as one line, "Verify · Convert · Move" (the cell's accessible help text).</summary>
+    public string ChangesStepsText => string.Join(" · ", ChangesSteps);
+
+    public bool HasChangesSteps => ChangesSteps.Count > 0;
+
+    /// <summary>
+    /// The outcome is a path: trimmed at its start, so the file name stays in view. (A guess, "roms/nes/….7z, name after
+    /// Verify", has no name yet: it's trimmed at its end, so the folder stays in view.)
+    /// </summary>
+    public bool IsChangesPath => ChangesKind is ChangesKind.Planned;
+
+    /// <summary>Nothing happens to the file (left alone, already in place, its box unticked): drawn muted.</summary>
+    public bool IsChangesMuted => ChangesKind is ChangesKind.LeftAlone or ChangesKind.Unchanged or ChangesKind.Off;
+
+    /// <summary>A clash, or a plan that can't be made: the warning colour and glyph.</summary>
+    public bool IsChangesWarning => ChangesKind is ChangesKind.Clash or ChangesKind.Problem;
+
+    /// <summary>Shows <paramref name="changes"/> in the CHANGES column, with <paramref name="details"/> in its tooltip.</summary>
+    public void SetChanges(RowChanges changes, string details)
+    {
+        ChangesTarget = changes.Target;
+        ChangesKind = changes.Kind;
+        ChangesSteps = changes.Steps;
+        ChangesDetails = details;
+    }
+
+    partial void OnChangesKindChanged(ChangesKind value)
+    {
+        OnPropertyChanged(nameof(IsChangesPath));
+        OnPropertyChanged(nameof(IsChangesMuted));
+        OnPropertyChanged(nameof(IsChangesWarning));
+    }
+
+    partial void OnChangesStepsChanged(IReadOnlyList<string> value)
+    {
+        OnPropertyChanged(nameof(ChangesStepsText));
+        OnPropertyChanged(nameof(HasChangesSteps));
+    }
 
     /// <summary>
     /// The row for this file's new path (<paramref name="moved"/>, made for it by its page) after Optimize or
@@ -331,7 +380,9 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
         moved.Details = Details;
         moved.ElapsedText = ElapsedText;
         moved.SpeedText = SpeedText;
-        moved.Changes = Changes;
+        moved.ChangesTarget = ChangesTarget;
+        moved.ChangesKind = ChangesKind;
+        moved.ChangesSteps = ChangesSteps;
         moved.ChangesDetails = ChangesDetails;
         return moved;
     }
