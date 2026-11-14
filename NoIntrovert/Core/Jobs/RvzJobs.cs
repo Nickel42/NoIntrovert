@@ -55,33 +55,37 @@ public static class RvzJobs
             log.Warn($"  {Path.GetFileName(disc.InputPath)} is an NKit image: the RVZ will be NKit too, not a Redump-identical dump.");
 
         var settings = SettingsFor(s);
-        // The verify's source hash, when nothing has it yet: read beside the compression rather than after it.
-        using var beside = verify && !settings.Scrub && source is not null && PathNames.Same(source, disc.InputPath)
-                           && !BackgroundHash.IsRunning(source) && KnownHashes.Cached(source) is null
-            ? HashBeside(c, source, md5: true)
-            : null;
+        // The verify's source hash, when nothing has it yet: taken by the conversion as it reads the disc. A scrubbed
+        // disc is hashed as scrubbed (what the RVZ decodes to), so it's checked too, but isn't the file's hash to cache.
+        var ownInput = !settings.Scrub && source is not null && PathNames.Same(source, disc.InputPath);
+        var hashWhileConverting = verify && (settings.Scrub || !ownInput
+                                             || (!BackgroundHash.IsRunning(source!) && KnownHashes.Cached(source!) is null));
+        // The job's own disc goes in the hash cache in the form Verify & match keeps, with MD5 (as SourceHash fills it).
+        var cacheSource = hashWhileConverting && ownInput && Dats.VerifyJobs.IsNintendoDisc(source!);
+        if (hashWhileConverting)
+            settings.SourceHashes = cacheSource ? DiscHashKinds.All : DiscHashKinds.Sha1;
         var sw = Stopwatch.StartNew();
-        c.Band(barStart, verify ? barSpan * 0.6 : barSpan);
+        c.Band(barStart, verify ? barSpan * 0.75 : barSpan);
         c.TrackRvz($"Compressing to RVZ{discLabel}");
-        rvz.Convert(disc.InputPath, output, settings, c.Token);
+        var converted = rvz.Convert(disc.InputPath, output, settings, c.Token);
         var stats = new OperationStats(sw.Elapsed, new FileInfo(disc.InputPath).Length, new FileInfo(output).Length);
         log.Info($"  created {Path.GetFileName(output)}: {ChdJobs.Size(stats.InputBytes)} → {ChdJobs.Size(stats.OutputBytes)} ({stats.Ratio:P1}) in {stats.Elapsed:mm\\:ss\\.f} at {stats.MegabytesPerSecond:F1} MB/s");
+        if (cacheSource && converted is not null)
+            Dats.HashCache.Default.GetOrAdd(source!, () => [Dats.VerifyJobs.ToHashedFile(source!, converted, md5: true)]);
 
         if (!verify)
             return (DiscResult.Created, output, stats);
 
-        // RVZ has no stored checksum for the whole disc: verifying means decoding it again and
-        // comparing with the source. A scrubbed RVZ differs from its source by design.
-        c.Band(barStart + barSpan * 0.6, barSpan * 0.2);
+        // RVZ has no stored checksum for the whole disc: verifying means decoding it again (SHA-1 only)
+        // and comparing with the source's SHA-1.
+        c.Band(barStart + barSpan * 0.75, barSpan * 0.25);
         c.TrackRvz($"Verifying{discLabel}: reading the RVZ");
-        var made = rvz.Hash(output, c.Token);
+        var made = rvz.Hash(output, DiscHashKinds.Sha1, c.Token);
+        var original = converted is not null
+            ? (Sha1: converted.Sha1, Size: (long)converted.Size)
+            : SourceHash(c, disc, source, discLabel);
         if (settings.Scrub)
-        {
-            log.Warn($"  scrubbed, so only checked that the RVZ decodes (SHA-1 {made.Sha1}); it won't match a Redump checksum.");
-            return (DiscResult.Created, output, stats);
-        }
-        c.Band(barStart + barSpan * 0.8, barSpan * 0.2);
-        var original = SourceHash(c, disc, source, discLabel);
+            log.Warn("  scrubbed: the RVZ matches the scrubbed disc, but won't match a Redump checksum.");
         if (!string.Equals(original.Sha1, made.Sha1, StringComparison.OrdinalIgnoreCase) || original.Size != (long)made.Size)
         {
             log.Error($"  verification of {Path.GetFileName(output)} failed: source SHA-1 {original.Sha1}, RVZ {made.Sha1}");
@@ -101,7 +105,7 @@ public static class RvzJobs
         (string, long) Decode()
         {
             c.TrackRvz($"Verifying{discLabel}: reading the source");
-            var h = c.Rvz.Hash(disc.InputPath, c.Token);
+            var h = c.Rvz.Hash(disc.InputPath, DiscHashKinds.Sha1, c.Token);
             return (h.Sha1, (long)h.Size);
         }
         if (source is null || !PathNames.Same(source, disc.InputPath)) return Decode();

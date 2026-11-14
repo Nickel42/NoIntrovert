@@ -94,10 +94,15 @@ public static class VerifyJobs
     /// <summary>The decoded disc's hashes, as <see cref="HashesOf"/> keeps them (with MD5 when <paramref name="md5"/>).</summary>
     internal static List<HashedFile> DiscHashes(LibWiiGameCubeKit.WiiGameCubeKit kit, string path, CancellationToken token, bool md5 = false)
     {
-        var h = kit.Hash(path, token);
-        return [new HashedFile(Path.GetFileName(path), (long)h.Size, h.Crc32.ToUpperInvariant(), h.Sha1.ToUpperInvariant(),
-            Md5: md5 ? h.Md5.ToUpperInvariant() : null)];
+        var kinds = LibWiiGameCubeKit.DiscHashKinds.Crc32 | LibWiiGameCubeKit.DiscHashKinds.Sha1;
+        if (md5) kinds |= LibWiiGameCubeKit.DiscHashKinds.Md5;
+        return [ToHashedFile(path, kit.Hash(path, kinds, token), md5)];
     }
+
+    /// <summary>lib-wii-gamecube-kit's hashes of the disc in <paramref name="path"/>, in the form <see cref="DiscHashes"/> keeps.</summary>
+    internal static HashedFile ToHashedFile(string path, LibWiiGameCubeKit.DiscHashes h, bool md5) =>
+        new(Path.GetFileName(path), (long)h.Size, h.Crc32.ToUpperInvariant(), h.Sha1.ToUpperInvariant(),
+            Md5: md5 ? h.Md5.ToUpperInvariant() : null);
 
     /// <summary>What's wrong with the file itself, or null: CHDs are verified, 7z and zip tested.</summary>
     private static string? Integrity(JobContext c, FileSet set)
