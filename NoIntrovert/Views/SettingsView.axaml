@@ -248,7 +248,7 @@
                                     </StackPanel>
                                 </Border>
                             </Grid>
-                            <!-- Which dark and which light theme: NoIntrovert's, custom or imported, and the Base16 schemes (Core/Themes) -->
+                            <!-- Which dark and which light theme: NoIntrovert's, custom or imported, and the classic themes (Core/Themes) -->
                             <TextBox Text="{Binding General.ColorThemes.Search}" AutomationProperties.Name="Search themes" PlaceholderText="{Binding General.ColorThemes.SearchHint}"
                                      IsVisible="{Binding !General.ColorThemes.IsEditing}"
                                      ToolTip.Tip="Narrows both lists to themes whose name or author has these words (gruvbox, nord, solarized…)." />
@@ -353,8 +353,6 @@
                                     <Button Classes="link" Content="Open themes folder" Command="{Binding General.ColorThemes.OpenFolderCommand}" Margin="0,0,14,0" />
                                     <Button Classes="link" Content="Reload" Command="{Binding General.ColorThemes.RefreshCommand}" Margin="0,0,14,0"
                                             ToolTip.Tip="Read the themes folder again, after adding or changing a file there yourself." />
-                                    <HyperlinkButton Content="Browse Base16 schemes" NavigateUri="{Binding General.ColorThemes.GalleryUrl}" Padding="0,2"
-                                                     ToolTip.Tip="tinted-theming's gallery: open a scheme's .yaml on GitHub and paste its address above." />
                                 </WrapPanel>
                             </StackPanel>
                             <TextBlock Text="{Binding General.ColorThemes.Status}" Classes="desc" TextWrapping="Wrap"

@@ -15,9 +15,6 @@ public sealed class ThemeLibrary
     public const string DefaultLightId = "nointrovert-light";
     public const string UserPrefix = "user:";
 
-    /// <summary>Where tinted-theming's Base16 schemes can be browsed, each a file Import from URL takes.</summary>
-    public const string GalleryUrl = "https://tinted-theming.github.io/tinted-gallery/";
-
     /// <summary>The built-in themes, in the order the lists show them (each kind's default first).</summary>
     private static readonly string[] BuiltInIds = [DefaultDarkId, "ember", "cartridge", DefaultLightId, "sunrise", "seafoam"];
 
@@ -41,7 +38,7 @@ public sealed class ThemeLibrary
 
     public IReadOnlyList<ThemeDefinition> Themes => _themes;
 
-    /// <summary>The themes of one kind as the lists show them: NoIntrovert's, then custom and imported ones, then the Base16 schemes A to Z.</summary>
+    /// <summary>The themes of one kind as the lists show them: NoIntrovert's, then custom and imported ones, then the classic themes A to Z.</summary>
     public IEnumerable<ThemeDefinition> OfKind(ThemeKind kind) => _themes.Where(t => t.Kind == kind).OrderBy(t => t.Collection); // a stable sort
 
 
@@ -58,23 +55,25 @@ public sealed class ThemeLibrary
             using var reader = new StreamReader(stream);
             list.AddRange(ThemeFile.Parse(reader.ReadToEnd(), id, builtIn: true));
         }
-        // Then tinted-theming's Base16 schemes, A to Z by name: "base16-" and the scheme's file name.
-        const string prefix = "NoIntrovert.Themes.Base16.";
-        var schemes = new List<ThemeDefinition>();
+        // Then the classic themes (Themes/Classic), A to Z by name; each one's id is its file's name ("solarized-dark").
+        const string prefix = "NoIntrovert.Themes.Classic.";
+        var classic = new List<ThemeDefinition>();
         foreach (var resource in asm.GetManifestResourceNames().Where(r => r.StartsWith(prefix, StringComparison.Ordinal)))
         {
-            var file = resource[prefix.Length..];
+            var id = Path.GetFileNameWithoutExtension(resource[prefix.Length..]);
             using var stream = asm.GetManifestResourceStream(resource)!;
             using var reader = new StreamReader(stream);
-            schemes.Add(Base16.Parse(reader.ReadToEnd(), Base16Prefix + Path.GetFileNameWithoutExtension(file),
-                Path.GetFileNameWithoutExtension(file), builtIn: true));
+            classic.AddRange(ThemeFile.Parse(reader.ReadToEnd(), id, builtIn: true, collection: ThemeCollection.Classic));
         }
-        list.AddRange(schemes.OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase));
+        list.AddRange(classic.OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase));
         return list;
     }
 
-    /// <summary>The start of a built-in Base16 scheme's id ("base16-gruvbox-dark-hard").</summary>
-    public const string Base16Prefix = "base16-";
+    /// <summary>
+    /// The start of the ids the Base16 schemes NoIntrovert used to ship had ("base16-nord"). A saved choice of one
+    /// finds the classic theme of the same name ("nord") when there is one.
+    /// </summary>
+    private const string OldBase16Prefix = "base16-";
 
     /// <summary>Reads the folder again.</summary>
     public void Reload()
@@ -103,7 +102,9 @@ public sealed class ThemeLibrary
 
     private static bool IsThemeFile(string path) => Extensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
 
-    public ThemeDefinition? Find(string? id) => id is null ? null : _themes.FirstOrDefault(t => t.Id == id);
+    public ThemeDefinition? Find(string? id) => id is null ? null
+        : _themes.FirstOrDefault(t => t.Id == id)
+          ?? (id.StartsWith(OldBase16Prefix, StringComparison.Ordinal) ? _themes.FirstOrDefault(t => t.Id == id[OldBase16Prefix.Length..]) : null);
 
     /// <summary>The theme <paramref name="id"/> names if it's there and of that kind, otherwise the kind's default.</summary>
     public ThemeDefinition Resolve(string? id, ThemeKind kind) =>

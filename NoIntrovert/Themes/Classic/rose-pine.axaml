@@ -1,0 +1,25 @@
+<!--
+  Rosé Pine's base and surface, rose buttons, iris accent, love, gold and foam for states.
+  A classic theme NoIntrovert ships: an Avalonia ResourceDictionary like NoIntrovert's own. Each ThemeXxx
+  colour is one of the theme's roles; the app works out the rest from them.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:String x:Key="ThemeName">Rosé Pine</x:String>
+    <x:String x:Key="ThemeVariant">Dark</x:String>
+    <x:String x:Key="ThemeAuthor">Rosé Pine</x:String>
+    <Color x:Key="ThemeBackground">#191724</Color>
+    <Color x:Key="ThemeSurface">#1F1D2E</Color>
+    <Color x:Key="ThemeRaised">#26233A</Color>
+    <Color x:Key="ThemeHeader">#16141F</Color>
+    <Color x:Key="ThemeBorder">#403D52</Color>
+    <Color x:Key="ThemeControlBorder">#524F67</Color>
+    <Color x:Key="ThemeText">#E0DEF4</Color>
+    <Color x:Key="ThemeSubtleText">#908CAA</Color>
+    <Color x:Key="ThemeSectionText">#EBBCBA</Color>
+    <Color x:Key="ThemePrimary">#EBBCBA</Color>
+    <Color x:Key="ThemeAccent">#C4A7E7</Color>
+    <Color x:Key="ThemeDanger">#EB6F92</Color>
+    <Color x:Key="ThemeWarning">#F6C177</Color>
+    <Color x:Key="ThemeSuccess">#9CCFD8</Color>
+</ResourceDictionary>

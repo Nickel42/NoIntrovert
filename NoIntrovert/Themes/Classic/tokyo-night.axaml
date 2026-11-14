@@ -1,0 +1,25 @@
+<!--
+  Tokyo Night's night background, storm cards, blue buttons and magenta accent.
+  A classic theme NoIntrovert ships: an Avalonia ResourceDictionary like NoIntrovert's own. Each ThemeXxx
+  colour is one of the theme's roles; the app works out the rest from them.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:String x:Key="ThemeName">Tokyo Night</x:String>
+    <x:String x:Key="ThemeVariant">Dark</x:String>
+    <x:String x:Key="ThemeAuthor">enkia</x:String>
+    <Color x:Key="ThemeBackground">#1A1B26</Color>
+    <Color x:Key="ThemeSurface">#24283B</Color>
+    <Color x:Key="ThemeRaised">#292E42</Color>
+    <Color x:Key="ThemeHeader">#16161E</Color>
+    <Color x:Key="ThemeBorder">#3B4261</Color>
+    <Color x:Key="ThemeControlBorder">#545C7E</Color>
+    <Color x:Key="ThemeText">#C0CAF5</Color>
+    <Color x:Key="ThemeSubtleText">#A9B1D6</Color>
+    <Color x:Key="ThemeSectionText">#7DCFFF</Color>
+    <Color x:Key="ThemePrimary">#7AA2F7</Color>
+    <Color x:Key="ThemeAccent">#BB9AF7</Color>
+    <Color x:Key="ThemeDanger">#F7768E</Color>
+    <Color x:Key="ThemeWarning">#E0AF68</Color>
+    <Color x:Key="ThemeSuccess">#9ECE6A</Color>
+</ResourceDictionary>

@@ -1,0 +1,25 @@
+<!--
+  GitHub's dark canvas, overlay cards, green primary buttons and blue links and focus.
+  A classic theme NoIntrovert ships: an Avalonia ResourceDictionary like NoIntrovert's own. Each ThemeXxx
+  colour is one of the theme's roles; the app works out the rest from them.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:String x:Key="ThemeName">GitHub Dark</x:String>
+    <x:String x:Key="ThemeVariant">Dark</x:String>
+    <x:String x:Key="ThemeAuthor">GitHub (Primer)</x:String>
+    <Color x:Key="ThemeBackground">#0D1117</Color>
+    <Color x:Key="ThemeSurface">#161B22</Color>
+    <Color x:Key="ThemeRaised">#1C2128</Color>
+    <Color x:Key="ThemeHeader">#010409</Color>
+    <Color x:Key="ThemeBorder">#30363D</Color>
+    <Color x:Key="ThemeControlBorder">#484F58</Color>
+    <Color x:Key="ThemeText">#E6EDF3</Color>
+    <Color x:Key="ThemeSubtleText">#8D96A0</Color>
+    <Color x:Key="ThemeSectionText">#58A6FF</Color>
+    <Color x:Key="ThemePrimary">#238636</Color>
+    <Color x:Key="ThemeAccent">#58A6FF</Color>
+    <Color x:Key="ThemeDanger">#F85149</Color>
+    <Color x:Key="ThemeWarning">#D29922</Color>
+    <Color x:Key="ThemeSuccess">#3FB950</Color>
+</ResourceDictionary>

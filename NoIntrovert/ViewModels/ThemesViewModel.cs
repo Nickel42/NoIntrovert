@@ -14,11 +14,11 @@ public sealed class ThemeOption(ThemeDefinition theme)
     public ThemeDefinition Theme { get; } = theme;
     public string Id => Theme.Id;
     public string Name => Theme.Name;
-    /// <summary>Where it comes from, and who made it: "NoIntrovert", "Base16 scheme by …", "Custom".</summary>
+    /// <summary>Where it comes from, and who made it: "NoIntrovert", "Classic theme by …", "Custom".</summary>
     public string Origin => Theme.Collection switch
     {
         ThemeCollection.NoIntrovert => "NoIntrovert's own theme",
-        ThemeCollection.Base16 => "Base16 scheme" + (Theme.Author.Length > 0 ? " by " + Theme.Author : ""),
+        ThemeCollection.Classic => "Classic theme" + (Theme.Author.Length > 0 ? " by " + Theme.Author : ""),
         _ => "Custom theme, in the themes folder",
     };
     public IBrush Background { get; } = new SolidColorBrush(theme[ThemeRole.Background]);
@@ -54,7 +54,6 @@ public sealed partial class ThemesViewModel : ViewModelBase
     /// <summary>The colours changed: a theme was chosen, or the editor's preview changed.</summary>
     public event Action? Changed;
 
-    public string GalleryUrl => ThemeLibrary.GalleryUrl;
 
     [ObservableProperty] private IReadOnlyList<ThemeOption> _darkThemes = [];
     [ObservableProperty] private IReadOnlyList<ThemeOption> _lightThemes = [];
