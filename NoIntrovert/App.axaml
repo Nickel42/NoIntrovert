@@ -88,8 +88,10 @@
 
         <!--
           Buttons, as the design's "Button" board draws them: a secondary button is the surface colour with
-          a strong border, 14 px semibold; the primary one is filled lilac with white text. SukiUI's own
-          template buttons (window controls, icon buttons) keep their look.
+          a strong border, 14 px semibold. The primary one (Convert, Optimize, Verify, Organize, Save theme) is
+          the strongest thing on screen: filled with the theme's accent, its text dark or white, whichever
+          reads (AccentForeground, at least 4.5:1). SukiUI's own template buttons (window controls, icon
+          buttons) keep their look.
         -->
         <Style Selector="Button:not(.WindowControlsButton):not(.Icon)">
             <Setter Property="Background" Value="{DynamicResource PanelBackground}" />
@@ -101,17 +103,18 @@
             <Setter Property="Padding" Value="18,8" />
         </Style>
         <Style Selector="Button.primary">
-            <Setter Property="Background" Value="{DynamicResource SukiPrimaryColor}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SukiPrimaryColor}" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}" />
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentForeground}" />
+            <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Padding" Value="22,8" />
         </Style>
         <Style Selector="Button.primary:pointerover">
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentForeground}" />
         </Style>
         <Style Selector="Button.primary:pointerover /template/ Border">
-            <Setter Property="Background" Value="{DynamicResource SukiPrimaryDarkColor}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SukiPrimaryDarkColor}" />
+            <Setter Property="Background" Value="{DynamicResource AccentHover}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentHover}" />
         </Style>
         <Style Selector="Button.primary:disabled">
             <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
@@ -137,10 +140,11 @@
             <Setter Property="FontSize" Value="13" />
         </Style>
 
-        <!-- Text boxes and combo boxes: the surface colour, a quiet border that turns lilac on focus. -->
+        <!-- Text boxes and combo boxes: the surface colour, an outline that reads (3:1) and turns the primary colour on focus. -->
         <Style Selector="TextBox">
             <Setter Property="Background" Value="{DynamicResource PanelBackground}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorder}" />
+            <!-- An input's outline must read at 3:1 (ControlBorder is made to), unlike a card's -->
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="FontSize" Value="14" />
@@ -211,7 +215,11 @@
             <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
         </Style>
 
-        <!-- Navigation rail: quiet until hovered; the selected page is a filled pill in the theme's accent colour. -->
+        <!--
+          Navigation rail: quiet until hovered; the selected page is a tint with a 4 px accent bar at its left
+          and the normal text colour (as Windows 11's navigation draws it), so the run button stays the one
+          strong accent on screen. The bar shows on the icon-only rail too.
+        -->
         <Style Selector="Button.rail">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -228,12 +236,16 @@
                 <ControlTemplate>
                     <Border Name="RootBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}">
-                        <ContentPresenter Name="PART_ContentPresenter" Padding="{TemplateBinding Padding}"
-                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                          Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
-                                          Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
-                                          FontWeight="{TemplateBinding FontWeight}" />
+                        <Panel>
+                            <ContentPresenter Name="PART_ContentPresenter" Padding="{TemplateBinding Padding}"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
+                                              FontWeight="{TemplateBinding FontWeight}" />
+                            <Border Name="RailBar" Width="4" HorizontalAlignment="Left" Margin="0,10" CornerRadius="2"
+                                    Background="Transparent" IsHitTestVisible="False" />
+                        </Panel>
                     </Border>
                 </ControlTemplate>
             </Setter>
@@ -241,14 +253,17 @@
         <Style Selector="Button.rail:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
         </Style>
-        <Style Selector="Button.rail:pointerover /template/ Border">
-            <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
+        <Style Selector="Button.rail:pointerover /template/ Border#RootBorder">
+            <Setter Property="Background" Value="{DynamicResource SelectionHoverFill}" />
         </Style>
         <Style Selector="Button.rail.selected, Button.rail.selected:pointerover">
-            <Setter Property="Foreground" Value="{DynamicResource AccentForeground}" />
+            <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
             <Setter Property="FontWeight" Value="Bold" />
         </Style>
-        <Style Selector="Button.rail.selected /template/ Border">
+        <Style Selector="Button.rail.selected /template/ Border#RootBorder">
+            <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
+        </Style>
+        <Style Selector="Button.rail.selected /template/ Border#RailBar">
             <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
         </Style>
     </Application.Styles>

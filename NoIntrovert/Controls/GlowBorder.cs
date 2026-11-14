@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -8,12 +9,94 @@ using Avalonia.Styling;
 
 namespace NoIntrovert.Controls;
 
+/// <summary>
+/// Whether the OS wants animations: Windows' "Animation effects" (SPI_GETCLIENTAREAANIMATION), macOS's
+/// Reduce motion, GNOME's enable-animations. Read at most every few seconds (and on demand when a window
+/// comes to the front); anything that can't be read counts as on.
+/// </summary>
+internal static class MotionPreference
+{
+    // Linux starts a process to ask, so less often.
+    private static readonly TimeSpan MaxAge = TimeSpan.FromSeconds(OperatingSystem.IsLinux() ? 60 : 5);
+    private static bool _enabled = true;
+    private static long _readAt = long.MinValue;
+    private static int _linuxReading;
+
+    public static bool AnimationsEnabled
+    {
+        get
+        {
+            if (_readAt == long.MinValue || Stopwatch.GetElapsedTime(_readAt) > MaxAge) Refresh();
+            return _enabled;
+        }
+    }
+
+    public static void Refresh()
+    {
+        _readAt = Stopwatch.GetTimestamp();
+        try
+        {
+            if (OperatingSystem.IsWindows()) _enabled = WindowsAnimationsOn();
+            else if (OperatingSystem.IsMacOS()) _enabled = !MacReduceMotion();
+            else if (OperatingSystem.IsLinux()) RefreshLinuxInBackground();
+        }
+        catch (Exception) { _enabled = true; } // not readable: the app's own default
+    }
+
+    private const uint SPI_GETCLIENTAREAANIMATION = 0x1042;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SystemParametersInfo(uint action, uint param, out int value, uint winIni);
+
+    private static bool WindowsAnimationsOn() => !SystemParametersInfo(SPI_GETCLIENTAREAANIMATION, 0, out var on, 0) || on != 0;
+
+    private const string ObjC = "/usr/lib/libobjc.A.dylib";
+    [DllImport(ObjC)] private static extern IntPtr objc_getClass(string name);
+    [DllImport(ObjC)] private static extern IntPtr sel_registerName(string name);
+    [DllImport(ObjC, EntryPoint = "objc_msgSend")] private static extern IntPtr SendPtr(IntPtr receiver, IntPtr selector);
+    [DllImport(ObjC, EntryPoint = "objc_msgSend")] private static extern byte SendBool(IntPtr receiver, IntPtr selector);
+
+    /// <summary>[[NSWorkspace sharedWorkspace] accessibilityDisplayShouldReduceMotion]; AppKit is loaded by Avalonia.</summary>
+    private static bool MacReduceMotion()
+    {
+        var cls = objc_getClass("NSWorkspace");
+        if (cls == IntPtr.Zero) return false;
+        var shared = SendPtr(cls, sel_registerName("sharedWorkspace"));
+        return shared != IntPtr.Zero && SendBool(shared, sel_registerName("accessibilityDisplayShouldReduceMotion")) != 0;
+    }
+
+    /// <summary>`gsettings get org.gnome.desktop.interface enable-animations`, off the UI thread (it starts a process).</summary>
+    private static void RefreshLinuxInBackground()
+    {
+        if (Interlocked.Exchange(ref _linuxReading, 1) == 1) return;
+        Task.Run(() =>
+        {
+            try
+            {
+                using var p = Process.Start(new ProcessStartInfo("gsettings", "get org.gnome.desktop.interface enable-animations")
+                {
+                    RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true,
+                });
+                if (p is null) return;
+                var output = p.StandardOutput.ReadToEnd();
+                if (!p.WaitForExit(1000)) { try { p.Kill(); } catch (Exception) { } return; }
+                if (p.ExitCode == 0) _enabled = !output.Trim().Equals("false", StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception) { } // no gsettings (not GNOME): keep animating
+            finally { Volatile.Write(ref _linuxReading, 0); }
+        });
+    }
+}
+
 /// <summary>How a <see cref="GlowBorder"/> moves.</summary>
 public enum GlowBorderMode
 {
     /// <summary>A short gradient beam runs around the border.</summary>
     Travel,
-    /// <summary>The whole border breathes, with soft glows along its edge.</summary>
+    /// <summary>
+    /// Was: the whole border breathed, with soft glows along its edge. Now draws nothing: an idle control that
+    /// pulses forever pulls the eye and ignores the OS's "Animation effects" setting.
+    /// </summary>
     Pulse,
 }
 
@@ -34,7 +117,10 @@ public enum GlowBorderPalette
 /// Wraps one element (a Button, a card Border, anything) and draws an animated
 /// border over it: a beam that travels around the edge, or a pulse, with a soft
 /// glow on the inside. The beam follows the child's corner radius unless
-/// <see cref="CornerRadius"/> is set.
+/// <see cref="CornerRadius"/> is set. Nothing is drawn while the OS asks for no
+/// animations (Windows: Settings › Accessibility › Visual effects › Animation
+/// effects; macOS: Reduce motion; GNOME: enable-animations), and Pulse mode draws
+/// nothing at all.
 /// </summary>
 /// <example>
 /// <code>
@@ -121,18 +207,29 @@ public class GlowBorder : Decorator
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == IsActiveProperty || change.Property == IsVisibleProperty)
+        if (change.Property == IsActiveProperty || change.Property == IsVisibleProperty || change.Property == ModeProperty)
             RequestFrame();
         if (change.Property == CornerRadiusProperty)
             InvalidateArrange();
         Invalidate();
     }
 
+    /// <summary>Whether there's anything to animate: a Travel beam, with the OS's animations on.</summary>
+    private bool CanAnimate => Mode == GlowBorderMode.Travel && MotionPreference.AnimationsEnabled;
+
+    private WindowBase? _window;
+
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _intensity = IsActive ? 1 : 0;
+        _intensity = IsActive && CanAnimate ? 1 : 0;
         _clock.Start();
+        // The OS setting is read again whenever the window comes back to the front (cheap, and when it's changed).
+        if (TopLevel.GetTopLevel(this) is WindowBase window)
+        {
+            _window = window;
+            window.Activated += OnWindowActivated;
+        }
         RequestFrame();
     }
 
@@ -140,6 +237,14 @@ public class GlowBorder : Decorator
     {
         base.OnDetachedFromVisualTree(e);
         _clock.Stop();
+        if (_window is not null) _window.Activated -= OnWindowActivated;
+        _window = null;
+    }
+
+    private void OnWindowActivated(object? sender, EventArgs e)
+    {
+        MotionPreference.Refresh();
+        RequestFrame();
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -171,6 +276,12 @@ public class GlowBorder : Decorator
     private void RequestFrame()
     {
         if (_frameRequested || !IsVisible || TopLevel.GetTopLevel(this) is not { } top) return;
+        if (!CanAnimate)
+        {
+            // Nothing animated: no frame loop, and whatever was showing goes at once.
+            if (_intensity > 0) { _intensity = 0; Invalidate(); }
+            return;
+        }
         _frameRequested = true;
         top.RequestAnimationFrame(OnFrame);
     }
@@ -179,6 +290,12 @@ public class GlowBorder : Decorator
     {
         _frameRequested = false;
         if (VisualRoot is null) return;
+        if (!CanAnimate)
+        {
+            _intensity = 0;
+            Invalidate();
+            return;
+        }
 
         var now = _clock.Elapsed;
         var step = (now - _lastFrame).TotalMilliseconds / FadeTime.TotalMilliseconds;
@@ -209,7 +326,7 @@ public class GlowBorder : Decorator
 
     private void Render(DrawingContext context, bool glow)
     {
-        if (_intensity <= 0) return;
+        if (_intensity <= 0 || !CanAnimate) return;
         var bounds = new Rect(_beamLayer.Bounds.Size);
         if (bounds.Width < 2 || bounds.Height < 2) return;
 

@@ -13,7 +13,7 @@
     <Color x:Key="ThemeRaised">#302824</Color>
     <Color x:Key="ThemeHeader">#1F1A17</Color>
     <Color x:Key="ThemeBorder">#3E332E</Color>
-    <Color x:Key="ThemeControlBorder">#5C4B44</Color>
+    <Color x:Key="ThemeControlBorder">#85706A</Color>
     <Color x:Key="ThemeText">#F3EAE5</Color>
     <Color x:Key="ThemeSubtleText">#B8A69D</Color>
     <Color x:Key="ThemeSectionText">#F2B48E</Color>
