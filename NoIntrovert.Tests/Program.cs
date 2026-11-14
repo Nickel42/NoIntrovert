@@ -3789,6 +3789,10 @@ JobWork PlannedWua(IEnumerable<string> rowPaths, Action<AppSettings>? configure 
 
 string? WuaLandsIn(string label, JobWork work, string root, string expectFolder, Action<AppSettings>? configure = null)
 {
+    // Back-date the .wua files already here: a rebuild of the same file within one clock tick
+    // (about 15 ms on Windows) would otherwise keep its old time and look unwritten.
+    var stale = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    foreach (var f in Directory.GetFiles(root, "*.wua", SearchOption.AllDirectories)) File.SetLastWriteTimeUtc(f, stale);
     var before = Directory.GetFiles(root, "*.wua", SearchOption.AllDirectories).ToDictionary(f => f, File.GetLastWriteTimeUtc);
     var o = RunJob(work, s => { s.Keys.WiiUKeysPath = encKeysTxt; s.Output.Overwrite = true; configure?.Invoke(s); });
     if (o.Status != JobStatus.Succeeded) return $"{label}: {o.Status}: {o.Summary}";
