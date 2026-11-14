@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using NoIntrovert.Core.Presets;
+using NoIntrovert.Services;
 using NoIntrovert.ViewModels;
 
 namespace NoIntrovert.Views;
@@ -32,6 +34,8 @@ public partial class JobListPanel : UserControl
         };
         // Any focus inside a row (the row itself, its Preset dropdown) makes it the focused row.
         List.AddHandler(GotFocusEvent, OnRowFocused, RoutingStrategies.Bubble, handledEventsToo: true);
+        // Right-click, Shift+F10 or the Menu key on a row: the row menu.
+        List.ContextRequested += OnRowContextRequested;
         SelectAll.Click += (_, _) =>
         {
             if (DataContext is not BatchTabViewModel vm) return;
@@ -116,5 +120,80 @@ public partial class JobListPanel : UserControl
         // A click selects through the list itself (Ctrl-click toggles, so selecting here first would undo it);
         // the keyboard moves focus without selecting, so select here.
         if (e.NavigationMethod != NavigationMethod.Pointer && !container.IsSelected) container.IsSelected = true;
+    }
+
+    // ---- Row menu ----
+
+    /// <summary>
+    /// The row menu for <paramref name="container"/>'s row. As in Explorer, a row that isn't selected
+    /// becomes the only selected row first; on a selected row the selection stays, and the menu acts on all of it.
+    /// </summary>
+    private void OnRowContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (DataContext is not BatchTabViewModel vm || e.Source is not Visual source) return;
+        var container = source as ListBoxItem ?? source.FindAncestorOfType<ListBoxItem>();
+        if (container?.DataContext is not JobItemViewModel row) return;
+        e.Handled = true;
+        ShowRowMenu(vm, container, row);
+    }
+
+    /// <summary>Selects and focuses the row as a right-click does, then opens its menu.</summary>
+    private void ShowRowMenu(BatchTabViewModel vm, ListBoxItem container, JobItemViewModel row)
+    {
+        SelectForMenu(vm, container, row);
+        new ContextMenu { ItemsSource = RowMenuItems(vm, row) }.Open(container);
+    }
+
+    /// <summary>What a right-click does to the selection: an unselected row becomes the only selected one; a selected row keeps the selection. Either way it's focused.</summary>
+    public void SelectForMenu(BatchTabViewModel vm, ListBoxItem container, JobItemViewModel row)
+    {
+        if (!container.IsSelected)
+        {
+            List.SelectedItems!.Clear();
+            List.SelectedItems.Add(row);
+        }
+        vm.FocusedItem = row;
+        container.Focus(NavigationMethod.Pointer);
+    }
+
+    /// <summary>The row menu's items for <paramref name="row"/> on <paramref name="vm"/>'s page, acting on its selected rows.</summary>
+    public static List<Control> RowMenuItems(BatchTabViewModel vm, JobItemViewModel row)
+    {
+        var count = vm.SelectedCount;
+        var items = new List<Control>
+        {
+            Item(FileReveal.MenuLabel, vm.CanRevealSelection, () => _ = vm.RevealSelectedAsync(), "reveal"),
+            Item("Copy path", vm.CanRevealSelection, () => _ = vm.CopySelectedPathsAsync(), "copypath"),
+        };
+        if (vm.OffersVerify || vm.OffersPresets(row)) items.Add(new Separator());
+        if (vm.OffersVerify)
+            items.Add(Item(count == 1 ? "Verify this file" : $"Verify {count:N0} files", vm.CanVerifySelection, () => _ = vm.VerifySelectedAsync(), "verify"));
+        if (vm.OffersPresets(row))
+        {
+            var presets = new MenuItem { Header = "Preset", IsEnabled = vm.CanChoosePreset, Name = "presets" };
+            foreach (var option in row.PresetOptions)
+            {
+                if (option.IsDivider) { presets.Items.Add(new Separator()); continue; }
+                if (option.IsGroup) { presets.Items.Add(new MenuItem { Header = option.Label, IsEnabled = false }); continue; }
+                var choice = Item(option.Label, option.IsEnabled, () => vm.ApplyPresetToSelected(option.Preset!.Id));
+                choice.ToggleType = MenuItemToggleType.Radio;
+                choice.IsChecked = option == row.PresetChoice;
+                if (option.Hint.Length > 0) ToolTip.SetTip(choice, option.Hint);
+                presets.Items.Add(choice);
+            }
+            items.Add(presets);
+        }
+        items.Add(new Separator());
+        var remove = Item("Remove from list", vm.CanRemoveSelection, () => vm.RemoveSelectedCommand.Execute(null), "remove");
+        remove.InputGesture = new KeyGesture(Key.Delete);
+        items.Add(remove);
+        return items;
+
+        static MenuItem Item(string header, bool enabled, Action act, string? name = null)
+        {
+            var item = new MenuItem { Header = header, IsEnabled = enabled, Name = name };
+            item.Click += (_, _) => act();
+            return item;
+        }
     }
 }

@@ -20,6 +20,7 @@ public partial class MainWindow : SukiWindow, IDialogs
     {
         InitializeComponent();
         ShowThemeMode(AppTheme.System);
+        SetUpConventions();
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         BodyGrid.SizeChanged += (_, _) => FitDrawers();
