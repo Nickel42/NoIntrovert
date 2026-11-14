@@ -26,6 +26,23 @@ internal static class FileFactsTests
                 ? null : $"PlayStation reads {ps1}";
         });
 
+        test("System facts: ES-DE names that share a picture", () =>
+        {
+            string[] arcade = ["mame", "fbneo", "cps1", "cps2", "cps3", "daphne"];
+            var wrong = arcade.Where(n => SystemFacts.IconFor(n) != "arcade").ToList();
+            if (wrong.Count > 0) return "not the arcade picture: " + string.Join(", ", wrong);
+            if (SystemFacts.IconFor("fds") != "famicom") return $"fds -> {SystemFacts.IconFor("fds")}";
+            if (SystemFacts.IconFor("segacd") != "genesis") return $"segacd -> {SystemFacts.IconFor("segacd")}";
+            if (SystemFacts.IconFor("psx") != "psx") return "a plain name changed";
+            var icons = new Dictionary<string, string>
+            {
+                ["mame"] = "arcade", ["finalburn-neo"] = "arcade", ["famicom-disk-system"] = "famicom",
+                ["mega-cd-sega-cd"] = "genesis", ["playstation"] = "psx",
+            };
+            var off = icons.Where(p => SystemFacts.For(p.Key)?.Icon != p.Value).Select(p => $"{p.Key} = {SystemFacts.For(p.Key)?.Icon}").ToList();
+            return off.Count > 0 ? "icons: " + string.Join(", ", off) : null;
+        });
+
         test("System facts: every TargetFormats system has a formats paragraph", () =>
         {
             var paragraphs = SystemFacts.FormatParagraphs();

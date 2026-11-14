@@ -2,10 +2,11 @@
 // Hand-checked. One entry per id in Core/Formats/TargetFormats.json (a test keeps them in step).
 // name: the title; short: the name in "Formats for <short>" and on the fallback tile;
 // year: first release anywhere; generation and media: the tags (null hides the tag);
-// icon: Assets/consoles/icons/<size>/<icon>.png (a neutral tile is drawn when the picture is missing).
+// icon: the ES-DE system name; the picture is Assets/consoles/icons/<size>/<icon>.png, or the shared picture
+// SystemFacts.IconFor gives it (mame, fbneo -> arcade; fds -> famicom; segacd -> genesis). A neutral tile is drawn when there is none.
 [
   {"id": "nes-famicom", "name": "Nintendo Entertainment System", "short": "NES", "manufacturer": "Nintendo", "year": 1983, "generation": "3rd generation", "media": "Cartridge", "icon": "nes"},
-  {"id": "famicom-disk-system", "name": "Famicom Disk System", "short": "Famicom Disk System", "manufacturer": "Nintendo", "year": 1986, "generation": "3rd generation", "media": "Floppy disk", "icon": "famicom"},
+  {"id": "famicom-disk-system", "name": "Famicom Disk System", "short": "Famicom Disk System", "manufacturer": "Nintendo", "year": 1986, "generation": "3rd generation", "media": "Floppy disk", "icon": "fds"},
   {"id": "snes-super-famicom", "name": "Super Nintendo Entertainment System", "short": "SNES", "manufacturer": "Nintendo", "year": 1990, "generation": "4th generation", "media": "Cartridge", "icon": "snes"},
   {"id": "nintendo-64", "name": "Nintendo 64", "short": "Nintendo 64", "manufacturer": "Nintendo", "year": 1996, "generation": "5th generation", "media": "Cartridge", "icon": "n64"},
   {"id": "nintendo-64dd", "name": "Nintendo 64DD", "short": "64DD", "manufacturer": "Nintendo", "year": 1999, "generation": "5th generation", "media": "Magnetic disk", "icon": "n64"},
@@ -53,10 +54,10 @@
   {"id": "x68000-x1", "name": "Sharp X68000 / X1", "short": "X68000", "manufacturer": "Sharp", "year": 1982, "generation": "Home computer", "media": "Floppy disk", "icon": "x68000"},
   {"id": "ms-dos", "name": "MS-DOS", "short": "MS-DOS", "manufacturer": "Microsoft", "year": 1981, "generation": "PC", "media": "Floppy disk", "icon": "dos"},
   {"id": "scummvm-supported-adventure-games", "name": "ScummVM adventure games", "short": "ScummVM", "manufacturer": "Various publishers", "year": null, "generation": "PC", "media": "Floppy disk", "icon": "scummvm"},
-  {"id": "mame", "name": "Arcade (MAME)", "short": "MAME", "manufacturer": "Various makers", "year": null, "generation": "Arcade", "media": "ROM board", "icon": "arcade"},
-  {"id": "finalburn-neo", "name": "Arcade (FinalBurn Neo)", "short": "FinalBurn Neo", "manufacturer": "Various makers", "year": null, "generation": "Arcade", "media": "ROM board", "icon": "arcade"},
+  {"id": "mame", "name": "Arcade (MAME)", "short": "MAME", "manufacturer": "Various makers", "year": null, "generation": "Arcade", "media": "ROM board", "icon": "mame"},
+  {"id": "finalburn-neo", "name": "Arcade (FinalBurn Neo)", "short": "FinalBurn Neo", "manufacturer": "Various makers", "year": null, "generation": "Arcade", "media": "ROM board", "icon": "fbneo"},
   {"id": "naomi-naomi-2-atomiswave", "name": "Sega NAOMI / Atomiswave", "short": "NAOMI", "manufacturer": "Sega", "year": 1998, "generation": "Arcade", "media": "ROM board", "icon": "arcade"},
-  {"id": "playstation", "name": "Sony PlayStation", "short": "PlayStation", "manufacturer": "Sony Computer Entertainment", "year": 1994, "generation": "5th generation", "media": "CD-ROM", "icon": "ps1"},
+  {"id": "playstation", "name": "Sony PlayStation", "short": "PlayStation", "manufacturer": "Sony Computer Entertainment", "year": 1994, "generation": "5th generation", "media": "CD-ROM", "icon": "psx"},
   {"id": "playstation-2", "name": "Sony PlayStation 2", "short": "PlayStation 2", "manufacturer": "Sony Computer Entertainment", "year": 2000, "generation": "6th generation", "media": "DVD", "icon": "ps2"},
   {"id": "playstation-3", "name": "Sony PlayStation 3", "short": "PlayStation 3", "manufacturer": "Sony Computer Entertainment", "year": 2006, "generation": "7th generation", "media": "Blu-ray", "icon": "ps3"},
   {"id": "playstation-portable", "name": "Sony PlayStation Portable", "short": "PSP", "manufacturer": "Sony Computer Entertainment", "year": 2004, "generation": "7th generation", "media": "UMD", "icon": "psp"},
