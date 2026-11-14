@@ -44,11 +44,38 @@ public sealed partial class SidePanelViewModel : ViewModelBase
     /// <summary>"7 presets for PlayStation discs".</summary>
     [ObservableProperty] public partial string PresetCount { get; private set; } = "";
 
+    /// <summary>With no row focused: "29 files · 3 systems".</summary>
+    [ObservableProperty] public partial string ListSummary { get; private set; } = "";
+
+    /// <summary>With no row focused: the presets in use, most used first ("CHD · Standard ★ — 2").</summary>
+    [ObservableProperty] public partial IReadOnlyList<string> PresetsInUse { get; private set; } = [];
+
+    /// <summary>"29 files · 3 systems", "1 file · 1 system".</summary>
+    public static string ListSummaryText(int files, int systems)
+    {
+        var text = files == 1 ? "1 file" : $"{files} files";
+        return systems == 0 ? text : $"{text} · {(systems == 1 ? "1 system" : $"{systems} systems")}";
+    }
+
+    /// <summary>One line per preset in use, most used first: "7z · Standard ★ — 25".</summary>
+    public static IReadOnlyList<string> PresetsInUseText(IEnumerable<string> labels) =>
+        labels.Where(l => l.Length > 0)
+            .GroupBy(l => l)
+            .OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.CurrentCulture)
+            .Select(g => $"{g.Key} — {g.Count()}")
+            .ToList();
+
     public IReadOnlyList<PresetListItem> Options => Row?.PresetOptions ?? [];
+
+    /// <summary>The list the dropdown was last given (see <see cref="RefreshPreset"/>).</summary>
+    private IReadOnlyList<PresetListItem>? _shownOptions;
+
+    /// <summary>True while the dropdown's list is swapped: <see cref="Selected"/> reads null meanwhile.</summary>
+    private bool _swappingOptions;
 
     public PresetListItem? Selected
     {
-        get => Row?.PresetChoice;
+        get => _swappingOptions ? null : Row?.PresetChoice;
         set
         {
             if (CanChoose && Row is not null && value is not null) Row.PresetChoice = value;
@@ -156,6 +183,11 @@ public sealed partial class SidePanelViewModel : ViewModelBase
         CanChoose = focused is not null && focused.HasPresets;
         var count = row?.PresetOptions.Count(i => i.IsPreset && !i.Preset!.IsLeave) ?? 0;
         PresetCount = row is null ? "" : PresetCountText(count, row.SystemId);
+        if (focused is null)
+        {
+            ListSummary = ListSummaryText(items.Count, items.Select(i => i.SystemId).OfType<string>().Distinct().Count());
+            PresetsInUse = PresetsInUseText(items.Where(i => i.HasPresets).Select(i => i.PresetLabel));
+        }
         RefreshPreset();
     }
 
@@ -191,7 +223,6 @@ public sealed partial class SidePanelViewModel : ViewModelBase
     {
         if (e.PropertyName is nameof(JobItemViewModel.PresetChoice) or nameof(JobItemViewModel.PresetOptions))
         {
-            if (e.PropertyName == nameof(JobItemViewModel.PresetOptions)) OnPropertyChanged(nameof(Options));
             Custom = null; // a new choice: Preset settings start again from the row's values
             RefreshPreset();
         }
@@ -204,7 +235,24 @@ public sealed partial class SidePanelViewModel : ViewModelBase
 
     private void RefreshPreset()
     {
-        OnPropertyChanged(nameof(Options));
+        // A new list (another row, or the row's list rebuilt): clear the
+        // dropdown's selection first, then swap the list, then select. Swapping
+        // the list under a selected item makes the ComboBox clear its selection
+        // and write null back; the binding then caches the row's choice from
+        // re-reading Selected mid-swap, so the later "Selected changed" looked
+        // like no change and the box stayed blank.
+        var options = Options;
+        if (!ReferenceEquals(options, _shownOptions))
+        {
+            _swappingOptions = true;
+            try
+            {
+                OnPropertyChanged(nameof(Selected));
+                _shownOptions = options;
+                OnPropertyChanged(nameof(Options));
+            }
+            finally { _swappingOptions = false; }
+        }
         OnPropertyChanged(nameof(Selected));
         var row = Row;
         if (row is { IsCustom: true } && CanChoose)

@@ -69,6 +69,12 @@
             <Setter Property="CornerRadius" Value="14" />
             <Setter Property="Padding" Value="14" />
         </Style>
+        <!-- The side panel: one width on every page (Optimize, Convert, Verify, Organize), so the list's
+             right edge stays put when the page changes. A page's Responsive.Below names the steps:
+             narrow (below 1000 px) and, on Convert only, tight (below 860 px). -->
+        <Style Selector="ScrollViewer.sidepanel"><Setter Property="Width" Value="360" /></Style>
+        <Style Selector=":is(UserControl).narrow ScrollViewer.sidepanel"><Setter Property="Width" Value="300" /></Style>
+        <Style Selector=":is(UserControl).tight ScrollViewer.sidepanel"><Setter Property="Width" Value="280" /></Style>
         <Style Selector="TextBlock.section">
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="Bold" />
