@@ -19,6 +19,7 @@ public partial class MainWindow : SukiWindow, IDialogs
     public MainWindow()
     {
         InitializeComponent();
+        ShowThemeMode(AppTheme.System);
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         BodyGrid.SizeChanged += (_, _) => FitDrawers();
@@ -49,15 +50,48 @@ public partial class MainWindow : SukiWindow, IDialogs
     private void OnThemeToggleClick(object? sender, RoutedEventArgs e) => ToggleTheme();
 
     /// <summary>
-    /// The title bar's moon/sun: flips between Dark and Light (from System too, by what's showing)
-    /// through Settings › General › Theme, so the setting, the saved file and the colours stay in step.
+    /// The title bar's theme button: cycles Settings › General › Theme System → Dark → Light → System, so one
+    /// click never leaves System without saying so; the setting, the saved file and the colours stay in step.
     /// </summary>
     public void ToggleTheme()
     {
         if (Vm is not { } vm) return;
-        var showingDark = (Application.Current?.ActualThemeVariant ?? ActualThemeVariant) == ThemeVariant.Dark;
-        var next = showingDark ? AppTheme.Light : AppTheme.Dark;
-        vm.Settings.General.SelectedTheme = GeneralSettingsViewModel.Themes.First(t => t.Value == next);
+        vm.Settings.General.SelectedTheme = GeneralSettingsViewModel.Themes.First(t => t.Value == NextTheme(vm.Settings.General.Theme));
+    }
+
+    public static AppTheme NextTheme(AppTheme theme) => theme switch
+    {
+        AppTheme.System => AppTheme.Dark,
+        AppTheme.Dark => AppTheme.Light,
+        _ => AppTheme.System,
+    };
+
+    private const string MonitorIcon = "M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM8 20h8M12 16v4";
+    private const string MoonIcon = "M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z";
+    private const string SunIcon = "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4";
+
+    private static string ModeName(AppTheme theme) => theme switch
+    {
+        AppTheme.System => OperatingSystem.IsWindows() ? "System (follows Windows)" : "System (follows your system's setting)",
+        AppTheme.Dark => "Dark",
+        _ => "Light",
+    };
+
+    /// <summary>The words the theme button's tooltip and accessible name say: the mode now, and the one a click gives.</summary>
+    public static string ThemeToggleTip(AppTheme theme) => $"Theme: {ModeName(theme)}. Click for {ModeName(NextTheme(theme)).Split(' ')[0]}.";
+
+    /// <summary>The theme button's icon (monitor for System, moon, sun), tooltip and accessible name, for the current setting.</summary>
+    private void ShowThemeMode(AppTheme theme)
+    {
+        ThemeToggleIcon.Data = Avalonia.Media.StreamGeometry.Parse(theme switch
+        {
+            AppTheme.System => MonitorIcon,
+            AppTheme.Dark => MoonIcon,
+            _ => SunIcon,
+        });
+        var tip = ThemeToggleTip(theme);
+        ToolTip.SetTip(ThemeToggle, tip);
+        Avalonia.Automation.AutomationProperties.SetName(ThemeToggle, tip);
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -66,6 +100,11 @@ public partial class MainWindow : SukiWindow, IDialogs
         if (Vm is not { } vm) return;
         Width = vm.Settings.General.WindowWidth;
         Height = vm.Settings.General.WindowHeight;
+        ShowThemeMode(vm.Settings.General.Theme);
+        vm.Settings.General.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(GeneralSettingsViewModel.Theme)) ShowThemeMode(vm.Settings.General.Theme);
+        };
         vm.Log.EntriesAdded += () => ScrollLogToEnd(vm);
         vm.Log.PropertyChanged += (_, args) =>
         {

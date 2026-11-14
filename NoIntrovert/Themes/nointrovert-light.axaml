@@ -13,9 +13,9 @@
     <Color x:Key="ThemeRaised">#FBF9FB</Color>
     <Color x:Key="ThemeHeader">#FFFFFF</Color>
     <Color x:Key="ThemeBorder">#E2DAE1</Color>
-    <Color x:Key="ThemeControlBorder">#C9BFC8</Color>
+    <Color x:Key="ThemeControlBorder">#8E8496</Color>
     <Color x:Key="ThemeText">#2B2B3D</Color>
-    <Color x:Key="ThemeSubtleText">#77778F</Color>
+    <Color x:Key="ThemeSubtleText">#62627A</Color>
     <Color x:Key="ThemeSectionText">#616283</Color>
     <Color x:Key="ThemePrimary">#616283</Color>
     <Color x:Key="ThemeAccent">#FF8C42</Color>
@@ -41,14 +41,12 @@
     <SolidColorBrush x:Key="WarningText" Color="#7A3A10" />
     <SolidColorBrush x:Key="OutlineButton" Color="#7C7EA6" />
     <SolidColorBrush x:Key="SettingsFieldBackground" Color="#F4F4F8" />
-    <SolidColorBrush x:Key="SettingsFieldBorder" Color="#D4D4DE" />
     <SolidColorBrush x:Key="SettingsFieldText" Color="#4A4A5A" />
     <SolidColorBrush x:Key="SettingsLink" Color="#5A5C8A" />
     <SolidColorBrush x:Key="SettingsSegmentHover" Color="#E6E6EE" />
     <SolidColorBrush x:Key="SettingsAccent" Color="#7C7EA6" />
     <SolidColorBrush x:Key="SelectionFill" Color="#2E8F86D9" />
     <SolidColorBrush x:Key="SelectionHoverFill" Color="#3D8F86D9" />
-    <SolidColorBrush x:Key="FocusedRowFill" Color="#338F86D9" />
     <Color x:Key="SukiControlTouchBackground">#F1EBF0</Color>
     <Color x:Key="SukiLowText">#46475F</Color>
     <Color x:Key="SukiDisabledText">#BDB8C3</Color>

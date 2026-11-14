@@ -13,9 +13,9 @@
     <Color x:Key="ThemeRaised">#F7FBFA</Color>
     <Color x:Key="ThemeHeader">#FFFFFF</Color>
     <Color x:Key="ThemeBorder">#D2E3E0</Color>
-    <Color x:Key="ThemeControlBorder">#B1CBC7</Color>
+    <Color x:Key="ThemeControlBorder">#6F8E87</Color>
     <Color x:Key="ThemeText">#1C2B2B</Color>
-    <Color x:Key="ThemeSubtleText">#5D7574</Color>
+    <Color x:Key="ThemeSubtleText">#546B6A</Color>
     <Color x:Key="ThemeSectionText">#1D6D66</Color>
     <Color x:Key="ThemePrimary">#1C756D</Color>
     <Color x:Key="ThemeAccent">#F07A30</Color>

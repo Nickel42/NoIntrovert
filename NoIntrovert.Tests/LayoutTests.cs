@@ -110,7 +110,7 @@ static class LayoutTests
             return null;
         }));
 
-        test("Rail: one list of pages, no LIBRARY or FILES headings; the selected page is an accent pill whose words read", () => Dispatch(() =>
+        test("Rail: one list of pages, no LIBRARY or FILES headings; the selected page is a tint with an accent bar, its words read", () => Dispatch(() =>
         {
             f.Resize(1366, 768);
             f.Show("optimize");
@@ -120,9 +120,16 @@ static class LayoutTests
             var titles = f.Vm.MainPages.Where(p => p.IsVisible).Select(p => p.Title).ToList();
             if (string.Join(",", titles) != "Optimize,Convert,Verify,Organize") return "the rail lists " + string.Join(",", titles);
             var selected = f.Find<Button>(b => b.Classes.Contains("rail") && b.Classes.Contains("selected") && b.IsEffectivelyVisible);
-            if (selected?.GetVisualDescendants().OfType<Border>().FirstOrDefault()?.Background is not Avalonia.Media.ISolidColorBrush fill) return "no selected rail button";
+            if (selected?.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Name == "RootBorder")?.Background is not Avalonia.Media.ISolidColorBrush fill) return "no selected rail button";
             var accent = Accent();
-            if (accent != fill.Color) return $"the selected page is {fill.Color}, not the accent {accent}";
+            if (accent == fill.Color) return "the selected page is still a solid accent pill";
+            if (!selected.TryFindResource("PrimaryTint", selected.ActualThemeVariant, out var tint) || tint is not Avalonia.Media.ISolidColorBrush t || t.Color != fill.Color)
+                return $"the selected page is {fill.Color}, not the tint";
+            if (selected.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Name == "RailBar") is not { IsEffectivelyVisible: true, Bounds.Width: >= 3, Background: Avalonia.Media.ISolidColorBrush bar }
+                || bar.Color != accent)
+                return "the selected page has no accent bar at its left";
+            if (f.Find<Button>(b => b.Classes.Contains("primary") && b.IsEffectivelyVisible) is { Background: Avalonia.Media.ISolidColorBrush run } && run.Color != accent)
+                return $"the run button is {run.Color}, not the accent {accent}";
             foreach (var text in selected.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible))
             {
                 if (text.Foreground is not Avalonia.Media.ISolidColorBrush ink) return $"\"{text.Text}\" has no colour";
@@ -300,21 +307,36 @@ static class LayoutTests
             return vm.Rows.Count == 1 ? null : $"{vm.Rows.Count} rows for one job";
         }));
 
-        test("Layout: the title bar's moon/sun flips the Theme setting and the lilac follows the theme", () => Dispatch(() =>
+        test("Layout: the title bar's theme button cycles System, Dark, Light and says so; the lilac follows the theme", () => Dispatch(() =>
         {
             var app = Avalonia.Application.Current!;
             var before = f.Settings.General.Theme;
+            var general = f.Vm.Settings.General;
             try
             {
-                if (f.Find<Button>(b => b.Name == "ThemeToggle") is not { IsEffectivelyVisible: true }) return "no theme toggle in the title bar";
-                app.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
+                if (f.Find<Button>(b => b.Name == "ThemeToggle") is not { IsEffectivelyVisible: true } toggle) return "no theme toggle in the title bar";
+                general.SelectedTheme = GeneralSettingsViewModel.Themes.First(t => t.Value == AppTheme.System);
+                string? Says(string mode, string next)
+                {
+                    var tip = ToolTip.GetTip(toggle) as string ?? "";
+                    var name = Avalonia.Automation.AutomationProperties.GetName(toggle) ?? "";
+                    if (!tip.StartsWith($"Theme: {mode}", StringComparison.Ordinal) || !tip.EndsWith($"Click for {next}.", StringComparison.Ordinal))
+                        return $"the tooltip says \"{tip}\" in {mode}";
+                    return name == tip ? null : $"the accessible name \"{name}\" isn't the tooltip";
+                }
+                if (Says("System", "Dark") is { } s0) return s0;
                 f.Window.ToggleTheme();
-                if (f.Settings.General.Theme != AppTheme.Light) return $"from dark the toggle chose {f.Settings.General.Theme}, not Light";
+                if (f.Settings.General.Theme != AppTheme.Dark) return $"from System the toggle chose {f.Settings.General.Theme}, not Dark";
+                if (Says("Dark", "Light") is { } s1) return s1;
+                f.Window.ToggleTheme();
+                if (f.Settings.General.Theme != AppTheme.Light) return $"from Dark the toggle chose {f.Settings.General.Theme}, not Light";
+                if (Says("Light", "System") is { } s2) return s2;
                 app.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Light;
                 if (!app.TryGetResource("SukiPrimaryColor", null, out var light) || light is not Avalonia.Media.Color { R: 0x61, G: 0x62, B: 0x83 })
                     return $"the light theme's primary is {light}, not #616283";
                 f.Window.ToggleTheme();
-                if (f.Settings.General.Theme != AppTheme.Dark) return $"from light the toggle chose {f.Settings.General.Theme}, not Dark";
+                if (f.Settings.General.Theme != AppTheme.System) return $"from Light the toggle chose {f.Settings.General.Theme}, not System";
+                f.Window.ToggleTheme();
                 app.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
                 if (!app.TryGetResource("SukiPrimaryColor", null, out var dark) || dark is not Avalonia.Media.Color { R: 0x7C, G: 0x7E, B: 0xA6 })
                     return $"the dark theme's primary is {dark}, not #7C7EA6";
