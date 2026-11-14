@@ -140,7 +140,9 @@ public sealed class CleanupRunner
         if (playlist && Directory.Exists(step.Target)) return $"{System.IO.Path.GetFileName(step.Target)} is a folder";
         var id = NextStep();
         Directory.CreateDirectory(folder);
-        var staging = System.IO.Path.Combine(folder, $".noi-cleanup-{Run.Id}");
+        // One staging folder per step: games run in parallel, and two converting into the same system folder
+        // must never see (or delete) each other's files.
+        var staging = System.IO.Path.Combine(folder, $".noi-cleanup-{Run.Id}-{id}");
         Directory.CreateDirectory(staging);
         try
         {
