@@ -254,7 +254,9 @@ public sealed class JobQueue
 
     private void WorkerLoop(int index)
     {
-        Chdman? chdman = null;
+        // Made the first time a job needs it: a job that never touches a CHD (a NES ROM to 7z) runs even when
+        // lib-chd-kit's native library is missing.
+        Lazy<Chdman>? chdman = null;
         var chdmanThreads = -1;
         Lazy<WiiGameCubeKit>? rvz = null;
         try
@@ -288,8 +290,8 @@ public sealed class JobQueue
                 var threads = settings.Performance.EffectiveThreadsPerJob;
                 if (chdman is null || chdmanThreads != threads)
                 {
-                    chdman?.Dispose();
-                    chdman = new Chdman(threads);
+                    if (chdman?.IsValueCreated == true) chdman.Value.Dispose();
+                    chdman = new Lazy<Chdman>(() => new Chdman(threads));
                     chdmanThreads = threads;
                     if (rvz?.IsValueCreated == true) rvz.Value.Dispose();
                     rvz = new Lazy<WiiGameCubeKit>(() => new WiiGameCubeKit(threads));
@@ -299,7 +301,7 @@ public sealed class JobQueue
         }
         finally
         {
-            chdman?.Dispose();
+            if (chdman?.IsValueCreated == true) chdman.Value.Dispose();
             if (rvz?.IsValueCreated == true) rvz.Value.Dispose();
             lock (_gate) Monitor.PulseAll(_gate);
         }
@@ -321,19 +323,12 @@ public sealed class JobQueue
         return capped;
     }
 
-    private void Run(int index, QueuedJob job, AppSettings settings, Chdman chdman, Lazy<WiiGameCubeKit> rvz)
+    private void Run(int index, QueuedJob job, AppSettings settings, Lazy<Chdman> lazyChdman, Lazy<WiiGameCubeKit> rvz)
     {
         var log = Concurrency > 1 ? new PrefixedLog(job.Group.Log, $"[{index + 1}] ") : job.Group.Log;
-        chdman.Log = (level, message) =>
-        {
-            switch (level)
-            {
-                case ChdmanLogLevel.Error: log.Error("lib-chd-kit: " + message); break;
-                case ChdmanLogLevel.Warning: log.Warn("lib-chd-kit: " + message); break;
-                default: if (settings.General.VerboseLog) log.Debug("lib-chd-kit: " + message.TrimEnd()); break;
-            }
-        };
-        chdman.Progress = null;
+        // The worker's context is set up for this job when the job first uses it.
+        var chdman = new Lazy<Chdman>(() => Prepare(lazyChdman.Value, log, settings));
+        if (lazyChdman.IsValueCreated) _ = chdman.Value;
         if (rvz.IsValueCreated) rvz.Value.Progress = null;
 
         job.Spec.OnStart(JobStatus.Running);
@@ -364,6 +359,22 @@ public sealed class JobQueue
             if (settings.General.VerboseLog) log.Debug(ex.ToString());
         }
         Finish(job, outcome);
+    }
+
+    /// <summary>The worker's lib-chd-kit context, logging to this job's log and with no progress callback yet.</summary>
+    private static Chdman Prepare(Chdman chdman, ILog log, AppSettings settings)
+    {
+        chdman.Log = (level, message) =>
+        {
+            switch (level)
+            {
+                case ChdmanLogLevel.Error: log.Error("lib-chd-kit: " + message); break;
+                case ChdmanLogLevel.Warning: log.Warn("lib-chd-kit: " + message); break;
+                default: if (settings.General.VerboseLog) log.Debug("lib-chd-kit: " + message.TrimEnd()); break;
+            }
+        };
+        chdman.Progress = null;
+        return chdman;
     }
 
     private void Finish(QueuedJob job, JobOutcome outcome)

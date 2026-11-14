@@ -23,14 +23,17 @@ public static class Program
             return await app.Root.Parse(args).InvokeAsync();
 
         args = WindowsArgs.Normalize(args, app.OptionNames());
-        var parse = app.Root.Parse(args);
+        // A help switch anywhere asks for help, even where an option would take it as its value (noi convert --to /?).
+        string[] helpWords = ["--help", "-h", "-?"];
+        var wantsHelp = args.Any(a => helpWords.Contains(a));
+        var parse = app.Root.Parse(wantsHelp ? args.Where(a => !helpWords.Contains(a)).ToArray() : args, Parsing);
         var command = parse.CommandResult.Command;
         var silent = parse.GetValue(GlobalOptions.Silent);
         var paint = new Paint(!silent && Term.Detect(parse.GetValue(GlobalOptions.NoColor) ? ColorMode.Never : parse.GetValue(GlobalOptions.Color), ProgressStyle.None, parse.GetValue(GlobalOptions.Ascii)).Color);
         var width = HelpWidth();
 
         // Help first: it works even with options missing or wrong (noi convert --to /?).
-        if (parse.GetValue(GlobalOptions.Help) || parse.GetValue(GlobalOptions.HelpAll) || command.Name == "help")
+        if (wantsHelp || parse.GetValue(GlobalOptions.HelpAll) || command.Name == "help")
         {
             if (!silent) Console.Out.Write(Help(app, parse, paint, width));
             return Exit.Ok;
@@ -106,6 +109,28 @@ public static class Program
         }
     }
 
+    /// <summary>@list.txt: one path (or option) per line, so paths with spaces stay whole; blank and # lines are skipped.</summary>
+    internal static readonly ParserConfiguration Parsing = new()
+    {
+        ResponseFileTokenReplacer = (string token, out IReadOnlyList<string>? replacement, out string? error) =>
+        {
+            var path = token.TrimStart('@');
+            replacement = null;
+            error = null;
+            try
+            {
+                replacement = File.ReadAllLines(path).Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#'))
+                    .Select(l => l.Length > 1 && l[0] == '"' && l[^1] == '"' ? l[1..^1] : l).ToList();
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+            {
+                error = $"Couldn't read the list {path}: {ex.Message}";
+                return false;
+            }
+        },
+    };
+
     private static int HelpWidth()
     {
         if (Console.IsOutputRedirected) return 80;
@@ -159,7 +184,7 @@ public static class Program
         if (command.Name == "help")
         {
             var names = parse.GetValue(command.Arguments.OfType<Argument<string[]>>().First()) ?? [];
-            all |= parse.GetResult(command.Options.First()) is not null;
+            all |= command.Options.OfType<Option<bool>>().Any(o => o.Name == "--all" && parse.GetValue(o));
             Command target = app.Root;
             foreach (var name in names)
                 target = target.Subcommands.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
@@ -247,14 +272,14 @@ public static class Program
         var sb = new StringBuilder();
         sb.AppendLine($"noi {Version} (NoIntrovert)");
         sb.AppendLine($"  {System.Runtime.InteropServices.RuntimeInformation.OSDescription.Trim()}, {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}, .NET {Environment.Version}");
-        string Lib(Func<string> version)
+        string Lib(string name, Func<string> version)
         {
             try { return version(); }
-            catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException or TypeInitializationException) { return "not found beside noi"; }
+            catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException or TypeInitializationException) { return $"{name}: not found beside noi"; }
         }
-        sb.AppendLine($"  {Lib(() => LibChdKit.Chdman.Version)}");
-        sb.AppendLine($"  {Lib(() => LibWiiGameCubeKit.WiiGameCubeKit.Version)}");
-        sb.AppendLine($"  7-Zip engine {Lib(() => SevenZipEngine.IsAvailable(out var why) ? "available" : why ?? "not available")}");
+        sb.AppendLine($"  {Lib("lib-chd-kit", () => LibChdKit.Chdman.Version)}");
+        sb.AppendLine($"  {Lib("lib-wii-gamecube-kit", () => LibWiiGameCubeKit.WiiGameCubeKit.Version)}");
+        sb.AppendLine($"  7-Zip engine {Lib("7-Zip engine", () => SevenZipEngine.IsAvailable(out var why) ? "available" : why ?? "not available")}");
         return sb.ToString().TrimEnd();
     }
 }

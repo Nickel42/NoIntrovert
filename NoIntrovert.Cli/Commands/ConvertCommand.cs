@@ -94,15 +94,24 @@ public static class ConvertCommand
     {
         var o = job.Outcome!;
         var (word, color) = Common.Look(s.Ui, o.Status, "Converted");
-        var text = $"{prefix}{job.Name}{(o.Summary.Length > 0 ? $" {s.Ui.Sym.Dot} {o.Summary}" : "")}";
+        var summary = Shorter(job.Name, o.Summary, s.Ui.Sym.Arrow);
+        var text = $"{prefix}{job.Name}{(summary.Length == 0 ? "" : summary.StartsWith(s.Ui.Sym.Arrow) ? " " + summary : $" {s.Ui.Sym.Dot} {summary}")}";
         if (s.Ui.Term.LiveBars || !s.Ui.ShowsResults) s.Ui.Status(word, text, color);
-        else s.Ui.Line($"{prefix}{word.ToLowerInvariant(),-10} {job.Name}{(o.Summary.Length > 0 ? $": {o.Summary}" : "")}");
+        else s.Ui.Line($"{prefix}{word.ToLowerInvariant(),-10} {job.Name}{(summary.Length > 0 ? (summary.StartsWith(s.Ui.Sym.Arrow) ? " " : ": ") + summary : "")}");
         if (o.Status == JobStatus.Failed) s.Ui.QuietFailure($"{job.Name}: {o.Summary}");
         s.Ui.Event("file-done", new JsonObject
         {
             ["name"] = job.Name, ["paths"] = Json.Array(job.Paths), ["result"] = o.Status.ToString().ToLowerInvariant(), ["summary"] = o.Summary,
             ["elapsedMs"] = (long)job.Elapsed.TotalMilliseconds,
         });
+    }
+
+    /// <summary>"Tetris (USA).7z · 46%" after "Tetris (USA).nes" says "→ .7z · 46%": the name once is enough.</summary>
+    internal static string Shorter(string name, string summary, string arrow)
+    {
+        var stem = Path.GetFileNameWithoutExtension(name);
+        if (stem.Length == 0 || !summary.StartsWith(stem + ".", StringComparison.Ordinal)) return summary;
+        return $"{arrow} {summary[stem.Length..]}";
     }
 
     private static void ShowPlan(Session s, IReadOnlyList<ConvertRow> rows)
@@ -195,7 +204,8 @@ public static class ConvertCommand
             {
                 if (!ConvertPipeline.IsKnownPreset(p, presets))
                 {
-                    var ids = TargetFormats.All.SelectMany(x => FormatPresets.ForSystem(x.Id)).Select(x => x.Id).Distinct();
+                    var ids = TargetFormats.All.SelectMany(x => FormatPresets.ForSystem(x.Id)).Select(x => x.Id)
+                        .SelectMany(id => new[] { id, id[(id.IndexOf('-') + 1)..] }).Distinct();
                     var guess = Suggest.Closest(p, ids);
                     throw new UsageException($"Unknown preset \"{p}\".", (guess is null ? "" : $"Did you mean \"{guess}\"?  ") + "noi presets lists them.");
                 }

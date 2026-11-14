@@ -104,7 +104,7 @@ public static class RomJobs
         for (var i = 0; i < roms.Count; i++)
         {
             var sub = new ArchiveJobs.SubReport(c.Report, 0.3 + 0.7 * i / roms.Count, 0.7 / roms.Count, $"{i + 1}/{roms.Count}: ");
-            var o = Pack(new JobContext(c.Chdman, keep, c.Log, sub, c.Token, c.RvzSource), roms[i], Path.GetFileNameWithoutExtension(roms[i]), outputFolder);
+            var o = Pack(new JobContext(c.ChdmanSource, keep, c.Log, sub, c.Token, c.RvzSource), roms[i], Path.GetFileNameWithoutExtension(roms[i]), outputFolder);
             if (o.Status is JobStatus.Succeeded or JobStatus.Warning) done++; else failed++;
         }
         c.Log.Info($"{Path.GetFileName(archive)}: split into {Words.Count(done, "archive")}");
@@ -155,7 +155,7 @@ public static class RomJobs
                 lines.Add($"{hiddenName}/{made}");
                 continue;
             }
-            var o = ChdJobs.Convert(new JobContext(c.Chdman, s, c.Log, sub, c.Token, c.RvzSource), discs[i], hidden);
+            var o = ChdJobs.Convert(new JobContext(c.ChdmanSource, s, c.Log, sub, c.Token, c.RvzSource), discs[i], hidden);
             if (o.Status is not (JobStatus.Succeeded or JobStatus.Warning or JobStatus.Skipped)) failed++;
             if (File.Exists(Path.Combine(hidden, made))) lines.Add($"{hiddenName}/{made}");
         }

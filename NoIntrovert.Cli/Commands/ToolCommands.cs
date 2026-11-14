@@ -211,7 +211,7 @@ public static class TestsCommand
         "written next to the discs.",
         "noi test roundtrip <discs…> [--csv file]\nnoi test compare <discs…> --chdman <exe> [--csv file]",
         [("noi test roundtrip D:\\Discs --csv results.csv", ""), ("noi test compare D:\\Discs --chdman C:\\Tools\\chdman.exe", "")],
-        [new("OPTIONS", [Chdman, Csv, GlobalOptions.Jobs, GlobalOptions.Json])]);
+        [new("OPTIONS", [Chdman, Csv, GlobalOptions.Jobs, GlobalOptions.Json]), new("WHICH FILES", PathOptions.All)]);
 
     public static Task<int> Missing(ParseResult r, Session s) =>
         throw new UsageException("Choose a test: noi test roundtrip <discs…>, or noi test compare <discs…> --chdman <exe>.");

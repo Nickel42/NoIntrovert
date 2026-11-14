@@ -1,6 +1,6 @@
 # Requirement: Command-line interface (`noi`)
 
-Status: **Draft for review** (2026-11-14)
+Status: **Implemented** (2026-11-14): `NoIntrovert.Cli` (`noi`) on `NoIntrovert.Core`. Decisions in §10.
 
 ## 1. Goal
 
@@ -41,10 +41,10 @@ Libraries for .NET 10 (the app's runtime):
 - **System.CommandLine 2.0** (Microsoft, stable since Nov 2025) for parsing. It brings `-h`, `--help`,
   `-?` and `/?` as help aliases, typo suggestions, response files (`@files.txt`), tab completion, and it is
   trimming- and AOT-friendly.
-- **Spectre.Console** (0.56, in stabilisation) for output: multi-task progress bars, spinners, tables,
-  trees, markup colours, and terminal detection (TTY, `NO_COLOR`, colour depth, legacy Windows consoles).
-  Spectre.Console.Cli is not used: one parser and Spectre only for rendering keeps the help under our
-  control.
+- **Output: noi's own** (`NoIntrovert.Cli/Output`). Spectre.Console was the plan, but its progress display
+  can't print finished lines above live bars from several threads (its docs say it isn't thread safe) and
+  takes over the terminal; a small ANSI live area does exactly what Cargo and BuildKit do, with the 16
+  standard colours, `NO_COLOR`/TTY detection and Windows' virtual-terminal mode, and one dependency fewer.
 
 ## 3. Shape
 
@@ -145,13 +145,16 @@ These work with every command, in any position.
 | `--temp <folder>` | Temp folder | Settings › Performance |
 | `--offline` | Don't check for newer databases; use the cached ones | off |
 | `--settings <file>` | Use another settings file | the app's |
-| `--defaults` | Ignore the saved settings: every value is the recommended one (reproducible scripts) | off |
+| `--use-settings` | Use the app's saved settings instead of the recommended values | off |
 | `-h`, `-?`, `/?`, `--help` | Help for the command | — |
 | `--version` | Version, the libraries' versions, and the build's platform | — |
 
-Values come from, in order: **flags → environment variables → the settings file → the recommended
-defaults.** `noi` reads the app's settings (chosen presets, layout, keys folders, jobs) so it behaves like
-the app, but never writes them, except `noi settings set`.
+Values come from, in order: **flags → environment variables → the recommended defaults** (Q3). `noi`
+doesn't follow the app's saved choices, so a script behaves the same on every machine; `--use-settings` (or
+`--settings <file>`) starts from the app's settings instead. Two things are always read from the app's
+settings because naming or needing them is asking for them: presets saved from Custom (`-p "My CHD
+settings"`) and the key files and folders set in Settings › Keys. `noi` never writes the app's settings,
+except `noi settings set|reset` and `noi presets --default`.
 
 Environment variables: `NO_COLOR`, `FORCE_COLOR`, `NOI_SETTINGS`, `NOI_TEMP`, `NOI_JOBS`, `NOI_OFFLINE=1`,
 `CI` (when set: `--progress lines`, `--no-input`).
@@ -249,10 +252,14 @@ with a hint (`--verify-first`, or use `noi optimize`).
 | `--layout esde\|romm\|keep\|flat` | As §5.1 (`keep` here: convert and rename in place) |
 | `--no-convert`, `--no-rename`, `--no-move`, `--no-dedupe` | Turn off a whole kind of step |
 | `--verify-first` | Verify the files that haven't been, then plan |
-| Convert's `-p`, `-t`, `--keep` | Which formats the convert steps make |
+| `-t <target>`, `-t <system>=<target>` | One of a system's other targets for the convert steps: `zip`, `7z`, `bare`, `cso`, `zso`, `iso`, `cue-bin`, `gdi`, `xcz`, `nsp`, `zcci`, `zar`, `cci`, `folder` (the app's Settings › Target formats) |
+| `-p <preset>` | `smallest`, `fastest`, `balanced` (RVZ and 7z/zip compression), or a system's format preset (`zso-opl`) |
+| `--keep <system>` | Leave a system's files as they are |
 
 The plan prints grouped by game: `NES/Mario.nes → roms/nes/Super Mario Bros. (World).7z`, with each step's
-kind, clashes in red (nothing is ever overwritten), and the space saved.
+kind, clashes in red, and the space saved. A clash (a name that's taken) is never run, as in the app:
+the rest of the plan runs, and the clash stays in the summary. Games with nothing to do are counted, and
+listed with `--verbose`.
 
 ### 5.5 `noi optimize`
 
@@ -290,8 +297,12 @@ Help is the CLI's manual. `-h`, `--help`, `-?` and `/?` give the same text on ev
 usage, examples, options in groups, and where to learn more**. It fits 80 columns, and is plain (no colour)
 when piped, so `noi convert /? > help.txt` works.
 
-On Linux and macOS `/?` is a shell pattern; it works if nothing in the folder matches it, and `-h` always
-does. Other `/option` forms aren't accepted, since `/` starts a path there.
+Windows-style options work too (Q4): `/?` and `/h` are help, `/q`, `/s`, `/y`, `/n`, `/v` are the short
+switches, and `/output:folder`, `/o:folder`, `/jobs=4` and `/layout:esde` the ones with values. Only names
+`noi` knows are turned round, and never a path that exists, so on Linux and macOS `/home/me/roms` is still a
+path. There `/?` is also a shell pattern: it works when nothing in the folder matches it, and `-h` always
+does. A help switch anywhere asks for help, even where an option would take it as its value
+(`noi convert --to /?`).
 
 ### 6.1 `noi /?`
 
@@ -418,7 +429,7 @@ Errors say what went wrong, why, and what to type next; the important part is la
 | 2 | Wrong command or options; nothing was done |
 | 3 | `verify`: at least one file is damaged |
 | 4 | Missing keys or databases stopped some files |
-| 5 | Organize's plan has clashes or changed files; nothing was run |
+| 5 | A saved plan (`--plan`) no longer matches the files; nothing was run |
 | 130 | Cancelled with Ctrl-C |
 
 When several apply, the highest-priority one wins: 2, 130, 5, 1, 4, 3, 0.
@@ -493,18 +504,23 @@ An Organize run stopped half-way is in the journal and can be undone like any ot
 
 1. **`NoIntrovert.Core`** (new class library): the `Core` folder moves here as it is, apart from `Themes`
    (Avalonia). The app and the CLI both reference it.
-2. **Headless pipelines in Core.** Today the page view models run the batches (`OptimizeViewModel`,
-   `PlanTabViewModel`, `ConvertViewModel` call `ConvertPlanner`, `VerifyJobs`, `CleanupPlanner`,
-   `CleanupRunner`). Their orchestration moves into `Core/Pipelines` (`VerifyPipeline`, `ConvertPipeline`,
-   `OrganizePipeline`, `OptimizePipeline`) that take paths and options and report through
-   `IProgress<PipelineEvent>`. The view models then call these, so the app and the CLI do exactly the same
-   thing.
-3. **`NoIntrovert.Cli`** (`noi`, console `Exe`): System.CommandLine for the commands, Spectre.Console for
-   the output, one renderer per mode (rich, lines, quiet, silent, json, ndjson) behind one interface.
-   Published single-file and trimmed, beside the app, by `release.yml`.
-4. **Sharing with a running app.** The hash/match caches and journals are already written through
-   `ThrottledJsonFile`; add a cross-process lock (a lock file beside each) so `noi` and the app can run at
-   the same time.
+2. **Headless pipelines in Core** (`Core/Pipelines`): `Inputs` (paths, folders, globs, systems),
+   `ConvertPipeline` (each file's preset), `VerifyPipeline`, `OrganizePipeline` (plans and plan files),
+   `Databases` and `RunEngine`, which runs jobs on the app's own `JobQueue`. They call the same planners and
+   jobs the pages call (`ConvertPlanner`, `VerifyJobs`, `CleanupPlanner`, `CleanupRunner`), and the Convert
+   page's folder scan and the new-library check moved into Core so both use one copy. The page view models
+   still drive their own runs (rows, side panel, the shared queue); moving them onto the pipelines is a
+   later refactor.
+3. **`NoIntrovert.Cli`** (`noi`, console `Exe`): System.CommandLine 2.0 parses; `noi` writes its own help
+   pages and output (ANSI colour, a live area for the bars, box tables), one `Ui` for every mode. Published
+   single-file beside the app by `release.yml` (in `NoIntrovert.app/Contents/MacOS` on macOS), sharing its
+   native libraries. `build/NativeLibraries.targets` copies those libraries for both executables.
+4. **Sharing with a running app.** `hashes.json`, `matches.json` and `originals.json` are saved under a lock
+   file both processes respect, and a save first takes in what the other process wrote since, so neither
+   loses the other's results. Run journals are one file per run already.
+5. **No CHD library, no crash.** A job queue worker makes its lib-chd-kit context the first time a job needs
+   it, so a NES ROM still converts where chdkit is missing, and a CHD job fails with a message rather than
+   ending the program (the app benefits too).
 
 ### 9.2 Tests
 
@@ -521,11 +537,10 @@ convert / verify / organize / undo run on the synthetic discs through `noi` itse
 | C3 | `noi organize` (plan, plan files, new library) and `noi runs` |
 | C4 | `noi optimize`, `settings`, `test`, `gui`, completions, `--ndjson` |
 
-## 10. Questions to decide
+## 10. Decisions (2026-11-14)
 
-1. **Name:** `noi` (short to type) or `nointrovert`? This draft uses `noi`.
-2. **Organize without a terminal and without `--yes`:** show the plan and stop (as drafted, the safe
-   choice) or fail with exit code 2?
-3. **Settings:** should `noi` follow the app's saved settings by default (as drafted, with `--defaults` to
-   ignore them), or always start from the recommended values?
-4. **Windows `/` options:** only `/?` (as drafted), or also `/q`, `/s` and the like?
+1. **Name:** `noi`.
+2. **Organize without a terminal and without `--yes`:** show the plan and stop (exit 0).
+3. **Settings:** `noi` starts from the recommended values, not the app's saved settings; `--use-settings`
+   opts in (§4.3).
+4. **Windows `/` options:** all of them, not just `/?` (§6).

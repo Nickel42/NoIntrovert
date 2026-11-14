@@ -22,7 +22,6 @@
 
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.14" />
-    <PackageReference Include="Spectre.Console" Version="0.57.2" />
   </ItemGroup>
 
   <ItemGroup>

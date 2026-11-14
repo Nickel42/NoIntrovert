@@ -4174,6 +4174,7 @@ Test("Round trip test job (cue/bin)", () =>
 });
 
 ShellTests.Run(Test, scratch);
+CliTests.Run(Test, scratch);
 FileFactsTests.Run(Test, scratch);
 ConvertDesignTests.Run(Test);
 

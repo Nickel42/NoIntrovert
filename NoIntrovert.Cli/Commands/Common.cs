@@ -151,11 +151,16 @@ public static class Common
     {
         var done = 0;
         var width = jobs.Count.ToString().Length;
+        var order = new object();
         var observer = new Observer(s, (job) =>
         {
-            var n = Interlocked.Increment(ref done);
-            var prefix = s.Ui.Term.LiveBars ? "" : $"[{n.ToString().PadLeft(width)}/{jobs.Count}] ";
-            finished(job, prefix);
+            // One at a time, so "[ 3/42]" lines come out in order.
+            lock (order)
+            {
+                var n = ++done;
+                var prefix = s.Ui.Term.LiveBars ? "" : $"[{n.ToString().PadLeft(width)}/{jobs.Count}] ";
+                finished(job, prefix);
+            }
         });
         s.Ui.Event("start", new JsonObject { ["schema"] = 1, ["command"] = title, ["jobs"] = jobs.Count, ["bytes"] = jobs.Sum(j => j.Cost) });
         using var ticker = s.Ui.Verbosity == Verbosity.Ndjson ? new Timer(_ => Progress(s, jobs), null, 250, 250) : null;

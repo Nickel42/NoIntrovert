@@ -19,6 +19,8 @@ cp -R "$publish"/. "$app/Contents/MacOS/"
 sed "s/@VERSION@/$version/g" "$here/Info.plist" > "$app/Contents/Info.plist"
 cp "$here/NoIntrovert.icns" "$app/Contents/Resources/NoIntrovert.icns"
 chmod +x "$app/Contents/MacOS/NoIntrovert"
+# noi, the command line, lives beside the app's executable and shares its libraries.
+[ -e "$app/Contents/MacOS/noi" ] && chmod +x "$app/Contents/MacOS/noi"
 
 # Debug symbols aren't needed in a release download.
 find "$app" -name '*.pdb' -delete
@@ -35,8 +37,8 @@ if [ -n "$stray" ]; then
     exit 1
 fi
 
-# Sign the libraries first (dylibs, and 7-Zip's 7z.so), then the app, which seals everything inside it.
-for f in "$app/Contents/MacOS"/*.dylib "$app/Contents/MacOS"/*.so; do
+# Sign the libraries and noi first (dylibs, 7-Zip's 7z.so), then the app, which seals everything inside it.
+for f in "$app/Contents/MacOS"/*.dylib "$app/Contents/MacOS"/*.so "$app/Contents/MacOS/noi"; do
     [ -e "$f" ] && codesign --force --sign - "$f"
 done
 codesign --force --sign - "$app"
