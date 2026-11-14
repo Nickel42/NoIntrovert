@@ -414,6 +414,10 @@ public enum LibraryLayout
     EsDe,
     /// <summary>Keep the current layout: each file stays in its folder; it's only renamed (and converted).</summary>
     InPlace,
+    /// <summary>RomM's: <c>roms/&lt;platform&gt;/</c> with RomM's platform names (ngc, genesis, psx…); a multi-disc game is a folder of its own.</summary>
+    RomM,
+    /// <summary>No subfolders: every game straight in the folder it was added from (or the new library).</summary>
+    Flat,
 }
 
 /// <summary>The folders the Library page keeps track of.</summary>

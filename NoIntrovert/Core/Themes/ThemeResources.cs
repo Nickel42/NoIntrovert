@@ -15,7 +15,7 @@ public static class ThemeResources
     {
         "AppBackground", "PanelBackground", "PanelRaised", "PanelBorder", "ControlBorder", "RowAlt", "SubtleText",
         "SectionText", "HeaderBackground", "LogBackground", "PrimaryTint", "WindowButtonBackground", "DangerTint",
-        "DangerText", "PrimaryForeground", "AccentBrush", "SelectionFill", "SelectionHoverFill", "FocusedRowFill",
+        "DangerText", "PrimaryForeground", "AccentBrush", "AccentForeground", "SelectionFill", "SelectionHoverFill", "FocusedRowFill",
         // The Convert page's side panel
         "PanelHeadText", "PanelGroupText", "PanelTile", "PanelTileBorder", "TagGeneration", "TagMedia", "TagText",
         "WarningFill", "WarningText", "OutlineButton",
@@ -67,6 +67,8 @@ public static class ThemeResources
             ["DangerText"] = danger,
             ["PrimaryForeground"] = TextOn(primary, text),
             ["AccentBrush"] = accent,
+            // Text and icons on the accent (the selected page in the rail): dark or light, whichever reads.
+            ["AccentForeground"] = TextOn(accent, text),
             ["SelectionFill"] = WithAlpha(primary, 0.18),
             ["SelectionHoverFill"] = WithAlpha(primary, 0.24),
             ["FocusedRowFill"] = WithAlpha(primary, 0.2),

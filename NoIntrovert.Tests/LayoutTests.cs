@@ -110,21 +110,128 @@ static class LayoutTests
             return null;
         }));
 
-        test("Layout: the Library's add-folders message doesn't cover a list of games", () => Dispatch(() =>
+        test("Rail: one list of pages, no LIBRARY or FILES headings; the selected page is an accent pill whose words read", () => Dispatch(() =>
         {
-            f.Resize(1180, 820);
-            f.Show("library");
-            var message = f.Find<TextBlock>(t => t.Text == "Add the folders where you keep your games.");
-            if (message is not null && message.IsEffectivelyVisible) return "the empty-library message shows over the games";
-            // Folders forgotten (e.g. settings from an older version) but games still in the index: the games show, no message.
-            f.Settings.Library.Folders.Clear();
-            f.Vm.Library.RefreshFolders();
+            f.Resize(1366, 768);
+            f.Show("optimize");
             f.Layout();
-            message = f.Find<TextBlock>(t => t.Text == "Add the folders where you keep your games.");
-            var shown = message is not null && message.IsEffectivelyVisible;
-            f.Vm.Library.AddFoldersAsync([f.LibraryFolder]).GetAwaiter();
-            f.Pump(() => f.Vm.Library.HasFolders);
-            return shown ? "the empty-library message shows over the games when the folders list is empty" : null;
+            if (f.Find<TextBlock>(t => t.IsEffectivelyVisible && t.Text is "LIBRARY" or "FILES" && t.FindAncestorOfType<ContentControl>() is null) is { } heading)
+                return $"the rail still has a {heading.Text} heading";
+            var titles = f.Vm.MainPages.Where(p => p.IsVisible).Select(p => p.Title).ToList();
+            if (string.Join(",", titles) != "Optimize,Convert,Verify,Organize") return "the rail lists " + string.Join(",", titles);
+            var selected = f.Find<Button>(b => b.Classes.Contains("rail") && b.Classes.Contains("selected") && b.IsEffectivelyVisible);
+            if (selected?.GetVisualDescendants().OfType<Border>().FirstOrDefault()?.Background is not Avalonia.Media.ISolidColorBrush fill) return "no selected rail button";
+            var accent = Accent();
+            if (accent != fill.Color) return $"the selected page is {fill.Color}, not the accent {accent}";
+            foreach (var text in selected.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible))
+            {
+                if (text.Foreground is not Avalonia.Media.ISolidColorBrush ink) return $"\"{text.Text}\" has no colour";
+                var contrast = Core.Themes.ThemeRoles.Contrast(fill.Color, ink.Color);
+                if (contrast < 4.5) return $"\"{text.Text}\" reads at {contrast:F1}:1 on the selected page";
+            }
+            if (screenshots is not null) f.Save(Path.Combine(screenshots, "rail-selected.png"));
+            return null;
+        }));
+
+        test("Progress bars: a bar's fill is the theme's accent, not grey", () => Dispatch(() =>
+        {
+            f.Resize(1366, 768);
+            f.Show("convert");
+            f.Layout();
+            var bar = f.Find<ProgressBar>(b => !b.IsIndeterminate && b.FindAncestorOfType<ListBoxItem>() is not null);
+            if (bar?.Foreground is not Avalonia.Media.ISolidColorBrush fill) return "no progress bar in a row";
+            return fill.Color == Accent() ? null : $"the bar is {fill.Color}, not the accent {Accent()}";
+        }));
+
+        test("Every page: the same Add files…, Add folder…, checkboxes and filter on Optimize, Convert, Verify and Organize", () => Dispatch(() =>
+        {
+            f.Resize(1366, 768);
+            foreach (var page in new[] { "optimize", "convert", "verify", "cleanup" })
+            {
+                f.Show(page);
+                f.Layout();
+                var tab = (BatchTabViewModel)f.Vm.SelectedPage.Content;
+                if (!f.Pump(() => tab.Items.Count > 0 && !tab.IsScanning)) return $"{page}: no rows";
+                f.Layout();
+                foreach (var name in new[] { "Add files…", "Add folder…", "Remove", "Clear all" })
+                    if (f.Find<Button>(b => b.Content as string == name && b.IsEffectivelyVisible) is null) return $"{page}: no {name} button";
+                if (f.Find<CheckBox>(c => c.Name == "SelectAll" && c.IsEffectivelyVisible) is null) return $"{page}: no select-all box";
+                if (f.Find<CheckBox>(c => c.IsEffectivelyVisible && c.FindAncestorOfType<ListBoxItem>() is not null && c.DataContext is JobItemViewModel) is null)
+                    return $"{page}: the rows have no checkboxes";
+                if (f.Find<TextBox>(t => t.Name == "FilterBox" && t.IsEffectivelyVisible) is null) return $"{page}: no filter";
+            }
+            return null;
+        }));
+
+        test("Shared files: a file added on one page shows on the others when they're opened; Remove takes it off every page", () => Dispatch(() =>
+        {
+            var folder = Path.GetFullPath(Path.Combine(f.LibraryFolder, "..", "layout-shared"));
+            Directory.CreateDirectory(folder);
+            var file = Path.Combine(folder, "Shared Test Game (USA).nes");
+            var rom = new byte[16 + 16 * 1024];
+            "NES\u001a"u8.CopyTo(rom);
+            rom[4] = 1;
+            File.WriteAllBytes(file, rom);
+            bool Has(BatchTabViewModel tab) => tab.Items.Any(i => PathNames.Same(i.Path, file));
+            try
+            {
+                f.Show("verify");
+                f.Vm.Verify.AddPaths([file]);
+                if (!f.Pump(() => Has(f.Vm.Verify))) return "Verify didn't take the file";
+                foreach (var (page, tab) in new (string, BatchTabViewModel)[] { ("optimize", f.Vm.Optimize), ("convert", f.Vm.Convert), ("cleanup", f.Vm.Cleanup) })
+                {
+                    if (Has(tab)) return $"{page} had the file before it was opened";
+                    f.Show(page);
+                    if (!f.Pump(() => Has(tab))) return $"{page} doesn't show the file added on Verify";
+                }
+                // Removed on Organize: gone from every page, and a page opened later doesn't bring it back.
+                f.Layout();
+                var list = f.Find<ListBox>(l => l.Name == "List" && l.IsEffectivelyVisible)!;
+                list.SelectedItems!.Clear();
+                list.SelectedItems.Add(f.Vm.Cleanup.Items.First(i => PathNames.Same(i.Path, file)));
+                f.Vm.Cleanup.RemoveSelectedCommand.Execute(null);
+                f.Layout();
+                foreach (var tab in f.Vm.SharedTabs)
+                    if (Has(tab)) return $"{tab.Title} still has the removed file";
+                f.Show("verify");
+                f.Layout();
+                return Has(f.Vm.Verify) ? "the removed file came back on Verify" : null;
+            }
+            finally
+            {
+                foreach (var tab in f.Vm.SharedTabs) tab.Items.RemoveWhere(i => PathNames.Same(i.Path, file));
+            }
+        }));
+
+        test("Optimize: each row's CHANGES says what happens to it, Verify first, and lines up with its heading", () => Dispatch(() =>
+        {
+            f.Resize(1366, 768);
+            f.Show("optimize");
+            var tab = f.Vm.Optimize;
+            if (!f.Pump(() => tab.Items.Count > 0 && !tab.IsScanning && tab.PlanMade.IsCompleted && !tab.IsPlanning && tab.Items.All(i => i.Changes.Length > 0)))
+                return "the rows never got their changes";
+            f.Layout();
+            var bad = tab.Items.FirstOrDefault(i => !i.Changes.StartsWith("Verify"));
+            if (bad is not null) return $"{bad.Name}: \"{bad.Changes}\"";
+            var ps = tab.Items.FirstOrDefault(i => i.SystemId == "playstation");
+            if (ps is null) return "no PlayStation row";
+            if (!ps.Changes.Contains("Convert → .chd")) return $"the cue/bin's changes: \"{ps.Changes}\"";
+            var list = f.Find<ListBox>(l => l.Name == "List" && l.IsEffectivelyVisible)!;
+            list.ScrollIntoView(ps);
+            f.Layout();
+            var heading = f.Find<TextBlock>(t => t.Text == "CHANGES" && t.IsEffectivelyVisible);
+            var cell = f.Find<TextBlock>(t => t.Text == ps.Changes && t.IsEffectivelyVisible);
+            if (heading is null || cell is null) return "no CHANGES column";
+            // Every column's cells sit the list's scroll bar to the left of their heading; CHANGES lines up as STATUS does.
+            double X(Control c) => c.TranslatePoint(new Point(0, 0), f.Window)!.Value.X;
+            var statusHeading = f.Find<TextBlock>(t => t.Text == "STATUS" && t.IsEffectivelyVisible);
+            var statusCell = f.Find<DockPanel>(d => d.Classes.Contains("col-status") && d.DataContext == ps);
+            if (statusHeading is null || statusCell is null) return "no STATUS column";
+            var off = X(heading) - X(cell) - (X(statusHeading) - X(statusCell));
+            if (Math.Abs(off) > 1) return $"the CHANGES column is {off:F0} px off its heading, against STATUS's";
+            if (screenshots is not null) f.Save(Path.Combine(screenshots, "optimize-changes.png"));
+            var problems = Check(f.Window);
+            return problems.Count == 0 ? null : string.Join("\n        ", problems.Take(6));
         }));
 
         foreach (var (width, height) in Sizes)
@@ -173,137 +280,6 @@ static class LayoutTests
             if (tab.SelectedCount != 0) return "clearing the list's selection left rows selected on the page";
             return summary.StartsWith("2 selected · ") && header == $"Focused: row 2 of {tab.Items.Count} · 2 selected"
                 ? null : $"summary '{summary}', header '{header}'";
-        }));
-
-        test("Layout 1366×768: the Library's game titles get a readable width", () => Dispatch(() =>
-        {
-            f.Resize(1366, 768);
-            f.Show("library");
-            f.Layout();
-            var title = f.Find<TextBlock>(t => t.Text == f.Vm.Library.VisibleGames[0].Title && t.FindAncestorOfType<ListBoxItem>() is not null);
-            return title is null ? "no game row" : title.Bounds.Width >= 260 ? null : $"the game column is {title.Bounds.Width:F0} px wide";
-        }));
-
-        test("Layout: the Library's column headings line up with their columns, with the list scrolling", () => Dispatch(() =>
-        {
-            var problems = new List<string>();
-            foreach (var (width, height) in new[] { (1366, 560), (1180, 820), (1920, 1080) })
-            {
-                f.Resize(width, height);
-                f.Show("library");
-                f.Layout();
-                foreach (var column in new[] { "col-system", "col-formats", "col-size", "col-status" })
-                {
-                    var cells = f.Window.GetVisualDescendants().OfType<Control>()
-                        .Where(c => c.Classes.Contains(column) && c.IsEffectivelyVisible).ToList();
-                    var heading = cells.FirstOrDefault(c => c.FindAncestorOfType<ListBoxItem>() is null);
-                    var cell = cells.FirstOrDefault(c => c.FindAncestorOfType<ListBoxItem>() is not null);
-                    if (heading is null && cell is null) continue; // hidden at this width
-                    if (heading is null || cell is null) { problems.Add($"{width}×{height} {column}: heading {heading is not null}, cell {cell is not null}"); continue; }
-                    var h = heading.TranslatePoint(new Point(0, 0), f.Window)!.Value.X;
-                    var c = cell.TranslatePoint(new Point(0, 0), f.Window)!.Value.X;
-                    if (Math.Abs(h - c) > 1 || Math.Abs(heading.Bounds.Width - cell.Bounds.Width) > 1)
-                        problems.Add($"{width}×{height} {column}: heading at {h:F0} ({heading.Bounds.Width:F0} wide), column at {c:F0} ({cell.Bounds.Width:F0} wide)");
-                }
-            }
-            f.Resize(1180, 820);
-            return problems.Count == 0 ? null : string.Join("; ", problems);
-        }));
-
-        test("Library: clicking a column heading sorts by it, again turns the order round, and the arrow shows which", () => Dispatch(() =>
-        {
-            var lib = f.Vm.Library;
-            f.Show("library");
-            f.Layout();
-            string Arrows() => $"{lib.GameArrow}|{lib.SystemArrow}|{lib.FormatsArrow}|{lib.SizeArrow}|{lib.StatusArrow}";
-            var byTitle = StringComparer.OrdinalIgnoreCase;
-            bool Ordered<T>(Func<GameRowViewModel, T> key, IComparer<T> comparer, bool descending)
-            {
-                var rows = lib.VisibleGames.ToList();
-                for (var i = 1; i < rows.Count; i++)
-                {
-                    var c = comparer.Compare(key(rows[i - 1]), key(rows[i]));
-                    if (descending ? c < 0 : c > 0) return false;
-                    if (c == 0 && byTitle.Compare(rows[i - 1].Title, rows[i].Title) > 0) return false; // ties go by title
-                }
-                return true;
-            }
-            try
-            {
-                if (Arrows() != "▲||||") return $"by default: {Arrows()}";
-                if (!Ordered(g => g.Title, byTitle, false)) return "not A to Z by title";
-                // The heading is a button bound to SortByCommand, as a click runs it.
-                var sizeHeading = f.Find<Button>(b => b.Classes.Contains("colsort") && b.CommandParameter is LibrarySortColumn.Size);
-                if (sizeHeading is null || sizeHeading.Command != lib.SortByCommand) return "the Size heading isn't a sort button";
-                lib.SortByCommand.Execute(LibrarySortColumn.Size);
-                if (Arrows() != "|||▲|" || !Ordered(g => g.Game.Size, Comparer<long>.Default, false)) return $"by size: {Arrows()}";
-                lib.SortByCommand.Execute(LibrarySortColumn.Size);
-                if (Arrows() != "|||▼|" || !Ordered(g => g.Game.Size, Comparer<long>.Default, true)) return $"by size, turned round: {Arrows()}";
-                lib.SortByCommand.Execute(LibrarySortColumn.System);
-                if (Arrows() != "|▲|||" || !Ordered(g => g.System, byTitle, false)) return $"by system: {Arrows()}";
-                lib.SortByCommand.Execute(LibrarySortColumn.Game);
-                lib.SortByCommand.Execute(LibrarySortColumn.Game);
-                if (Arrows() != "▼||||" || !Ordered(g => g.Title, byTitle, true)) return $"by title, Z to A: {Arrows()}";
-                return f.Settings.Library.SortColumn == LibrarySortColumn.Game && f.Settings.Library.SortDescending ? null : "the sort isn't kept in the settings";
-            }
-            finally
-            {
-                f.Settings.Library.SortColumn = LibrarySortColumn.System; // so the next click below lands on Game, A to Z
-                lib.SortByCommand.Execute(LibrarySortColumn.Game);
-            }
-        }));
-
-        test("Library: a search keeps the chosen order and the counts, and clearing it brings every game back in order", () => Dispatch(() =>
-        {
-            var lib = f.Vm.Library;
-            f.Show("library");
-            f.Layout();
-            var byTitle = StringComparer.OrdinalIgnoreCase;
-            try
-            {
-                lib.SortByCommand.Execute(LibrarySortColumn.Size);
-                lib.SortByCommand.Execute(LibrarySortColumn.Size); // largest first: the samples are all one size, so ties go by title
-                var all = lib.VisibleGames.ToList();
-                lib.Search = "castlevania usa";
-                f.Layout();
-                var found = lib.VisibleGames.ToList();
-                var expected = all.Where(g => g.Title.Contains("castlevania", StringComparison.OrdinalIgnoreCase)).ToList();
-                if (expected.Count < 2) return $"the samples have {expected.Count} Castlevania games";
-                if (!found.SequenceEqual(expected)) return $"search found {string.Join(" | ", found.Select(g => g.Title))}";
-                for (var i = 1; i < found.Count; i++)
-                    if (found[i - 1].Size < found[i].Size || found[i - 1].Size == found[i].Size && byTitle.Compare(found[i - 1].Title, found[i].Title) > 0)
-                        return "the search results aren't in the chosen order";
-                if (!lib.Summary.StartsWith($"{found.Count} of {all.Count} games")) return $"summary '{lib.Summary}'";
-                lib.SortByCommand.Execute(LibrarySortColumn.Game); // a new sort while searching re-sorts the results
-                var aToZ = lib.VisibleGames.ToList();
-                if (!aToZ.SequenceEqual(found.OrderBy(g => g.Title, byTitle))) return "sorting while searching didn't sort the results A to Z";
-                lib.Search = "";
-                f.Layout();
-                return lib.VisibleGames.Count == all.Count && lib.VisibleGames.SequenceEqual(all.OrderBy(g => g.Title, byTitle).ThenBy(g => g.Game.Key, StringComparer.Ordinal))
-                    ? null : "clearing the search didn't bring every game back, A to Z";
-            }
-            finally
-            {
-                lib.Search = "";
-                f.Settings.Library.SortColumn = LibrarySortColumn.System;
-                lib.SortByCommand.Execute(LibrarySortColumn.Game);
-                f.Layout();
-            }
-        }));
-
-        test("Library: a selected game's files and match summary are read in the background", () => Dispatch(() =>
-        {
-            var lib = f.Vm.Library;
-            f.Show("library");
-            f.Layout();
-            var game = lib.VisibleGames[0];
-            lib.SelectedGame = game;
-            if (game.Files.Count != game.Game.Items.Count) return "the file rows aren't there straight away";
-            if (!f.Pump(() => lib.DetailsLoaded.IsCompleted && game.MatchSummary.Length > 0)) return "the details never arrived";
-            if (!game.MatchSummary.StartsWith("Not checked")) return $"match summary '{game.MatchSummary}'";
-            if (lib.ShowsChdInfo) return "a game with no CHD shows the CHD panel";
-            var shown = f.Find<TextBlock>(t => t.Text == game.MatchSummary && t.IsEffectivelyVisible);
-            return shown is null ? "the details panel doesn't show the match summary" : null;
         }));
 
         test("Queue: the refresh timer runs only while jobs are queued or running", () => Dispatch(() =>
@@ -380,6 +356,7 @@ static class LayoutTests
         FolderLayoutTests.RunLayout(test, f, Dispatch, screenshots);
         SelectedFileTests.RunLayout(test, f, Dispatch, screenshots);
         QueueClearTests.RunLayout(test, f, Dispatch, screenshots);
+        OptimizeTests.RunLayout(test, f, Dispatch, screenshots);
 
         Dispatch(() => { f.Window.Close(); return null; });
     }
@@ -530,6 +507,11 @@ static class LayoutTests
 
     private static string Short(string s) => s.Length <= 40 ? s : s[..37] + "…";
 
+    /// <summary>The theme's accent colour, as the window has it now.</summary>
+    private static Avalonia.Media.Color? Accent() =>
+        Avalonia.Application.Current!.TryGetResource("AccentBrush", Avalonia.Application.Current.ActualThemeVariant, out var accent)
+        && accent is Avalonia.Media.ISolidColorBrush brush ? brush.Color : null;
+
     // ---- The window under test ----
 
     /// <summary>A state of the window to check: a page, with the log, queue or side panel as a person would have them.</summary>
@@ -545,7 +527,7 @@ static class LayoutTests
 
         public static readonly State[] States =
         [
-            new("Optimize (Library) with a game selected", "library", f => { f.Show("library"); f.SelectGame(); }, _ => { }),
+            new("Optimize with a row focused", "optimize", f => { f.Show("optimize"); f.FocusRow(f.Vm.Optimize); }, _ => { }),
             new("Convert with a row focused", "convert", f => { f.Show("convert"); f.FocusRow(f.Vm.Convert); }, _ => { }),
             new("Convert with the log and queue open", "convert-log-queue", f =>
             {
@@ -555,7 +537,7 @@ static class LayoutTests
             }, f => { f.Vm.Log.IsExpanded = false; f.Vm.Queue.IsOpen = false; }),
             new("Convert with a PlayStation row on Custom (Zstandard) and others selected", "convert-custom", f => f.ShowCustom(), f => f.ResetCustom()),
             new("Verify with a row focused", "verify", f => { f.Show("verify"); f.FocusRow(f.Vm.Verify); }, _ => { }),
-            new("Organize", "organize", f => f.Show("cleanup"), _ => { }),
+            new("Organize with a row focused", "organize", f => { f.Show("cleanup"); f.FocusRow(f.Vm.Cleanup); }, _ => { }),
             new("Settings", "settings", f => f.Show("settings"), _ => { }),
         ];
 
@@ -571,7 +553,7 @@ static class LayoutTests
             window.DataContext = vm;
             window.Show();
             var f = new Fixture { Window = window, Vm = vm, Settings = settings, LibraryFolder = libraryFolder };
-            if (!f.Pump(() => vm.Library.VisibleGames.Count > 0)) f.Error = "the Library found no games in the samples";
+            if (!f.Pump(() => vm.Optimize.Items.Count > 0 && !vm.Optimize.IsScanning)) f.Error = "Optimize didn't load the library folder";
             var files = Directory.GetFiles(filesFolder);
             vm.Convert.AddPaths(files);
             vm.Verify.AddPaths(files);
@@ -661,10 +643,6 @@ static class LayoutTests
 
         public void Show(string page) => Vm.SelectedPage = Vm.Pages.First(p => p.Id == page);
 
-        public void SelectGame()
-        {
-            Vm.Library.SelectedGame = Vm.Library.VisibleGames.FirstOrDefault();
-        }
 
         public void FocusRow(BatchTabViewModel tab) => tab.FocusedItem = tab.Items.FirstOrDefault();
 

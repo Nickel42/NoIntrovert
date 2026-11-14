@@ -64,44 +64,24 @@ internal static class UxReviewTests
                 return run.Undone ? "a no undid the run" : null;
             }));
 
-        test("Cleanup: while busy it says so, and Whole Library, Refresh plan, Undo and Empty trash wait", () =>
+        test("Cleanup: while Undo or Empty trash is under way, the page says so and the other waits; a run doesn't start", () =>
             WithSettingsFolder(dir("ux-busy-settings"), () =>
             {
                 var (cleanup, _, dialogs) = NewCleanup();
                 var row = new CleanupRunRow(new CleanupRun { Steps = 1 });
-                if (!cleanup.ShowsEmptyHint) return "the empty-page message doesn't show on a new page";
                 cleanup.IsBusy = true;
-                cleanup.BusyText = "Running 3 steps for 2 games…";
+                cleanup.BusyText = "Undoing the run…";
                 try
                 {
-                    if (cleanup.ShowsEmptyHint) return "the empty-page message shows while busy";
-                    if (cleanup.WholeLibraryCommand.CanExecute(null)) return "Whole Library can start a second plan while busy";
-                    if (cleanup.MakePlanCommand.CanExecute(null)) return "Refresh plan can run while busy";
                     if (cleanup.UndoCommand.CanExecute(row) || cleanup.EmptyTrashCommand.CanExecute(row)) return "Undo or Empty trash can run while busy";
-                    // Called directly (as Clean up selected does), a plan waits instead of clearing the busy state.
-                    cleanup.UseGames(null);
-                    if (!cleanup.IsBusy) return "a plan asked for while busy turned the busy state off";
                     cleanup.EmptyTrashCommand.ExecuteAsync(row).GetAwaiter().GetResult();
                     if (dialogs.Asked.Count != 0) return "Empty trash asked while busy";
+                    cleanup.Items.Add(new JobItemViewModel(Path.Combine(dir("ux-busy"), "A.nes")));
+                    cleanup.StartCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+                    if (cleanup.Items[0].Status != JobStatus.Queued || cleanup.IsRunning) return "a run started while busy";
                 }
                 finally { cleanup.IsBusy = false; }
-                return cleanup.WholeLibraryCommand.CanExecute(null) ? null : "Whole Library stayed off after the work was done";
-            }));
-
-        test("Cleanup: the header's box ticks every step that can run, or none, and is half-ticked for some", () =>
-            WithSettingsFolder(dir("ux-tick-all-settings"), () =>
-            {
-                var (cleanup, _, _) = NewCleanup();
-                CleanupStep Step(CleanupKind kind) => new() { Kind = kind, GameKey = kind.ToString(), Game = kind.ToString(), Root = "C:/lib", Sources = ["C:/lib/a"], Reason = "" };
-                foreach (var kind in new[] { CleanupKind.Rename, CleanupKind.Move, CleanupKind.Clash })
-                    cleanup.Steps.Add(new CleanupStepRow(Step(kind), () => { }));
-                cleanup.AllEnabled = false;
-                if (cleanup.Steps.Any(s => s.CanRun && s.Enabled) || cleanup.AllEnabled != false) return "unticking all left a step ticked";
-                cleanup.Steps[0].Enabled = true;
-                if (cleanup.AllEnabled is not null) return $"one of two ticked reads {cleanup.AllEnabled}, not half";
-                cleanup.AllEnabled = true;
-                if (cleanup.Steps.Any(s => s.CanRun && !s.Enabled) || cleanup.AllEnabled != true) return "ticking all left a step unticked";
-                return cleanup.Steps.Single(s => !s.CanRun).Step.Kind == CleanupKind.Clash ? null : "a clash counts as a step that can run";
+                return cleanup.UndoCommand.CanExecute(row) ? null : "Undo stayed off after the work was done";
             }));
 
         test("Convert: Clear all asks first when a row failed or the list is long, and a no keeps the rows", () =>
@@ -152,7 +132,7 @@ internal static class UxReviewTests
         var appSettings = new AppSettings();
         var settings = new SettingsViewModel(appSettings, dialogs);
         var log = new LogViewModel(dialogs, appSettings);
-        var cleanup = new CleanupViewModel(settings, log, new JobQueue(() => 1), () => new LibraryIndex(), dialogs);
+        var cleanup = new CleanupViewModel(settings, log, dialogs, new JobQueue(() => 1), new OrganizeOptions(settings, dialogs));
         return (cleanup, settings, dialogs);
     }
 
@@ -166,16 +146,6 @@ internal static class UxReviewTests
 
     internal static void RunSettingsConfirms(Action<string, Func<string?>> test, Func<string, string> dir)
     {
-        test("Library: an action that has nothing to do says why on the page, and a new selection clears it", () => WithSettingsFolder(dir("ux-action-note"), () =>
-        {
-            var app = new AppSettings();
-            var lib = new LibraryViewModel(new SettingsViewModel(app, new NoDialogs()), new LogViewModel(new NoDialogs(), app), new NoDialogs());
-            lib.ConvertSelectedCommand.Execute(null);
-            if (lib.ActionNote.Length == 0) return "nothing was said on the page";
-            lib.NotifySelectionChanged();
-            return lib.ActionNote.Length == 0 ? null : "a new selection didn't clear the note";
-        }));
-
         test("Settings: Delete preset and Reset all ask first; no keeps everything", () => WithSettingsFolder(dir("ux-settings-confirms"), () =>
         {
             var settings = AppSettings.Load();

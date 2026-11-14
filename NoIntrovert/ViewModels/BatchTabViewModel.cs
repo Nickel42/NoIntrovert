@@ -195,6 +195,12 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     /// <summary>Whether rows show a TARGET column (the Convert page).</summary>
     public virtual bool ShowsTargets => false;
 
+    /// <summary>Optimize and Organize's Save to (where the games go and their layout); null on the other pages.</summary>
+    public virtual OrganizeOptions? PlanOptions => null;
+
+    /// <summary>Whether rows show a CHANGES column: what a run does to each file (Optimize and Organize).</summary>
+    public virtual bool ShowsChanges => false;
+
     /// <summary>The row for one input; the Convert page gives each row its targets.</summary>
     protected virtual JobItemViewModel CreateItem(string path) => new(path) { SystemId = SystemOf(path) };
 
@@ -353,8 +359,83 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         if (folder is not null) AddPaths([folder]);
     }
 
-    /// <summary>Adds files and folders (from pickers or drag and drop), skipping duplicates. Returns at once; see <see cref="AddPathsAsync"/>.</summary>
-    public void AddPaths(IEnumerable<string> paths) => _ = AddPathsAsync(paths);
+    /// <summary>Adds files and folders (from pickers or drag and drop), skipping duplicates. Returns at once; see <see cref="AddAsync"/>.</summary>
+    public void AddPaths(IEnumerable<string> paths) => _ = AddAsync(paths);
+
+    /// <summary>
+    /// Adds files and folders to this page and, when it shares the loaded files (<see cref="Workspace"/>),
+    /// to the others too: they show them when they're opened.
+    /// </summary>
+    public Task AddAsync(IEnumerable<string> paths)
+    {
+        var list = paths.Select(p => System.IO.Path.TrimEndingDirectorySeparator(p)).ToList();
+        if (Workspace is { } workspace)
+        {
+            foreach (var p in list) _taken.Add(p);
+            workspace.Add(list);
+        }
+        return AddPathsAsync(list);
+    }
+
+    // ---- The loaded files, shared with the other pages ----
+
+    /// <summary>The workspace paths this page has taken (scanned into rows, or being scanned).</summary>
+    private readonly HashSet<string> _taken = new(PathNames.Comparer);
+
+    /// <summary>The files and folders this page shares with Optimize, Convert, Verify and Organize; null for a page of its own (Library tests).</summary>
+    public FileWorkspace? Workspace { get; private set; }
+
+    /// <summary>Shares <paramref name="workspace"/>: rows removed, cleared or moved anywhere change here too.</summary>
+    public void Join(FileWorkspace workspace)
+    {
+        Workspace = workspace;
+        workspace.Removed += rows =>
+        {
+            if (IsRunning) return;
+            var gone = new HashSet<string>(rows.Select(r => System.IO.Path.TrimEndingDirectorySeparator(r)), PathNames.Comparer);
+            Items.RemoveWhere(i => gone.Contains(i.Path));
+            _taken.ExceptWith(gone);
+        };
+        workspace.Cleared += () =>
+        {
+            _taken.Clear();
+            lock (_addedFolders) _addedFolders.Clear();
+            if (!IsRunning) Items.Clear();
+        };
+        workspace.Moved += moves =>
+        {
+            if (!IsRunning) ReplaceRows(moves);
+        };
+    }
+
+    /// <summary>Rows follow their files to new paths (old → new), keeping what the last run said about them.</summary>
+    protected void ReplaceRows(IReadOnlyDictionary<string, string> moves)
+    {
+        for (var i = 0; i < Items.Count; i++)
+        {
+            if (!moves.TryGetValue(Items[i].Path, out var to)) continue;
+            _taken.Remove(Items[i].Path);
+            _taken.Add(System.IO.Path.TrimEndingDirectorySeparator(to));
+            if (Items.Any(r => PathNames.Comparer.Equals(r.Path, to))) { Items.RemoveAt(i--); continue; }
+            var focused = FocusedItem == Items[i];
+            Items[i] = Items[i].MovedTo(CreateItem(to));
+            if (focused) FocusedItem = Items[i];
+        }
+    }
+
+    /// <summary>Takes the workspace's files and folders this page hasn't yet (called when the page is shown).</summary>
+    public Task SyncAsync()
+    {
+        if (Workspace is not { } workspace) return Task.CompletedTask;
+        var fresh = workspace.Paths.Where(p => _taken.Add(p)).ToList();
+        return fresh.Count == 0 ? Task.CompletedTask : AddPathsAsync(fresh, quiet: true);
+    }
+
+    /// <summary>Raised on the UI thread with the rows just added.</summary>
+    public event Action<IReadOnlyList<JobItemViewModel>>? ItemsAdded;
+
+    /// <summary>One scan at a time: a second add waits for the first rather than stopping it.</summary>
+    private readonly SemaphoreSlim _scanGate = new(1, 1);
 
     /// <summary>
     /// Scans folders and builds the new rows on a background thread (a big
@@ -362,12 +443,19 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     /// adds them all at once. The window stays responsive and shows a count;
     /// <see cref="CancelScanCommand"/> stops it.
     /// </summary>
-    public async Task AddPathsAsync(IEnumerable<string> paths)
+    public async Task AddPathsAsync(IEnumerable<string> paths, bool quiet = false)
     {
         var list = paths.ToList();
         if (list.Count == 0) return;
+        await _scanGate.WaitAsync();
+        try { await ScanAndAddAsync(list, quiet); }
+        finally { _scanGate.Release(); }
+    }
+
+    private async Task ScanAndAddAsync(List<string> list, bool quiet)
+    {
         var existing = new HashSet<string>(Items.Select(i => i.Path), StringComparer.OrdinalIgnoreCase);
-        _scanCts?.Cancel();
+        var workspace = Workspace;
         var cts = _scanCts = new CancellationTokenSource();
         var token = cts.Token;
         var found = 0;
@@ -392,7 +480,8 @@ public abstract partial class BatchTabViewModel : ViewModelBase
                     if (Directory.Exists(path))
                     {
                         lock (_addedFolders) if (!_addedFolders.Contains(path, PathNames.Comparer)) _addedFolders.Add(path);
-                        try { candidates = ItemsForFolder(path).ToList(); }
+                        // A file removed from the list stays out, though its folder is looked through again.
+                        try { candidates = ItemsForFolder(path).Where(f => workspace?.IsRemoved(f) != true).ToList(); }
                         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                         {
                             unreadable.Add($"Couldn't read {path}: {ex.Message}");
@@ -421,10 +510,12 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             }, token);
 
             Items.AddRange(items);
+            if (items.Count > 0) ItemsAdded?.Invoke(items);
             foreach (var p in problems) Log.Warn(p);
             if (items.Count > 0) Log.Info($"{Title}: added {items.Count:N0} file(s)");
-            if (ignored > 0) Log.Warn($"{Title}: ignored {ignored} item(s) this page can't use");
-            if (rar > 0) Log.Warn($"{Title}: ignored {rar} RAR file(s). {Core.Formats.ArchiveExtractor.RarNotSupported}");
+            // Files another page loaded: this page takes what it can use, without a word about the rest.
+            if (ignored > 0 && !quiet) Log.Warn($"{Title}: ignored {ignored} item(s) this page can't use");
+            if (rar > 0 && !quiet) Log.Warn($"{Title}: ignored {rar} RAR file(s). {Core.Formats.ArchiveExtractor.RarNotSupported}");
         }
         catch (OperationCanceledException)
         {
@@ -454,7 +545,8 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     {
         if (IsRunning || SelectedItems is null) return;
         var doomed = new HashSet<JobItemViewModel>(SelectedItems.Cast<JobItemViewModel>());
-        Items.RemoveWhere(doomed.Contains);
+        if (Workspace is { } workspace) workspace.Remove(doomed.Select(i => i.Path).ToList());
+        else Items.RemoveWhere(doomed.Contains);
     }
 
     [RelayCommand]
@@ -475,10 +567,13 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         if ((failed > 0 || Items.Count > ClearAllAsksAbove)
             && !await Dialogs.ConfirmAsync($"Clear all {Items.Count} rows?",
                 (failed > 0 ? $"The reasons {failed} {(failed == 1 ? "row" : "rows")} failed are lost, and so are the presets chosen for each row. " : "The presets chosen for each row are lost. ")
+                + (Workspace is null ? "" : "The list is emptied on Optimize, Convert, Verify and Organize alike. ")
                 + "No files are touched.",
                 "Clear all", "Cancel", destructive: true))
             return;
-        if (!IsRunning) Items.Clear();
+        if (IsRunning) return;
+        if (Workspace is { } workspace) workspace.Clear();
+        else Items.Clear();
     }
 
     private bool CanStart => !IsRunning && !IsScanning && HasItems;
@@ -510,27 +605,11 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         RunStatus = busy ? $"Queued {pending.Count} item(s) behind the jobs already running…" : $"Working on {pending.Count} item(s)…";
         Log.Info($"{Title}: starting {pending.Count} item(s) with {snapshot.Performance.ParallelJobs} parallel job(s)" + (busy ? ", after the jobs already in the queue" : ""));
         var started = _started = DateTime.Now;
-
-        var jobs = GroupItems(pending).Select(group => new BatchJob(
-            group.Count == 1 ? group[0].Name : $"{group[0].Name} (+{group.Count - 1})",
-            group[0],
-            ctx => WorkGroup(ctx, group),
-            _ => Dispatcher.UIThread.Post(() => { foreach (var item in group) item.Started(); }),
-            outcome => Dispatcher.UIThread.Post(() =>
-            {
-                foreach (var item in group) item.Finished(outcome);
-                _summary.Request();
-                if (Filter.Length > 0) _visible.Request(); // a status filter ("failed") follows the run
-            }),
-            CostBytes: group.Sum(i => i.SizeBytes), Sources: group.Select(i => i.Path).ToList())).ToList();
+        _cancelled = false;
 
         try
         {
-            _group = Queue.Submit(Title, jobs, snapshot, Log);
-            _progressTimer.Start();
-            await _group.Completion;
-            // Let the queued finish callbacks land before summing up.
-            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+            await RunJobsAsync(pending, snapshot);
         }
         finally
         {
@@ -547,6 +626,40 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         RunStatus = $"Finished in {took:h\\:mm\\:ss} · {ok} done, {failed} failed" + (cancelled > 0 ? $", {cancelled} cancelled" : "");
         (failed > 0 ? (Action<string>)Log.Warn : Log.Success)($"{Title}: {RunStatus}");
         AfterRun(pending);
+    }
+
+    /// <summary>Whether Cancel run was clicked (a page that runs in stages stops after the stage it was in).</summary>
+    protected bool RunCancelled => _cancelled;
+    private bool _cancelled;
+
+    /// <summary>The run: by default one queue job per group of rows (<see cref="GroupItems"/>), each doing <see cref="WorkGroup"/>.</summary>
+    protected virtual Task RunJobsAsync(IReadOnlyList<JobItemViewModel> pending, AppSettings snapshot)
+    {
+        var jobs = GroupItems(pending).Select(group => new BatchJob(
+            group.Count == 1 ? group[0].Name : $"{group[0].Name} (+{group.Count - 1})",
+            group[0],
+            ctx => WorkGroup(ctx, group),
+            _ => Dispatcher.UIThread.Post(() => { foreach (var item in group) item.Started(); }),
+            outcome => Dispatcher.UIThread.Post(() =>
+            {
+                foreach (var item in group) item.Finished(outcome);
+                _summary.Request();
+                if (Filter.Length > 0) _visible.Request(); // a status filter ("failed") follows the run
+            }),
+            CostBytes: group.Sum(i => i.SizeBytes), Sources: group.Select(i => i.Path).ToList())).ToList();
+        return SubmitAsync(Title, jobs, snapshot);
+    }
+
+    /// <summary>Puts <paramref name="jobs"/> on the queue as this page's run (Cancel run stops them) and waits for them.</summary>
+    protected async Task SubmitAsync(string name, IReadOnlyList<BatchJob> jobs, AppSettings snapshot)
+    {
+        if (jobs.Count == 0) return;
+        _group = Queue.Submit(name, jobs, snapshot, Log);
+        _progressTimer.Start();
+        try { await _group.Completion; }
+        finally { RefreshProgress(); }
+        // Let the queued finish callbacks land before summing up.
+        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
     }
 
     /// <summary>Last chance to stop a run (for example, missing settings). Return false to cancel.</summary>
@@ -571,6 +684,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
                 "Stop the run", "Keep running", destructive: true))
             return;
         if (_group != group) return; // it finished while the question was open
+        _cancelled = true;
         group.Cancel();
         RunStatus = "Cancelling…";
         Log.Warn($"{Title}: cancelling; partial outputs are deleted");

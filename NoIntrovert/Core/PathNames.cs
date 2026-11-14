@@ -13,4 +13,11 @@ public static class PathNames
 
     /// <summary>Whether two paths name the same file or folder.</summary>
     public static bool Same(string a, string b) => string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), Comparison);
+
+    /// <summary>Whether <paramref name="path"/> is inside <paramref name="folder"/> (at any depth; not the folder itself).</summary>
+    public static bool IsInside(string path, string folder)
+    {
+        var f = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)) + Path.DirectorySeparatorChar;
+        return Path.GetFullPath(path).StartsWith(f, Comparison);
+    }
 }

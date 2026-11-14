@@ -32,10 +32,10 @@ internal static class ShellTests
         {
             var cases = new (string? Chosen, bool Folders, string Expected)[]
             {
-                ("", true, "library"), ("", false, "convert"), (null, false, "convert"),
+                ("", true, "optimize"), ("", false, "convert"), (null, false, "convert"),
                 ("verify", false, "verify"), ("cleanup", true, "cleanup"), ("organize", false, "cleanup"),
-                ("library", false, "library"), ("convert", true, "convert"),
-                ("settings", true, "library"), ("tests", false, "convert"), ("no-such-page", true, "library"),
+                ("optimize", false, "optimize"), ("library", false, "optimize"), ("convert", true, "convert"), // the Library page Optimize replaced
+                ("settings", true, "optimize"), ("tests", false, "convert"), ("no-such-page", true, "optimize"),
                 ("info", true, "convert"), // the removed CHD info page
             };
             var wrong = cases.Where(c => MainViewModel.StartPageId(c.Chosen, c.Folders) != c.Expected)
@@ -43,9 +43,9 @@ internal static class ShellTests
             return wrong.Count == 0 ? null : string.Join("; ", wrong);
         });
 
-        test("Page names: --page info, organize and optimize still find a page", () =>
+        test("Page names: --page info, organize, library and optimize still find a page", () =>
         {
-            var map = new[] { ("info", "convert"), ("organize", "cleanup"), ("Optimize", "library"), ("extract", "convert"), ("verify", "verify") };
+            var map = new[] { ("info", "convert"), ("organize", "cleanup"), ("Optimize", "optimize"), ("library", "optimize"), ("extract", "convert"), ("verify", "verify") };
             var wrong = map.Where(m => MainViewModel.PageFor(m.Item1) != m.Item2).Select(m => $"{m.Item1} → {MainViewModel.PageFor(m.Item1)}").ToList();
             return wrong.Count == 0 ? null : string.Join("; ", wrong);
         });

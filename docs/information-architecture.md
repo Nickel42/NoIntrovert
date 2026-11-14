@@ -23,21 +23,30 @@ A shareable version of section 1 with diagrams and screenshots is in Google Docs
 
 ## Current structure
 
-One window. A navigation rail on the left: the NoIntrovert logo at the top, then two labelled sections,
-**Library** and **Files**, and Settings at the bottom below a divider. Under every page, a log collapsed to
+One window. A navigation rail on the left: the NoIntrovert logo at the top, then one list of pages (Optimize,
+Convert, Verify, Organize; the selected one is a pill in the theme's accent colour), and Settings at the bottom
+below a divider. Under every page, a log collapsed to
 one bar (error and warning counts, Show log), a queue drawer (hidden until opened; it keeps the 20 newest
 finished batches, plus any with a failure, until Clear finished) and a status bar with overall queue progress. The redesign is specified in [ui-redesign](requirements/ui-redesign.md).
 
-- **Library**
-  - **Optimize** (was Library; start page once a library folder exists), with "Verify, Rename, Convert,
-    Organize" under its rail button
-    - Toolbar: Add folder… · Rescan · folder chips
-    - Filters: search · system · status · summary line
-    - Game list: Game · System · Formats · Size · Status
-    - Selection actions: Clean up selected · Verify selected · **Convert selected**
-    - Side panel: Selected file (as on Convert, for the selected game) · Details (status, match) · Files (each file, its planned conversion, Show)
-- **Files**
-  - **Convert** (start page with no library folders)
+The four pages share the files loaded: what's added on one (Add files…, Add folder…, a drop, or Settings ›
+Library's folders) shows on the others when they're opened, each keeping the inputs it can use; Remove and
+Clear all act on every page, and a row follows its file when Optimize or Organize moves or converts it.
+
+- **Pages**
+  - **Optimize** (was Library; start page when the library folders are loaded at start), with "Verify,
+    convert, organize" under its rail button: all three in one click
+    - Job list (as Convert, no Preset column, no Save to), with a **CHANGES** column: each file's steps in the
+      order they run ("Verify → Convert → .chd → Name from the database → Move → roms/psx/"; once a file is
+      checked, its exact names and folders)
+    - A run: Verify & match every file first, then the Organize plan made from what it found, one game at
+      a time: convert, rename, move, remove duplicates. A file the databases don't know is still converted,
+      keeping its name; a damaged one is left alone
+    - Run bar: **Save to** (Where they are · New library: <path> · Change… · Layout: ES-DE, RomM, Keep as is
+      or No subfolders), shared with Organize · Cancel · Optimize
+    - Side panel: Selected file (as on Convert) · the three steps in order, with the plan's summary · what
+      the chosen layout does, with an example · the new library's options · safety note
+  - **Convert** (start page otherwise)
     - Toolbar: Add files… · Add folder… · Add folder as one archive… · Remove · Clear finished · Clear all · filter
     - A banner above the list when the CHD converter (chdkit) is missing or blocked: reinstall, or check the antivirus quarantine
     - Rows: File · Type · **Preset** (per row) · Size · Status · Progress · Time · Result
@@ -51,10 +60,11 @@ finished batches, plus any with a failure, until Clear finished) and a status ba
     - Job list (as Convert, no Preset column, no Save to)
     - Side panel: Selected file (as on Convert) · game databases (status, Update now) · *Checking games* preset
   - **Organize** (was Cleanup)
-    - Plan: scope (selected games or whole Library) · steps with tick boxes (Step · Game · Change) · a box per kind
-      of step, with its count
-    - Actions: Whole Library · Make the plan again · Verify the unchecked ones · **Run**
-    - Side panel: Selected file (the picked step's, as on Convert) · file layout (ES-DE or keep) · safety note · past runs (Undo, Empty trash)
+    - Job list (as Optimize): CHANGES is the dry run, from what Verify & match already found (files it
+      hasn't checked are left alone)
+    - Run bar: **Save to**, as on Optimize (the same choice) · Cancel · Organize
+    - Side panel: Selected file (as on Convert) · the plan's summary and a box per kind of step, with its
+      count · what the chosen layout does · safety note · past runs (Undo, Empty trash)
   - **Library tests** (Power-user mode only): round trip and chdman comparison, results table, CSV export
 - **Settings** (one page of cards, saved as they change): General (theme, Start on) · Output (Save to's
   default, Folder layout, Overwrite existing files, working folder) · Performance · Log · Default presets · Library (folders,
@@ -64,9 +74,8 @@ finished batches, plus any with a failure, until Clear finished) and a status ba
 
 The CHD info page is gone. Originals are removed only by Save to › Replace the originals, never by a preset.
 
-Hand-offs: Optimize → Convert, Verify or Organize (with the selection); Organize → Verify (unmatched files);
-Convert, Verify and Library tests → Settings. A drop goes to the page you're on (on Optimize, folders become
-library folders and loose files go to Convert).
+Hand-offs: Convert, Verify and Library tests → Settings. A drop goes to the page you're on, and from there
+to the other three.
 
 Known friction, from the review of the structure before the redesign (main at d6b2192):
 

@@ -17,53 +17,52 @@ public partial class MainViewModel : ViewModelBase
         Convert = new ConvertViewModel(Settings, Log, dialogs, queue);
         Verify = new VerifyViewModel(Settings, Log, dialogs, queue);
         Tests = new TestsViewModel(Settings, Log, dialogs, queue);
-        Library = new LibraryViewModel(Settings, Log, dialogs);
-        Library.SendToConvert = paths => { Show("convert"); Convert.AddPaths(paths); };
-        Library.SendToVerify = paths => { Show("verify"); Verify.AddPaths(paths); };
-        Cleanup = new CleanupViewModel(Settings, Log, queue, () => Library.Index, dialogs)
+        Organize = new OrganizeOptions(Settings, dialogs);
+        Optimize = new OptimizeViewModel(Settings, Log, dialogs, queue, Organize);
+        Cleanup = new CleanupViewModel(Settings, Log, dialogs, queue, Organize);
+
+        // Optimize, Convert, Verify and Organize share the files loaded: each shows them when it's opened.
+        foreach (var tab in SharedTabs)
         {
-            SendToVerify = paths => { Show("verify"); Verify.AddPaths(paths); },
-            Rescan = () => Library.RescanNowAsync(),
-        };
-        Library.SendToCleanup = games => { Show("cleanup"); Cleanup.UseGames(games); };
-        Library.IndexShown += index => _ = UpdateDatsAsync(index.Items.Select(i => i.System), startup: true);
-        // The index already in memory (loaded at start, or the last scan), not library.json read again on the UI thread.
-        Settings.Dats.UpdateRequested = () => UpdateDatsAsync(Library.Index.Items.Select(i => i.System), startup: false);
-        Library.IndexShown += index => _ = CheckEsdeAsync(startup: true);
+            tab.Join(Workspace);
+            // A system with no game database yet gets one as soon as a file for it is loaded.
+            tab.ItemsAdded += items => _ = UpdateDatsAsync(items.Select(i => i.SystemId), startup: true);
+        }
+        Settings.Dats.UpdateRequested = () => UpdateDatsAsync(SharedTabs.SelectMany(t => t.Items).Select(i => i.SystemId), startup: false);
         Settings.Dats.EsdeCheckRequested = () => CheckEsdeAsync(startup: false);
-        Settings.Library.AddFoldersRequested = Library.AddFoldersAsync;
-        Settings.Library.RemoveFolderRequested = Library.RemoveFolderCommand.ExecuteAsync;
+        // Settings › Library's folders are loaded into the list (at start too, when that's on).
+        Settings.Library.AddFoldersRequested = folders =>
+        {
+            Settings.Library.AddFolders(folders);
+            Workspace.Add(folders.Where(Directory.Exists));
+            return Task.CompletedTask;
+        };
         Settings.Library.EmulatorDataCheckRequested = CheckEmulatorDataAsync;
         Settings.Library.CanCheckEmulatorData = true;
 
         // The one place pages are listed: the rail, --page and drops all follow it.
         Pages =
         [
-            new("library", "Optimize", "M4 5h4v14H4zM10 5h4v14h-4zM16 6l3.5-1 3 13.5-3.5 1z", Library, async p =>
-            {
-                // Folders become library folders; loose files go to Convert, which is where they'd be used.
-                var folders = p.Where(Directory.Exists).ToList();
-                if (folders.Count > 0) await Library.AddFoldersAsync(folders);
-                var files = p.Where(File.Exists).ToList();
-                if (files.Count > 0) { Show("convert"); Convert.AddPaths(files); }
-            }, RailSection.Library, "Verify, Rename, Convert, Organize"),
-            new("convert", "Convert", "M4 8h13l-3-3M20 16H7l3 3", Convert, p => { Convert.AddPaths(p); return Task.CompletedTask; }),
-            new("verify", "Verify", "M5 12l4 4L19 6", Verify, p => { Verify.AddPaths(p); return Task.CompletedTask; }),
-            new("cleanup", "Organize", "M4 6a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 10h16", Cleanup),
-            new("tests", "Library tests", "M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3", Tests, p => { Tests.AddPaths(p); return Task.CompletedTask; }),
+            new("optimize", "Optimize", "M4 5h4v14H4zM10 5h4v14h-4zM16 6l3.5-1 3 13.5-3.5 1z", Optimize, Optimize.AddAsync,
+                subtitle: "Verify, convert, organize"),
+            new("convert", "Convert", "M4 8h13l-3-3M20 16H7l3 3", Convert, Convert.AddAsync),
+            new("verify", "Verify", "M5 12l4 4L19 6", Verify, Verify.AddAsync),
+            new("cleanup", "Organize", "M4 6a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 10h16", Cleanup, Cleanup.AddAsync),
+            new("tests", "Library tests", "M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3", Tests, Tests.AddAsync),
             new("settings", "Settings", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4", Settings,
                 section: RailSection.Bottom),
         ];
-        LibraryPages = Pages.Where(p => p.Section == RailSection.Library).ToList();
-        FilePages = Pages.Where(p => p.Section == RailSection.Files).ToList();
+        MainPages = Pages.Where(p => p.Section == RailSection.Main).ToList();
         BottomPages = Pages.Where(p => p.Section == RailSection.Bottom).ToList();
         StartPages = StartPagesFor(Pages);
         Settings.General.StartPages = StartPages;
-        foreach (var tab in new BatchTabViewModel[] { Convert, Verify, Tests })
+        foreach (var tab in new BatchTabViewModel[] { Optimize, Convert, Verify, Cleanup, Tests })
         {
             tab.OpenSettingsRequested = () => Show("settings");
             tab.OpenKeysRequested = ShowKeys;
         }
+        if (settings.Library.RescanOnStart) Workspace.Add(settings.Library.Folders.Where(Directory.Exists));
+        _ = CheckEsdeAsync(startup: true);
 
         // The Library tests are a developer bench: only in Power-user mode.
         UpdateVisibility();
@@ -71,7 +70,7 @@ public partial class MainViewModel : ViewModelBase
         {
             if (e.PropertyName == nameof(GeneralSettingsViewModel.PowerUserMode)) UpdateVisibility();
         };
-        SelectedPage = Pages.First(p => p.Id == StartPageId(settings.General.StartPage, settings.Library.Folders.Count > 0));
+        SelectedPage = Pages.First(p => p.Id == StartPageId(settings.General.StartPage, settings.Library.Folders.Count > 0 && settings.Library.RescanOnStart));
 
         try
         {
@@ -112,10 +111,14 @@ public partial class MainViewModel : ViewModelBase
 
     private bool _checkedDats;
 
+    /// <summary>The DATs already asked for automatically: one that couldn't be downloaded isn't asked for again on every add.</summary>
+    private readonly HashSet<string> _datsAsked = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
-    /// Brings the DATs for these systems up to date (FR-2): at start when the
-    /// setting is on (once, and again when a scan finds a system with no DAT
-    /// yet), and whenever Update now is clicked. Never blocks the window.
+    /// Brings the DATs for these systems up to date (FR-2): when files are
+    /// loaded and the setting is on (the first time, and again for a system
+    /// with no DAT yet, once each), and whenever Update now is clicked. Never
+    /// blocks the window.
     /// </summary>
     private async Task UpdateDatsAsync(IEnumerable<string?> systems, bool startup)
     {
@@ -125,10 +128,11 @@ public partial class MainViewModel : ViewModelBase
         if (startup)
         {
             if (!Settings.Dats.CheckOnStart) return;
-            var missing = keys.Any(k => !File.Exists(store.PathOf(k)));
+            var missing = keys.Any(k => !_datsAsked.Contains(k) && !File.Exists(store.PathOf(k)));
             if (_checkedDats && !missing) return;
         }
         if (Settings.Dats.IsUpdating) return;
+        _datsAsked.UnionWith(keys);
         _checkedDats = true;
         Settings.Dats.IsUpdating = true;
         try
@@ -200,19 +204,26 @@ public partial class MainViewModel : ViewModelBase
 
     /// <summary>The shared job queue, shown in the status bar and the queue drawer.</summary>
     public QueueViewModel Queue { get; }
-    public LibraryViewModel Library { get; }
+
+    /// <summary>The files and folders loaded, shared by Optimize, Convert, Verify and Organize.</summary>
+    public FileWorkspace Workspace { get; } = new();
+
+    /// <summary>The layout and where files go, shared by Optimize and Organize.</summary>
+    public OrganizeOptions Organize { get; }
+
+    public OptimizeViewModel Optimize { get; }
     public CleanupViewModel Cleanup { get; }
     public ConvertViewModel Convert { get; }
     public VerifyViewModel Verify { get; }
     public TestsViewModel Tests { get; }
 
+    /// <summary>The pages that share <see cref="Workspace"/>.</summary>
+    public IReadOnlyList<BatchTabViewModel> SharedTabs => [Optimize, Convert, Verify, Cleanup];
+
     public IReadOnlyList<PageViewModel> Pages { get; }
 
-    /// <summary>The rail's LIBRARY section (Optimize).</summary>
-    public IReadOnlyList<PageViewModel> LibraryPages { get; }
-
-    /// <summary>The rail's FILES section (Convert, Verify, Organize, and Library tests in Power-user mode).</summary>
-    public IReadOnlyList<PageViewModel> FilePages { get; }
+    /// <summary>The rail's pages: Optimize, Convert, Verify, Organize, and Library tests in Power-user mode.</summary>
+    public IReadOnlyList<PageViewModel> MainPages { get; }
 
     /// <summary>The pages below the rail's divider (Settings).</summary>
     public IReadOnlyList<PageViewModel> BottomPages { get; }
@@ -230,13 +241,12 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>
     /// The page to open on: the chosen start page when it's one a user can
     /// start on, otherwise (automatic, or an id that no longer exists) Optimize
-    /// once the library has folders and Convert until then, where a first drop
-    /// does something.
+    /// when the library folders are loaded at start, and Convert otherwise.
     /// </summary>
     internal static string StartPageId(string? chosen, bool libraryHasFolders)
     {
         var id = string.IsNullOrWhiteSpace(chosen) ? "" : PageFor(chosen.Trim());
-        return id is "library" or "convert" or "verify" or "cleanup" ? id : libraryHasFolders ? "library" : "convert";
+        return id is "optimize" or "convert" or "verify" or "cleanup" ? id : libraryHasFolders ? "optimize" : "convert";
     }
 
     [ObservableProperty] public partial PageViewModel SelectedPage { get; set; }
@@ -245,6 +255,9 @@ public partial class MainViewModel : ViewModelBase
     {
         if (oldValue is not null) oldValue.IsSelected = false; // null on the first selection
         newValue.IsSelected = true;
+        // The files loaded on another page appear here; Optimize and Organize plan again (Verify may have matched files since).
+        if (newValue.Content is BatchTabViewModel tab) _ = tab.SyncAsync();
+        if (newValue.Content is PlanTabViewModel plans) plans.Replan();
     }
 
     public string LibraryVersion { get; } = "";
@@ -277,14 +290,14 @@ public partial class MainViewModel : ViewModelBase
 
     /// <summary>
     /// Old and alternative names map to the page that took them over: tab names
-    /// from before the rail (--tab extract, ...), the removed CHD info page, and
-    /// rail titles that differ from their page id (organize, optimize).
+    /// from before the rail (--tab extract, ...), the removed CHD info page, the
+    /// Library page Optimize replaced, and Organize's page id.
     /// </summary>
     internal static string PageFor(string name) => name.ToLowerInvariant() switch
     {
         "extract" or "archive" or "wiiu" or "info" => "convert",
         "organize" => "cleanup",
-        "optimize" => "library",
+        "library" => "optimize",
         var other => other,
     };
 

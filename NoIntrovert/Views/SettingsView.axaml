@@ -366,7 +366,7 @@
                                 </StackPanel>
                                 <ComboBox Classes="control" Width="220" AutomationProperties.Name="Start on" ItemsSource="{Binding General.StartPages}"
                                           SelectedItem="{Binding General.SelectedStartPage}"
-                                          ToolTip.Tip="Automatic: Optimize once the library has folders, otherwise Convert." />
+                                          ToolTip.Tip="Automatic: Optimize when the library folders are loaded at start, otherwise Convert." />
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -549,7 +549,7 @@
                             <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="Library folders" Classes="name" />
-                                    <TextBlock Text="Optimize scans these folders." Classes="desc" />
+                                    <TextBlock Text="Loaded into the file list on Optimize, Convert, Verify and Organize." Classes="desc" />
                                 </StackPanel>
                                 <StackPanel Classes="control" Width="302" Spacing="6">
                                     <ItemsControl ItemsSource="{Binding Library.Folders}">
@@ -689,8 +689,8 @@
                                     <CheckBox Content="Include subfolders when adding a folder" IsChecked="{Binding Output.ScanSubfolders}" />
                                     <CheckBox Content="{Binding Output.RecycleBinLabel}" IsChecked="{Binding Output.UseRecycleBin}" IsVisible="{Binding Output.CanUseRecycleBin}"
                                               ToolTip.Tip="When the originals are replaced, or a preset removes them once the new file checks out." />
-                                    <CheckBox Content="Scan the library folders when the app starts" IsChecked="{Binding Library.RescanOnStart}"
-                                              ToolTip.Tip="Only files that changed since the last scan are read again." />
+                                    <CheckBox Content="Load the library folders when the app starts" IsChecked="{Binding Library.RescanOnStart}"
+                                              ToolTip.Tip="Their games are in the list on every page when the app opens." />
                                     <TextBlock Text="Organize puts games in" Margin="0,4,0,0" />
                                     <ComboBox ItemsSource="{x:Static vm:LibrarySettingsViewModel.Layouts}" SelectedItem="{Binding Library.SelectedLayout}" AutomationProperties.Name="Organize puts games in"
                                               HorizontalAlignment="Stretch" />
@@ -818,7 +818,7 @@
                                         <Button Classes="tool" Content="Import overrides…" Command="{Binding ImportCommand}" Margin="0,0,6,6" />
                                     </WrapPanel>
                                     <TextBlock Classes="hint" Text="{Binding TransferNote}" />
-                                    <TextBlock Classes="hint" Text="Changes apply to new rows on the Convert page, and to the library at its next scan." />
+                                    <TextBlock Classes="hint" Text="Changes apply to new rows on the Convert page, and to the next plan on Optimize and Organize." />
                                 </StackPanel>
                             </Border>
 

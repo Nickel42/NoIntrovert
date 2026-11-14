@@ -18,6 +18,11 @@
         <Style Selector=":is(Control).col-progress"><Setter Property="Width" Value="120" /></Style>
         <Style Selector=":is(Control).col-time"><Setter Property="Width" Value="56" /></Style>
         <Style Selector=":is(Control).col-result"><Setter Property="Width" Value="220" /></Style>
+        <!-- Optimize and Organize: what a run does to each file -->
+        <Style Selector=":is(Control).col-changes"><Setter Property="Width" Value="320" /></Style>
+        <Style Selector="v|JobListPanel.medium :is(Control).col-changes"><Setter Property="Width" Value="260" /></Style>
+        <Style Selector="v|JobListPanel.compact :is(Control).col-changes"><Setter Property="Width" Value="220" /></Style>
+        <Style Selector="v|JobListPanel.narrow :is(Control).col-changes"><Setter Property="Width" Value="180" /></Style>
 
         <Style Selector="v|JobListPanel.medium :is(Control).col-type"><Setter Property="IsVisible" Value="False" /></Style>
         <Style Selector="v|JobListPanel.medium :is(Control).col-time"><Setter Property="IsVisible" Value="False" /></Style>
@@ -110,6 +115,8 @@
                 <TextBlock Grid.Column="1" Text="FILE" Classes="colhead" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="TYPE" Classes="colhead col-type" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="3" Text="PRESET" Classes="colhead" Width="210" Margin="0,0,8,0" IsVisible="{Binding ShowsTargets}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="3" Text="CHANGES" Classes="colhead col-changes" Margin="0,0,8,0" IsVisible="{Binding ShowsChanges}" VerticalAlignment="Center"
+                           ToolTip.Tip="What a run does to each file, step by step, in the order the steps run. Point at a row's changes for the details." />
                 <TextBlock Grid.Column="4" Text="SIZE" Classes="colhead col-size" TextAlignment="Right" Padding="0,0,10,0" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="5" Text="STATUS" Classes="colhead col-status" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="6" Text="PROGRESS" Classes="colhead col-progress" VerticalAlignment="Center" />
@@ -186,6 +193,11 @@
                                     <TextBlock Text="{Binding PresetNote}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                                                Margin="2,3,0,0" ToolTip.Tip="{Binding FormatDetails}" />
                                 </StackPanel>
+                                <!-- Optimize and Organize: "Verify → Convert → roms/psx/Crash (USA).chd" -->
+                                <TextBlock Grid.Column="3" Classes="col-changes" Margin="0,0,8,0" VerticalAlignment="Center"
+                                           IsVisible="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).ShowsChanges}"
+                                           Text="{Binding Changes}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                           ToolTip.Tip="{Binding ChangesDetails}" />
                                 <TextBlock Grid.Column="4" Text="{Binding SizeText}" VerticalAlignment="Center" TextAlignment="Right" Padding="0,0,10,0" Classes="col-size" />
                                 <DockPanel Grid.Column="5" VerticalAlignment="Center" Classes="col-status">
                                     <Ellipse Width="8" Height="8" Margin="0,0,6,0" Fill="{Binding Status, Converter={x:Static v:Palette.StatusBrush}}" />
@@ -251,6 +263,14 @@
                             <Button Classes="primary" Content="{Binding StartLabel}" Command="{Binding StartCommand}" ToolTip.Tip="Start (Ctrl+Enter)" />
                         </c:GlowBorder>
                     </StackPanel>
+                    <!-- Optimize and Organize: Save to is where the games go and how they're laid out (shared by both pages) -->
+                    <Grid Classes="saveto" ColumnDefinitions="Auto,*" ColumnSpacing="16" VerticalAlignment="Center"
+                          IsVisible="{Binding PlanOptions, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <TextBlock Classes="savetolabel" Text="Save to" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource PanelHeadText}" />
+                        <v:OrganizeSaveTo Grid.Column="1" DataContext="{Binding PlanOptions}" IsEnabled="{Binding $parent[v:JobListPanel].((vm:BatchTabViewModel)DataContext).IsIdle}"
+                                          VerticalAlignment="Center" />
+                    </Grid>
                     <!-- Save to, on the pages that write files: what's left between them -->
                     <Grid Classes="saveto" ColumnDefinitions="Auto,*" ColumnSpacing="16" VerticalAlignment="Center"
                           IsVisible="{Binding ShowsSaveTo}">

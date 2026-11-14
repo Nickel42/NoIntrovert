@@ -5,10 +5,8 @@ namespace NoIntrovert.ViewModels;
 /// <summary>Where a page's button sits in the navigation rail.</summary>
 public enum RailSection
 {
-    /// <summary>Under LIBRARY: work on the whole library.</summary>
-    Library,
-    /// <summary>Under FILES: work on files you pick.</summary>
-    Files,
+    /// <summary>The rail's list of pages, under the logo.</summary>
+    Main,
     /// <summary>At the bottom of the rail, below a divider.</summary>
     Bottom,
 }
@@ -19,7 +17,7 @@ public enum RailSection
 /// order of registration.
 /// </summary>
 public sealed partial class PageViewModel(string id, string title, string icon, ViewModelBase content,
-    Func<IReadOnlyList<string>, Task>? accept = null, RailSection section = RailSection.Files, string subtitle = "") : ViewModelBase
+    Func<IReadOnlyList<string>, Task>? accept = null, RailSection section = RailSection.Main, string subtitle = "") : ViewModelBase
 {
     /// <summary>Lower-case name used on the command line (--page convert).</summary>
     public string Id { get; } = id;

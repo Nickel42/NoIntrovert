@@ -39,13 +39,18 @@ internal static class OptCleanupTests
                 if (labels != "Convert (2), Rename (1), Move (3)") return $"the boxes read \"{labels}\"";
                 var move = cleanup.Kinds.Single(k => k.Kind == CleanupKind.Move);
                 var convert = cleanup.Kinds.Single(k => k.Kind == CleanupKind.Convert);
-                if (move.IsChecked != true || cleanup.AllEnabled != true) return "a new plan's boxes aren't all ticked";
+                if (cleanup.Kinds.Any(k => k.IsChecked != true)) return "a new plan's boxes aren't all ticked";
 
                 move.ToggleCommand.Execute(null);
                 if (cleanup.Steps.Any(s => s.Step.Kind == CleanupKind.Move && s.Enabled)) return "unticking Move left a move ticked";
                 if (cleanup.Steps.Any(s => s.Step.Kind != CleanupKind.Move && s.CanRun && !s.Enabled)) return "unticking Move unticked another kind";
-                if (move.IsChecked != false || cleanup.AllEnabled is not null) return $"Move reads {move.IsChecked}, tick all {cleanup.AllEnabled}";
-                if (cleanup.Summary.Contains("to move")) return $"the summary still counts moves: \"{cleanup.Summary}\"";
+                if (move.IsChecked != false) return $"Move reads {move.IsChecked}";
+                if (cleanup.PlanSummary.Contains("to move")) return $"the summary still counts moves: \"{cleanup.PlanSummary}\"";
+                // A new plan keeps the kind that was turned off off.
+                cleanup.ShowPlan(SamplePlan());
+                if (cleanup.Kinds.Single(k => k.Kind == CleanupKind.Move).IsChecked != false) return "a new plan turned Move back on";
+                cleanup.Kinds.Single(k => k.Kind == CleanupKind.Move).ToggleCommand.Execute(null);
+                convert = cleanup.Kinds.Single(k => k.Kind == CleanupKind.Convert);
 
                 var changed = false;
                 convert.PropertyChanged += (_, e) => changed |= e.PropertyName == nameof(CleanupKindToggle.IsChecked);
@@ -54,10 +59,7 @@ internal static class OptCleanupTests
                 convert.ToggleCommand.Execute(null);
                 if (convert.IsChecked != true) return "clicking a half-ticked box didn't tick every step of its kind";
 
-                cleanup.AllEnabled = false;
-                if (cleanup.Kinds.Any(k => k.IsChecked != false)) return "unticking all left a kind's box on";
-                cleanup.AllEnabled = true;
-                if (cleanup.Kinds.Any(k => k.IsChecked != true)) return "ticking all left a kind's box off";
+                if (cleanup.Kinds.Any(k => k.IsChecked != true)) return "a kind's box is off after ticking them all again";
                 return cleanup.Steps.Single(s => s.Step.Kind == CleanupKind.Clash).Enabled
                        && cleanup.Kinds.All(k => k.Kind is not (CleanupKind.Clash or CleanupKind.Untouched))
                     ? null : "a clash or a game left alone has a box";
@@ -171,7 +173,9 @@ internal static class OptCleanupTests
             f.Resize(1180, 820);
             f.Show("cleanup");
             var cleanup = f.Vm.Cleanup;
-            var summary = cleanup.Summary;
+            // The page's own plan first, so it doesn't land on top of the sample.
+            f.Pump(() => !cleanup.IsPlanning && cleanup.PlanMade.IsCompleted);
+            f.Layout();
             cleanup.ShowPlan(SamplePlan(f.LibraryFolder));
             try
             {
@@ -188,16 +192,16 @@ internal static class OptCleanupTests
                 f.Layout();
                 if (cleanup.Steps.Any(s => s.Step.Kind == CleanupKind.Move && s.Enabled)) return $"a click on Move left a move ticked (the box reads {move.IsChecked})";
                 if (move.IsChecked != false) return $"the Move box reads {move.IsChecked} after the click";
-                var tickAll = f.Find<CheckBox>(c => c.Name == "TickAll");
-                if (tickAll?.IsChecked is not null) return $"tick all reads {tickAll?.IsChecked}, not half";
                 if (screenshots is not null) f.Save(Path.Combine(screenshots, "organize-kinds.png"));
                 var problems = LayoutTests.Check(f.Window);
                 return problems.Count == 0 ? null : string.Join("\n        ", problems.Take(6));
             }
             finally
             {
-                cleanup.ShowPlan(new CleanupPlan([]));
-                cleanup.Summary = summary;
+                // Move back on, and the page's own plan again.
+                if (cleanup.Kinds.FirstOrDefault(k => k.Kind == CleanupKind.Move) is { IsChecked: false } off) off.ToggleCommand.Execute(null);
+                _ = cleanup.MakePlanAsync();
+                f.Pump(() => cleanup.PlanMade.IsCompleted);
                 f.Layout();
             }
         }));
@@ -312,7 +316,8 @@ internal static class OptCleanupTests
     {
         var dialogs = new NoDialogs();
         var app = new AppSettings();
-        return new CleanupViewModel(new SettingsViewModel(app, dialogs), new LogViewModel(dialogs, app), new JobQueue(() => 1), () => new LibraryIndex(), dialogs);
+        var settings = new SettingsViewModel(app, dialogs);
+        return new CleanupViewModel(settings, new LogViewModel(dialogs, app), dialogs, new JobQueue(() => 1), new OrganizeOptions(settings, dialogs));
     }
 
     private static string? WithSettingsFolder(string folder, Func<string?> body)

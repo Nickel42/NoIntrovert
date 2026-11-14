@@ -11,7 +11,7 @@ namespace NoIntrovert.Tests;
 /// <summary>
 /// The 2026-11-12 review's page fixes, checked in the real window (headless):
 /// destructive questions default to the safe button, the Cleanup page shows
-/// when it's busy, the Library's actions need a selection, the shortcuts
+/// when it's busy, the shortcuts
 /// work, log levels show as glyphs, and inputs have names for screen readers.
 /// </summary>
 static class UxLayoutTests
@@ -40,21 +40,19 @@ static class UxLayoutTests
         test("Dialogs: closing during a run talks about the user's files, not the library", () =>
             MainWindow.CloseMessage.Contains("lib-chd-kit") || !MainWindow.CloseMessage.Contains("kept") ? $"'{MainWindow.CloseMessage}'" : null);
 
-        test("Cleanup: while busy the page shows progress and what it's doing, in place of the empty message", () => dispatch(() =>
+        test("Cleanup: while busy the page shows progress and what it's doing", () => dispatch(() =>
         {
             f.Resize(1180, 820);
             f.Show("cleanup");
             var cleanup = f.Vm.Cleanup;
             cleanup.IsBusy = true;
-            cleanup.BusyText = "Making the plan…";
+            cleanup.BusyText = "Undoing the run…";
             try
             {
                 f.Layout();
                 var status = f.Find<StackPanel>(p => p.Name == "BusyStatus");
-                if (status is not { IsEffectivelyVisible: true }) return "no busy line in the run bar";
-                if (f.Find<TextBlock>(t => t.Text == "Making the plan…" && t.IsEffectivelyVisible) is null) return "the busy text doesn't show";
-                var hint = f.Find<TextBlock>(t => t.Text?.StartsWith("Choose games on the Library page") == true);
-                if (hint is { IsEffectivelyVisible: true }) return "the empty-page message shows while planning";
+                if (status is not { IsEffectivelyVisible: true }) return "no busy line on the page";
+                if (f.Find<TextBlock>(t => t.Text == "Undoing the run…" && t.IsEffectivelyVisible) is null) return "the busy text doesn't show";
                 var problems = LayoutTests.Check(f.Window);
                 return problems.Count == 0 ? null : string.Join("\n        ", problems.Take(6));
             }
@@ -65,30 +63,7 @@ static class UxLayoutTests
             }
         }));
 
-        test("Library: Convert, Verify and Clean up selected are off with no game selected", () => dispatch(() =>
-        {
-            f.Resize(1366, 768);
-            f.Show("library");
-            f.Layout();
-            var lib = f.Vm.Library;
-            var list = f.Find<ListBox>(l => l.Name == "GameList");
-            if (list is null) return "no game list";
-            list.SelectedItems?.Clear();
-            lib.SelectedGame = null;
-            f.Layout();
-            var buttons = new[] { "Convert selected", "Verify selected", "Clean up selected" }
-                .Select(name => f.Find<Button>(b => b.Content as string == name)).ToList();
-            if (buttons.Any(b => b is null)) return "an action button is missing";
-            if (buttons.FirstOrDefault(b => b!.IsEffectivelyEnabled) is { } on) return $"'{on.Content}' is on with nothing selected";
-            list.SelectedItems?.Add(lib.VisibleGames[0]);
-            f.Layout();
-            var off = buttons.FirstOrDefault(b => !b!.IsEffectivelyEnabled);
-            list.SelectedItems?.Clear();
-            lib.SelectedGame = null;
-            return off is null ? null : $"'{off.Content}' stays off with a game selected";
-        }));
-
-        test("Shortcuts: Ctrl+F finds and Escape clears the filter; Enter on the game list converts the selection", () => dispatch(() =>
+        test("Shortcuts: Ctrl+F finds and Escape clears the filter, on Convert and on Optimize", () => dispatch(() =>
         {
             f.Resize(1366, 768);
             f.Show("convert");
@@ -103,41 +78,14 @@ static class UxLayoutTests
             f.Layout();
             if (!string.IsNullOrEmpty(filter.Text)) return "Escape didn't clear the filter";
 
-            f.Show("library");
+            // Optimize has the same list, so the same filter and shortcut.
+            f.Show("optimize");
             f.Layout();
-            var search = f.Find<TextBox>(t => t.Name == "SearchBox" && t.IsEffectivelyVisible);
-            if (search is null) return "no Library search box";
+            var optimize = f.Find<TextBox>(t => t.Name == "FilterBox" && t.IsEffectivelyVisible);
+            if (optimize is null || optimize == filter) return "no filter box on Optimize";
             f.Window.KeyPressQwerty(PhysicalKey.F, RawInputModifiers.Control);
             f.Layout();
-            if (!search.IsFocused) return "Ctrl+F didn't focus the Library search";
-
-            var lib = f.Vm.Library;
-            var list = f.Find<ListBox>(l => l.Name == "GameList")!;
-            var sent = lib.SendToConvert;
-            IReadOnlyList<string>? got = null;
-            lib.SendToConvert = paths => got = paths;
-            try
-            {
-                // A game with something to convert, or Convert selected has nothing to send.
-                var game = lib.VisibleGames.FirstOrDefault(g => g.Game.Items.Any(i => i.IsSource || i.FormatStatus == NoIntrovert.Core.Formats.TargetStatus.Convert));
-                if (game is null) return "no game in the samples needs converting";
-                list.SelectedItems?.Add(game);
-                f.Layout();
-                list.ScrollIntoView(game);
-                f.Layout();
-                var row = list.ContainerFromItem(game);
-                if (row is null) return "the game's row isn't shown";
-                // Raised on the row itself: here the headless keyboard didn't route Enter to the list.
-                row.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter, Source = row });
-                f.Layout();
-            }
-            finally
-            {
-                lib.SendToConvert = sent;
-                list.SelectedItems?.Clear();
-                lib.SelectedGame = null;
-            }
-            return got is { Count: > 0 } ? null : "Enter on the game list didn't send the game to Convert";
+            return optimize.IsFocused ? null : "Ctrl+F didn't focus Optimize's filter";
         }));
 
         test("Log: each line shows its level as a glyph, not by colour alone", () => dispatch(() =>
@@ -161,12 +109,12 @@ static class UxLayoutTests
             finally { log.Entries.Remove(entry); log.IsExpanded = expanded; f.Layout(); }
         }));
 
-        test("Accessibility: inputs and icon-only buttons on Library, Convert, Verify and Organize have names", () => dispatch(() =>
+        test("Accessibility: inputs and icon-only buttons on Optimize, Convert, Verify and Organize have names", () => dispatch(() =>
         {
             f.Resize(1366, 768);
             var problems = new List<string>();
             var checkedCount = 0;
-            foreach (var page in new[] { "library", "convert", "verify", "cleanup" })
+            foreach (var page in new[] { "optimize", "convert", "verify", "cleanup" })
             {
                 f.Show(page);
                 if (page == "convert") f.FocusRow(f.Vm.Convert);

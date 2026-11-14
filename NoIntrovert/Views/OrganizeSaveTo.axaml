@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             x:Class="NoIntrovert.Views.OrganizeSaveTo"
+             x:DataType="vm:OrganizeOptions">
+    <!-- Save to on Optimize and Organize, in the run bar as on Convert: where the games go, and how they're laid out.
+         Shared by both pages. -->
+    <UserControl.Styles>
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource PanelHeadText}" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource SystemAccentColor}" />
+        </Style>
+    </UserControl.Styles>
+    <WrapPanel Orientation="Horizontal" ItemSpacing="16" LineSpacing="4" VerticalAlignment="Center">
+        <RadioButton GroupName="OrganizeSaveTo" Content="Where they are" IsChecked="{Binding InPlace}" VerticalAlignment="Center"
+                     ToolTip.Tip="The games are converted, renamed and moved in the folders they're in. Originals go to a .noi-trash folder beside them, so the run can be undone." />
+        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <RadioButton GroupName="OrganizeSaveTo" IsChecked="{Binding BuildNewLibrary}" VerticalAlignment="Center"
+                         ToolTip.Tip="The games are converted or copied into a new library in another folder; the files in the list stay exactly as they are.">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="New library:" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding NewLibraryText}" MaxWidth="180" Foreground="{DynamicResource SubtleText}"
+                               TextTrimming="LeadingCharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding NewLibraryFolder}" />
+                </StackPanel>
+            </RadioButton>
+            <Button Classes="link" Content="Change…" Command="{Binding ChooseNewLibraryFolderCommand}" VerticalAlignment="Center"
+                    ToolTip.Tip="Choose the new library's folder. An empty folder is best; it can't be inside a folder in the list."
+                    AutomationProperties.Name="Change the new library's folder" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <TextBlock Text="Layout:" VerticalAlignment="Center" Foreground="{DynamicResource SubtleText}" />
+            <ComboBox x:Name="OrganizeLayoutPicker" VerticalAlignment="Center" MinHeight="0" Padding="8,2"
+                      ItemsSource="{x:Static vm:OrganizeOptions.Layouts}" SelectedItem="{Binding SelectedLayout}"
+                      AutomationProperties.Name="Layout" ToolTip.Tip="{x:Static vm:OrganizeOptions.LayoutTip}" />
+        </StackPanel>
+    </WrapPanel>
+</UserControl>

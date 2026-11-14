@@ -1086,9 +1086,9 @@ public sealed partial class LibrarySettingsViewModel(AppSettings settings, IDial
 
     public string FoldersSummary => S.Library.Folders.Count switch
     {
-        0 => "No folders yet: add them on the Optimize page.",
-        1 => "1 folder, managed on the Optimize page.",
-        var n => $"{n} folders, managed on the Optimize page.",
+        0 => "No folders yet: add them here.",
+        1 => "1 folder, loaded into the file list.",
+        var n => $"{n} folders, loaded into the file list.",
     };
 
     public bool RescanOnStart { get => S.Library.RescanOnStart; set => Set(value, (s, v) => s.Library.RescanOnStart = v); }
@@ -1097,7 +1097,9 @@ public sealed partial class LibrarySettingsViewModel(AppSettings settings, IDial
     public static IReadOnlyList<Choice<LibraryLayout>> Layouts { get; } =
     [
         new(LibraryLayout.EsDe, "ES-DE format: roms/<system>/<game>"),
+        new(LibraryLayout.RomM, "RomM: roms/<platform>/<game>"),
         new(LibraryLayout.InPlace, "Keep the current layout"),
+        new(LibraryLayout.Flat, "No subfolders: all in one folder"),
     ];
 
     public Choice<LibraryLayout> SelectedLayout

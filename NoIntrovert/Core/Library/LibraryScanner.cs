@@ -77,6 +77,51 @@ public static partial class LibraryScanner
         return index;
     }
 
+    /// <summary>Inputs already described by <see cref="Describe(IReadOnlyList{string}, IReadOnlyList{string}, AppSettings, CancellationToken)"/>, while their files don't change.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string Key, LibraryItem Item)> Described = new(PathNames.Comparer);
+
+    /// <summary>
+    /// Describes the inputs at <paramref name="paths"/> (the rows of a file list, not folders to look
+    /// through) as library items. Each one's library folder is the innermost of <paramref name="roots"/>
+    /// it's in (the folders added to the list), or its own folder: a roms folder and the trash go there.
+    /// An input whose files haven't changed since it was last described isn't read again.
+    /// </summary>
+    public static LibraryIndex Describe(IReadOnlyList<string> paths, IReadOnlyList<string> roots, AppSettings settings, CancellationToken token = default)
+    {
+        var key = TargetSettingsKey(settings);
+        var folders = roots.Select(ScanSet.Normalize).Distinct(PathNames.Comparer).OrderByDescending(r => r.Length).ToList();
+        var index = new LibraryIndex { ScannedUtc = DateTime.UtcNow, TargetSettingsKey = key };
+        Chdman? chdman = null;
+        try
+        {
+            foreach (var path in paths)
+            {
+                token.ThrowIfCancellationRequested();
+                FileSet? set;
+                try { set = FormatRegistry.Default.Identify(path); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { continue; }
+                if (set is null) continue;
+                var root = folders.FirstOrDefault(r => PathNames.IsInside(set.Primary, r))
+                           ?? Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(set.Primary)) ?? set.Primary;
+                var (size, ticks) = Stamp(set);
+                var stamp = $"{key}|{root}|{size}|{ticks}|{set.Format.Id}";
+                if (Described.TryGetValue(set.Primary, out var known) && known.Key == stamp)
+                {
+                    index.Items.Add(known.Item);
+                    continue;
+                }
+                var item = Describe(set, root, size, ticks, settings, ref chdman);
+                Described[set.Primary] = (stamp, item);
+                index.Items.Add(item);
+            }
+        }
+        finally
+        {
+            chdman?.Dispose();
+        }
+        return index;
+    }
+
     /// <summary>How many inputs are stat'ed at once, and how many before they're described (so progress shows).</summary>
     private const int StampParallelism = 8, StampChunk = 256;
 

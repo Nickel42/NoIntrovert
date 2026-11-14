@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             x:Class="NoIntrovert.Views.OrganizeOptionsPanel"
+             x:DataType="vm:OrganizeOptions">
+    <!-- What the run bar's Save to choices do: the layout, the new library's extra choice, and the safety note.
+         The same on Optimize and Organize. -->
+    <StackPanel Spacing="4">
+        <TextBlock Text="LAYOUT" Classes="section" />
+        <TextBlock Text="{Binding SelectedLayout.Label}" FontWeight="SemiBold" />
+        <TextBlock Classes="hint" TextWrapping="Wrap" Text="{Binding LayoutDescription}" />
+        <Border Background="{DynamicResource RowAlt}" CornerRadius="4" Padding="8,6" Margin="0,2,0,4"
+                IsVisible="{Binding LayoutExample, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace" FontSize="11" TextWrapping="NoWrap"
+                       TextTrimming="CharacterEllipsis" Text="{Binding LayoutExample}" />
+        </Border>
+        <StackPanel Spacing="4" IsVisible="{Binding BuildNewLibrary}" Margin="0,4,0,0">
+            <TextBlock Text="NEW LIBRARY" Classes="section" />
+            <TextBlock Text="{Binding NewLibraryText}" TextTrimming="PathSegmentEllipsis" ToolTip.Tip="{Binding NewLibraryFolder}" />
+            <CheckBox IsChecked="{Binding CopyUnmatched}">
+                <TextBlock TextWrapping="Wrap" Text="Also copy games that aren't matched, as they are" />
+            </CheckBox>
+        </StackPanel>
+        <TextBlock Text="SAFETY" Classes="section" Margin="0,8,0,0" />
+        <TextBlock Classes="hint" TextWrapping="Wrap" Text="{Binding SafetyText}" />
+        <TextBlock Classes="hint" TextWrapping="Wrap" Margin="0,4,0,0"
+                   Text="Where the games go and the layout are chosen in Save to, under the list; the CHANGES column shows where each file would end up." />
+    </StackPanel>
+</UserControl>

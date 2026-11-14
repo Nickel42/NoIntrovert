@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             xmlns:v="using:NoIntrovert.Views"
+             x:Class="NoIntrovert.Views.OptimizeView"
+             x:DataType="vm:OptimizeViewModel"
+             v:Responsive.Below="narrow:1000">
+    <UserControl.Styles>
+        <Style Selector="ScrollViewer.sidepanel"><Setter Property="Width" Value="320" /></Style>
+        <Style Selector="v|OptimizeView.narrow ScrollViewer.sidepanel"><Setter Property="Width" Value="270" /></Style>
+        <Style Selector="TextBlock.stepnumber">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Width" Value="18" />
+        </Style>
+    </UserControl.Styles>
+    <!-- Optimize: Verify, Convert and Organize in one click; the CHANGES column says what happens to each file. -->
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,10,0,0">
+        <v:JobListPanel />
+
+        <ScrollViewer Grid.Column="1" Classes="sidepanel" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="12">
+                <Border Classes="card">
+                    <v:SelectedFilePanel DataContext="{Binding SelectedFile}" />
+                </Border>
+                <Border Classes="card">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="ONE CLICK, IN THIS ORDER" Classes="section" />
+                        <Grid ColumnDefinitions="Auto,*">
+                            <TextBlock Classes="stepnumber" Text="1" />
+                            <TextBlock Grid.Column="1" TextWrapping="Wrap"
+                                       Text="Verify &amp; match: each file is checked for damage and looked up in the No-Intro and Redump databases." />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <TextBlock Classes="stepnumber" Text="2" />
+                            <TextBlock Grid.Column="1" TextWrapping="Wrap"
+                                       Text="Convert: what isn't in its best format becomes CHD, RVZ, .wua… (verified, originals kept until it is)." />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <TextBlock Classes="stepnumber" Text="3" />
+                            <TextBlock Grid.Column="1" TextWrapping="Wrap"
+                                       Text="Organize: named as in the database and moved into its system's folder; duplicates go to the trash." />
+                        </Grid>
+                        <TextBlock Classes="hint" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="A file the databases don't know is still converted, keeping its name. A damaged file is left alone. A game's discs and files are done together, one game at a time." />
+                        <TextBlock Classes="hint" TextWrapping="Wrap" FontWeight="SemiBold" Text="{Binding PlanSummary}"
+                                   IsVisible="{Binding PlanSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsPlanning}">
+                            <ProgressBar IsIndeterminate="True" Width="60" Height="6" VerticalAlignment="Center" />
+                            <TextBlock Text="Making the plan…" Classes="hint" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                <Border Classes="card">
+                    <v:OrganizeOptionsPanel DataContext="{Binding Options}" />
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

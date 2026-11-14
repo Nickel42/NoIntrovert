@@ -10,108 +10,11 @@
         <Style Selector="v|CleanupView.narrow ScrollViewer.sidepanel"><Setter Property="Width" Value="280" /></Style>
     </UserControl.Styles>
     <!--
-        The Cleanup wizard (M7): a plan for the selected games or the whole
-        Library, shown as a dry run with a tick box per step; Run sends the
-        ticked steps to the queue. Past runs can be undone, or their trash emptied.
+        Organize (the Cleanup wizard, M7): the files in the list, each row's CHANGES column the dry run;
+        a box per kind of step turns that kind on or off. Past runs can be undone, or their trash emptied.
     -->
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,10,0,0">
-        <Border Classes="card" Padding="0">
-            <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Margin="12,10,12,4">
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="CLEANUP" Classes="section" />
-                        <TextBlock Text="{Binding ScopeText}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
-                    </StackPanel>
-                    <WrapPanel Grid.Column="1" Orientation="Horizontal" ItemSpacing="6" LineSpacing="6" VerticalAlignment="Center" HorizontalAlignment="Right">
-                        <Button Classes="tool" Content="Whole Library" Command="{Binding WholeLibraryCommand}"
-                                ToolTip.Tip="Plan for every game in the Library instead of the selected ones." />
-                        <Button Classes="tool" Content="Refresh plan" Command="{Binding MakePlanCommand}"
-                                ToolTip.Tip="Make the plan again from the Library as it is now." />
-                    </WrapPanel>
-                </Grid>
-                <TextBlock Grid.Row="1" Text="{Binding Summary}" Classes="hint" TextWrapping="Wrap" Margin="12,0,12,6" />
-
-                <!-- One box per kind of step, with its count: ticks or unticks them all, half-ticked when only some are -->
-                <ItemsControl Grid.Row="2" x:Name="KindToggles" ItemsSource="{Binding Kinds}" IsVisible="{Binding HasRunnableSteps}" Margin="12,0,12,2">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel Orientation="Horizontal" ItemSpacing="18" LineSpacing="2" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:CleanupKindToggle">
-                            <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}" Command="{Binding ToggleCommand}" Content="{Binding Label}"
-                                      ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding AccessibleName}" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <Grid Grid.Row="3" ColumnDefinitions="40,120,1.2*,2*" Margin="22,4,22,4">
-                    <!-- Tick all: half-ticked when only some steps are -->
-                    <CheckBox x:Name="TickAll" IsChecked="{Binding AllEnabled, Mode=OneWay}" IsVisible="{Binding HasRunnableSteps}"
-                              MinWidth="0" Padding="0" VerticalAlignment="Center"
-                              ToolTip.Tip="Tick every step that can run, or none" AutomationProperties.Name="Tick every step" />
-                    <TextBlock Grid.Column="1" Text="STEP" Classes="colhead" />
-                    <TextBlock Grid.Column="2" Text="GAME" Classes="colhead" />
-                    <TextBlock Grid.Column="3" Text="CHANGE" Classes="colhead" />
-                </Grid>
-
-                <Panel Grid.Row="4">
-                    <ListBox ItemsSource="{Binding Steps}" SelectedItem="{Binding SelectedStep}" Background="Transparent" Margin="10,0">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:CleanupStepRow">
-                                <Grid ColumnDefinitions="40,120,1.2*,2*" ToolTip.Tip="{Binding Reason}">
-                                    <CheckBox IsChecked="{Binding Enabled}" IsVisible="{Binding CanRun}" VerticalAlignment="Center"
-                                              AutomationProperties.Name="{Binding Game, StringFormat='Run this step for {0}'}" />
-                                    <!-- A step that can't run (a clash, or left alone) says so instead of a tick box -->
-                                    <TextBlock Text="⚠" IsVisible="{Binding !CanRun}" VerticalAlignment="Center" FontSize="14"
-                                               Foreground="{DynamicResource WarningText}"
-                                               AutomationProperties.Name="{Binding Reason, StringFormat='Step not run: {0}'}" />
-                                    <TextBlock Grid.Column="1" Text="{Binding KindText}" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="2" Text="{Binding Game}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
-                                    <StackPanel Grid.Column="3" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Change}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Reason}" Classes="hint" FontSize="11" TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                    <TextBlock Text="Choose games on the Optimize page and click Clean up selected, or plan for the whole library."
-                               IsVisible="{Binding ShowsEmptyHint}" Classes="hint" FontSize="13" TextWrapping="Wrap"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30" />
-                    <!-- Making the plan (no steps yet): the progress in place of the message -->
-                    <StackPanel x:Name="Planning" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30">
-                        <StackPanel.IsVisible>
-                            <MultiBinding Converter="{x:Static BoolConverters.And}">
-                                <Binding Path="IsBusy" />
-                                <Binding Path="!HasPlan" />
-                            </MultiBinding>
-                        </StackPanel.IsVisible>
-                        <ProgressBar IsIndeterminate="True" Width="160" Height="6" HorizontalAlignment="Center" />
-                        <TextBlock Text="{Binding BusyText}" Classes="hint" FontSize="13" HorizontalAlignment="Center" />
-                    </StackPanel>
-                </Panel>
-
-                <Border Grid.Row="5" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="12,10">
-                    <DockPanel>
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="12,0,0,0">
-                            <Button Content="Verify games not yet matched" Command="{Binding VerifyUncheckedCommand}"
-                                    ToolTip.Tip="Only games Verify &amp; match recognised are renamed and moved. Send the rest there first." />
-                            <Button Content="Stop" Command="{Binding CancelRunCommand}" IsVisible="{Binding IsRunning}"
-                                    ToolTip.Tip="Stop the run. Steps already done stay done, and the run can still be undone." />
-                            <Button Classes="primary" Content="Run" Command="{Binding RunCommand}"
-                                    ToolTip.Tip="Run the ticked steps on the queue. Every change is recorded, so the run can be undone." />
-                        </StackPanel>
-                        <!-- What the page is doing: "Running 12 steps for 5 games…" -->
-                        <StackPanel x:Name="BusyStatus" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsVisible="{Binding IsBusy}">
-                            <ProgressBar IsIndeterminate="True" Width="80" Height="6" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding BusyText}" Classes="hint" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DockPanel>
-                </Border>
-            </Grid>
-        </Border>
+        <v:JobListPanel />
 
         <ScrollViewer Grid.Column="1" Classes="sidepanel" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="12">
@@ -119,58 +22,38 @@
                     <v:SelectedFilePanel DataContext="{Binding SelectedFile}" />
                 </Border>
                 <Border Classes="card">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="WHERE" Classes="section" />
-                        <RadioButton GroupName="CleanupWhere" IsChecked="{Binding InPlace}">
-                            <StackPanel Spacing="2">
-                                <TextBlock Text="Tidy the Library in place" FontWeight="SemiBold" />
-                                <TextBlock Classes="hint" TextWrapping="Wrap"
-                                           Text="Games are converted, renamed and moved where they are." />
-                            </StackPanel>
-                        </RadioButton>
-                        <RadioButton GroupName="CleanupWhere" IsChecked="{Binding BuildNewLibrary}">
-                            <StackPanel Spacing="2">
-                                <TextBlock Text="Build a new library in another folder" FontWeight="SemiBold" />
-                                <TextBlock Classes="hint" TextWrapping="Wrap"
-                                           Text="Games are converted or copied into the new folder, named and laid out the same way. The Library stays exactly as it is." />
-                            </StackPanel>
-                        </RadioButton>
-                        <StackPanel Spacing="6" Margin="28,2,0,4" IsVisible="{Binding BuildNewLibrary}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                                <TextBlock Text="{Binding NewLibraryFolder}" IsVisible="{Binding HasNewLibraryFolder}"
-                                           TextTrimming="PathSegmentEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding NewLibraryFolder}" />
-                                <TextBlock Text="No folder chosen yet" IsVisible="{Binding !HasNewLibraryFolder}" Classes="hint" VerticalAlignment="Center" />
-                                <Button Grid.Column="1" Classes="tool" Content="Choose…" Command="{Binding ChooseNewLibraryFolderCommand}"
-                                        ToolTip.Tip="An empty folder is best. It can't be inside a Library folder." />
-                            </Grid>
-                            <CheckBox IsChecked="{Binding CopyUnmatched}">
-                                <TextBlock TextWrapping="Wrap" Text="Also copy games that aren't matched, as they are" />
-                            </CheckBox>
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="THE PLAN" Classes="section" />
+                        <TextBlock Classes="hint" TextWrapping="Wrap"
+                                   Text="Only files Verify &amp; match recognised are renamed and moved; Optimize checks them first. Nothing changes until you click Organize." />
+                        <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" Text="{Binding PlanSummary}"
+                                   IsVisible="{Binding PlanSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsPlanning}">
+                            <ProgressBar IsIndeterminate="True" Width="60" Height="6" VerticalAlignment="Center" />
+                            <TextBlock Text="Making the plan…" Classes="hint" VerticalAlignment="Center" />
                         </StackPanel>
-                        <TextBlock Text="FILE LAYOUT" Classes="section" Margin="0,8,0,0" />
-                        <RadioButton GroupName="CleanupLayout" IsChecked="{Binding EsDeLayout}">
-                            <StackPanel Spacing="2">
-                                <TextBlock Text="ES-DE format (recommended)" FontWeight="SemiBold" />
-                                <TextBlock Classes="hint" TextWrapping="Wrap"
-                                           Text="A roms folder in each Library folder (or in the new library), one folder per system named as ES-DE names it, and the games' files inside. Only games that have to be folders stay folders (Wii U titles, PS3 games); a multi-disc game's .m3u sits in the system folder with its discs in hidden/." />
-                            </StackPanel>
-                        </RadioButton>
-                        <Border Background="{DynamicResource RowAlt}" CornerRadius="4" Padding="8,6" Margin="28,0,0,4" IsVisible="{Binding EsDeLayout}">
-                            <TextBlock FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
-                                       Text="roms/&#10;  nes/Super Mario Bros. (World).7z&#10;  psx/Crash Bandicoot (USA).chd&#10;  psx/Final Fantasy VII (USA).m3u&#10;  psx/hidden/Final Fantasy VII (USA) (Disc 1).chd …&#10;  wiiu/Some NUS Title/&#10;  ps3/Gran Turismo 5.ps3/" />
-                        </Border>
-                        <RadioButton GroupName="CleanupLayout" IsChecked="{Binding KeepLayout}">
-                            <StackPanel Spacing="2">
-                                <TextBlock Text="Keep the current layout" FontWeight="SemiBold" />
-                                <TextBlock Classes="hint" TextWrapping="Wrap"
-                                           Text="Files and folders stay where they are. Games are only converted and renamed in place." />
-                            </StackPanel>
-                        </RadioButton>
-                        <TextBlock Classes="hint" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Text="The plan shows where every file would end up. Nothing moves until you click Run." />
-                        <TextBlock Text="SAFETY" Classes="section" Margin="0,8,0,0" />
-                        <TextBlock Classes="hint" TextWrapping="Wrap" Text="{Binding SafetyText}" />
+                        <!-- One box per kind of step, with its count: ticks or unticks them all, half-ticked when only some are -->
+                        <ItemsControl x:Name="KindToggles" ItemsSource="{Binding Kinds}" IsVisible="{Binding HasRunnableSteps}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" ItemSpacing="14" LineSpacing="2" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CleanupKindToggle">
+                                    <CheckBox IsChecked="{Binding IsChecked, Mode=OneWay}" Command="{Binding ToggleCommand}" Content="{Binding Label}"
+                                              ToolTip.Tip="{Binding Tip}" AutomationProperties.Name="{Binding AccessibleName}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <StackPanel x:Name="BusyStatus" Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsBusy}">
+                            <ProgressBar IsIndeterminate="True" Width="60" Height="6" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding BusyText}" Classes="hint" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
                     </StackPanel>
+                </Border>
+                <Border Classes="card">
+                    <v:OrganizeOptionsPanel DataContext="{Binding Options}" />
                 </Border>
                 <Border Classes="card">
                     <StackPanel Spacing="6">
