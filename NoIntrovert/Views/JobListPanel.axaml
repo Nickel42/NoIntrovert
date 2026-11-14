@@ -37,7 +37,7 @@
         <!-- A failed row's reason -->
         <Style Selector="TextBlock.failed"><Setter Property="Foreground" Value="{DynamicResource DangerText}" /></Style>
 
-        <!-- Row density (Settings › General; docs/requirements/ui-redesign.md, "Row density"). Comfortable is
+        <!-- Row density (Settings › Appearance; docs/requirements/ui-redesign.md, "Row density"). Comfortable is
              the template as written: two lines per row. Compact ("dense" on the panel; "compact" is taken by the
              width classes above) makes every row one line: the second lines (folder, preset note, stage, speed)
              go, and their text is in the row's tooltips. -->
@@ -479,8 +479,11 @@
                     <Rectangle Classes="dropframe" RadiusX="10" RadiusY="10" StrokeThickness="1.5" StrokeDashArray="5,4" />
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Margin="24,20" MaxWidth="560">
-                            <!-- A slot for the NoIntrovert illustration (empty for now; the icon below stands in) -->
-                            <ContentControl x:Name="DropArt" HorizontalAlignment="Center" />
+                            <!-- The NoIntrovert illustration (it left the rail in R3), above the drop icon -->
+                            <ContentControl x:Name="DropArt" HorizontalAlignment="Center">
+                                <Image Source="/Assets/nointrovert-logo.png" Width="120" Stretch="Uniform"
+                                       RenderOptions.BitmapInterpolationMode="HighQuality" AutomationProperties.AccessibilityView="Raw" />
+                            </ContentControl>
                             <!-- A tray with an arrow into it -->
                             <Path Classes="dropicon" Width="40" Height="36" HorizontalAlignment="Center" Stretch="Uniform"
                                   Data="M20,2 L20,22 M12,14 L20,22 L28,14 M4,20 L4,32 L36,32 L36,20"
