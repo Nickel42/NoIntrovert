@@ -198,6 +198,30 @@ internal static class JobPerformanceTests
             // R11 hashed the ISO (a miss); the verify then found it in the cache instead of decoding it again.
             return HashCache.Default.Hits == hits + 1 ? null : $"{HashCache.Default.Hits - hits} cache hits, expected 1";
         });
+
+        test("GameCube ISO → RVZ verify without R11: the conversion hashes the source; scrubbed RVZs are verified too", () =>
+        {
+            var folder = dir("perf-rvz-convert-hash");
+            string? Convert(string name, bool scrub)
+            {
+                var disc = Path.Combine(folder, name);
+                NintendoDiscs.WriteGameCube(disc);
+                var before = BackgroundHash.Count;
+                var o = runJob(c => ChdJobs.Convert(c, disc), s =>
+                {
+                    s.Output.Folder = dir("perf-rvz-convert-hash-out");
+                    s.TargetFormats.RecordOriginalHashes = false;
+                    s.Chd.VerifyAfterCreate = true;
+                    s.Nintendo.Scrub = scrub;
+                });
+                if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
+                if (BackgroundHash.Count != before) return "a hash ran beside the compression";
+                var cached = KnownHashes.Single(HashCache.Default.TryGet(disc));
+                if (scrub) return cached is null ? null : "a scrubbed disc's hash was cached as the file's";
+                return cached is { Sha1.Length: 40, Md5.Length: 32, Crc.Length: 8 } ? null : $"cached: {cached?.ToString() ?? "nothing"}";
+            }
+            return Convert("Plain (USA).iso", scrub: false) ?? Convert("Scrubbed (USA).iso", scrub: true);
+        });
     }
 
     /// <summary>Blocks of zeros, text and random bytes in turn: deflate/LZ4 blocks of different sizes, and stored ones.</summary>
