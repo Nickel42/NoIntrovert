@@ -29,7 +29,7 @@
                         <Grid ColumnDefinitions="Auto,*">
                             <TextBlock Classes="stepnumber" Text="1" />
                             <TextBlock Grid.Column="1" TextWrapping="Wrap"
-                                       Text="Verify &amp; match: each file is checked for damage and looked up in the No-Intro and Redump databases." />
+                                       Text="Verify: each file is checked for damage and looked up in the No-Intro and Redump databases." />
                         </Grid>
                         <Grid ColumnDefinitions="Auto,*">
                             <TextBlock Classes="stepnumber" Text="2" />

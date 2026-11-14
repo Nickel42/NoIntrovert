@@ -207,9 +207,9 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
             CleanupKind.Move when many => $"Move {step.Renames.Count} discs, with {Path.GetFileName(step.Target)} → {Where()}",
             CleanupKind.Move => $"Move → {Where()}",
             CleanupKind.Copy => $"Copy → {step.Target}",
-            CleanupKind.RemoveDuplicate => $"Remove: {step.Reason.ToLowerInvariant()}",
+            CleanupKind.RemoveDuplicate => $"Remove: {Words.LowerFirst(step.Reason)}",
             CleanupKind.Clash => $"Clash: {step.Reason}",
-            _ => $"Left alone: {step.Reason}",
+            _ => $"Left alone: {Words.LowerFirst(step.Reason)}",
         };
     }
 
@@ -224,13 +224,13 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
         var parts = CleanupKindToggle.RunnableKinds
             .Select(k => (Kind: k, Count: plan.Steps.Count(s => s.Kind == k && s.Runs)))
             .Where(p => p.Count > 0)
-            .Select(p => $"{p.Count} {p.Kind switch { CleanupKind.Convert => "to convert", CleanupKind.Copy => "to copy", CleanupKind.Rename => "to rename", CleanupKind.Move => "to move", _ => "duplicate(s) to remove" }}");
+            .Select(p => p.Kind switch { CleanupKind.Convert => $"{p.Count:N0} to convert", CleanupKind.Copy => $"{p.Count:N0} to copy", CleanupKind.Rename => $"{p.Count:N0} to rename", CleanupKind.Move => $"{p.Count:N0} to move", _ => $"{Words.Count(p.Count, "duplicate")} to remove" });
         var left = plan.Count(CleanupKind.Untouched);
         var clashes = plan.Count(CleanupKind.Clash);
         return (runs == 0 ? "Nothing to do." : copies
                    ? string.Join(" · ", parts)
                    : $"{string.Join(" · ", parts)} · frees about {ChdJobs.Size(plan.BytesSaved)}")
-               + (clashes > 0 ? $" · {clashes} clash(es) to sort out first" : "")
+               + (clashes > 0 ? $" · {Words.Count(clashes, "clash", "clashes")} to sort out first" : "")
                + (left > 0 ? $" · {left} {(copies ? "left out" : "left alone")}" : "");
     }
 
@@ -272,7 +272,7 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
                 }),
                 j.Cost);
         }).ToList();
-        Log.Info($"{Title}: running {runner.Run.Steps} step(s) for {batch.Count} game(s)"
+        Log.Info($"{Title}: running {Words.Count(runner.Run.Steps, "step")} for {Words.Count(batch.Count, "game")}"
                  + (runner.Run.NewLibrary is { } lib ? $", building a new library in {lib}; the files themselves aren't changed" : ""));
         try
         {

@@ -512,10 +512,10 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             Items.AddRange(items);
             if (items.Count > 0) ItemsAdded?.Invoke(items);
             foreach (var p in problems) Log.Warn(p);
-            if (items.Count > 0) Log.Info($"{Title}: added {items.Count:N0} file(s)");
+            if (items.Count > 0) Log.Info($"{Title}: added {Words.Count(items.Count, "file")}");
             // Files another page loaded: this page takes what it can use, without a word about the rest.
-            if (ignored > 0 && !quiet) Log.Warn($"{Title}: ignored {ignored} item(s) this page can't use");
-            if (rar > 0 && !quiet) Log.Warn($"{Title}: ignored {rar} RAR file(s). {Core.Formats.ArchiveExtractor.RarNotSupported}");
+            if (ignored > 0 && !quiet) Log.Warn($"{Title}: ignored {Words.Count(ignored, "item")} this page can't use");
+            if (rar > 0 && !quiet) Log.Warn($"{Title}: ignored {Words.Count(rar, "RAR file")}. {Core.Formats.ArchiveExtractor.RarNotSupported}");
         }
         catch (OperationCanceledException)
         {
@@ -602,8 +602,8 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         IsRunning = true;
         OverallProgress = 0;
         var busy = Queue.IsBusy;
-        RunStatus = busy ? $"Queued {pending.Count} item(s) behind the jobs already running…" : $"Working on {pending.Count} item(s)…";
-        Log.Info($"{Title}: starting {pending.Count} item(s) with {snapshot.Performance.ParallelJobs} parallel job(s)" + (busy ? ", after the jobs already in the queue" : ""));
+        RunStatus = busy ? $"Queued {Words.Count(pending.Count, "item")} behind the jobs already running…" : $"Working on {Words.Count(pending.Count, "item")}…";
+        Log.Info($"{Title}: starting {Words.Count(pending.Count, "item")} with {Words.Count(snapshot.Performance.ParallelJobs, "parallel job")}" + (busy ? ", after the jobs already in the queue" : ""));
         var started = _started = DateTime.Now;
         _cancelled = false;
 

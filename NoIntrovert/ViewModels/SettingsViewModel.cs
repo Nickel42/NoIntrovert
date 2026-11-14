@@ -818,7 +818,7 @@ public sealed partial class DatSettingsViewModel(AppSettings settings, IDialogs 
 
     public string OwnFolderText => string.IsNullOrWhiteSpace(S.Dats.OwnFolder) ? "None (only the downloaded databases)" : S.Dats.OwnFolder;
 
-    /// <summary>"Game databases: libretro-database, updated 2 hours ago (12 databases)."</summary>
+    /// <summary>"libretro-database, updated 2 hours ago (12 databases)." (the card is already headed Game databases)</summary>
     [ObservableProperty] public partial string Status { get; set; } = Core.Dats.DatStore.Default.Describe();
 
     [ObservableProperty, NotifyCanExecuteChangedFor(nameof(UpdateNowCommand))]

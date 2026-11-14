@@ -54,7 +54,7 @@ public static class Ps3Jobs
         if (string.IsNullOrWhiteSpace(folder)) return beside;
         if (!Directory.Exists(folder)) return $"{folder} doesn't exist. {beside}";
         var count = Directory.EnumerateFiles(folder, "*.dkey").Count() + Directory.EnumerateFiles(folder, "*.key").Count();
-        return $"{count} disc key file(s) in {folder}. {beside}";
+        return $"{Words.Count(count, "disc key file")} in {folder}. {beside}";
     }
 
     public static JobOutcome Convert(JobContext c, string source, TargetKind kind, string? outputFolder = null)

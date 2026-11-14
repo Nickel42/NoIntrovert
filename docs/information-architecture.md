@@ -58,7 +58,7 @@ Clear all act on every page, and a row follows its file when Optimize or Organiz
       Cancel · Convert
   - **Verify** (was Verify & match)
     - Job list (as Convert, no Preset column, no Save to)
-    - Side panel: Selected file (as on Convert) · game databases (status, Update now) · *Checking games* preset
+    - Side panel: Selected file (as on Convert) · game databases (status, Update now) · *Verify* preset
   - **Organize** (was Cleanup)
     - Job list (as Optimize): CHANGES is the dry run, from what Verify & match already found (files it
       hasn't checked are left alone)

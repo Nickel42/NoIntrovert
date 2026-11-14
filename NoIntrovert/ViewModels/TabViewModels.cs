@@ -10,13 +10,13 @@ using NoIntrovert.Services;
 namespace NoIntrovert.ViewModels;
 
 /// <summary>
-/// Verify &amp; match (M6): checks each input's own integrity, then looks its
+/// Verify (M6): checks each input's own integrity, then looks its
 /// hashes up in the No-Intro and Redump databases and says what it should be called.
 /// </summary>
 public partial class VerifyViewModel(SettingsViewModel settings, LogViewModel log, IDialogs dialogs, JobQueue queue)
     : BatchTabViewModel(settings, log, dialogs, queue)
 {
-    public override string Title => "Verify & match";
+    public override string Title => "Verify";
     public override string StartLabel => "Verify";
     public override string EmptyHint =>
         "Drop games here: ROMs, archives, disc images, CHDs, GameCube/Wii discs.\n" +

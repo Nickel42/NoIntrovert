@@ -78,13 +78,13 @@ internal static class ConvertDesignTests
             return wrong.Count == 0 ? null : string.Join("; ", wrong);
         });
 
-        test("Convert design: Works with counts \"7 of 9 play it · 1 not confirmed\"", () =>
+        test("Convert design: Works with counts \"Plays in 7 of 9 emulators · 1 not confirmed\"", () =>
         {
             SupportState[] states = [.. Enumerable.Repeat(SupportState.Works, 7), SupportState.DoesNot, SupportState.Unknown];
             var all = WorksWithViewModel.CountText(states);
             var none = WorksWithViewModel.CountText([SupportState.Works, SupportState.DoesNot]);
-            if (all != "7 of 9 play it · 1 not confirmed") return $"reads '{all}'";
-            if (none != "1 of 2 play it") return $"reads '{none}'";
+            if (all != "Plays in 7 of 9 emulators · 1 not confirmed") return $"reads '{all}'";
+            if (none != "Plays in 1 of 2 emulators") return $"reads '{none}'";
             return WorksWithViewModel.CountText([]) == "" ? null : "an empty list has a count";
         });
 
@@ -95,7 +95,7 @@ internal static class ConvertDesignTests
             var vm = new WorksWithViewModel();
             vm.Set("playstation", ".chd", []);
             if (footer != $"Cores: libretro · Standalone: ES-DE · {date}") return $"footer reads '{footer}'";
-            return vm.Footer == footer && vm.PlayCount.EndsWith("play it") ? null : $"view model reads '{vm.Footer}' / '{vm.PlayCount}'";
+            return vm.Footer == footer && vm.PlayCount.StartsWith("Plays in ") ? null : $"view model reads '{vm.Footer}' / '{vm.PlayCount}'";
         });
 
         test("Convert design: Custom's note and codec list", () =>

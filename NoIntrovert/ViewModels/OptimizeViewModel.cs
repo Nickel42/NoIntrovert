@@ -24,7 +24,7 @@ public sealed partial class OptimizeViewModel(SettingsViewModel settings, LogVie
     public override string StartLabel => "Optimize";
     public override string EmptyHint =>
         "Drop games here, or a folder of them: ROMs, archives, disc images, CHDs, GameCube/Wii discs.\n" +
-        "One click checks each file against the No-Intro and Redump databases, converts it to its best format, " +
+        "One click verifies each file against the No-Intro and Redump databases, converts it to its best format, " +
         "names it as the database does and moves it into its system's folder, in that order.";
     protected override string FilterName => "Games";
     protected override bool ConvertUnmatched => true;
@@ -37,7 +37,7 @@ public sealed partial class OptimizeViewModel(SettingsViewModel settings, LogVie
 
     protected override async Task RunJobsAsync(IReadOnlyList<JobItemViewModel> pending, AppSettings snapshot)
     {
-        // 1. Verify & match every file: the plan's names and folders come from what it finds.
+        // 1. Verify every file: the plan's names and folders come from what it finds.
         RunStatus = $"Verifying {Words.Count(pending.Count, "file")}…";
         await base.RunJobsAsync(pending, snapshot);
         if (RunCancelled) return;
@@ -72,8 +72,8 @@ public sealed partial class OptimizeViewModel(SettingsViewModel settings, LogVie
     protected override string DetailsFor(LibraryItem? item, IReadOnlyList<CleanupStep> steps)
     {
         if (item is null || Checked.Contains(item.Path))
-            return "1. Verify & match: checked for damage, then looked up in the game databases.\n" + base.DetailsFor(item, steps);
-        return "1. Verify & match: checked for damage, then looked up in the game databases.\n" +
+            return "1. Verify: checked for damage, then looked up in the game databases.\n" + base.DetailsFor(item, steps);
+        return "1. Verify: checked for damage, then looked up in the game databases.\n" +
                "2. Then, from what it finds: converted to its best format, named as in the database and moved into its system's folder.\n" +
                "A file the databases don't know is still converted where it is, under its own name. A damaged file is left alone.";
     }
