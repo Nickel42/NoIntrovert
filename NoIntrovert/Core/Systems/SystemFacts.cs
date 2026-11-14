@@ -39,6 +39,26 @@ public static class SystemFacts
         ReadCommentHandling = JsonCommentHandling.Skip,
     };
 
+    /// <summary>
+    /// ES-DE system names that share another system's picture: the arcade sets
+    /// use the arcade cabinet, the Famicom Disk System the Famicom, and the
+    /// Sega CD the Genesis.
+    /// </summary>
+    private static readonly Dictionary<string, string> IconAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["mame"] = "arcade",
+        ["fbneo"] = "arcade",
+        ["cps1"] = "arcade",
+        ["cps2"] = "arcade",
+        ["cps3"] = "arcade",
+        ["daphne"] = "arcade",
+        ["fds"] = "famicom",
+        ["segacd"] = "genesis",
+    };
+
+    /// <summary>The picture name for an icon: its alias's picture, or the name itself.</summary>
+    public static string IconFor(string icon) => IconAliases.GetValueOrDefault(icon, icon);
+
     private static readonly Dictionary<string, SystemFact> ById = Load();
 
     /// <summary>Every system with facts.</summary>
@@ -61,7 +81,7 @@ public static class SystemFacts
         var formats = Read<Dictionary<string, string>>("NoIntrovert.SystemFormats.json");
         return entries.ToDictionary(
             e => e.Id,
-            e => new SystemFact(e.Id, e.Name, e.Short, e.Manufacturer, e.Year, e.Generation, e.Media, e.Icon, formats.GetValueOrDefault(e.Id) ?? ""),
+            e => new SystemFact(e.Id, e.Name, e.Short, e.Manufacturer, e.Year, e.Generation, e.Media, IconFor(e.Icon), formats.GetValueOrDefault(e.Id) ?? ""),
             StringComparer.OrdinalIgnoreCase);
     }
 
