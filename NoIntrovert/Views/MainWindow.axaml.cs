@@ -5,6 +5,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using NoIntrovert.Core;
 using NoIntrovert.Services;
 using NoIntrovert.ViewModels;
@@ -23,28 +24,47 @@ public partial class MainWindow : SukiWindow, IDialogs
         SetUpConventions();
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
-        BodyGrid.SizeChanged += (_, _) => FitDrawers();
+        BodyGrid.SizeChanged += (_, _) => { if (Vm is { } vm) ApplyActivityLayout(vm); };
+        // The height the splitter leaves is the one wanted, and is remembered.
+        ActivitySplitter.DragCompleted += (_, _) =>
+        {
+            var row = BodyGrid.RowDefinitions[ActivityRow];
+            if (Vm is { } vm && row.Height.IsAbsolute) vm.Activity.Height = row.Height.Value;
+        };
+    }
+
+    private const int ActivityRow = 2;
+
+    /// <summary>The Activity button's chevron: ˄ while the drawer is closed (it opens upwards), ˅ while it's open.</summary>
+    public static readonly Avalonia.Data.Converters.IValueConverter Chevron =
+        new Avalonia.Data.Converters.FuncValueConverter<bool, Avalonia.Media.Geometry>(open =>
+            Avalonia.Media.StreamGeometry.Parse(open ? "M1 1l4 4 4-4" : "M1 5l4-4 4 4"));
+
+    /// <summary>
+    /// The drawer's row: Auto while it's closed (the page takes the height), and the height it was
+    /// left at while open. On a short window it gives up height first, so the page keeps room for its
+    /// list and run bar: at most about 45% of the body, never under a few rows. The wanted height
+    /// comes back when the window grows again.
+    /// </summary>
+    private void ApplyActivityLayout(MainViewModel vm)
+    {
+        var row = BodyGrid.RowDefinitions[ActivityRow];
+        if (!vm.Activity.IsOpen)
+        {
+            row.Height = GridLength.Auto;
+            return;
+        }
+        row.Height = new GridLength(FitActivity(vm.Activity.Height, BodyGrid.Bounds.Height));
     }
 
     /// <summary>
-    /// On a short window the log and the queue drawer give up height first, so
-    /// the page above them keeps room for its list and run bar: each takes at
-    /// most about a quarter of the body (never under a few rows).
+    /// The drawer's height in a body <paramref name="body"/> px tall: what's wanted, but at most 45% of the body
+    /// and never leaving the page under <see cref="PageMinHeight"/> (its toolbar, a few rows and the run bar); at least 120.
     /// </summary>
-    private void FitDrawers()
-    {
-        var height = BodyGrid.Bounds.Height;
-        if (height <= 0) return;
-        QueueList.MaxHeight = Math.Clamp(height * 0.2, 48, 220);
-        var row = BodyGrid.RowDefinitions[2];
-        if (Vm?.Log.IsExpanded == true && row.Height.IsAbsolute)
-        {
-            // A height the splitter set is the one wanted; it comes back when the window grows again.
-            if (Math.Abs(row.Height.Value - _fittedLogHeight) > 0.5) _expandedLogRow = row.Height;
-            _fittedLogHeight = Math.Min(_expandedLogRow.Value, Math.Max(110, height * 0.3));
-            row.Height = new GridLength(_fittedLogHeight);
-        }
-    }
+    public static double FitActivity(double wanted, double body) =>
+        body <= 0 ? wanted : Math.Max(120, Math.Min(wanted, Math.Min(body * 0.45, body - PageMinHeight)));
+
+    private const double PageMinHeight = 340;
 
     private MainViewModel? Vm => DataContext as MainViewModel;
 
@@ -107,43 +127,34 @@ public partial class MainWindow : SukiWindow, IDialogs
             if (args.PropertyName == nameof(GeneralSettingsViewModel.Theme)) ShowThemeMode(vm.Settings.General.Theme);
         };
         vm.Log.EntriesAdded += () => ScrollLogToEnd(vm);
-        vm.Log.PropertyChanged += (_, args) =>
+        vm.Activity.PropertyChanged += (_, args) =>
         {
-            if (args.PropertyName == nameof(LogViewModel.IsExpanded)) ApplyLogLayout(vm);
+            if (args.PropertyName is nameof(ActivityViewModel.IsOpen) or nameof(ActivityViewModel.Height)) ApplyActivityLayout(vm);
+            if (args.PropertyName is nameof(ActivityViewModel.IsOpen) or nameof(ActivityViewModel.Tab)) ScrollLogToEnd(vm);
         };
-        ApplyLogLayout(vm);
-    }
-
-    private const double ExpandedLogHeight = 230;
-    private GridLength _expandedLogRow = new(ExpandedLogHeight);
-    private double _fittedLogHeight = ExpandedLogHeight;
-
-    /// <summary>
-    /// Collapsed, the log's row fits just its bar and the page takes the rest;
-    /// expanded, it gets back the height it had (the splitter can change it).
-    /// </summary>
-    private void ApplyLogLayout(MainViewModel vm)
-    {
-        var row = BodyGrid.RowDefinitions[2];
-        if (vm.Log.IsExpanded)
-        {
-            row.Height = _expandedLogRow;
-            _fittedLogHeight = _expandedLogRow.Value;
-            FitDrawers();
-            ScrollLogToEnd(vm);
-        }
-        else
-        {
-            if (row.Height.IsAbsolute && row.Height.Value > 60 && Math.Abs(row.Height.Value - _fittedLogHeight) > 0.5) _expandedLogRow = row.Height;
-            row.Height = GridLength.Auto;
-        }
+        vm.FailedShown += FocusFilter;
+        ApplyActivityLayout(vm);
     }
 
     private void ScrollLogToEnd(MainViewModel vm)
     {
-        if (vm.Log.IsExpanded && vm.Log.Entries.Count > 0)
+        if (vm.Activity is { IsOpen: true, IsLogTab: true } && vm.Log.Entries.Count > 0)
             LogList.ScrollIntoView(vm.Log.Entries[^1]);
     }
+
+    /// <summary>
+    /// After the failure badge filtered a page: focus its filter box, showing "is:failed",
+    /// so Escape clears it there as for any filter.
+    /// </summary>
+    private void FocusFilter(BatchTabViewModel tab) =>
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            var box = this.GetVisualDescendants().OfType<TextBox>()
+                .FirstOrDefault(t => t.Name == "FilterBox" && t.IsEffectivelyVisible && t.DataContext == tab);
+            if (box is null) return;
+            box.Focus();
+            box.CaretIndex = box.Text?.Length ?? 0;
+        }, Avalonia.Threading.DispatcherPriority.Loaded);
 
     protected override void OnOpened(EventArgs e)
     {

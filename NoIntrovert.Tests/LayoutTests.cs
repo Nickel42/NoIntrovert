@@ -349,7 +349,7 @@ static class LayoutTests
             }
         }));
 
-        test("Layout: Settings shows Keys without opening Advanced; Enter saves a working folder; the log bar counts in words", () => Dispatch(() =>
+        test("Layout: Settings shows Keys without opening Advanced; Enter saves a working folder; the status bar's log chip counts in words", () => Dispatch(() =>
         {
             f.Show("settings");
             f.Layout();
@@ -367,13 +367,18 @@ static class LayoutTests
                 if (f.Settings.Performance.TempFolder != folder) return $"Enter didn't save the working folder (it's \"{f.Settings.Performance.TempFolder}\")";
             }
             finally { f.Vm.Settings.Performance.TempFolder = before; }
-            var counts = f.Find<TextBlock>(t => t.Classes.Contains("counts"));
-            var expected = LogViewModel.DescribeCounts(f.Vm.Log.ErrorCount, f.Vm.Log.WarningCount);
-            return counts?.Text == expected ? null : $"the log bar reads \"{counts?.Text}\", not \"{expected}\"";
+            // A warning, so the chip shows (it's hidden while there's nothing to count).
+            f.Vm.Log.Warn("layout test: a warning");
+            f.Vm.Log.Drain();
+            f.Layout();
+            var counts = f.Find<TextBlock>(t => t.Classes.Contains("counts") && t.IsEffectivelyVisible && t.FindAncestorOfType<Button>()?.Name == "ProblemsChip");
+            var expected = LogViewModel.DescribeProblems(f.Vm.Log.ErrorCount, f.Vm.Log.WarningCount);
+            return counts?.Text == expected ? null : $"the status bar's log chip reads \"{counts?.Text ?? "(no chip)"}\", not \"{expected}\"";
         }));
 
         UxLayoutTests.Run(test, f, Dispatch);
         ConventionsTests.RunLayout(test, f, Dispatch);
+        ActivityTests.RunLayout(test, f, Dispatch, screenshots);
         OptUxTests.RunLayout(test, f, Dispatch, screenshots);
         OptCleanupTests.RunLayout(test, f, Dispatch, screenshots);
         FolderLayoutTests.RunLayout(test, f, Dispatch, screenshots);
@@ -552,12 +557,16 @@ static class LayoutTests
         [
             new("Optimize with a row focused", "optimize", f => { f.Show("optimize"); f.FocusRow(f.Vm.Optimize); }, _ => { }),
             new("Convert with a row focused", "convert", f => { f.Show("convert"); f.FocusRow(f.Vm.Convert); }, _ => { }),
-            new("Convert with the log and queue open", "convert-log-queue", f =>
+            new("Convert with Activity open on the Log tab", "convert-activity-log", f =>
             {
                 f.Show("convert");
-                f.Vm.Log.IsExpanded = true;
-                f.Vm.Queue.IsOpen = true;
-            }, f => { f.Vm.Log.IsExpanded = false; f.Vm.Queue.IsOpen = false; }),
+                f.Vm.Activity.Open(ActivityTab.Log);
+            }, f => f.Vm.Activity.IsOpen = false),
+            new("Convert with Activity open on the Queue tab", "convert-activity-queue", f =>
+            {
+                f.Show("convert");
+                f.Vm.Activity.Open(ActivityTab.Queue);
+            }, f => f.Vm.Activity.IsOpen = false),
             new("Convert with a PlayStation row on Custom (Zstandard) and others selected", "convert-custom", f => f.ShowCustom(), f => f.ResetCustom()),
             new("Verify with a row focused", "verify", f => { f.Show("verify"); f.FocusRow(f.Vm.Verify); }, _ => { }),
             new("Organize with a row focused", "organize", f => { f.Show("cleanup"); f.FocusRow(f.Vm.Cleanup); }, _ => { }),

@@ -318,7 +318,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             OnPropertyChanged(nameof(NoMatches));
             return;
         }
-        bool Match(JobItemViewModel i) => words.All(w =>
+        bool Match(JobItemViewModel i) => words.All(w => string.Equals(w, FailedFilter, StringComparison.OrdinalIgnoreCase) ? i.IsFailed :
             i.Name.Contains(w, StringComparison.OrdinalIgnoreCase) || i.Folder.Contains(w, StringComparison.OrdinalIgnoreCase) ||
             (i.Target?.Label.Contains(w, StringComparison.OrdinalIgnoreCase) ?? false) ||
             i.PresetLabel.Contains(w, StringComparison.OrdinalIgnoreCase) ||
@@ -331,6 +331,19 @@ public abstract partial class BatchTabViewModel : ViewModelBase
 
     [RelayCommand]
     private void ClearFilter() => Filter = "";
+
+    /// <summary>
+    /// The filter word that keeps only failed rows (the status bar's "2 failed" badge types it).
+    /// A word of its own rather than "failed", which would also keep any row whose file, folder
+    /// or preset has "failed" in its name; this one matches the row's status, nothing else.
+    /// </summary>
+    public const string FailedFilter = "is:failed";
+
+    /// <summary>Whether any row on this page failed.</summary>
+    public bool HasFailedRows => Items.Any(i => i.IsFailed);
+
+    /// <summary>Filters the list to its failed rows (the status bar's failure badge); the filter box shows it and Escape clears it.</summary>
+    public void ShowFailedOnly() => Filter = FailedFilter;
     [ObservableProperty] public partial System.Collections.IList? SelectedItems { get; set; }
 
     // ---- Selection and focus: the checkboxes select, the panel follows the focused row ----

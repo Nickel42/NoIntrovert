@@ -25,9 +25,11 @@ A shareable version of section 1 with diagrams and screenshots is in Google Docs
 
 One window. A navigation rail on the left: the NoIntrovert logo at the top, then one list of pages (Optimize,
 Convert, Verify, Organize; the selected one is a pill in the theme's accent colour), and Settings at the bottom
-below a divider. Under every page, a log collapsed to
-one bar (error and warning counts, Show log), a queue drawer (hidden until opened; it keeps the 20 newest
-finished batches, plus any with a failure, until Clear finished) and a status bar with overall queue progress. The redesign is specified in [ui-redesign](requirements/ui-redesign.md).
+below a divider. At the bottom, a status bar that sums up every run: the queue (running, queued, done, time
+left, speed), its overall progress, "2 failed" (filters the page to its failed rows), the log's error and warning
+counts (open the log), and **Activity** (Ctrl+J). Activity is a drawer above the status bar, closed until opened,
+with two tabs: **Queue** (every job from every page; it keeps the 20 newest finished batches, plus any with a
+failure, until Clear finished) and **Log**. The redesign is specified in [ui-redesign](requirements/ui-redesign.md).
 
 The four pages share the files loaded: what's added on one (Add files…, Add folder…, a drop, or Settings ›
 Library's folders) shows on the others when they're opened, each keeping the inputs it can use; Remove and
