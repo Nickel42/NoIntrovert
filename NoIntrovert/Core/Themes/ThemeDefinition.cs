@@ -2,7 +2,7 @@ using Avalonia.Media;
 
 namespace NoIntrovert.Core.Themes;
 
-/// <summary>Whether a theme is one of the light or the dark ones (Settings › General › Light theme / Dark theme).</summary>
+/// <summary>Whether a theme is one of the light or the dark ones (Settings › Appearance › Light theme / Dark theme).</summary>
 public enum ThemeKind { Dark, Light }
 
 /// <summary>

@@ -30,19 +30,24 @@ The left rail has two labelled sections, with Settings set apart at the bottom:
 - **Settings** sits at the bottom of the rail, below a divider.
 - The **CHD info** page is removed.
 
-## Settings page (mock-up on "Page 4 · Settings", 4 Nov 2026)
+## Settings page (mock-up on "Page 4 · Settings", 4 Nov 2026; section list and Appearance, 14 Nov 2026)
 
-One scrolling page in the main area, titled "Settings · Changes are saved as you make them". It has no Save button. Two columns of cards:
+One page in the main area, titled "Settings · Changes are saved as you make them". It has no Save button. One column of cards (at most 880 px wide), with a **section list** at its left, like Windows Settings: one row per card, Advanced's own cards indented under it. Choosing a row scrolls its card to the top (opening Advanced for one of its cards), and as the page scrolls the row of the card at the top is the one highlighted (scroll-spy). The list is in the tab order: Up and Down choose the previous or next card and scroll to it, Enter moves focus into the card. Below a 1000 px window the list becomes a **Jump to…** drop-down above the cards.
 
 | Card | Settings |
 |---|---|
-| General | Theme (System / Dark / Light), Start on (the page the app opens to) |
-| Output | Save to (the default for the run-bar choice: next to the originals, a folder, or replace the originals ⚠), Overwrite existing files (off: a taken name gets " (2)"), Working folder for unpacking (default %TEMP%\NoIntrovert) |
+| General | Start on (the page the app opens to) |
+| Appearance | Theme (System / Dark / Light), Dark theme and Light theme (each with Customize…, the theme editor), Light brightness, Row density (Compact / Comfortable). **More themes…** (collapsed): find a theme in the two lists, import a file or a web address, export the dark or light theme, open the themes folder, reload |
+| Output | Save to (the default for the run-bar choice: next to the originals, a folder, or replace the originals ⚠), Folder layout, Overwrite existing files (off: a taken name gets " (2)"), Working folder for unpacking (default %TEMP%\NoIntrovert) |
 | Performance | Jobs at once (stepper, default 2), Check each file after converting (on; required before originals are replaced) |
 | Log | Open the log when a run has errors (on), Keep logs for (30 days), Open log folder |
 | Default presets | One preset dropdown per system (PlayStation, PS2, PSP, Dreamcast, Saturn, GameCube/Wii…), then Saved presets with Manage… |
 | Library | Library folders that Optimize scans (add/remove), Emulator data source and date with Check now |
-| About | Version, bundled tool versions, Check for updates, Licenses |
+| Keys | Wii U, 3DS, Switch, PS3 and PS Vita keys. A row that failed for missing keys has **Set up keys**, which opens Settings with this card at the top and focus on its first button |
+| Advanced (collapsed) | Power user · Archives · Files and folders · Game databases · Target formats · Diagnostics (Power-user mode only) |
+| About | The NoIntrovert illustration (120 px), version, bundled tool versions, Check for updates, Licenses |
+
+Links into the page name a card (`SettingsViewModel.ShowSection("Keys")`; `ShowKeys()` for Set up keys); the page scrolls it to the top and focuses its first control.
 
 ## Activity: the status bar and its drawer (replaces the log bar and the queue drawer, 14 Nov 2026)
 
@@ -97,7 +102,7 @@ around the list while it runs, and the taskbar button's progress, stay as they w
 
 ## Row density (14 Nov 2026)
 
-The job list (Optimize, Convert, Verify, Organize) has two densities, chosen in Settings › General › **Row density** and saved as `General.ListDensity`. Compact is the default for new and existing users. It's a visual change only. The list stays virtualised (a `VirtualizingStackPanel`) at the 5,000-game scale.
+The job list (Optimize, Convert, Verify, Organize) has two densities, chosen in Settings › Appearance › **Row density** and saved as `General.ListDensity`. Compact is the default for new and existing users. It's a visual change only. The list stays virtualised (a `VirtualizingStackPanel`) at the 5,000-game scale.
 
 - **Compact**: one line per row, about 32 px. At the default 1180×820 window, Convert shows about 13 rows, against about 7 in Comfortable.
   - The folder is not shown under the name. The row's tooltip has the full path.

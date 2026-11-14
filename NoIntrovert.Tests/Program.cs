@@ -917,6 +917,7 @@ Test("Presets: the view model saves a real choice only, and shows parameters onl
 SettingsPageTests.Run(Test, Dir);
 SettingsDesignTests.Run(Test, Dir);
 SettingsReviewTests.Run(Test, Dir);
+SettingsNavTests.Run(Test);
 ThemeTests.Run(Test, Dir);
 WiringTests.Run(Test, Dir);
 ReviewFixTests.Run(Test, Dir, log);
