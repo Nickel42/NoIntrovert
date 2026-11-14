@@ -230,7 +230,7 @@ public static class ConvertPlanner
             var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(sources[0])) + (game.Count > 1 ? $" (+{game.Count - 1})" : "");
             jobs.Add(new(name, game, game.Sum(i => rows[i].Size), c => WuaJobs.Build(withPreset(c, game[0]), id, sources)));
         }
-        log.Info($"Wii U: {byGame.Count} game(s) to build from {wiiu.Count} item(s)");
+        log.Info($"Wii U: {Words.Count(byGame.Count, "game")} to build from {Words.Count(wiiu.Count, "item")}");
     }
 
     /// <summary>

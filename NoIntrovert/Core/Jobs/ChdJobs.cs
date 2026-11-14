@@ -172,9 +172,9 @@ public static class ChdJobs
         c.TrackChdman("Extracting");
         var (files, stats) = ChdService.Extract(c.Chdman, chdPath, folder, c.Settings.Chd.ExtractFormat, c.Settings.Chd.SplitBin,
             c.Settings.Output.Overwrite, c.Log, c.Token, stem);
-        c.Log.Success($"{name}: wrote {files.Count} file(s) ({Size(stats.OutputBytes)}) in {stats.Elapsed:mm\\:ss\\.f}");
+        c.Log.Success($"{name}: wrote {Words.Count(files.Count, "file")} ({Size(stats.OutputBytes)}) in {stats.Elapsed:mm\\:ss\\.f}");
         var first = Path.GetFileName(files[0]);
-        return new JobOutcome(JobStatus.Succeeded, files.Count == 1 ? first : $"{first} + {files.Count - 1} file(s)", stats);
+        return new JobOutcome(JobStatus.Succeeded, files.Count == 1 ? first : $"{first} + {Words.Count(files.Count - 1, "file")}", stats);
     }
 
     private static OperationStats? Combine(List<(string Path, OperationStats Stats)> items) =>

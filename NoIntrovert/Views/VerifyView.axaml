@@ -17,7 +17,7 @@
             </Border>
             <Border Classes="card">
                 <StackPanel Spacing="4">
-                    <TextBlock Text="VERIFY &amp; MATCH" Classes="section" Margin="0,0,0,4" />
+                    <TextBlock Text="HOW IT WORKS" Classes="section" Margin="0,0,0,4" />
                     <TextBlock Classes="hint" TextWrapping="Wrap"
                                Text="Each game is checked for damage first (CHDs against their stored SHA-1, 7z and zip by testing every file), then hashed and looked up in the No-Intro and Redump databases. Hashes are remembered, so an unchanged file is never hashed twice." />
 

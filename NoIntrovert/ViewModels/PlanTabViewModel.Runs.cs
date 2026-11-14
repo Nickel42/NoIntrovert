@@ -114,7 +114,7 @@ public abstract partial class PlanTabViewModel
         {
             var useBin = Settings.Output.UseRecycleBin;
             var problems = await Task.Run(() => CleanupRunner.Undo(row.Run, useBin, Log));
-            Log.Info(problems.Count == 0 ? $"{Title}: run undone." : $"{Title}: run undone, except {problems.Count} item(s) (see above).");
+            Log.Info(problems.Count == 0 ? $"{Title}: run undone." : $"{Title}: run undone, except {Words.Count(problems.Count, "item")} (see above).");
             // The rows go back to the files' old paths, on every page.
             var (moves, _) = MovesOf(row.Run, row.Run.Entries.Select(e => e.From).OfType<string>());
             var back = moves.GroupBy(m => m.Value, PathNames.Comparer).ToDictionary(g => g.Key, g => g.First().Key, PathNames.Comparer);

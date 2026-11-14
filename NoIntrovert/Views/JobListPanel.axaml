@@ -245,7 +245,7 @@
             <!-- Run bar -->
             <Border Grid.Row="3" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="12,10">
                 <DockPanel>
-                    <!-- The run's progress and status: "Working on 7 item(s)…" -->
+                    <!-- The run's progress and status: "Working on 7 items…" -->
                     <StackPanel Classes="runstatus" VerticalAlignment="Center" Spacing="6">
                         <StackPanel.IsVisible>
                             <MultiBinding Converter="{x:Static BoolConverters.Or}">

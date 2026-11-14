@@ -101,8 +101,8 @@ public static class ActionPresets
         ],
         [PresetAction.Verify] =
         [
-            new(PresetAction.Verify, "check", "Check and match", "Check for damage, then look each game up · never changes a file", s => s.Chd.FixHeaderSha1 = false),
-            new(PresetAction.Verify, "fix", "Check, match and fix CHD headers", "Also rewrites a CHD's wrong header SHA-1 when its data is intact",
+            new(PresetAction.Verify, "check", "Verify", "Checks for damage, then looks each game up · never changes a file", s => s.Chd.FixHeaderSha1 = false),
+            new(PresetAction.Verify, "fix", "Verify and fix CHD headers", "Also rewrites a CHD's wrong header SHA-1 when its data is intact",
                 s => s.Chd.FixHeaderSha1 = true),
             Custom(PresetAction.Verify),
         ],
@@ -121,7 +121,7 @@ public static class ActionPresets
         PresetAction.Archive => "7z and zip",
         PresetAction.Extract => "CHD → disc image",
         PresetAction.Unpack => "Unpacking archives",
-        PresetAction.Verify => "Checking games", // the Verify & match page is already titled that
+        PresetAction.Verify => "Verify",
         _ => action.ToString(),
     };
 

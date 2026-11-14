@@ -180,7 +180,7 @@ public static class CleanupPlanner
                 $"{(copy ? "Copied" : "Moved")} whole into {RelativeFolder(dest ?? i.Root, target)}: this game is a folder"));
         }
 
-        // Only what Verify & match recognised is renamed or moved; the rest is listed.
+        // Only what Verify recognized is renamed or moved; the rest is listed.
         var matched = new List<(LibraryItem Item, string Name)>();
         foreach (var i in items)
         {
@@ -188,7 +188,7 @@ public static class CleanupPlanner
             if (m?.Game is { } name && m.Status is MatchStatus.Verified or MatchStatus.NameDiffers) matched.Add((i, name));
             else Leave(i, m switch
             {
-                null => "Not checked against the databases yet",
+                null => "Not verified yet",
                 { Status: MatchStatus.Damaged } => "Damaged",
                 _ => m.Text,
             }, tick: m?.Status != MatchStatus.Damaged);

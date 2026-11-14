@@ -174,7 +174,7 @@ public static class TestJobs
         var sha1A = Convert.ToHexStringLower(hashA.GetHashAndReset());
         var sha1B = Convert.ToHexStringLower(hashB.GetHashAndReset());
         if (sha1A == sha1B)
-            return (true, $"data identical, SHA-1 {sha1A[..12]}… over {a.Count} file(s)");
+            return (true, $"data identical, SHA-1 {sha1A[..12]}… over {Words.Count(a.Count, "file")}");
         return (false, lengthA != lengthB
             ? $"data differs: {lengthA:N0} bytes in vs {lengthB:N0} bytes out"
             : $"data differs: SHA-1 {sha1A[..12]}… vs {sha1B[..12]}…");

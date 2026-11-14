@@ -11,7 +11,7 @@ namespace NoIntrovert.ViewModels;
 /// <summary>
 /// Organize (the Cleanup wizard, M7, docs/requirements/cleanup-wizard.md): the files in the list are
 /// converted, named as in the database and moved into the layout, using what Verify &amp; match already
-/// found (files it hasn't checked are left alone; Optimize checks them first). Each row's CHANGES column
+/// found (files it hasn't verified are left alone; Optimize verifies them first). Each row's CHANGES column
 /// is the dry run; a box per kind of step turns that kind on or off. A run can be undone, or its trash
 /// emptied, afterwards.
 /// </summary>
@@ -30,7 +30,7 @@ public partial class CleanupViewModel : PlanTabViewModel
     protected override string DoneVerb => "Organized";
     public override string EmptyHint =>
         "Drop games here, or a folder of them.\n" +
-        "Files Verify & match recognised are converted, named as in the database and moved into their system's folder; " +
+        "Files Verify recognized are converted, named as in the database and moved into their system's folder; " +
         "the CHANGES column shows where each one ends up. Nothing changes until you click Organize, and a run can be undone.";
     protected override string FilterName => "Games";
 
@@ -196,7 +196,7 @@ public partial class CleanupViewModel : PlanTabViewModel
     protected override void RunFinished(CleanupRun run)
     {
         Log.Info(run.NewLibrary is { } built
-            ? $"Organize: finished; the new library is in {built} ({run.Entries.Count} file(s) made). Undo under Past runs removes them again."
-            : $"Organize: finished; the run can be undone under Past runs ({run.Entries.Count} change(s) recorded).");
+            ? $"Organize: finished; the new library is in {built} ({Words.Count(run.Entries.Count, "file")} made). Undo under Past runs removes them again."
+            : $"Organize: finished; the run can be undone under Past runs ({Words.Count(run.Entries.Count, "change")} recorded).");
     }
 }

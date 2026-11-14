@@ -107,9 +107,9 @@ public static class RomJobs
             var o = Pack(new JobContext(c.Chdman, keep, c.Log, sub, c.Token, c.RvzSource), roms[i], Path.GetFileNameWithoutExtension(roms[i]), outputFolder);
             if (o.Status is JobStatus.Succeeded or JobStatus.Warning) done++; else failed++;
         }
-        c.Log.Info($"{Path.GetFileName(archive)}: split into {done} archive(s)");
+        c.Log.Info($"{Path.GetFileName(archive)}: split into {Words.Count(done, "archive")}");
         if (failed == 0 && s.Output.ReplacesOriginals) FileRemover.Remove([archive], s.Output.UseRecycleBin, c.Log);
-        return new JobOutcome(failed > 0 ? JobStatus.Failed : JobStatus.Succeeded, $"{done} game(s)" + (failed > 0 ? $", {failed} failed" : ""));
+        return new JobOutcome(failed > 0 ? JobStatus.Failed : JobStatus.Succeeded, Words.Count(done, "game") + (failed > 0 ? $", {failed} failed" : ""));
     }
 
     /// <summary>
@@ -162,10 +162,10 @@ public static class RomJobs
         if (lines.Count > 0)
         {
             File.WriteAllText(Path.Combine(folder, game + ".m3u"), string.Join("\n", lines) + "\n");
-            c.Log.Success($"{game}.m3u lists {lines.Count} disc(s) in {hiddenName}/");
+            c.Log.Success($"{game}.m3u lists {Words.Count(lines.Count, "disc")} in {hiddenName}/");
         }
         return new JobOutcome(failed > 0 ? JobStatus.Failed : JobStatus.Succeeded,
-            $"{lines.Count} disc(s) → {hiddenName}/, {game}.m3u" + (failed > 0 ? $"; {failed} failed" : ""));
+            $"{Words.Count(lines.Count, "disc")} → {hiddenName}/, {game}.m3u" + (failed > 0 ? $"; {failed} failed" : ""));
     }
 
     /// <summary>The discs of one game among <paramref name="paths"/>: same folder and title, numbered by their (Disc N) tags.</summary>
