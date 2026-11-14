@@ -366,7 +366,7 @@ public sealed partial class PerformanceSettingsViewModel(AppSettings settings, I
     /// <summary>
     /// The working folder; empty means the default, shown as the box's
     /// placeholder. %VARIABLES% are expanded as it's set, and a path that isn't
-    /// a full one (D:\Work, not Work) is refused: the box goes back to the
+    /// a full one (D:\Work or /home/me/work, not Work) is refused: the box goes back to the
     /// saved folder and <see cref="TempFolderNote"/> says why.
     /// </summary>
     public string TempFolder
@@ -405,8 +405,11 @@ public sealed partial class PerformanceSettingsViewModel(AppSettings settings, I
 
     /// <summary>The line under the working folder: why a folder was refused or can't be used, otherwise its free space.</summary>
     public string TempFolderNote => _tempFolderRefused is { } refused
-        ? $"“{refused}” isn't a full path. Use one like D:\\Work."
+        ? $"“{refused}” isn't a full path. Use one like {FullPathExample}."
         : TempFolderCheck.Note;
+
+    /// <summary>A full path as this system writes one, for the refusal note.</summary>
+    internal static string FullPathExample => OperatingSystem.IsWindows() ? @"D:\Work" : "/home/me/work";
 
     /// <summary>Whether <see cref="TempFolderNote"/> is a problem rather than the free space.</summary>
     public bool HasTempFolderProblem => _tempFolderRefused is not null || TempFolderCheck.Problem;

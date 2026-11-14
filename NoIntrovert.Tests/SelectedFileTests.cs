@@ -18,17 +18,19 @@ internal static class SelectedFileTests
         test("Selected file: follows the focused file, lists the systems when the selection spans several, and is empty with neither", () =>
         {
             var facts = new FileFactsViewModel();
-            facts.Follow(@"C:\games\Tetris (USA).nes", "nes-famicom", ["nes-famicom"], _ => null);
+            // Paths in this system's form: on Linux a backslash isn't a separator, so C:\games\x.nes would be all file name.
+            string Game(string name) => Path.Combine(Path.GetTempPath(), "games", name);
+            facts.Follow(Game("Tetris (USA).nes"), "nes-famicom", ["nes-famicom"], _ => null);
             if (facts.Mode != FileFactsMode.File || facts.SystemId != "nes-famicom" || facts.FileName != "Tetris (USA).nes") return $"one file: {facts.Mode} {facts.SystemId} {facts.FileName}";
-            facts.Follow(@"C:\games\Tetris (USA).nes", "nes-famicom", ["nes-famicom", "game-boy"], _ => null);
+            facts.Follow(Game("Tetris (USA).nes"), "nes-famicom", ["nes-famicom", "game-boy"], _ => null);
             if (facts.Mode != FileFactsMode.Systems || facts.SystemLines.Count != 2) return $"two systems: {facts.Mode}";
             facts.Follow(null, null, [], _ => null);
             if (facts.Mode != FileFactsMode.Empty) return "nothing selected: " + facts.Mode;
             // A match result read later is shown only while its file is.
-            facts.Follow(@"C:\a.nes", "nes-famicom", ["nes-famicom"], _ => null);
-            facts.ShowMatch(@"C:\b.nes", Core.Dats.MatchResult.Of(Core.Dats.MatchStatus.Verified, ""));
+            facts.Follow(Game("a.nes"), "nes-famicom", ["nes-famicom"], _ => null);
+            facts.ShowMatch(Game("b.nes"), Core.Dats.MatchResult.Of(Core.Dats.MatchStatus.Verified, ""));
             if (facts.IsVerified) return "another file's match result was shown";
-            facts.ShowMatch(@"C:\a.nes", Core.Dats.MatchResult.Of(Core.Dats.MatchStatus.Verified, ""));
+            facts.ShowMatch(Game("a.nes"), Core.Dats.MatchResult.Of(Core.Dats.MatchStatus.Verified, ""));
             return facts.IsVerified ? null : "the file's own match result wasn't shown";
         });
 
