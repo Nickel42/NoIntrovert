@@ -21,9 +21,9 @@ target for a whole system or for one file type in Advanced settings, including "
 - The override settings.
 - The docs.
 
-**Out of scope here (D8):** converters for formats the app can't produce yet: PS3 decrypted
-folders and PS Vita `.pkg` → NoNpDrm. (3DS `.zcci`, Switch NSZ/XCZ and Xbox XISO were on this list;
-FR-9, FR-11 and FR-12 now cover them.) For these systems the app
+**Out of scope here (D8):** converters for formats the app can't produce yet: PS Vita `.pkg` →
+NoNpDrm. (3DS `.zcci`, Switch NSZ/XCZ, Xbox XISO and the PS3 decrypted ISO and JB folder were on this
+list; FR-9, FR-11, FR-12 and lib-ps3-kit now cover them.) For these systems the app
 shows the recommendation with no Convert button, and each converter gets its own requirement later.
 
 ## 3. Today's code (starting point)
@@ -266,7 +266,7 @@ shows the recommendation with no Convert button, and each converter gets its own
 2. **Overrides:** FR-12 to FR-14.
 3. **Per-system extras:** FR-7 (multi-disc), FR-8, FR-9 (3DS), FR-10 (Vita zip and launcher),
    FR-11 (hashes and header fixes), R6 (splitting).
-4. **Later, a separate requirement each (D8):** Vita `.pkg` + zRIF, PS3.
+4. **Later, a separate requirement each (D8):** Vita `.pkg` + zRIF. (PS3 is done: lib-ps3-kit.)
 
 ## 7. Resolved questions
 

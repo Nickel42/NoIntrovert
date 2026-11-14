@@ -19,3 +19,6 @@
 [submodule "native/lib-chd-kit"]
 	path = native/lib-chd-kit
 	url = https://github.com/Nickel42/lib-chd-kit.git
+[submodule "native/lib-ps3-kit"]
+	path = native/lib-ps3-kit
+	url = https://github.com/Nickel42/lib-ps3-kit.git

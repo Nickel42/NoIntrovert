@@ -6,7 +6,7 @@ namespace NoIntrovert.Core.Formats;
 /// <summary>
 /// Tells a disc's system from the first sectors of its image, where that's
 /// quick and certain: GameCube and Wii headers (plain and in Dolphin's
-/// containers), Xbox and Xbox 360 XDVDFS, Saturn, Mega-CD and 3DO boot sectors, the PSP
+/// containers), Xbox and Xbox 360 XDVDFS, PS3 discs, Saturn, Mega-CD and 3DO boot sectors, the PSP
 /// UMD identifier, and PS1 vs PS2 by SYSTEM.CNF. Returns a registry id, or
 /// null when the image doesn't say.
 /// </summary>
@@ -26,7 +26,7 @@ internal static class DiscProbe
                 ".wbfs" => "wii",
                 ".tgc" => "gamecube",
                 ".gcz" or ".wia" or ".rvz" or ".ciso" => NintendoContainer(s),
-                _ => NintendoHeader(s, 0) ?? Xbox(s) ?? FromFileSystem(s),
+                _ => NintendoHeader(s, 0) ?? Xbox(s) ?? Ps3(s) ?? FromFileSystem(s),
             };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
@@ -119,6 +119,19 @@ internal static class DiscProbe
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or NotSupportedException
                                        or ArgumentException or InvalidOperationException) { return false; }
+    }
+
+    /// <summary>
+    /// A PS3 disc image: sector 1 starts with "PlayStation3" (Redump and decrypted images alike), or, for an image
+    /// rebuilt from a folder, the ISO 9660 volume is named PS3VOLUME.
+    /// </summary>
+    private static string? Ps3(Stream s)
+    {
+        Span<byte> head = stackalloc byte[12];
+        if (ReadAt(s, 2048, head) && head.SequenceEqual("PlayStation3"u8)) return "playstation-3";
+        Span<byte> pvd = stackalloc byte[72];
+        return ReadAt(s, 16 * 2048, pvd) && pvd[0] == 1 && pvd.Slice(1, 5).SequenceEqual("CD001"u8)
+               && Encoding.ASCII.GetString(pvd.Slice(40, 32)).Trim() == "PS3VOLUME" ? "playstation-3" : null;
     }
 
     /// <summary>

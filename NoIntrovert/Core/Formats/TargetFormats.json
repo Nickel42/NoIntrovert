@@ -823,9 +823,9 @@
     "category": "disc",
     "extensions": [],
     "folders": ["ps3", "playstation3", "sonyplaystation3"],
-    "target": {"format": "folder", "container": "folder", "label": "Decrypted disc folder (PS3_GAME layout); PSN installed via .pkg + .rap", "producible": false},
+    "target": {"format": ".iso", "container": "bare", "label": "Decrypted ISO", "producible": true},
     "alternatives": [
-      {"id": "iso", "label": "Decrypted ISO", "producible": false}
+      {"id": "folder", "label": "JB folder (PS3_GAME layout)", "producible": true}
     ],
     "rules": ["R10", "R11", "R13"],
     "dats": ["redump/Sony - PlayStation 3"],

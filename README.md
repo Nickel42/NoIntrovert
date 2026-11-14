@@ -237,6 +237,23 @@ header (they usually have no extension) and left as they are; Xenia installs
 them. The tests use a synthetic disc and package headers, so try a real dump
 of your own before relying on it.
 
+## PlayStation 3
+
+A Redump PS3 `.iso` is encrypted; it becomes a decrypted ISO, the same size
+and layout, which RPCS3 loads as it is. Choose "JB folder" in Settings ›
+Target formats to have the disc's files (`PS3_DISC.SFB`, `PS3_GAME/`…) in a
+folder instead; a decrypted ISO can become a JB folder too. Each disc needs
+its own key, the `.dkey` file Redump publishes: keep it beside the image with
+the same name, or put them all in the folder set in Settings › Keys. A wrong
+key is caught before anything is written, every result is re-read and
+checked, and the Redump hashes are kept so Verify & match still recognises the
+game (a decrypted ISO re-encrypted with its key is the Redump image again).
+All of the PS3 code is lib-ps3-kit, a managed .NET library in its own
+repository ([Nickel42/lib-ps3-kit](https://github.com/Nickel42/lib-ps3-kit)),
+checked out as a git submodule in `native/lib-ps3-kit`. The tests use a
+synthetic disc and a made-up key, so try a real dump of your own before
+relying on it.
+
 ## Nintendo Switch
 
 `.nsp`, `.xci` and `.xcz` files become `.nsz` by default; choose `.xcz` in

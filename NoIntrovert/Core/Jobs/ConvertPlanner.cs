@@ -99,6 +99,11 @@ public static class ConvertPlanner
                     var xbox = row.Target;
                     jobs.Add(new(name, [i], row.Size, c => Xbox.XboxJobs.Convert(c.WithSettings(With(c.Settings, at)), path, xbox)));
                     break;
+                case TargetKind.Ps3Iso or TargetKind.Ps3Folder:
+                    // PS3 discs: lib-ps3-kit decrypts them with their .dkey and checks the result.
+                    var ps3 = row.Target;
+                    jobs.Add(new(name, [i], row.Size, c => Ps3.Ps3Jobs.Convert(c.WithSettings(With(c.Settings, at)), path, ps3)));
+                    break;
                 case TargetKind.Cso or TargetKind.Zso:
                     // PSP and PS2 discs for real hardware: compressed in 2048-byte blocks, then read back and checked.
                     var zso = row.Target == TargetKind.Zso;
@@ -335,5 +340,6 @@ public static class ConvertPlanner
         s.Output.ReplacesOriginals && target is TargetKind.Chd or TargetKind.Rvz or TargetKind.Wua
             or TargetKind.SevenZip or TargetKind.Zip or TargetKind.Files or TargetKind.Cci or TargetKind.Zcci
             or TargetKind.Nsz or TargetKind.Xcz or TargetKind.Nsp or TargetKind.Xci or TargetKind.Xiso or TargetKind.XboxCci or TargetKind.Zar
+            or TargetKind.Ps3Iso or TargetKind.Ps3Folder
             or TargetKind.Cso or TargetKind.Zso;
 }
