@@ -85,7 +85,7 @@ internal static class OptCleanupTests
                 foreach (var file in files) cleanup.Items.Add(new JobItemViewModel(file));
                 cleanup.MakePlanAsync().GetAwaiter().GetResult();
                 if (cleanup.UncheckedCount != 3 || !cleanup.HasUnchecked) return $"{cleanup.UncheckedCount} file(s) unchecked, not 3 (plan: \"{cleanup.PlanSummary}\")";
-                if (cleanup.UncheckedText != "3 files haven't been checked yet. Organize renames and moves only games it recognises.")
+                if (cleanup.UncheckedText != "3 files haven't been verified yet. Organize renames and moves only games it recognizes.")
                     return $"the callout reads \"{cleanup.UncheckedText}\"";
                 if (cleanup.HasWorkToDo || cleanup.StartCommand.CanExecute(null)) return "Organize can start with nothing to organize";
                 if (cleanup.RunStatus != CleanupViewModel.NothingToOrganize) return $"the run bar reads \"{cleanup.RunStatus}\"";
@@ -106,7 +106,7 @@ internal static class OptCleanupTests
                 // One file reads in the singular; with no rows there's nothing to say.
                 cleanup.Items.RemoveWhere(r => r.Path != files[0]);
                 cleanup.MakePlanAsync().GetAwaiter().GetResult();
-                if (cleanup.UncheckedText != "1 file hasn't been checked yet. Organize renames and moves only games it recognises.")
+                if (cleanup.UncheckedText != "1 file hasn't been verified yet. Organize renames and moves only games it recognizes.")
                     return $"one file's callout reads \"{cleanup.UncheckedText}\"";
                 cleanup.Items.Clear();
                 cleanup.MakePlanAsync().GetAwaiter().GetResult();

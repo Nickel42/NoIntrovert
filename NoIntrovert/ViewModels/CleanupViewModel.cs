@@ -110,10 +110,10 @@ public partial class CleanupViewModel : PlanTabViewModel
 
     // ---- Files not checked yet ----
 
-    /// <summary>"33 files haven't been checked yet. Organize renames and moves only games it recognises."</summary>
+    /// <summary>"33 files haven't been verified yet. Organize renames and moves only games it recognizes."</summary>
     public string UncheckedText => UncheckedCount == 1
-        ? "1 file hasn't been checked yet. Organize renames and moves only games it recognises."
-        : $"{UncheckedCount} files haven't been checked yet. Organize renames and moves only games it recognises.";
+        ? "1 file hasn't been verified yet. Organize renames and moves only games it recognizes."
+        : $"{UncheckedCount} files haven't been verified yet. Organize renames and moves only games it recognizes.";
 
     /// <summary>The plan has rows Verify &amp; match hasn't checked: the callout offers to check them.</summary>
     public bool HasUnchecked => UncheckedCount > 0;
@@ -146,7 +146,7 @@ public partial class CleanupViewModel : PlanTabViewModel
         BusyText = $"Verifying {Words.Count(paths.Count, "file")}…";
         try
         {
-            Log.Info($"Organize: verifying {Words.Count(paths.Count, "file")} it hasn't checked yet");
+            Log.Info($"Organize: verifying {Words.Count(paths.Count, "file")} not verified yet");
             await verify(paths);
         }
         finally { IsBusy = false; }
