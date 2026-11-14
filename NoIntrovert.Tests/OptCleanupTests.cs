@@ -181,9 +181,10 @@ internal static class OptCleanupTests
                 convert.OpenKeysCommand.Execute(null);
                 if (asked != 1) return "Set up keys didn't ask for Settings › Keys";
                 var raised = false;
-                settings.ShowKeysRequested += (_, _) => raised = true;
+                settings.ShowSectionRequested += (_, _) => raised = true;
                 settings.ShowKeys();
-                return raised && settings.ShowKeysPending ? null : "Settings wasn't asked to show its Keys card";
+                return raised && settings.ShowKeysPending && settings.PendingSection == SettingsViewModel.KeysSection
+                    ? null : "Settings wasn't asked to show its Keys card";
             }));
 
         var ctrFixtures = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "native", "lib-3ds-kit", "tests", "fixtures"));

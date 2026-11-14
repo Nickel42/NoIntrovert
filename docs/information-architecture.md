@@ -78,11 +78,12 @@ Clear all act on every page, and a row follows its file when Optimize or Organiz
       Organize and the plan is made again) and **Use Optimize instead** · past runs (Undo, Empty trash) ·
       what the chosen layout does · safety note
   - **Library tests** (Power-user mode only): round trip and chdman comparison, results table, CSV export
-- **Settings** (one page of cards, saved as they change): General (theme, Start on) · Output (Save to's
-  default, Folder layout, Overwrite existing files, working folder) · Performance · Log · Default presets · Library (folders,
-  emulator data with Check now) · About. Under **Advanced**: Power user · How each action is done ·
-  Default targets · Files and folders · Keys · Game databases (and ES-DE systems) · Target formats (by
-  system, by file type, rule options) · Expert · Diagnostics (Power-user)
+- **Settings** (one page of cards, saved as they change; a section list at the left, a Jump to… drop-down in a
+  narrow window): General (Start on) · Appearance (theme, dark and light themes, brightness, row density; More
+  themes… to find, import and export themes) · Output (Save to's default, Folder layout, Overwrite existing files,
+  working folder) · Performance · Log · Default presets · Library (folders, emulator data with Check now) · Keys ·
+  **Advanced** (Power user · Archives · Files and folders · Game databases (and ES-DE systems) · Target formats (by
+  system, by file type, rule options, Expert) · Diagnostics (Power-user)) · About
 
 The CHD info page is gone. Originals are removed only by Save to › Replace the originals, never by a preset.
 
