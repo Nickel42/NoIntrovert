@@ -14,6 +14,7 @@ public partial class MainViewModel : ViewModelBase
         Log = new LogViewModel(dialogs, settings);
         var queue = new JobQueue(() => (int)Settings.Performance.ParallelJobs);
         Queue = new QueueViewModel(queue);
+        Activity = new ActivityViewModel(settings, Log);
         Convert = new ConvertViewModel(Settings, Log, dialogs, queue);
         Verify = new VerifyViewModel(Settings, Log, dialogs, queue);
         Tests = new TestsViewModel(Settings, Log, dialogs, queue);
@@ -221,8 +222,34 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    /// <summary>The shared job queue, shown in the status bar and the queue drawer.</summary>
+    /// <summary>The shared job queue, shown in the status bar and Activity's Queue tab.</summary>
     public QueueViewModel Queue { get; }
+
+    /// <summary>The Activity drawer above the status bar: the queue and the log.</summary>
+    public ActivityViewModel Activity { get; }
+
+    /// <summary>Raised after <see cref="ShowFailed"/> filtered a page, so the window can put focus in its filter box (Escape then clears it).</summary>
+    public event Action<BatchTabViewModel>? FailedShown;
+
+    /// <summary>
+    /// The status bar's "2 failed" badge: filters the page showing to its failed rows.
+    /// When that page has none (the failures are another page's), it shows the first
+    /// page that has some, filtered the same way. False when no page has a failed row.
+    /// </summary>
+    public bool ShowFailed()
+    {
+        var current = SelectedPage.Content as BatchTabViewModel;
+        var tab = current is { HasFailedRows: true } ? current
+            : Pages.Where(p => p.IsVisible).Select(p => p.Content).OfType<BatchTabViewModel>().FirstOrDefault(t => t.HasFailedRows);
+        if (tab is null) return false;
+        if (tab != current) SelectedPage = Pages.First(p => p.Content == tab);
+        tab.ShowFailedOnly();
+        FailedShown?.Invoke(tab);
+        return true;
+    }
+
+    [RelayCommand]
+    private void ShowFailedRows() => ShowFailed();
 
     /// <summary>The files and folders loaded, shared by Optimize, Convert, Verify and Organize.</summary>
     public FileWorkspace Workspace { get; } = new();

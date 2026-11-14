@@ -62,7 +62,7 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
-        <!-- Run bar: progress and status at the left, then Save to, then Cancel and Convert.
+        <!-- Run bar: the run's status at the left, then Save to, then Cancel and Convert.
              When the list is narrow, the status moves under the rest. -->
         <Style Selector="StackPanel.runstatus">
             <Setter Property="Width" Value="320" />
@@ -359,16 +359,17 @@
             <!-- Run bar -->
             <Border Grid.Row="3" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="12,10">
                 <DockPanel>
-                    <!-- The run's progress and status: "Working on 7 items…" -->
-                    <StackPanel Classes="runstatus" VerticalAlignment="Center" Spacing="6">
+                    <!-- The run's status, on one line: "Working on 7 items…", then "Finished in 0:12:04 · 40 done, 2 failed".
+                         Progress is on the status bar and each row; the full text is in the tooltip. -->
+                    <StackPanel Classes="runstatus" VerticalAlignment="Center">
                         <StackPanel.IsVisible>
                             <MultiBinding Converter="{x:Static BoolConverters.Or}">
                                 <Binding Path="IsRunning" />
                                 <Binding Path="RunStatus" Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
                             </MultiBinding>
                         </StackPanel.IsVisible>
-                        <ProgressBar Value="{Binding OverallProgress}" Height="8" MinWidth="0" IsVisible="{Binding IsRunning}" />
-                        <TextBlock Text="{Binding RunStatus}" Classes="hint" TextWrapping="Wrap" />
+                        <TextBlock x:Name="RunStatusText" Text="{Binding RunStatus}" Classes="hint" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding RunStatus}" />
                     </StackPanel>
                     <!-- Cancel and Convert, at the right -->
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="16,0,0,0">

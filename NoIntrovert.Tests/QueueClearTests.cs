@@ -73,7 +73,7 @@ internal static class QueueClearTests
             {
                 if (!batch.Completion.Wait(TimeSpan.FromSeconds(20))) return "the job didn't finish";
                 model.Refresh();
-                model.IsOpen = true;
+                f.Vm.Activity.Open(ActivityTab.Queue);
                 foreach (var (width, height) in LayoutTests.Sizes)
                 {
                     f.Resize(width, height);
@@ -97,7 +97,7 @@ internal static class QueueClearTests
             }
             finally
             {
-                model.IsOpen = false;
+                f.Vm.Activity.IsOpen = false;
                 model.Queue.ClearFinished();
                 model.Refresh();
             }

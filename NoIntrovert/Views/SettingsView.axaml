@@ -484,7 +484,10 @@
                         <StackPanel>
                             <TextBlock Text="LOG" Classes="section" />
                             <Grid Classes="row" ColumnDefinitions="*,Auto">
-                                <TextBlock Text="Open the log when a run has errors" Classes="name" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Open the log when a run has errors" Classes="name" TextWrapping="Wrap" />
+                                    <TextBlock Text="Opens Activity, above the status bar, on its Log tab (Ctrl+J shows or hides it)." Classes="desc" TextWrapping="Wrap" />
+                                </StackPanel>
                                 <CheckBox Classes="onoff control" IsChecked="{Binding Log.OpenLogOnErrors}" AutomationProperties.Name="Open the log when a run has errors"
                                           Content="{Binding Log.OpenLogOnErrors, Converter={x:Static v:SettingsView.OnOff}}" />
                             </Grid>
