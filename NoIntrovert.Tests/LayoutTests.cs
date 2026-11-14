@@ -386,6 +386,7 @@ static class LayoutTests
         QueueClearTests.RunLayout(test, f, Dispatch, screenshots);
         OptimizeTests.RunLayout(test, f, Dispatch, screenshots);
         DensityTests.RunLayout(test, f, Dispatch, screenshots);
+        SmallWindowTests.RunLayout(test, f, Dispatch, screenshots);
 
         Dispatch(() => { f.Window.Close(); return null; });
     }
