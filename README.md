@@ -66,7 +66,7 @@ Converted first, in the temp folder:
 | Format | How |
 |---|---|
 | ECM (`.bin.ecm`, or a cue whose bins are `.ecm`) | Decoded, with the stored checksum verified |
-| CSO / ZSO | Deflate / LZ4 blocks decoded to an ISO |
+| CSO / ZSO | Deflate / LZ4 blocks decoded to an ISO; a PSP or PS2 ISO can also be written as CSO (7-Zip's deflate) or ZSO (LZ4 HC) |
 | ISZ (UltraISO) | zlib / bzip2 / raw / zero blocks decoded to an ISO or bin |
 | PBP (PS1 EBOOT, single or multi-disc) | Each disc rebuilt as bin + cue; multi-disc sets give one CHD per disc |
 | CloneCD `.ccd/.img/.sub` | Cue written that points at the `.img` (no copy) |

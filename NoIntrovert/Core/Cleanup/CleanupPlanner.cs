@@ -387,6 +387,8 @@ public static class CleanupPlanner
         TargetKind.Xiso => ".iso",
         TargetKind.XboxCci => ".cci",
         TargetKind.Zar => ".zar",
+        TargetKind.Cso => ".cso",
+        TargetKind.Zso => ".zso",
         TargetKind.SevenZip => ".7z",
         TargetKind.Zip => ".zip",
         _ => null,

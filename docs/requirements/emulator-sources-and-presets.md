@@ -10,7 +10,7 @@ I read the NoIntrovert source but did not change it.
 | Fact | Where |
 |---|---|
 | Disc systems and their targets live in a data file (`TargetFormats.json`). Each entry already has an `esde` key holding the ES-DE system id (for example `psx`, `ps2`, `gc`). | `NoIntrovert/Core/Formats/TargetFormats.json` |
-| Formats the app can **produce**: CHD (chdman `createcd` / `createdvd`), RVZ, WUA, 7z/zip, and CHD → cue/bin, gdi or iso. `pbp` (PS1, PSP) and `cso` (PS2, PSP) are listed as alternatives with `"producible": false`. The app can **read** PBP, CSO/ZSO and ISZ but can't write them. | `TargetFormats.json`; `Core/Formats/PbpExtractor.cs`, `CsoDecoder.cs` |
+| Formats the app can **produce**: CHD (chdman `createcd` / `createdvd`), RVZ, WUA, 7z/zip, CHD → cue/bin, gdi or iso, and CSO (PSP, PS2) and ZSO (PS2) from an ISO. `pbp` (PS1, PSP) is listed as an alternative with `"producible": false`. The app can **read** PBP, CSO/ZSO and ISZ, but can't write PBP or ISZ. | `TargetFormats.json`; `Core/Formats/PbpExtractor.cs`, `CsoDecoder.cs`, `CsoEncoder.cs` |
 | The bundled chdman is built from MAME tag `mame0289`. Its default codecs are `cdlz, cdzl, cdfl` for CD and `lzma, zlib, huff, flac` for DVD/raw. **Zstandard is never chosen by default.** The CHD presets leave compression empty (`Compression = ""` means chdman's default), so every CHD the app makes today is a non-Zstandard CHD. | `native/lib-chd-kit/NOTES.md`; `native/lib-chd-kit/src/chdman_core.cpp` lines 71–74; `Core/Presets/ActionPresets.cs` `Chd()` |
 | Settings that the existing presets pin down: `Chd.Compression`, `Chd.HunkSize`, `Chd.IsoMode`, `Chd.VerifyAfterCreate`, `Output.RemoveOriginals`; RVZ: `Nintendo.Compression` (Zstd), `CompressionLevel` (1/5/19), `BlockSize` (128 KiB), `Scrub` (false); extract: `Chd.ExtractFormat`, `Chd.SplitBin`. | `Core/Presets/ActionPresets.cs` |
 | GameCube/Wii have a `NintendoTarget.Chd` option. **Dolphin has no CHD reader** (see 3.9), so a GameCube/Wii CHD can't be played in Dolphin. | `Core/Formats/TargetResolver.cs` line 113 |
@@ -279,7 +279,7 @@ PC-FX, Neo Geo CD, CD-i, Jaguar CD, Amiga CD32 and FM Towns use the same pattern
 
 ## 5. Follow-ups for the NoIntrovert team
 
-1. `TargetFormats.json` marks PS1 `pbp` and PSP/PS2 `cso` as not producible. The PBP and CSO presets need writers first (🔒).
+1. `TargetFormats.json` marks PS1 `pbp` as not producible. The PBP presets need a writer first (🔒). CSO and ZSO are written by `CsoEncoder` (2026-11-13).
 2. Rethink `NintendoTarget.Chd` for GameCube/Wii: Dolphin can't read it.
 3. `docs/target-formats.md` says "Mednafen standalone has no CHD" for Saturn only. The same is true for PSX, PCE CD and PC-FX.
 4. Snapshot pipeline:
