@@ -23,7 +23,7 @@ public static class SystemDetector
     {
         var f = set.Format;
         if (KnownFormats.WiiUInputs.Contains(f) || set.Holds(KnownFormats.WiiUBuildable)) return "wii-u";
-        if (f == KnownFormats.VitaFolder) return "playstation-vita";
+        if (f == KnownFormats.VitaFolder || f == KnownFormats.VitaPkg) return "playstation-vita";
         if (f == KnownFormats.Ps3Folder) return "playstation-3";
         if (f == KnownFormats.XboxPackage) return "xbox-360";
 

@@ -125,12 +125,7 @@ public static class RomJobs
         var zip = s.Clone();
         zip.Archives.Format = ArchiveFormat.Zip;
         var outcome = ArchiveJobs.CompressOne(c.WithSettings(zip), [folder], name, outputFolder);
-        if (outcome.Status == JobStatus.Succeeded && s.TargetFormats.WriteVitaLauncher)
-        {
-            var ext = "." + s.TargetFormats.VitaLauncherExtension.Trim().TrimStart('.');
-            File.WriteAllText(Path.Combine(outputFolder, name + ext), id);
-            c.Log.Info($"  wrote the launcher file {name}{ext}");
-        }
+        if (outcome.Status == JobStatus.Succeeded) Vita.VitaJobs.WriteLauncher(c, outputFolder, name, id);
         return outcome;
     }
 

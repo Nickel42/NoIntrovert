@@ -402,6 +402,12 @@ public sealed class KeySettings
     /// the yuzu family's folders, ~/.switch); empty = only the usual places.
     /// </summary>
     public string SwitchKeysPath { get; set; } = "";
+
+    /// <summary>
+    /// A text file of PS Vita zRIF licenses (NoPayStation's TSV, or one per line), searched after a ".zrif" file next to
+    /// each .pkg; empty = only those. The PS Vita package keys themselves are built into lib-psvita-kit.
+    /// </summary>
+    public string VitaZrifPath { get; set; } = "";
 }
 
 /// <summary>Where the Cleanup wizard puts games inside a Library folder.</summary>

@@ -2641,6 +2641,90 @@ if (SevenZipEngine.IsAvailable(out _))
         return Members3(Q("Vita/Test Game (PCSE00000).zip")).Contains("PCSE00000/sce_sys/param.sfo") ? null : Members3(Q("Vita/Test Game (PCSE00000).zip"));
     });
 
+    // ---- PS Vita .pkg through lib-psvita-kit: its synthetic packages (made-up keys) and zRIFs made by zlib from made-up licenses ----
+    {
+        NoIntrovert.Core.Vita.VitaJobs.KeysForTests = LibPsVitaKit.Tests.PkgBuilder.Keys;
+        const string gameId = "UP0000-PCSE00000_00-0000000000000000", dlcId = "EP9000-PCSF00001_00-ADDCONT000000002";
+        const string gameZrif = "KO5ifR1dA/OQQGiAAVS1K9gCkP0GaACf/y5FN51nMv7/ZW1q44T5nDqNcVeWLAm5M2XLnm+7mzmTr04kJD+aQugLAPzTK0AA";
+        const string dlcZrif = "KO5ifR1dA/OQgGuAJZJpBoZo9oPdgM9/9+vCJ++pepgnr++0Xoy53C2l3GqaimaJS+z/z+UnmWYcISQ/mkLoCwDRmiVC";
+        byte[] VitaPackage(string contentId, uint contentType, string category)
+        {
+            var b = new LibPsVitaKit.Tests.PkgBuilder { ContentId = contentId, ContentType = contentType, Sfo = LibPsVitaKit.Tests.PkgBuilder.GameSfo(contentId, category) };
+            b.Items.Add(("sce_sys", null));
+            b.Items.Add(("sce_sys/param.sfo", b.Sfo.ToArray()));
+            b.Items.Add(("eboot.bin", TextBytes(5000)));
+            return b.Build();
+        }
+        string Made(string folder) => string.Join(", ", Directory.GetFiles(Q(folder)).Select(Path.GetFileName).Order());
+
+        Put3("VitaPkg/game.pkg", VitaPackage(gameId, 0x15, "gd"));
+        File.WriteAllText(Q("VitaPkg/game.zrif"), gameZrif + "\n");
+        Test("PS Vita: a .pkg with its .zrif beside it becomes Title (ID).zip and a launcher file (lib-psvita-kit)", () =>
+        {
+            var set = Set3("VitaPkg/game.pkg");
+            if (set.Format != KnownFormats.VitaPkg) return $"seen as {set.Format.Id}";
+            var o = ConvertTargets.For(set, new AppSettings());
+            if (o.Plan.Text != "Convert → .zip (unpacked from the .pkg)" || o.Default != TargetChoice.Zip) return $"{o.Plan.Text} ({o.Default})";
+            if (RunDefault3("VitaPkg/game.pkg", s => s.TargetFormats.WriteVitaLauncher = true) is { } problem) return problem;
+            var made = Made("VitaPkg");
+            if (made != "game.pkg, game.zrif, Test Game (PCSE00000).psvita, Test Game (PCSE00000).zip") return $"made {made}";
+            var members = Members3(Q("VitaPkg/Test Game (PCSE00000).zip"));
+            if (!members.Contains("PCSE00000/sce_sys/package/work.bin") || !members.Contains("PCSE00000/eboot.bin")) return members;
+            var info = LibPsVitaKit.VitaFile.Inspect(Q("VitaPkg/Test Game (PCSE00000).zip"));
+            return info.Type == LibPsVitaKit.VitaFileType.NoNpDrmZip && info.TitleId == "PCSE00000" ? null : $"{info.Type} {info.TitleId}";
+        });
+
+        Put3("VitaPkg-nozrif/game.pkg", VitaPackage(gameId, 0x15, "gd"));
+        Test("PS Vita: a game .pkg without a zRIF fails, says where it goes, and writes nothing", () =>
+        {
+            var r = RunJob(c => NoIntrovert.Core.Vita.VitaJobs.FromPackage(c, Q("VitaPkg-nozrif/game.pkg"), Q("VitaPkg-nozrif")));
+            if (r.Status != JobStatus.Failed || !r.Summary.Contains("Settings › Keys") || !r.Summary.Contains(gameId)) return $"{r.Status}: {r.Summary}";
+            return Made("VitaPkg-nozrif") == "game.pkg" ? null : $"made {Made("VitaPkg-nozrif")}";
+        });
+
+        Put3("VitaPkg-more/dlc.pkg", VitaPackage(dlcId, 0x16, "ac"));
+        Put3("VitaPkg-more/update.pkg", VitaPackage(gameId, 0x15, "gp"));
+        // NoPayStation's TSV layout: the zRIF is one column among many.
+        Put3("zrifs.tsv", System.Text.Encoding.UTF8.GetBytes(
+            "Title ID\tRegion\tName\tPKG direct link\tzRIF\tContent ID\n" +
+            $"PCSF00001\tEU\tTest DLC\thttp://example.invalid/dlc.pkg\t{dlcZrif}\t{dlcId}\n" +
+            "PCSE00002\tUS\tNo license\thttp://example.invalid/x.pkg\tMISSING\tUP0000-PCSE00002_00-0000000000000000\n"));
+        Test("PS Vita: DLC finds its zRIF in a NoPayStation-style list; an update needs none and gets no launcher", () =>
+        {
+            void Configure(AppSettings s) { s.Keys.VitaZrifPath = Q("zrifs.tsv"); s.TargetFormats.WriteVitaLauncher = true; }
+            var text = NoIntrovert.Core.Vita.ZrifLibrary.Describe(Q("zrifs.tsv"));
+            if (!text.StartsWith("1 zRIF(s) in ")) return text;
+            var dlc = ConvertTargets.For(Set3("VitaPkg-more/dlc.pkg"), new AppSettings());
+            var update = ConvertTargets.For(Set3("VitaPkg-more/update.pkg"), new AppSettings());
+            if (dlc.Plan.Text != "Convert → .zip (DLC)" || update.Plan.Text != "Convert → .zip (update)") return $"{dlc.Plan.Text} / {update.Plan.Text}";
+            if (RunDefault3("VitaPkg-more/dlc.pkg", Configure) is { } p1) return $"DLC: {p1}";
+            if (RunDefault3("VitaPkg-more/update.pkg", Configure) is { } p2) return $"update: {p2}";
+            var made = Made("VitaPkg-more");
+            if (made != "dlc.pkg, Test Game (PCSE00000) [Update v01.00].zip, Test Game (PCSF00001) [DLC].zip, update.pkg") return $"made {made}";
+            var dlcMembers = Members3(Q("VitaPkg-more/Test Game (PCSF00001) [DLC].zip"));
+            var updateMembers = Members3(Q("VitaPkg-more/Test Game (PCSE00000) [Update v01.00].zip"));
+            if (!dlcMembers.Contains("ADDCONT000000002/sce_sys/package/work.bin")) return $"DLC zip: {dlcMembers}";
+            return updateMembers.Contains("PCSE00000/sce_sys/param.sfo") && !updateMembers.Contains("work.bin") ? null : $"update zip: {updateMembers}";
+        });
+
+        Put3("VitaPkg-replace/game.pkg", VitaPackage(gameId, 0x15, "gd"));
+        File.WriteAllText(Q("VitaPkg-replace/game.zrif"), gameZrif);
+        Test("PS Vita: Replace the originals removes the .pkg once its zip is written and tested", () =>
+        {
+            if (RunDefault3("VitaPkg-replace/game.pkg", s => { s.Output.SaveTo = SaveTo.ReplaceOriginals; s.Output.UseRecycleBin = false; }) is { } problem) return problem;
+            return Made("VitaPkg-replace") == "game.zrif, Test Game (PCSE00000).zip" ? null : $"left {Made("VitaPkg-replace")}";
+        });
+
+        // A PS3 package has the same "\x7FPKG" magic but no Vita extended header.
+        var ps3 = new byte[0x200];
+        ps3[0] = 0x7F; ps3[1] = (byte)'P'; ps3[2] = (byte)'K'; ps3[3] = (byte)'G';
+        Put3("VitaPkg-ps3/game.pkg", ps3);
+        Test("PS Vita: a PS3 .pkg isn't taken for a Vita one", () =>
+            FormatRegistry.Default.Identify(Q("VitaPkg-ps3/game.pkg"))?.Format == KnownFormats.VitaPkg ? "taken for a Vita package" : null);
+
+        NoIntrovert.Core.Vita.VitaJobs.KeysForTests = null;
+    }
+
     // A byte-swapped N64 ROM: the first word is 0x37804012.
     var z64 = TextBytes(8192);
     new byte[] { 0x80, 0x37, 0x12, 0x40 }.CopyTo(z64, 0);

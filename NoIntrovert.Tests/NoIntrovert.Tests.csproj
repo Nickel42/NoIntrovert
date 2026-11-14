@@ -25,5 +25,10 @@
     <PackageReference Include="Avalonia.Skia" Version="12.1.6" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- lib-psvita-kit's synthetic package builder (made-up keys), for the PS Vita .pkg tests -->
+    <Compile Include="$(LibPsVitaKitRoot)tests/lib-psvita-kit.Tests/PkgBuilder.cs" Link="Vita/PkgBuilder.cs" />
+  </ItemGroup>
+
   <Import Project="$(LibChdKitRoot)/bindings/csharp/ChdmanNativeCopy.targets" />
 </Project>

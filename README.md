@@ -258,12 +258,19 @@ relying on it.
 
 ## PS Vita
 
-A NoNpDrm game folder becomes `Title (PCSE00000).zip` for Vita3K, with an
-optional launcher file beside it. lib-psvita-kit, a managed .NET library in its
-own repository ([Nickel42/lib-psvita-kit](https://github.com/Nickel42/lib-psvita-kit)),
-checked out as a git submodule in `native/lib-psvita-kit`, reads `param.sfo`,
-decodes zRIF licenses and unpacks `.pkg` files into NoNpDrm folders; the app
-doesn't call it yet.
+A NoNpDrm game folder or a PS Vita `.pkg` becomes the zip Vita3K installs
+(File › Install .zip): `Title (PCSE00000).zip`, with an optional launcher file
+beside it, or `… [DLC].zip` and `… [Update v01.00].zip` for DLC and updates.
+A `.pkg` is decrypted and unpacked as a NoNpDrm folder first; the package keys
+are built in. Games and DLC also need their zRIF license, from a `.zrif` file
+next to the `.pkg` or a list of zRIFs (such as NoPayStation's TSV) chosen in
+Settings › Keys. PlayStation Mobile, PS3 and PSP packages are left alone.
+
+The Vita code is lib-psvita-kit, a managed .NET library in its own repository
+([Nickel42/lib-psvita-kit](https://github.com/Nickel42/lib-psvita-kit)),
+checked out as a git submodule in `native/lib-psvita-kit`. The tests use
+synthetic packages with made-up keys, so try a real package of your own before
+relying on it.
 
 ## App icon
 

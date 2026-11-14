@@ -77,6 +77,8 @@ public static class TargetResolver
         if (id == "xbox-360" && !isArchive) return Xbox360(system, set, ext, settings);
         // Switch packages convert between NSP, NSZ, XCI and XCZ through lib-nx-kit.
         if (id == "switch" && !isArchive) return Switch(system, set, ext, alternatives, settings);
+        // PS Vita packages: lib-psvita-kit unpacks them (with the zRIF), and the folder is zipped for Vita3K.
+        if (set.Format == KnownFormats.VitaPkg) return VitaPackage(system, set, settings);
 
         // FR-12: your overrides, then the registry's target (and D1).
         var (resolved, overridden) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
@@ -144,6 +146,29 @@ public static class TargetResolver
         var (target, overridden) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
         if (target is null && overridden) return null;
         return target is null || target.Container is TargetContainer.SevenZip or TargetContainer.Zip ? system.Target : target;
+    }
+
+    /// <summary>
+    /// A PS Vita .pkg: a game, DLC or update becomes the zip Vita3K installs (unpacked as a NoNpDrm folder by
+    /// lib-psvita-kit, with its zRIF). PlayStation Mobile packages are left as they are. Your override for the
+    /// system (leave as is) still applies; 7z isn't offered, as Vita3K installs zips.
+    /// </summary>
+    private static TargetPlan VitaPackage(SystemInfo system, FileSet set, AppSettings settings)
+    {
+        var id = system.Id;
+        var kind = Vita.VitaJobs.KindOf(set.Primary);
+        if (kind is not (LibPsVitaKit.Pkg.PkgContentKind.VitaApp or LibPsVitaKit.Pkg.PkgContentKind.VitaDlc or LibPsVitaKit.Pkg.PkgContentKind.VitaPatch))
+            return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave,
+                kind == LibPsVitaKit.Pkg.PkgContentKind.Psm ? "Left as is (a PlayStation Mobile package)" : "Left as is (not a package NoIntrovert can read)");
+        var (target, overridden) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
+        if (target is null && overridden) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (your setting)");
+        var what = kind switch
+        {
+            LibPsVitaKit.Pkg.PkgContentKind.VitaDlc => "DLC",
+            LibPsVitaKit.Pkg.PkgContentKind.VitaPatch => "update",
+            _ => "unpacked from the .pkg",
+        };
+        return Plan(id, TargetStatus.Convert, TargetChoice.Zip, $"Convert → .zip ({what})");
     }
 
     /// <summary>

@@ -181,6 +181,18 @@
                                     AutomationProperties.Name="Refresh Switch keys" />
                         </WrapPanel>
                     </StackPanel>
+
+                    <!-- PS Vita: games and DLC need a zRIF (also in Settings › Keys); the package keys are built in -->
+                    <StackPanel x:Name="VitaZrif" Spacing="4" IsVisible="{Binding ShowsVitaZrif}">
+                        <Border Classes="divider" />
+                        <TextBlock Text="PS VITA LICENSES" Classes="head" />
+                        <TextBlock Classes="hint" Text="{Binding Settings.Keys.VitaZrifSummary}" TextWrapping="Wrap" />
+                        <WrapPanel Orientation="Horizontal">
+                            <Button Classes="tool" Content="Choose a zRIF list…" Command="{Binding Settings.Keys.BrowseVitaZrifCommand}" Margin="0,0,6,6" />
+                            <Button Classes="tool" Content="Refresh" Command="{Binding Settings.Keys.RefreshVitaZrifCommand}" Margin="0,0,6,6"
+                                    AutomationProperties.Name="Refresh the zRIF list" />
+                        </WrapPanel>
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </Border>

@@ -87,7 +87,7 @@ roms/
 | D5 | Computer systems | `.zip` (Rule R9) |
 | D6 | Header and byte-order fixes (R12) | Off by default; turned on in Settings |
 | D7 | Dreamcast `.cdi` | Left as is; chdman can't convert DiscJuggler images reliably |
-| D8 | Systems the app can't convert to yet (PS3, PS Vita) | For now the app shows the recommendation without a Convert button. A converter for each system comes later as its own requirement. |
+| D8 | Systems the app can't convert to yet (PS3) | For now the app shows the recommendation without a Convert button. A converter for each system comes later as its own requirement. |
 | D9 | 7z settings | LZMA2, Ultra (`-mx9`), non-solid for a single file |
 | D10 | Arcade (MAME/FBNeo) | Out of scope: reported only, never changed |
 
@@ -99,9 +99,11 @@ roms/
   result can't be turned back into the No-Intro XCI. Choose `.xcz` in Settings to keep cartridge
   dumps as cartridge images. lib-nx-kit does the conversions, with the user's own `prod.keys`.
 - **PS Vita:** the target is a `.zip` of a properly dumped NoNpDrm game folder, which Vita3K installs
-  with File → Install .zip. A `.pkg` plus its zRIF key converts to that folder first (pkg2zip). As
-  an option, the app also writes a small frontend launcher file named after the game that holds its
-  title ID.
+  with File → Install .zip. A `.pkg` (game, DLC or update) plus its zRIF license converts to that
+  folder first, through lib-psvita-kit (the same output as pkg2zip), and is zipped. The zRIF comes from
+  a `.zrif` file next to the `.pkg` or a zRIF list chosen in Settings › Keys; the package keys are
+  built in. As an option, the app also writes a small frontend launcher file named after the game
+  that holds its title ID.
 
 ## Per-system targets
 
@@ -183,7 +185,7 @@ used in the settings file.
 | PlayStation 2 | `playstation-2` | .chd | bare | DVD .iso → chd (createdvd); CD-based .cue/.bin → chd (createcd); .cso/.zso → iso → chd | CSO/ZSO (PCSX2 + OPL on real PS2); bare .iso | Use createdvd for DVD images; createcd-made CHDs of DVD ISOs perform badly or fail in PCSX2. OPL on real PS2 needs ISO/ZSO. |
 | PlayStation 3 | `playstation-3` | Decrypted disc folder (PS3_GAME layout); PSN installed via .pkg + .rap | folder | .iso (Redump, encrypted) → decrypt with .dkey → extract to folder | Decrypted ISO (UNSURE - recent RPCS3 ISO loading) | Keep encrypted ISO + dkey separately if Redump verification matters. |
 | PlayStation Portable | `playstation-portable` | .chd | bare | .iso/.cso → .chd; PSN .pkg → .iso/.pbp (pkg2zip) | CSO (maxcso) for real PSP / Adrenaline / older PPSSPP; .pbp for PSN titles | Use createdvd with 2048-byte hunks; createcd/default-hunk CHDs load slower. Keep CSO if also used on real hardware. |
-| PlayStation Vita | `playstation-vita` | .zip of a NoNpDrm game folder | zip | .pkg + zRIF → NoNpDrm folder (pkg2zip) → .zip; loose NoNpDrm folder → .zip | Bare NoNpDrm folder; .vpk | Vita3K installs it with File > Install .zip. Optionally writes a frontend launcher file named after the game holding its title ID (e.g. PCSE00000). |
+| PlayStation Vita | `playstation-vita` | .zip of a NoNpDrm game folder | zip | .pkg + zRIF → NoNpDrm folder (lib-psvita-kit) → .zip; loose NoNpDrm folder → .zip | Bare NoNpDrm folder; .vpk | Vita3K installs it with File > Install .zip. Optionally writes a frontend launcher file named after the game holding its title ID (e.g. PCSE00000). |
 | Mega-CD / Sega CD | `mega-cd-sega-cd` | .chd | bare | .cue/.bin, .iso+wav → .chd | cue/bin | Needs region BIOS. |
 | Saturn | `saturn` | .chd | bare | .cue/.bin, .ccd → .chd; multi-disc → .m3u | cue/bin (Mednafen standalone has no CHD) | Mednafen standalone does not read CHD. ST-V arcade = MAME zip. |
 | Dreamcast | `dreamcast` | .chd | bare | .gdi, Redump .cue/.bin → .chd | bare .gdi set in folder; .cdi for TOSEC/homebrew | Leave .cdi as-is (chdman cannot reliably convert DiscJuggler). Re-convert old Dreamcast CHDs made with early chdman (track-offset bugs). |

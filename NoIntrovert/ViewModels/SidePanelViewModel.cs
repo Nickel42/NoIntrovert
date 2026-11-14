@@ -95,6 +95,9 @@ public sealed partial class SidePanelViewModel : ViewModelBase
     /// <summary>A selected (or the shown) row is a Switch file: every Switch conversion needs prod.keys.</summary>
     [ObservableProperty] public partial bool ShowsSwitchKeys { get; private set; }
 
+    /// <summary>A selected (or the shown) row is a PS Vita .pkg: games and DLC need a zRIF.</summary>
+    [ObservableProperty] public partial bool ShowsVitaZrif { get; private set; }
+
     /// <summary>Which 3DS files need keys, read once per file (it opens the file's headers).</summary>
     private readonly Dictionary<string, bool> _threeDsNeedsKeys = new(Core.PathNames.Comparer);
 
@@ -112,6 +115,7 @@ public sealed partial class SidePanelViewModel : ViewModelBase
         var rows = _page.Selected.Append(row).OfType<JobItemViewModel>().Distinct().ToList();
         ShowsThreeDsKeys = rows.Any(ThreeDsNeedsKeys);
         ShowsSwitchKeys = rows.Any(r => r.SystemId == KeysLink.SwitchSystem);
+        ShowsVitaZrif = rows.Any(r => r.SystemId == KeysLink.VitaSystem && Core.Formats.KnownFormats.VitaPkg.HasExtension(r.Path));
     }
 
     /// <summary>Follows the page's focus and selection; called whenever either changes.</summary>

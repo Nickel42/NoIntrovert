@@ -966,6 +966,29 @@ public sealed partial class KeySettingsViewModel(AppSettings settings, IDialogs 
 
     [RelayCommand]
     private void RefreshSwitchKeys() => OnPropertyChanged(nameof(SwitchKeysSummary));
+
+    /// <summary>A text file of PS Vita zRIFs (such as NoPayStation's TSV); empty = only .zrif files next to each .pkg.</summary>
+    public string VitaZrifPath
+    {
+        get => S.Keys.VitaZrifPath;
+        set { if (Set(value ?? "", (s, v) => s.Keys.VitaZrifPath = v)) OnPropertyChanged(nameof(VitaZrifSummary)); }
+    }
+
+    /// <summary>How many zRIFs the list holds, or why it can't be used.</summary>
+    public string VitaZrifSummary => Core.Vita.ZrifLibrary.Describe(S.Keys.VitaZrifPath);
+
+    [RelayCommand]
+    private async Task BrowseVitaZrif()
+    {
+        var file = await dialogs.PickFileAsync("Choose a list of zRIFs", "zRIF lists", ["*.tsv", "*.txt", "*.csv", "*.zrif"]);
+        if (file is not null) VitaZrifPath = file;
+    }
+
+    [RelayCommand]
+    private void ClearVitaZrif() => VitaZrifPath = "";
+
+    [RelayCommand]
+    private void RefreshVitaZrif() => OnPropertyChanged(nameof(VitaZrifSummary));
 }
 
 public sealed partial class LibrarySettingsViewModel(AppSettings settings, IDialogs dialogs) : SettingsSectionViewModel(settings)

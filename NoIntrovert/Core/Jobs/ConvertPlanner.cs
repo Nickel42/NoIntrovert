@@ -124,6 +124,10 @@ public static class ConvertPlanner
                 case TargetKind.Zip when Directory.Exists(path) && VitaGame.IsGameFolder(path):
                     jobs.Add(new(name, [i], row.Size, c => RomJobs.PackVita(c.WithSettings(With(c.Settings, at)), path, OutputPaths.FolderFor(c.Settings, path))));
                     break;
+                case TargetKind.Zip when File.Exists(path) && KnownFormats.VitaPkg.HasExtension(path) && Vita.VitaJobs.IsVitaPackage(path):
+                    // PS Vita .pkg: lib-psvita-kit unpacks it (with its zRIF), then the folder is zipped for Vita3K.
+                    jobs.Add(new(name, [i], row.Size, c => Vita.VitaJobs.FromPackage(c.WithSettings(With(c.Settings, at)), path, OutputPaths.FolderFor(c.Settings, path))));
+                    break;
                 case TargetKind.SevenZip or TargetKind.Zip when ArchiveJobs.IsConvertible(path):
                     var to = row.Target == TargetKind.SevenZip ? ConvertTarget.ToSevenZip : ConvertTarget.ToZip;
                     var single = ArchivePeek.Members(path)?.Count == 1;
