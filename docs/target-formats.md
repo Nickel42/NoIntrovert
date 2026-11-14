@@ -39,7 +39,7 @@ That's why cartridges go in a .7z while disc images become bare CHD, RVZ or WUA.
 | R8 | Any archive the app writes | 7z uses LZMA2 only and zip uses Deflate only. RetroArch can't open zstd, PPMd or Deflate64. |
 | R9 | Computer systems whose cores read zip themselves (C64, DOS, Amiga, ST, CPC, Atari 8-bit, MSX disks) | `.zip`, not .7z |
 | R10 | A file already in its target format and container | Nothing to do (Optimal) |
-| R11 | A target that changes the bytes on disk (CHD, RVZ, WUA, NSZ, XISO, ZAR, ZCCI) | The original No-Intro/Redump hashes are kept in the library index (no extra files), so the file can still be verified. RVZ, NSZ and CHD convert back exactly (an NSZ gives back its NSP byte for byte, file order and header included). WUA, XISO, ZAR and ZCCI don't. |
+| R11 | A target that changes the bytes on disk (CHD, RVZ, WUA, NSZ, XISO, ZAR, ZCCI, a decrypted PS3 ISO or JB folder) | The original No-Intro/Redump hashes are kept in the library index (no extra files), so the file can still be verified. RVZ, NSZ and CHD convert back exactly (an NSZ gives back its NSP byte for byte, file order and header included), and so does a decrypted PS3 ISO, re-encrypted with its disc key. WUA, XISO, ZAR, ZCCI and a JB folder don't. |
 | R12 | A wrong byte order or copier header (.v64/.n64, .smc with a 512-byte header, interleaved .smd) | Converted to the No-Intro form (.z64, headerless .sfc, .md), then R1. Off unless turned on (Decision D6). |
 | R13 | An already-compressed format (.nsz/.xcz/.chd/.rvz/.wua/.cso) | Never put inside a zip or 7z |
 
@@ -87,7 +87,7 @@ roms/
 | D5 | Computer systems | `.zip` (Rule R9) |
 | D6 | Header and byte-order fixes (R12) | Off by default; turned on in Settings |
 | D7 | Dreamcast `.cdi` | Left as is; chdman can't convert DiscJuggler images reliably |
-| D8 | Systems the app can't convert to yet (PS3) | For now the app shows the recommendation without a Convert button. A converter for each system comes later as its own requirement. |
+| D8 | Systems the app can't convert to yet (none left: PS3 and PS Vita are done) | For a system added later, the app shows the recommendation without a Convert button until its converter comes, as its own requirement. |
 | D9 | 7z settings | LZMA2, Ultra (`-mx9`), non-solid for a single file |
 | D10 | Arcade (MAME/FBNeo) | Out of scope: reported only, never changed |
 
@@ -183,7 +183,7 @@ used in the settings file.
 |---|---|---|---|---|---|---|
 | PlayStation | `playstation` | .chd | bare | .cue/.bin, .ccd/.img/.sub, .iso, .ecm (unecm first) → .chd; multi-disc → .m3u | PBP (PSN eboots; DuckStation & PCSX ReARMED support) | LibCrypt titles: keep redump .sbi beside the .chd with same basename. Multi-disc: .m3u listing CHDs. CCD subchannel is dropped (use .sbi). |
 | PlayStation 2 | `playstation-2` | .chd | bare | DVD .iso → chd (createdvd); CD-based .cue/.bin → chd (createcd); .cso/.zso → iso → chd | CSO/ZSO (PCSX2 + OPL on real PS2); bare .iso | Use createdvd for DVD images; createcd-made CHDs of DVD ISOs perform badly or fail in PCSX2. OPL on real PS2 needs ISO/ZSO. |
-| PlayStation 3 | `playstation-3` | Decrypted disc folder (PS3_GAME layout); PSN installed via .pkg + .rap | folder | .iso (Redump, encrypted) → decrypt with .dkey → extract to folder | Decrypted ISO (UNSURE - recent RPCS3 ISO loading) | Keep encrypted ISO + dkey separately if Redump verification matters. |
+| PlayStation 3 | `playstation-3` | Decrypted ISO | bare | .iso (Redump, encrypted) + its .dkey → decrypted .iso (lib-ps3-kit); a decrypted ISO is already optimal | JB folder (PS3_GAME layout), from an encrypted or a decrypted ISO | Needs each disc's .dkey from Redump, beside the image with the same name or in the folder set in Settings › Keys. The Redump hashes are kept (R11); re-encrypting with the same key gives the Redump image back exactly. PSN games (.pkg + .rap) aren't converted. |
 | PlayStation Portable | `playstation-portable` | .chd | bare | .iso/.cso → .chd; PSN .pkg → .iso/.pbp (pkg2zip) | CSO (maxcso) for real PSP / Adrenaline / older PPSSPP; .pbp for PSN titles | Use createdvd with 2048-byte hunks; createcd/default-hunk CHDs load slower. Keep CSO if also used on real hardware. |
 | PlayStation Vita | `playstation-vita` | .zip of a NoNpDrm game folder | zip | .pkg + zRIF → NoNpDrm folder (lib-psvita-kit) → .zip; loose NoNpDrm folder → .zip | Bare NoNpDrm folder; .vpk | Vita3K installs it with File > Install .zip. Optionally writes a frontend launcher file named after the game holding its title ID (e.g. PCSE00000). |
 | Mega-CD / Sega CD | `mega-cd-sega-cd` | .chd | bare | .cue/.bin, .iso+wav → .chd | cue/bin | Needs region BIOS. |

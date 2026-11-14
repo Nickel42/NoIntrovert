@@ -90,6 +90,16 @@
   </PropertyGroup>
 
   <!--
+    lib-ps3-kit (PlayStation 3: a Redump ISO decrypted with its .dkey into a decrypted ISO or a JB
+    folder), its own repository, checked out as a git submodule in native/lib-ps3-kit. It is pure
+    managed code, so there is nothing to build first. Pass -p:LibPs3KitRoot=... (ending in a slash)
+    to use another checkout.
+  -->
+  <PropertyGroup>
+    <LibPs3KitRoot Condition="'$(LibPs3KitRoot)' == ''">$(MSBuildThisFileDirectory)native/lib-ps3-kit/</LibPs3KitRoot>
+  </PropertyGroup>
+
+  <!--
     lib-psvita-kit (PS Vita: param.sfo, zRIF, .pkg to NoNpDrm folder), its own repository,
     checked out as a git submodule in native/lib-psvita-kit. It is pure managed code, so there
     is nothing to build first. Pass -p:LibPsVitaKitRoot=... (ending in a slash) to use another checkout.

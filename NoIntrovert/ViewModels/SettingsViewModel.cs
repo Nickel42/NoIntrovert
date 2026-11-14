@@ -967,6 +967,29 @@ public sealed partial class KeySettingsViewModel(AppSettings settings, IDialogs 
     [RelayCommand]
     private void RefreshSwitchKeys() => OnPropertyChanged(nameof(SwitchKeysSummary));
 
+    /// <summary>A folder of PS3 .dkey files; empty = only the .dkey beside each image.</summary>
+    public string Ps3KeysFolder
+    {
+        get => S.Keys.Ps3KeysFolder;
+        set { if (Set(value ?? "", (s, v) => s.Keys.Ps3KeysFolder = v)) OnPropertyChanged(nameof(Ps3KeysSummary)); }
+    }
+
+    /// <summary>Where PS3 disc keys are looked for, and how many the folder holds.</summary>
+    public string Ps3KeysSummary => Core.Ps3.Ps3Jobs.Describe(S.Keys.Ps3KeysFolder);
+
+    [RelayCommand]
+    private async Task BrowsePs3Keys()
+    {
+        var folder = await dialogs.PickFolderAsync("Choose the folder with your .dkey files");
+        if (folder is not null) Ps3KeysFolder = folder;
+    }
+
+    [RelayCommand]
+    private void ClearPs3Keys() => Ps3KeysFolder = "";
+
+    [RelayCommand]
+    private void RefreshPs3Keys() => OnPropertyChanged(nameof(Ps3KeysSummary));
+
     /// <summary>A text file of PS Vita zRIFs (such as NoPayStation's TSV); empty = only .zrif files next to each .pkg.</summary>
     public string VitaZrifPath
     {

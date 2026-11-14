@@ -19,6 +19,7 @@ public static class KeysLink
 
     public const string ThreeDsSystem = "nintendo-3ds";
     public const string SwitchSystem = "switch";
+    public const string Ps3System = "playstation-3";
     public const string VitaSystem = "playstation-vita";
 
     /// <summary>

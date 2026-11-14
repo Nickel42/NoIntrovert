@@ -7,10 +7,10 @@
 # Everything is built from source, from the libraries' own repositories, checked out as git
 # submodules: lib-chd-kit (CHD, native/lib-chd-kit), lib-wii-gamecube-kit, lib-7z-zip-kit (the
 # archive engine), and lib-wii-u-kit (Wii U to .wua), lib-3ds-kit (Nintendo 3DS), lib-nx-kit
-# (Switch), lib-xiso-kit (original Xbox) and lib-psvita-kit (PS Vita), the last five managed
-# code only, in native/lib-chd-kit, native/lib-wii-gamecube-kit, native/lib-7z-zip-kit,
-# native/lib-wii-u-kit, native/lib-3ds-kit, native/lib-nx-kit, native/lib-xiso-kit and
-# native/lib-psvita-kit. Private ones need a checkout token that can read
+# (Switch), lib-xiso-kit (original Xbox), lib-ps3-kit (PS3) and lib-psvita-kit (PS Vita), the
+# last six managed code only, in native/lib-chd-kit, native/lib-wii-gamecube-kit,
+# native/lib-7z-zip-kit, native/lib-wii-u-kit, native/lib-3ds-kit, native/lib-nx-kit,
+# native/lib-xiso-kit, native/lib-ps3-kit and native/lib-psvita-kit. Private ones need a checkout token that can read
 # them: the LIB_REPOS_TOKEN secret (a fine-grained token with read access to
 # their contents).
 

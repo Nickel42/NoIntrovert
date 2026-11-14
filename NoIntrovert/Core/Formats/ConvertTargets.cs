@@ -31,6 +31,14 @@ public enum TargetKind
     XboxCci,
     /// <summary>An Xbox 360 disc's files in a ZArchive (.zar) for Xenia Canary: lib-xiso-kit reads them, lib-wii-u-kit writes the archive.</summary>
     Zar,
+    /// <summary>A PS3 disc as a decrypted ISO (same size and layout as the Redump image), by lib-ps3-kit with its .dkey.</summary>
+    Ps3Iso,
+    /// <summary>A PS3 disc's files as a JB folder (PS3_DISC.SFB, PS3_GAME/…), by lib-ps3-kit with its .dkey.</summary>
+    Ps3Folder,
+    /// <summary>A PSP or PS2 disc as a CSO (deflate blocks), for a real PSP, Adrenaline and PPSSPP.</summary>
+    Cso,
+    /// <summary>A PS2 (or PSP) disc as a ZSO (LZ4 blocks), for OPL on a real PS2 and PCSX2.</summary>
+    Zso,
     SevenZip,
     Zip,
     /// <summary>An archive's files, unpacked.</summary>
@@ -57,6 +65,10 @@ public sealed record TargetChoice(TargetKind Kind, string Label)
     public static readonly TargetChoice Xiso = new(TargetKind.Xiso, "XISO");
     public static readonly TargetChoice XboxCci = new(TargetKind.XboxCci, "CCI (Cerbios)");
     public static readonly TargetChoice Zar = new(TargetKind.Zar, ".zar (Xenia Canary)");
+    public static readonly TargetChoice Ps3Iso = new(TargetKind.Ps3Iso, "Decrypted ISO");
+    public static readonly TargetChoice Ps3Folder = new(TargetKind.Ps3Folder, "JB folder");
+    public static readonly TargetChoice Cso = new(TargetKind.Cso, "CSO");
+    public static readonly TargetChoice Zso = new(TargetKind.Zso, "ZSO");
     public static readonly TargetChoice SevenZip = new(TargetKind.SevenZip, "7z");
     public static readonly TargetChoice Zip = new(TargetKind.Zip, "zip");
     public static readonly TargetChoice Files = new(TargetKind.Files, "Unpack files");
@@ -94,6 +106,8 @@ public static class ConvertTargets
             choices = choices.Where(c => c != TargetChoice.SevenZip && c != TargetChoice.Zip && c != TargetChoice.Files).ToList();
         // An Xbox disc becomes an XISO or a CCI, an Xbox 360 disc a .zar; CHD and the other disc targets aren't Xbox formats.
         if (plan.System is "xbox" or "xbox-360") choices = [];
+        // A PS3 disc becomes a decrypted ISO or a JB folder; it's never made a CHD or packed.
+        if (plan.System == "playstation-3") choices = [];
         var list = new List<TargetChoice>();
         if (plan.Choice != TargetChoice.Leave) list.Add(plan.Choice);
         foreach (var c in plan.Alternatives.Concat(choices))

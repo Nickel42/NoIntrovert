@@ -77,6 +77,8 @@ public static class TargetResolver
         if (id == "xbox-360" && !isArchive) return Xbox360(system, set, ext, settings);
         // Switch packages convert between NSP, NSZ, XCI and XCZ through lib-nx-kit.
         if (id == "switch" && !isArchive) return Switch(system, set, ext, alternatives, settings);
+        // PS3 discs become a decrypted ISO or a JB folder through lib-ps3-kit, with the disc's .dkey.
+        if (id == "playstation-3" && !isArchive) return PlayStation3(system, set, ext, settings);
         // PS Vita packages: lib-psvita-kit unpacks them (with the zRIF), and the folder is zipped for Vita3K.
         if (set.Format == KnownFormats.VitaPkg) return VitaPackage(system, set, settings);
 
@@ -93,9 +95,7 @@ public static class TargetResolver
         if (target.Container is TargetContainer.SevenZip or TargetContainer.Zip)
             return Packed(set, system, target, overridden, isArchive, members, ext, alternatives, settings.TargetFormats.NormalizeHeaders);
 
-        // Folder targets: ScummVM games are unpacked; a PS3 game already in its folder is done, but can't be made yet.
-        if (set.Format == KnownFormats.Ps3Folder && target.Container == TargetContainer.Folder)
-            return Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
+        // Folder targets: ScummVM games are unpacked.
         if (!target.Producible) return NotYet(id, target, alternatives);
         return isArchive
             ? Plan(id, TargetStatus.Convert, TargetChoice.Files, "Convert → folder (unpack)", alternatives)
@@ -244,6 +244,38 @@ public static class TargetResolver
     }
 
     /// <summary>
+    /// A PS3 disc that isn't in an archive. A Redump image (.iso, encrypted) becomes a decrypted ISO, the target,
+    /// which RPCS3 loads, or a JB folder (the disc's files); both need the disc's .dkey. A decrypted ISO is
+    /// optimal, or becomes a JB folder without a key. A JB folder is optimal when that's your target; it can't be
+    /// made back into an ISO, so it's left as it is otherwise.
+    /// </summary>
+    private static TargetPlan PlayStation3(SystemInfo system, FileSet set, string ext, AppSettings settings)
+    {
+        var id = system.Id;
+        var (target, _) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
+        if (target is null) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (your setting)");
+        var folder = target.Container == TargetContainer.Folder;
+
+        if (set.Format == KnownFormats.Ps3Folder)
+            return folder
+                ? Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal")
+                : Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (a JB folder can't be made into an ISO yet)");
+        if (ext != ".iso" || !File.Exists(set.Primary)) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, $"Left as is ({(ext.Length > 0 ? ext : "not a disc image")})");
+
+        var state = NoIntrovert.Core.Ps3.Ps3Jobs.StateOf(set.Primary);
+        if (state is null) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (not a PS3 disc image)");
+        var decrypted = state is LibPs3Kit.EncryptionState.Decrypted or LibPs3Kit.EncryptionState.NoEncryptedRegions;
+        var noKey = !decrypted && NoIntrovert.Core.Ps3.Ps3Jobs.KeyFileFor(set.Primary, settings) is null ? "; needs its .dkey" : "";
+        if (decrypted)
+            return folder
+                ? Plan(id, TargetStatus.Convert, TargetChoice.Ps3Folder, "Convert → JB folder")
+                : Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", [TargetChoice.Ps3Folder]);
+        return folder
+            ? Plan(id, TargetStatus.Convert, TargetChoice.Ps3Folder, $"Convert → JB folder (decrypted{noKey})", [TargetChoice.Ps3Iso])
+            : Plan(id, TargetStatus.Convert, TargetChoice.Ps3Iso, $"Convert → decrypted ISO{(noKey.Length > 0 ? " (needs its .dkey)" : "")}", [TargetChoice.Ps3Folder]);
+    }
+
+    /// <summary>
     /// D2: a 7z or zip holding one 3DS game becomes the bare (or .zcci) target, unpacked, and decrypted or
     /// converted on the way when it needs to be; an archive holding several games is left for unpacking first.
     /// It's never repacked as another 7z or zip.
@@ -283,6 +315,9 @@ public static class TargetResolver
             // A plain image chosen in place of a CHD or RVZ: extract or decode it back.
             ".iso" or ".cue" or ".gdi" when set.Format == KnownFormats.Chd => TargetChoice.DiscImage,
             ".iso" when NintendoDisc.IsDecodable(set.Primary) => TargetChoice.Iso,
+            // PSP and PS2 discs compressed for real hardware (a PSP, OPL on a PS2).
+            ".cso" when Jobs.CsoJobs.TakesInput(set) => TargetChoice.Cso,
+            ".zso" when Jobs.CsoJobs.TakesInput(set) => TargetChoice.Zso,
             _ => null,
         };
         var label = choice == TargetChoice.Chd ? ".chd" : targetExt == ".cue" ? "cue/bin" : targetExt;
@@ -290,7 +325,7 @@ public static class TargetResolver
         if (!isArchive && (ext == targetExt || (id == "wii-u" && set.Format == KnownFormats.Wua)))
             return Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
         if (!target.Producible) return NotYet(id, target, alternatives, ext == ".xci" && targetExt == ".nsz" ? "repack to NSP first" : null);
-        if (choice == TargetChoice.DiscImage || choice == TargetChoice.Iso)
+        if (choice == TargetChoice.DiscImage || choice == TargetChoice.Iso || choice == TargetChoice.Cso || choice == TargetChoice.Zso)
             return Plan(id, TargetStatus.Convert, choice, $"Convert → {label}", alternatives);
 
         if (isArchive)
@@ -379,6 +414,8 @@ public static class TargetResolver
                 "zcci" when system.Id == "nintendo-3ds" && isArchive => TargetChoice.Zcci, // D2: unpacked, then compressed for Azahar
                 "iso" when NintendoDisc.IsDecodable(set.Primary) => TargetChoice.Iso,
                 "iso" or "cue-bin" or "gdi" when set.Format == KnownFormats.Chd => TargetChoice.DiscImage,
+                "cso" when ext != ".cso" && Jobs.CsoJobs.TakesInput(set) => TargetChoice.Cso,
+                "zso" when ext != ".zso" && Jobs.CsoJobs.TakesInput(set) => TargetChoice.Zso,
                 _ => null,
             };
             if (choice is not null && !list.Contains(choice)) list.Add(choice);

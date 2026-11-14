@@ -404,6 +404,12 @@ public sealed class KeySettings
     public string SwitchKeysPath { get; set; } = "";
 
     /// <summary>
+    /// A folder of PS3 disc keys (Redump's .dkey files, named like the images), searched after the .dkey beside
+    /// each image; empty = beside the image only.
+    /// </summary>
+    public string Ps3KeysFolder { get; set; } = "";
+
+    /// <summary>
     /// A text file of PS Vita zRIF licenses (NoPayStation's TSV, or one per line), searched after a ".zrif" file next to
     /// each .pkg; empty = only those. The PS Vita package keys themselves are built into lib-psvita-kit.
     /// </summary>

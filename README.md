@@ -66,7 +66,7 @@ Converted first, in the temp folder:
 | Format | How |
 |---|---|
 | ECM (`.bin.ecm`, or a cue whose bins are `.ecm`) | Decoded, with the stored checksum verified |
-| CSO / ZSO | Deflate / LZ4 blocks decoded to an ISO |
+| CSO / ZSO | Deflate / LZ4 blocks decoded to an ISO; a PSP or PS2 ISO can also be written as CSO (7-Zip's deflate) or ZSO (LZ4 HC) |
 | ISZ (UltraISO) | zlib / bzip2 / raw / zero blocks decoded to an ISO or bin |
 | PBP (PS1 EBOOT, single or multi-disc) | Each disc rebuilt as bin + cue; multi-disc sets give one CHD per disc |
 | CloneCD `.ccd/.img/.sub` | Cue written that points at the `.img` (no copy) |
@@ -236,6 +236,23 @@ and Games on Demand packages are recognised by their CON, LIVE or PIRS
 header (they usually have no extension) and left as they are; Xenia installs
 them. The tests use a synthetic disc and package headers, so try a real dump
 of your own before relying on it.
+
+## PlayStation 3
+
+A Redump PS3 `.iso` is encrypted; it becomes a decrypted ISO, the same size
+and layout, which RPCS3 loads as it is. Choose "JB folder" in Settings ›
+Target formats to have the disc's files (`PS3_DISC.SFB`, `PS3_GAME/`…) in a
+folder instead; a decrypted ISO can become a JB folder too. Each disc needs
+its own key, the `.dkey` file Redump publishes: keep it beside the image with
+the same name, or put them all in the folder set in Settings › Keys. A wrong
+key is caught before anything is written, every result is re-read and
+checked, and the Redump hashes are kept so Verify & match still recognises the
+game (a decrypted ISO re-encrypted with its key is the Redump image again).
+All of the PS3 code is lib-ps3-kit, a managed .NET library in its own
+repository ([Nickel42/lib-ps3-kit](https://github.com/Nickel42/lib-ps3-kit)),
+checked out as a git submodule in `native/lib-ps3-kit`. The tests use a
+synthetic disc and a made-up key, so try a real dump of your own before
+relying on it.
 
 ## Nintendo Switch
 

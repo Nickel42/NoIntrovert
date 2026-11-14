@@ -166,13 +166,13 @@ public static class FormatPresets
         ["playstation-2"] =
         [
             ChdStandard("Smallest lossless file; PCSX2 reads it"),
-            new("zso-opl", "CSO / ZSO", "For OPL & real PS2", "OPL on a real PS2 reads ZSO, not CHD", NotYet(), Producible: false, Extension: ".zso"),
+            new("zso-opl", "ZSO", "For OPL & real PS2", "OPL on a real PS2 reads ZSO, not CHD; PCSX2 reads it too", Kind(TargetKind.Zso)),
             IsoPlain(),
         ],
         ["playstation-portable"] =
         [
             ChdStandard("Smallest lossless file; PPSSPP 1.17+ reads it"),
-            new("cso-psp", "CSO", "For real PSP / Adrenaline", "Real hardware can't read CHD", NotYet(), Producible: false, Extension: ".cso"),
+            new("cso-psp", "CSO", "For real PSP / Adrenaline", "Real hardware can't read CHD", Kind(TargetKind.Cso)),
             IsoPlain(),
         ],
         ["dreamcast"] =
@@ -212,6 +212,12 @@ public static class FormatPresets
         [
             new("zar-standard", "ZAR", "Compressed", "Xenia Canary plays it without unpacking; other emulators and the console can't read it", Kind(TargetKind.Zar)),
         ],
+        // PS3 discs through lib-ps3-kit, with each disc's .dkey from Redump.
+        ["playstation-3"] =
+        [
+            new("ps3-iso-decrypted", "ISO", "Decrypted", "RPCS3 loads it as it is; same size as the Redump image", Kind(TargetKind.Ps3Iso), Recommended: true),
+            new("ps3-jb-folder", "JB folder", "Disc files", "PS3_GAME and the rest as plain files, for RPCS3 or a console's internal drive", Kind(TargetKind.Ps3Folder)),
+        ],
         // Switch packages through lib-nx-kit, with your own prod.keys.
         ["switch"] =
         [
@@ -241,6 +247,10 @@ public static class FormatPresets
         TargetKind.Xiso => new("xiso-standard", "XISO", "Game partition", "An Xbox disc's game partition", Kind(TargetKind.Xiso)),
         TargetKind.XboxCci => new("xbox-cci-standard", "CCI", "Cerbios", "A compressed Xbox disc for Cerbios", Kind(TargetKind.XboxCci)),
         TargetKind.Zar => new("zar-standard", "ZAR", "Compressed", "An Xbox 360 disc's files in a ZArchive for Xenia Canary", Kind(TargetKind.Zar)),
+        TargetKind.Ps3Iso => new("ps3-iso-decrypted", "ISO", "Decrypted", "A PS3 disc decrypted with its .dkey", Kind(TargetKind.Ps3Iso)),
+        TargetKind.Ps3Folder => new("ps3-jb-folder", "JB folder", "Disc files", "A PS3 disc's files, decrypted, in a folder", Kind(TargetKind.Ps3Folder)),
+        TargetKind.Cso => new("cso-standard", "CSO", "Standard", "A compressed ISO for a real PSP and Adrenaline", Kind(TargetKind.Cso)),
+        TargetKind.Zso => new("zso-standard", "ZSO", "Standard", "A compressed ISO for OPL on a real PS2", Kind(TargetKind.Zso)),
         _ => Leave,
     };
 

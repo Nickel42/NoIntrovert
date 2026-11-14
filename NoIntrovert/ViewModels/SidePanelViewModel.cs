@@ -109,12 +109,27 @@ public sealed partial class SidePanelViewModel : ViewModelBase
         return needs;
     }
 
+    /// <summary>A selected (or the shown) row is an encrypted PS3 image: converting it needs its disc key (.dkey).</summary>
+    [ObservableProperty] public partial bool ShowsPs3Keys { get; private set; }
+
+    /// <summary>Which PS3 images are still encrypted, read once per file (it opens the image's filesystem).</summary>
+    private readonly Dictionary<string, bool> _ps3NeedsKeys = new(Core.PathNames.Comparer);
+
+    private bool Ps3NeedsKeys(JobItemViewModel row)
+    {
+        if (row.SystemId != KeysLink.Ps3System || !System.IO.File.Exists(row.Path)) return false;
+        if (!_ps3NeedsKeys.TryGetValue(row.Path, out var needs))
+            _ps3NeedsKeys[row.Path] = needs = Core.Ps3.Ps3Jobs.StateOf(row.Path) is LibPs3Kit.EncryptionState.Encrypted or LibPs3Kit.EncryptionState.Unknown;
+        return needs;
+    }
+
     private void RefreshKeys(JobItemViewModel? row)
     {
         ShowsWiiUKeys = row is not null && (row.SystemId == "wii-u" || row.Target?.Kind == TargetKind.Wua);
         var rows = _page.Selected.Append(row).OfType<JobItemViewModel>().Distinct().ToList();
         ShowsThreeDsKeys = rows.Any(ThreeDsNeedsKeys);
         ShowsSwitchKeys = rows.Any(r => r.SystemId == KeysLink.SwitchSystem);
+        ShowsPs3Keys = rows.Any(Ps3NeedsKeys);
         ShowsVitaZrif = rows.Any(r => r.SystemId == KeysLink.VitaSystem && Core.Formats.KnownFormats.VitaPkg.HasExtension(r.Path));
     }
 
