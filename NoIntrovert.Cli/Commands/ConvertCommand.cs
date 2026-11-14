@@ -133,7 +133,7 @@ public static class ConvertCommand
     {
         var ok = jobs.Count(j => j.Outcome?.Status is JobStatus.Succeeded or JobStatus.Warning);
         var failed = jobs.Where(j => j.Outcome?.Status == JobStatus.Failed).ToList();
-        var cancelled = jobs.Count(j => j.Outcome?.Status == JobStatus.Cancelled) + (s.Token.IsCancellationRequested ? 1 : 0);
+        var cancelled = jobs.Count(j => j.Outcome?.Status == JobStatus.Cancelled);
         var skipped = rows.Count(r => r.Skip is not null || r.Target == TargetKind.Leave) + jobs.Count(j => j.Outcome?.Status == JobStatus.Skipped);
         var inBytes = jobs.Where(j => j.Outcome?.Status is JobStatus.Succeeded or JobStatus.Warning).Sum(j => j.Outcome!.Stats?.InputBytes ?? 0);
         var outBytes = jobs.Where(j => j.Outcome?.Status is JobStatus.Succeeded or JobStatus.Warning).Sum(j => j.Outcome!.Stats?.OutputBytes ?? 0);

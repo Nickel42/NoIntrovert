@@ -100,7 +100,16 @@ public static class ChdJobs
                 c.Band(compressStart + compressShare, discStart + discShare - compressStart - compressShare);
                 c.TrackChdman($"Verifying{discLabel}");
                 BeforeVerifyForTests?.Invoke(output);
-                var (result, _) = ChdService.Verify(c.Chdman, output, fix: false, c.Token);
+                (ChdVerifyResult Result, OperationStats Stats) verified;
+                try { verified = ChdService.Verify(c.Chdman, output, fix: false, c.Token); }
+                catch (Exception ex) when (c.Token.IsCancellationRequested || ex is OperationCanceledException
+                                           || (ex is ChdmanException ce && ce.Status == ChdmanStatus.Cancelled))
+                {
+                    // Cancelled while checking it: an unverified CHD isn't kept, as Cancel promises.
+                    try { File.Delete(output); } catch (Exception del) when (del is IOException or UnauthorizedAccessException) { }
+                    throw;
+                }
+                var result = verified.Result;
                 if (result.Outcome != ChdVerifyOutcome.Ok)
                 {
                     verifyFailed = true;
