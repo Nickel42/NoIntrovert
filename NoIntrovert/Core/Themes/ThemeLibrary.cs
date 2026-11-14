@@ -11,8 +11,8 @@ namespace NoIntrovert.Core.Themes;
 /// </summary>
 public sealed class ThemeLibrary
 {
-    public const string DefaultDarkId = "nointrovert-dark";
-    public const string DefaultLightId = "nointrovert-light";
+    public const string DefaultDarkId = ThemeIds.DefaultDark;
+    public const string DefaultLightId = ThemeIds.DefaultLight;
     public const string UserPrefix = "user:";
 
     /// <summary>The built-in themes, in the order the lists show them (each kind's default first).</summary>
