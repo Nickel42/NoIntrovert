@@ -3,7 +3,7 @@ using NoIntrovert.ViewModels;
 
 namespace NoIntrovert.Views;
 
-/// <summary>The run bar's Save to row; it also asks, once, before Replace the originals is first chosen.</summary>
+/// <summary>The run bar's Save to row; it also asks, as each run with Replace the originals starts, how many originals go.</summary>
 public partial class RunOptions : UserControl
 {
     public RunOptions() => InitializeComponent();
@@ -12,6 +12,6 @@ public partial class RunOptions : UserControl
     {
         base.OnDataContextChanged(e);
         if (DataContext is BatchTabViewModel vm)
-            vm.ConfirmReplace = () => ConfirmDialog.ConfirmReplaceOriginalsAsync(this, vm.Settings.Output.UseRecycleBin);
+            vm.ConfirmReplace = count => ConfirmDialog.ConfirmReplaceRunAsync(this, count, vm.Settings.Output.UseRecycleBin);
     }
 }

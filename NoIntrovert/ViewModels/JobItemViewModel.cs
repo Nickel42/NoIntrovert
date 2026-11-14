@@ -31,6 +31,24 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
 
     public bool IsRunning => Status == JobStatus.Running;
 
+    /// <summary>
+    /// Whether a run has put this row on the shared queue. A row that was only
+    /// added is <see cref="JobStatus.Queued"/> too, but reads "Ready" until then.
+    /// </summary>
+    [ObservableProperty] public partial bool IsSubmitted { get; set; }
+
+    partial void OnIsSubmittedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(IsQueued));
+    }
+
+    /// <summary>Waiting on the shared queue for its turn (not merely added to the list).</summary>
+    public bool IsQueued => Status == JobStatus.Queued && IsSubmitted;
+
+    /// <summary>The row's progress bar shows once it's running or finished, not while it's ready or waiting.</summary>
+    public bool ShowsProgress => Status != JobStatus.Queued;
+
     /// <summary>A failed row's Result is its reason, shown in red.</summary>
     public bool IsFailed => Status == JobStatus.Failed;
 
@@ -42,7 +60,7 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
 
     public string StatusText => Status switch
     {
-        JobStatus.Queued => "Queued",
+        JobStatus.Queued => IsSubmitted ? "Queued" : "Ready",
         JobStatus.Running => "Working",
         JobStatus.Succeeded => "Done",
         JobStatus.Warning => "Done*",
@@ -219,6 +237,8 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
         OnPropertyChanged(nameof(IsFailed));
         OnPropertyChanged(nameof(NeedsKeys));
         OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(IsQueued));
+        OnPropertyChanged(nameof(ShowsProgress));
     }
 
     // ---- Optimize and Organize: what the run does to this file ----
@@ -236,6 +256,7 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
     public JobItemViewModel MovedTo(JobItemViewModel moved)
     {
         moved.Status = Status;
+        moved.IsSubmitted = IsSubmitted;
         moved.Progress = Progress;
         moved.Result = Result;
         moved.Details = Details;
@@ -246,9 +267,11 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
         return moved;
     }
 
+    /// <summary>Clears what the last run said and marks the row as handed to the queue ("Queued").</summary>
     public void Reset()
     {
         Status = JobStatus.Queued;
+        IsSubmitted = true;
         Progress = 0;
         Stage = "";
         Result = "";

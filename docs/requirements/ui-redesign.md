@@ -168,7 +168,12 @@ The "This run" section is gone from the side panel. Where files go is now chosen
 
 - **Next to the originals** (default)
 - **Folder: <path> · Change…**: the path shows the last folder used. Change… opens a folder picker. Beside it, **Layout** (13 Nov 2026) arranges the folder: **ES-DE** (default, `roms/<ES-DE system name>`), **RomM** (`roms/<RomM platform name>`), **Same folders** (the subfolders below the folder each original was added from), or **No subfolders**. It's one setting with Settings › Output › Folder layout.
-- **Replace the originals ⚠**: each original is deleted **only after its new file verifies**. If verification fails, the original stays and the row shows why. Choosing this option the first time asks for confirmation once.
+- **Replace the originals ⚠**: each original is deleted **only after its new file verifies**. If verification fails, the original stays and the row shows why. While it's chosen (revised 14 Nov 2026):
+  - the run button turns red (the `danger` style) and says how many originals go: **Convert and replace 29 originals** ("1 original" for one). Rows left as is and rows already done don't count.
+  - one line under Save to, in the warning colour, says what happens to them: "Originals go to the Recycle Bin after each new file verifies." or, with the Recycle Bin off in Settings › Output, "Originals are deleted after each new file verifies."
+  - **every run asks first**, as it starts: "Replace 29 originals?", saying each original is removed only after its new file verifies and whether it then goes to the Recycle Bin or is deleted permanently. Cancel is the default button. Its **Don't ask again until NoIntrovert restarts** checkbox lasts for the session only and is never saved. Picking the radio button itself asks nothing.
+
+The run bar's choice lasts until NoIntrovert closes and is never saved: each session starts from Settings › Output's default. Making Replace the originals that default asks once, in Settings; runs still ask as they start.
 
 This is the **only** place originals can be deleted. The "CHD · Replace the originals" preset and the "Remove the originals" setting in Custom were removed, so presets never decide this. **Overwrite existing files** moves to Settings, because people rarely change it.
 
