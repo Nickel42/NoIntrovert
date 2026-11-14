@@ -1,0 +1,29 @@
+<!--
+  Latte's base cards on mantle, mauve buttons and the blue accent.
+  A classic theme NoIntrovert ships: an Avalonia ResourceDictionary like NoIntrovert's own. Each ThemeXxx
+  colour is one of the theme's roles; the app works out the rest from them.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:String x:Key="ThemeName">Catppuccin Latte</x:String>
+    <x:String x:Key="ThemeVariant">Light</x:String>
+    <x:String x:Key="ThemeAuthor">Catppuccin</x:String>
+    <Color x:Key="ThemeBackground">#E6E9EF</Color>
+    <Color x:Key="ThemeSurface">#EFF1F5</Color>
+    <Color x:Key="ThemeRaised">#EAEDF2</Color>
+    <Color x:Key="ThemeHeader">#EFF1F5</Color>
+    <Color x:Key="ThemeBorder">#CCD0DA</Color>
+    <Color x:Key="ThemeControlBorder">#ACB0BE</Color>
+    <Color x:Key="ThemeText">#4C4F69</Color>
+    <Color x:Key="ThemeSubtleText">#5C5F77</Color>
+    <Color x:Key="ThemeSectionText">#7023D4</Color>
+    <Color x:Key="ThemePrimary">#8839EF</Color>
+    <Color x:Key="ThemeAccent">#1E66F5</Color>
+    <Color x:Key="ThemeDanger">#D20F39</Color>
+    <Color x:Key="ThemeWarning">#DF8E1D</Color>
+    <Color x:Key="ThemeSuccess">#40A02B</Color>
+
+    <!-- Exact colours where the palette's own one wouldn't read as text. -->
+    <SolidColorBrush x:Key="DangerText" Color="#C20D35" />
+    <SolidColorBrush x:Key="VerifiedText" Color="#11111B" />
+</ResourceDictionary>

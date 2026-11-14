@@ -18,8 +18,8 @@ public static partial class Base16
     /// <summary>Whether <paramref name="text"/> looks like a Base16/Base24 scheme.</summary>
     public static bool Looks(string text) => Regex.IsMatch(text, @"^\s*base00\s*:", RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
-    /// <param name="builtIn">One of the schemes NoIntrovert ships (NoIntrovert/Themes/Base16), rather than an imported one.</param>
-    public static ThemeDefinition Parse(string text, string id, string? fallbackName = null, string? path = null, bool builtIn = false)
+    /// <summary>A scheme as a custom theme (one imported into the themes folder).</summary>
+    public static ThemeDefinition Parse(string text, string id, string? fallbackName = null, string? path = null)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var raw in text.Split('\n'))
@@ -67,7 +67,7 @@ public static partial class Base16
         return new ThemeDefinition
         {
             Id = id, Name = name, Kind = kind, Author = values.GetValueOrDefault("author") ?? "", FilePath = path,
-            IsBuiltIn = builtIn, Collection = builtIn ? ThemeCollection.Base16 : ThemeCollection.Custom,
+            Collection = ThemeCollection.Custom,
             Roles = Complete(kind, roles),
         };
     }

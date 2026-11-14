@@ -11,25 +11,32 @@ Built in:
 | **NoIntrovert Ember**: warm charcoal, the logo's orange door as primary, its lilac ring as accent | **NoIntrovert Sunrise**: cream and the orange door, lilac accent |
 | **NoIntrovert Cartridge**: the deep teal of the cartridge's screen, orange accent | **NoIntrovert Seafoam**: cool sea-glass greys and teal, orange accent |
 
-Every Base16 scheme from [tinted-theming's collection](https://github.com/tinted-theming/schemes/tree/spec-0.11/base16)
-is built in as well: about 270 dark and 110 light (Gruvbox, Nord, Solarized, Catppuccin, Tokyo Night…). The lists show
-NoIntrovert's own themes first, then your custom and imported ones, then the Base16 schemes A to Z. The search box
-above them narrows both lists by name or author; a theme's tooltip says where it comes from and who made it.
+Fifteen classic themes are built in as well, NoIntrovert's own theme files of well-known palettes
+(`NoIntrovert/Themes/Classic`):
+
+| Dark | Light |
+|---|---|
+| Catppuccin Mocha, Dracula, GitHub Dark, Gruvbox Dark, Monokai, Nord, One Dark, Rosé Pine, Solarized Dark, Tokyo Night | Catppuccin Latte, GitHub Light, Gruvbox Light, Solarized Light, Tokyo Night Light |
+
+Each uses its palette's own colours. Where a palette colour doesn't reach WCAG AA as text (4.5:1) against the
+theme's cards and window, the theme picks the palette's next shade (Solarized's text is base2/base02, not
+base0/base00) or sets a lighter or darker tint of it for that one use only: `DangerText` is error text, so Nord's,
+Dracula's, Monokai's and others' reds still fill danger buttons but error messages use a readable tint. A test
+checks every classic theme's text, secondary text, headings, button and rail text, error and warning text, the
+Verified badge and settings fields at 4.5:1, and the accent outline at 3:1.
+
+The lists show NoIntrovert's own themes first, then your custom and imported ones, then the classic themes A to Z.
+The search box above them narrows both lists by name or author; a theme's tooltip says where it comes from and who
+made it. A setting saved by an older version that chose one of the Base16 schemes it used to ship (`base16-nord`)
+finds the classic theme of the same name (`nord`), or else the kind's NoIntrovert theme.
 
 *Light brightness* (100% down to 70%) dims whichever light theme is chosen, for when its whites are too bright.
 Every colour of the theme is scaled toward black by the same amount, so text and borders keep their contrast with
 the background; dark themes aren't touched.
 
-Base16 names are tidied into theme names: words are capitalised, and commas and file-style dashes are dropped
-("Gruvbox dark, hard" → "Gruvbox Dark Hard", "selenized-white" → "Selenized White"). Joining words and names cased
-on purpose are kept ("Arroz con Dulce", "iA Dark"). A scheme's id is `base16-` plus its file name, so a saved choice
-survives a renamed scheme. The schemes sit unchanged in `NoIntrovert/Themes/Base16`;
-`python -I scripts/refresh-base16-themes.py` brings them up to date. Their MIT notice
-(`Themes/Base16/THIRD_PARTY_NOTICES.txt`) goes into every download as `THIRD_PARTY_NOTICES-base16-themes.txt`.
-
 *Customize…* opens the theme editor on the chosen theme: a colour for each of 14 roles, previewed in the whole
 app as you change them. Saving asks for a name and adds the theme to its list; a built-in theme (NoIntrovert's or
-a Base16 scheme) is copied, never changed. Custom and imported themes live in `%AppData%\NoIntrovert\themes` (*Open themes folder*). A file you put
+a classic one) is copied, never changed. Custom and imported themes live in `%AppData%\NoIntrovert\themes` (*Open themes folder*). A file you put
 there yourself shows up after *Reload*.
 
 ## The theme file: an Avalonia ResourceDictionary
@@ -105,9 +112,9 @@ The file is only read, never run: no objects are created from it, a DTD is refus
 
 ## More from the web: Base16 and Base24
 
-Newer schemes, and Base24 ones, can be imported too. The library of ready-made colour schemes is [tinted-theming's Base16/Base24](https://github.com/tinted-theming/schemes)
-(browse them in the [gallery](https://tinted-theming.github.io/tinted-gallery/)). *Import file…* takes their
-`.yaml`. To download one, paste its address into *More themes* and choose *Import from web*. A GitHub page's
+Base16 and Base24 colour schemes (a small `.yaml` of 16 or 24 colours) can be imported; none are shipped.
+*Import file…* takes their `.yaml`. To download one, paste its address into *More themes* and choose *Import from web*.
+Base16 names are tidied into theme names ("Gruvbox dark, hard" → "Gruvbox Dark Hard"). A GitHub page's
 address (`github.com/…/blob/…`) works too and is read from raw.githubusercontent.com. Both the current layout
 (`system`/`name`/`variant`/`palette`) and the older one (`scheme:`, colours without `#`) are read.
 
