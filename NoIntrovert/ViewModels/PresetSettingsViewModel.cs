@@ -68,7 +68,8 @@ public sealed partial class PresetSettingsViewModel : ViewModelBase
     public bool IsExtract => Values.Target == TargetKind.DiscImage;
     public bool IsUnpack => Values.Target == TargetKind.Files;
     public bool HasNothingToSet => Values.Target is TargetKind.Iso or TargetKind.Wua or TargetKind.Cci or TargetKind.Zcci
-        or TargetKind.Nsz or TargetKind.Xcz or TargetKind.Nsp or TargetKind.Xci or TargetKind.Xiso or TargetKind.XboxCci or TargetKind.Zar;
+        or TargetKind.Nsz or TargetKind.Xcz or TargetKind.Nsp or TargetKind.Xci or TargetKind.Xiso or TargetKind.XboxCci or TargetKind.Zar
+        or TargetKind.Ps3Iso or TargetKind.Ps3Folder;
     public bool UsesZstandard => Values.UsesZstandard;
 
     /// <summary>Compression's codecs, at the right of its label: "cdzs, cdzl, cdfl", or "Default codecs".</summary>

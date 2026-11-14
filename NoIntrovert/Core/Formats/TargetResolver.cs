@@ -77,6 +77,8 @@ public static class TargetResolver
         if (id == "xbox-360" && !isArchive) return Xbox360(system, set, ext, settings);
         // Switch packages convert between NSP, NSZ, XCI and XCZ through lib-nx-kit.
         if (id == "switch" && !isArchive) return Switch(system, set, ext, alternatives, settings);
+        // PS3 discs become a decrypted ISO or a JB folder through lib-ps3-kit, with the disc's .dkey.
+        if (id == "playstation-3" && !isArchive) return PlayStation3(system, set, ext, settings);
 
         // FR-12: your overrides, then the registry's target (and D1).
         var (resolved, overridden) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
@@ -91,9 +93,7 @@ public static class TargetResolver
         if (target.Container is TargetContainer.SevenZip or TargetContainer.Zip)
             return Packed(set, system, target, overridden, isArchive, members, ext, alternatives, settings.TargetFormats.NormalizeHeaders);
 
-        // Folder targets: ScummVM games are unpacked; a PS3 game already in its folder is done, but can't be made yet.
-        if (set.Format == KnownFormats.Ps3Folder && target.Container == TargetContainer.Folder)
-            return Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
+        // Folder targets: ScummVM games are unpacked.
         if (!target.Producible) return NotYet(id, target, alternatives);
         return isArchive
             ? Plan(id, TargetStatus.Convert, TargetChoice.Files, "Convert → folder (unpack)", alternatives)
@@ -216,6 +216,38 @@ public static class TargetResolver
             return Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
         alternatives.Remove(wanted);
         return Plan(id, TargetStatus.Convert, wanted, $"Convert → {wantedExt}", alternatives);
+    }
+
+    /// <summary>
+    /// A PS3 disc that isn't in an archive. A Redump image (.iso, encrypted) becomes a decrypted ISO, the target,
+    /// which RPCS3 loads, or a JB folder (the disc's files); both need the disc's .dkey. A decrypted ISO is
+    /// optimal, or becomes a JB folder without a key. A JB folder is optimal when that's your target; it can't be
+    /// made back into an ISO, so it's left as it is otherwise.
+    /// </summary>
+    private static TargetPlan PlayStation3(SystemInfo system, FileSet set, string ext, AppSettings settings)
+    {
+        var id = system.Id;
+        var (target, _) = TargetOverrides.Resolve(system, set, settings.TargetFormats);
+        if (target is null) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (your setting)");
+        var folder = target.Container == TargetContainer.Folder;
+
+        if (set.Format == KnownFormats.Ps3Folder)
+            return folder
+                ? Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal")
+                : Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (a JB folder can't be made into an ISO yet)");
+        if (ext != ".iso" || !File.Exists(set.Primary)) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, $"Left as is ({(ext.Length > 0 ? ext : "not a disc image")})");
+
+        var state = NoIntrovert.Core.Ps3.Ps3Jobs.StateOf(set.Primary);
+        if (state is null) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (not a PS3 disc image)");
+        var decrypted = state is LibPs3Kit.EncryptionState.Decrypted or LibPs3Kit.EncryptionState.NoEncryptedRegions;
+        var noKey = !decrypted && NoIntrovert.Core.Ps3.Ps3Jobs.KeyFileFor(set.Primary, settings) is null ? "; needs its .dkey" : "";
+        if (decrypted)
+            return folder
+                ? Plan(id, TargetStatus.Convert, TargetChoice.Ps3Folder, "Convert → JB folder")
+                : Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", [TargetChoice.Ps3Folder]);
+        return folder
+            ? Plan(id, TargetStatus.Convert, TargetChoice.Ps3Folder, $"Convert → JB folder (decrypted{noKey})", [TargetChoice.Ps3Iso])
+            : Plan(id, TargetStatus.Convert, TargetChoice.Ps3Iso, $"Convert → decrypted ISO{(noKey.Length > 0 ? " (needs its .dkey)" : "")}", [TargetChoice.Ps3Folder]);
     }
 
     /// <summary>

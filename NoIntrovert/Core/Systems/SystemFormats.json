@@ -57,7 +57,7 @@
   "naomi-naomi-2-atomiswave": "ZIP or 7z romsets, with a CHD for GD-ROM games. ZIP is the default: it's how MAME and Flycast name and read these sets.",
   "playstation": "CHD, PBP and BIN/CUE, plus M3U playlists for multi-disc games. CHD is the default: it's the smallest lossless file, keeps every track in one file, and plays in every RetroArch PlayStation core and most standalone emulators.",
   "playstation-2": "CHD, CSO or ZSO, and ISO. CHD is the default: it's the smallest lossless file and PCSX2 reads it. Keep ISO or ZSO if you also play on a real PS2 with OPL.",
-  "playstation-3": "A decrypted disc folder, or a decrypted ISO. The folder is the default: it's what RPCS3 installs and plays most reliably.",
+  "playstation-3": "A decrypted ISO, made from the Redump image with its disc key (.dkey), or a JB folder of the disc's files. The ISO is the default: RPCS3 loads it as it is, and it keeps the disc in one file.",
   "playstation-portable": "CHD, CSO and PBP. CHD is the default: it's lossless and PPSSPP reads it. Keep CSO if you also play on a real PSP.",
   "playstation-vita": "ZIP of a NoNpDrm game folder, the plain folder, or VPK. ZIP is the default: Vita3K installs it in one step with File › Install .zip.",
   "mega-cd-sega-cd": "CHD or BIN/CUE. CHD is the default: it's the smallest lossless file, keeps the CD audio tracks in one file, and Genesis Plus GX and PicoDrive read it.",

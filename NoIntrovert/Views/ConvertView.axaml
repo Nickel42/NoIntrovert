@@ -181,6 +181,19 @@
                                     AutomationProperties.Name="Refresh Switch keys" />
                         </WrapPanel>
                     </StackPanel>
+
+                    <!-- PS3: an encrypted Redump image needs its disc key, the .dkey (also in Settings › Keys) -->
+                    <StackPanel x:Name="Ps3Keys" Spacing="4" IsVisible="{Binding ShowsPs3Keys}">
+                        <Border Classes="divider" />
+                        <TextBlock Text="PS3 DISC KEYS" Classes="head" />
+                        <TextBlock Classes="hint" Text="{Binding Settings.Keys.Ps3KeysSummary}" TextWrapping="Wrap" />
+                        <WrapPanel Orientation="Horizontal">
+                            <Button Classes="tool" Content="Choose a folder…" Command="{Binding Settings.Keys.BrowsePs3KeysCommand}" Margin="0,0,6,6"
+                                    AutomationProperties.Name="Choose the PS3 keys folder" />
+                            <Button Classes="tool" Content="Refresh" Command="{Binding Settings.Keys.RefreshPs3KeysCommand}" Margin="0,0,6,6"
+                                    AutomationProperties.Name="Refresh PS3 keys" />
+                        </WrapPanel>
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </Border>

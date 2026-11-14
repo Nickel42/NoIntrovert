@@ -19,6 +19,7 @@ public static class KeysLink
 
     public const string ThreeDsSystem = "nintendo-3ds";
     public const string SwitchSystem = "switch";
+    public const string Ps3System = "playstation-3";
 
     /// <summary>
     /// Whether converting this 3DS file needs the user's keys: an encrypted image or a .cia does; a

@@ -630,6 +630,19 @@
                                             AutomationProperties.Name="Refresh Switch keys" />
                                 </WrapPanel>
                             </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="PS3" Classes="name" />
+                                <TextBlock Classes="desc" Text="Each disc's key, the .dkey file Redump publishes. Keep it beside the image with the same name, or put them all in one folder." />
+                                <TextBlock Classes="desc" Text="{Binding Ps3KeysSummary}" />
+                                <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <Button Classes="outline" Content="Choose a folder…" Command="{Binding BrowsePs3KeysCommand}" Margin="0,0,8,6"
+                                            AutomationProperties.Name="Choose the PS3 keys folder" />
+                                    <Button Classes="outline" Content="Beside the images only" Command="{Binding ClearPs3KeysCommand}" Margin="0,0,8,6"
+                                            AutomationProperties.Name="Look for PS3 keys beside the images only" />
+                                    <Button Classes="outline" Content="Refresh" Command="{Binding RefreshPs3KeysCommand}" Margin="0,0,8,6"
+                                            AutomationProperties.Name="Refresh PS3 keys" />
+                                </WrapPanel>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 

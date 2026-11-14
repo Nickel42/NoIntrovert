@@ -402,6 +402,12 @@ public sealed class KeySettings
     /// the yuzu family's folders, ~/.switch); empty = only the usual places.
     /// </summary>
     public string SwitchKeysPath { get; set; } = "";
+
+    /// <summary>
+    /// A folder of PS3 disc keys (Redump's .dkey files, named like the images), searched after the .dkey beside
+    /// each image; empty = beside the image only.
+    /// </summary>
+    public string Ps3KeysFolder { get; set; } = "";
 }
 
 /// <summary>Where the Cleanup wizard puts games inside a Library folder.</summary>

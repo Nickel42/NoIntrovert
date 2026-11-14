@@ -212,6 +212,12 @@ public static class FormatPresets
         [
             new("zar-standard", "ZAR", "Compressed", "Xenia Canary plays it without unpacking; other emulators and the console can't read it", Kind(TargetKind.Zar)),
         ],
+        // PS3 discs through lib-ps3-kit, with each disc's .dkey from Redump.
+        ["playstation-3"] =
+        [
+            new("ps3-iso-decrypted", "ISO", "Decrypted", "RPCS3 loads it as it is; same size as the Redump image", Kind(TargetKind.Ps3Iso), Recommended: true),
+            new("ps3-jb-folder", "JB folder", "Disc files", "PS3_GAME and the rest as plain files, for RPCS3 or a console's internal drive", Kind(TargetKind.Ps3Folder)),
+        ],
         // Switch packages through lib-nx-kit, with your own prod.keys.
         ["switch"] =
         [
@@ -241,6 +247,8 @@ public static class FormatPresets
         TargetKind.Xiso => new("xiso-standard", "XISO", "Game partition", "An Xbox disc's game partition", Kind(TargetKind.Xiso)),
         TargetKind.XboxCci => new("xbox-cci-standard", "CCI", "Cerbios", "A compressed Xbox disc for Cerbios", Kind(TargetKind.XboxCci)),
         TargetKind.Zar => new("zar-standard", "ZAR", "Compressed", "An Xbox 360 disc's files in a ZArchive for Xenia Canary", Kind(TargetKind.Zar)),
+        TargetKind.Ps3Iso => new("ps3-iso-decrypted", "ISO", "Decrypted", "A PS3 disc decrypted with its .dkey", Kind(TargetKind.Ps3Iso)),
+        TargetKind.Ps3Folder => new("ps3-jb-folder", "JB folder", "Disc files", "A PS3 disc's files, decrypted, in a folder", Kind(TargetKind.Ps3Folder)),
         _ => Leave,
     };
 
