@@ -2695,7 +2695,7 @@ if (SevenZipEngine.IsAvailable(out _))
         {
             void Configure(AppSettings s) { s.Keys.VitaZrifPath = Q("zrifs.tsv"); s.TargetFormats.WriteVitaLauncher = true; }
             var text = NoIntrovert.Core.Vita.ZrifLibrary.Describe(Q("zrifs.tsv"));
-            if (!text.StartsWith("1 zRIF(s) in ")) return text;
+            if (!text.StartsWith("1 zRIF in ")) return text;
             var dlc = ConvertTargets.For(Set3("VitaPkg-more/dlc.pkg"), new AppSettings());
             var update = ConvertTargets.For(Set3("VitaPkg-more/update.pkg"), new AppSettings());
             if (dlc.Plan.Text != "Convert → .zip (DLC)" || update.Plan.Text != "Convert → .zip (update)") return $"{dlc.Plan.Text} / {update.Plan.Text}";
