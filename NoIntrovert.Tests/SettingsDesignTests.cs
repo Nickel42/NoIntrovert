@@ -73,8 +73,10 @@ static class SettingsDesignTests
             var p = vm.Performance;
             if (p.TempFolder != "" || p.TempFolderHint != WorkPaths.DefaultTempRoot) return "a new install doesn't use the default";
             if (!PerformanceSettingsViewModel.DefaultTempFolderText.Contains("NoIntrovert")) return "the placeholder doesn't name the folder";
-            p.TempFolder = @"  D:\Work  ";
-            if (p.TempFolder != @"D:\Work" || p.TempFolderHint != @"D:\Work") return $"the folder is \"{p.TempFolder}\"";
+            // A full path as this system writes one, padded with spaces as typed.
+            var work = OperatingSystem.IsWindows() ? @"D:\Work" : "/mnt/d/Work";
+            p.TempFolder = $"  {work}  ";
+            if (p.TempFolder != work || p.TempFolderHint != work) return $"the folder is \"{p.TempFolder}\"";
             p.TempFolder = "";
             return p.TempFolderHint == WorkPaths.DefaultTempRoot ? null : "clearing it didn't go back to the default";
         }));

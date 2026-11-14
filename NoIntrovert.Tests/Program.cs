@@ -637,6 +637,8 @@ Test("Settings: writing back the current values saves nothing", () =>
 {
     var dir = Dir("settings-roundtrip");
     var file = Path.Combine(dir, "settings.json");
+    // Full paths as this system writes them: on Linux and macOS "D:\tmp" isn't one, and the working folder refuses it.
+    static string Full(string name) => OperatingSystem.IsWindows() ? @"D:\" + name : "/mnt/d/" + name;
     var previous = AppSettings.SettingsDirectoryOverride;
     AppSettings.SettingsDirectoryOverride = dir;
     try
@@ -645,12 +647,12 @@ Test("Settings: writing back the current values saves nothing", () =>
         var settings = new AppSettings
         {
             General = { PowerUserMode = true, VerboseLog = true },
-            Output = { Folder = @"D:\out", Overwrite = true, ScanSubfolders = false, SaveTo = SaveTo.ReplaceOriginals, ReplaceConfirmed = true },
-            Performance = { ParallelJobs = 3, ThreadsPerJob = 2, TempFolder = @"D:\tmp" },
+            Output = { Folder = Full("out"), Overwrite = true, ScanSubfolders = false, SaveTo = SaveTo.ReplaceOriginals, ReplaceConfirmed = true },
+            Performance = { ParallelJobs = 3, ThreadsPerJob = 2, TempFolder = Full("tmp") },
             Chd = { Compression = "cdzs,cdfl", HunkSize = 2048 * 8, IsoMode = IsoMode.Cd, ExtractFormat = ExtractFormat.Iso },
             Nintendo = { Target = NintendoTarget.Chd, Compression = LibWiiGameCubeKit.RvzCompression.Lzma2, CompressionLevel = 7, BlockSize = 0x80000, Scrub = true },
             Archives = { Action = ArchiveAction.Convert, Format = ArchiveFormat.Zip, Level = ArchiveLevel.Ultra, Grouping = ArchiveGrouping.Single, ConvertTarget = ConvertTarget.ToZip, SingleName = "All" },
-            Keys = { WiiUKeysPath = @"D:\keys.txt" },
+            Keys = { WiiUKeysPath = Full("keys.txt") },
         };
         var before = settings.ToJson();
         var vm = new NoIntrovert.ViewModels.SettingsViewModel(settings, new NoDialogs());
