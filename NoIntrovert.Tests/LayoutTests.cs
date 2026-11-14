@@ -434,6 +434,7 @@ static class LayoutTests
         DensityTests.RunLayout(test, f, Dispatch, screenshots);
         SettingsNavTests.RunLayout(test, f, Dispatch, screenshots);
         JobListTests.RunLayout(test, f, Dispatch, screenshots);
+        SmallWindowTests.RunLayout(test, f, Dispatch, screenshots);
 
         Dispatch(() => { f.Window.Close(); return null; });
     }

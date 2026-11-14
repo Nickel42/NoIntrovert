@@ -114,6 +114,16 @@ around the list while it runs, and the taskbar button's progress, stay as they w
 - The toolbar summary starts with the selection count: "3 selected · 9 items · 2 done · 1 failed".
 - The panel header says "Focused: row 3 of 9 · 3 selected".
 
+## Small windows (14 Nov 2026)
+
+On Optimize, Convert, Verify and Organize, when the page is narrower than **880 px** the side panel leaves the layout and the job list takes the full width (Views/SidePanelHost.cs).
+
+- The breakpoint follows the page's own width, not the window's. Below a 1100 px window the rail shrinks to icons and gives the page about 126 px back. With the full rail, a 1100 px window leaves the page 886 px, so a breakpoint at or under that can't make the panel flip back and forth as the rail changes. In practice the panel collapses below a window about 968 px wide, so it is collapsed at the 900×600 minimum. While the panel is a column, the list is never narrower than about 570 px.
+- A thin **Details** tab at the page's right edge opens the panel as an overlay from the right, 340 px wide, over a faint scrim. Its tooltip is "Show details for the selected file (Ctrl+I)". **Ctrl+I** (⌘I) does the same while the panel is collapsed.
+- The overlay shows the same panel and the same controls, with a DETAILS heading and ✕. **Escape**, ✕ or a click on the list beside it closes the overlay. If a dropdown in the panel is open, Escape closes the dropdown first.
+- Opening moves focus to the panel's first control (✕ when it has none), and Tab stays inside the overlay. Closing puts focus back on the Details tab.
+- When the page grows past the breakpoint, the overlay closes and the panel returns to its column.
+
 ## Row density (14 Nov 2026)
 
 The job list (Optimize, Convert, Verify, Organize) has two densities, chosen in Settings › Appearance › **Row density** and saved as `General.ListDensity`. Compact is the default for new and existing users. It's a visual change only. The list stays virtualised (a `VirtualizingStackPanel`) at the 5,000-game scale.
