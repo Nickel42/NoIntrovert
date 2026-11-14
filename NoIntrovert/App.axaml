@@ -12,7 +12,7 @@
     </Application.DataTemplates>
 
     <!--
-      The colours come from the chosen themes (Settings › General: a dark and a light one; NoIntrovert/Themes
+      The colours come from the chosen themes (Settings › Appearance: a dark and a light one; NoIntrovert/Themes
       and the themes folder, see Core/Themes). App.axaml.cs puts each theme's colours into the Dark or Light
       dictionary below, so the pages' {DynamicResource …} follow whichever is showing; the Suki* keys repaint
       SukiUI's controls to match. Here are only what every theme shares.
@@ -75,6 +75,24 @@
         <Style Selector="ScrollViewer.sidepanel"><Setter Property="Width" Value="360" /></Style>
         <Style Selector=":is(UserControl).narrow ScrollViewer.sidepanel"><Setter Property="Width" Value="300" /></Style>
         <Style Selector=":is(UserControl).tight ScrollViewer.sidepanel"><Setter Property="Width" Value="280" /></Style>
+        <!-- A small page (under 880 px, Views/SidePanelHost.cs): the panel leaves the layout and opens over the list
+             from the right, from the Details tab or Ctrl+I. The overlay is SidePanelHost.FlyoutWidth wide; the panel fills it. -->
+        <Style Selector="Grid.sidepanelhost.collapsed ScrollViewer.sidepanel"><Setter Property="Width" Value="NaN" /></Style>
+        <Style Selector="Border.sidepanelflyout.overlay">
+            <Setter Property="Background" Value="{DynamicResource AppBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="BoxShadow" Value="-8 0 28 0 #50000000" />
+        </Style>
+        <Style Selector="Border.sidepanelscrim">
+            <Setter Property="Background" Value="#26000000" />
+        </Style>
+        <Style Selector="Button.detailstab">
+            <Setter Property="FontSize" Value="13" />
+        </Style>
         <Style Selector="TextBlock.section">
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="Bold" />

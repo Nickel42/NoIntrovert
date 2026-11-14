@@ -28,8 +28,9 @@ public partial class CleanupViewModel : PlanTabViewModel
     public override string Title => "Organize";
     public override string StartLabel => "Organize";
     protected override string DoneVerb => "Organized";
+    public override string DropHint => "Drop games or a folder of them here";
     public override string EmptyHint =>
-        "Drop games here, or a folder of them.\n" +
+        "Games, or a folder of them.\n" +
         "Files Verify recognized are converted, named as in the database and moved into their system's folder; " +
         "the CHANGES column shows where each one ends up. Nothing changes until you click Organize, and a run can be undone.";
     protected override string FilterName => "Games";
@@ -101,8 +102,7 @@ public partial class CleanupViewModel : PlanTabViewModel
             if (row.IsRunning) continue;
             var steps = StepsByRow.GetValueOrDefault(row.Path) ?? [];
             var item = ItemsByRow.GetValueOrDefault(row.Path);
-            row.Changes = ChangesFor(item, steps);
-            row.ChangesDetails = DetailsFor(item, steps);
+            row.SetChanges(ChangesFor(item, steps), DetailsFor(item, steps));
         }
         if (Plan is { } plan) PlanSummary = Summarize(plan);
         FollowPlan();

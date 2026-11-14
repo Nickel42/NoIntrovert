@@ -56,18 +56,27 @@ public partial class SettingsViewModel : ViewModelBase
     public ArchiveSettingsViewModel Archives { get; }
     public KeySettingsViewModel Keys { get; }
 
-    /// <summary>Set by <see cref="ShowKeys"/> until the page has brought its Keys card into view.</summary>
-    public bool ShowKeysPending { get; internal set; }
+    /// <summary>The Keys card's name in the Settings page's section list (and in "Settings › Keys").</summary>
+    public const string KeysSection = "Keys";
 
-    /// <summary>Raised by <see cref="ShowKeys"/>, for a Settings page that's already showing.</summary>
-    public event EventHandler? ShowKeysRequested;
+    /// <summary>The section (a card's name in the page's section list) the page is to bring into view, until it has.</summary>
+    public string? PendingSection { get; internal set; }
+
+    /// <summary>Set by <see cref="ShowKeys"/> until the page has brought its Keys card into view.</summary>
+    public bool ShowKeysPending => PendingSection == KeysSection;
+
+    /// <summary>Raised by <see cref="ShowSection"/>, for a Settings page that's already showing.</summary>
+    public event EventHandler? ShowSectionRequested;
+
+    /// <summary>Asks the Settings page to scroll a card to the top and focus it (its name in the section list, such as "Log").</summary>
+    public void ShowSection(string section)
+    {
+        PendingSection = section;
+        ShowSectionRequested?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>Asks the Settings page to bring its Keys card into view (the link on rows that failed for missing keys).</summary>
-    public void ShowKeys()
-    {
-        ShowKeysPending = true;
-        ShowKeysRequested?.Invoke(this, EventArgs.Empty);
-    }
+    public void ShowKeys() => ShowSection(KeysSection);
 
     public DiagnosticsSettingsViewModel Diagnostics { get; }
     public LibrarySettingsViewModel Library { get; }

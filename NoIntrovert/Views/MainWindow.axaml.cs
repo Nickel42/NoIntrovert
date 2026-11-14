@@ -71,7 +71,7 @@ public partial class MainWindow : SukiWindow, IDialogs
     private void OnThemeToggleClick(object? sender, RoutedEventArgs e) => ToggleTheme();
 
     /// <summary>
-    /// The title bar's theme button: cycles Settings › General › Theme System → Dark → Light → System, so one
+    /// The title bar's theme button: cycles Settings › Appearance › Theme System → Dark → Light → System, so one
     /// click never leaves System without saying so; the setting, the saved file and the colours stay in step.
     /// </summary>
     public void ToggleTheme()

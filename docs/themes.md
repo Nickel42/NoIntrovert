@@ -1,6 +1,6 @@
 # Themes
 
-Settings › General picks a **dark theme** and a **light theme**. *Theme* (System / Dark / Light) chooses which
+Settings › Appearance picks a **dark theme** and a **light theme**. *Theme* (System / Dark / Light) chooses which
 of the two is showing; System follows the operating system and switches with it.
 
 Built in:
@@ -26,7 +26,7 @@ checks every classic theme's text, secondary text, headings, button and rail tex
 Verified badge and settings fields at 4.5:1, and the accent outline at 3:1.
 
 The lists show NoIntrovert's own themes first, then your custom and imported ones, then the classic themes A to Z.
-The search box above them narrows both lists by name or author; a theme's tooltip says where it comes from and who
+*Find a theme* (under More themes…) narrows both lists by name or author; a theme's tooltip says where it comes from and who
 made it. A setting saved by an older version that chose one of the Base16 schemes it used to ship (`base16-nord`)
 finds the classic theme of the same name (`nord`), or else the kind's NoIntrovert theme.
 
@@ -113,7 +113,7 @@ The file is only read, never run: no objects are created from it, a DTD is refus
 ## More from the web: Base16 and Base24
 
 Base16 and Base24 colour schemes (a small `.yaml` of 16 or 24 colours) can be imported; none are shipped.
-*Import file…* takes their `.yaml`. To download one, paste its address into *More themes* and choose *Import from web*.
+*Import file…* takes their `.yaml`. To download one, paste its address into *More themes…* and choose *Import from web*.
 Base16 names are tidied into theme names ("Gruvbox dark, hard" → "Gruvbox Dark Hard"). A GitHub page's
 address (`github.com/…/blob/…`) works too and is read from raw.githubusercontent.com. Both the current layout
 (`system`/`name`/`variant`/`palette`) and the older one (`scheme:`, colours without `#`) are read.

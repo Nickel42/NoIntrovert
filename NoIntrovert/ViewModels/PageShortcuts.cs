@@ -50,6 +50,7 @@ public static class PageShortcuts
             ($"{mod}4", "Organize"),
             ($"{mod},", "Settings"),
             ($"{mod}J", "Show or hide Activity: the queue and the log"),
+            ($"{mod}I", "Show or hide the selected file's details (small windows)"),
             ($"{mod}O", "Add files to the list"),
             ($"{mod}F", "Filter the rows"),
             ("Escape", "Clear the filter, or stop looking through a folder"),

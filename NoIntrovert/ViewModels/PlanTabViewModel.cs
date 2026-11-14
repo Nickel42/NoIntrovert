@@ -176,8 +176,8 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
             if (row.IsRunning) continue;
             var mine = StepsByRow.GetValueOrDefault(row.Path) ?? [];
             var item = items.GetValueOrDefault(row.Path);
-            row.Changes = problem ?? ChangesFor(item, mine);
-            row.ChangesDetails = problem ?? DetailsFor(item, mine);
+            if (problem is not null) row.SetChanges(new RowChanges(problem, ChangesKind.Problem, []), problem);
+            else row.SetChanges(ChangesFor(item, mine), DetailsFor(item, mine));
         }
         PlanSummary = problem ?? (plan is null ? "" : Summarize(plan));
         PlanShown(plan);
@@ -186,14 +186,14 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
     /// <summary>Called with each plan shown (Organize's per-kind boxes follow it).</summary>
     protected virtual void PlanShown(CleanupPlan? plan) { }
 
-    /// <summary>A row's CHANGES text: its steps, in order.</summary>
-    protected virtual string ChangesFor(LibraryItem? item, IReadOnlyList<CleanupStep> steps) => StepsText(item, steps);
+    /// <summary>A row's CHANGES: where the file ends up, and the steps that take it there.</summary>
+    protected virtual RowChanges ChangesFor(LibraryItem? item, IReadOnlyList<CleanupStep> steps) => ChangesOf(item, steps);
 
     /// <summary>A row's CHANGES tooltip: one step a line, each with why.</summary>
     protected virtual string DetailsFor(LibraryItem? item, IReadOnlyList<CleanupStep> steps) =>
         steps.Count == 0 ? StepsText(item, steps) : string.Join("\n", steps.Select(s => $"{Describe(s)}\n    {s.Reason}"));
 
-    /// <summary>The steps as one line: "Convert → roms/psx/Crash (USA).chd", or why nothing happens.</summary>
+    /// <summary>The steps as one line: "Convert → roms/psx/Crash (USA).chd", or why nothing happens (a skipped row's result).</summary>
     public static string StepsText(LibraryItem? item, IReadOnlyList<CleanupStep> steps)
     {
         if (item is null) return "Not a file the plan can use";

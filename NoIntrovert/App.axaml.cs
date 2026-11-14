@@ -90,7 +90,7 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Settings › General › Theme, Dark theme and Light theme (and the theme editor's preview) apply as soon
+    /// Settings › Appearance › Theme, Dark theme and Light theme (and the theme editor's preview) apply as soon
     /// as they change.
     /// </summary>
     public void BindThemes(GeneralSettingsViewModel general)

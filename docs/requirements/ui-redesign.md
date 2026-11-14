@@ -15,34 +15,53 @@ The right-hand column should explain the **selected job row** and make **presets
 
 - The column grows from 320 px to **440 px** and runs the full height of the window body, beside both the job list and the log. The job list and log get narrower.
 - The column scrolls as one panel. Its sections are, in order: **File**, **Preset**, **Preset settings** (only when the preset is Custom). Where files are saved is in the run bar (see "Save to").
-- The old "CONVERT" summary ("6 → CHD · 1 → RVZ") and the "Pack a folder…" button move out of the column. The summary is already shown in the run bar and toolbar. Pack a folder… (now **Add folder as one archive…**) sits next to Add folder… in the toolbar.
+- The old "CONVERT" summary ("6 → CHD · 1 → RVZ") and the "Pack a folder…" button move out of the column. The summary is already shown in the run bar and toolbar. Pack a folder… (now **Add folder as one archive…**) is in the toolbar's **Add ▾** menu, after Add folder… (see "Job list toolbar").
 - When nothing is selected, the File section shows "Select a row to see what it is", and Preset shows the presets for the most common target in the list.
 - When rows from more than one system are selected, File shows "3 systems selected" with one line per system.
 
-## Navigation rail (revised 3 Nov 2026)
+## Navigation rail (revised 14 Nov 2026)
 
-The top of the rail shows the **NoIntrovert logo** (the cartridge peeking out of the door, with the "NO-INTROVERT" banner). It replaces the "N" badge, the app name and the version. It's 170 px wide, filling the rail's inner width, and keeps its transparent background. The version moves to Settings › About.
+The rail has **no logo**. The title bar right above it already shows the app icon and "NoIntrovert"; the 170 px
+illustration only repeated them and took a quarter of the rail's height. The full illustration
+(`/Assets/nointrovert-logo.png`, kept in the project) belongs in Settings › About and the empty job list. The version
+is in Settings › About.
 
-The left rail has two labelled sections, with Settings set apart at the bottom:
+The rail's pages are in labelled groups, each under a small, muted uppercase header (11 px bold, lined up with the
+buttons' icons), with Settings set apart at the bottom:
 
-- **Library**: one button, **Optimize**, with small text under it: "Verify, Rename, Convert, Organize". It runs all of those steps over the whole library.
-- **Files**: **Convert** (this screen), **Verify** (was "Verify & match") and **Organize** (was "Cleanup", now with a folder icon).
+- **LIBRARY**: one button, **Optimize**, with small text under it: "Verify, convert, organize". It runs all of those
+  steps over the whole library. It's drawn like every other item (no card of its own); the line under its title is
+  what explains it.
+- **FILES**: **Convert**, **Verify** (was "Verify & match") and **Organize** (was "Cleanup", with a folder icon).
+- **TOOLS**: **Library tests**, in Power-user mode only; the header is hidden with it.
 - **Settings** sits at the bottom of the rail, below a divider.
 - The **CHD info** page is removed.
 
-## Settings page (mock-up on "Page 4 · Settings", 4 Nov 2026)
+Every item is selected the same way: a tint with a 4 px accent bar at its left, the text in the normal colour. Each
+button's tooltip names it with its shortcut ("Convert (Ctrl+2)"). The groups come from the page list
+(`PageViewModel.Group`, `MainViewModel.RailGroups`), not from positions in the view.
 
-One scrolling page in the main area, titled "Settings · Changes are saved as you make them". It has no Save button. Two columns of cards:
+Below 1100 px the rail shows only icons (64 px wide): the headers are hidden and a thin divider separates the groups
+(none above the first).
+
+## Settings page (mock-up on "Page 4 · Settings", 4 Nov 2026; section list and Appearance, 14 Nov 2026)
+
+One page in the main area, titled "Settings · Changes are saved as you make them". It has no Save button. One column of cards (at most 880 px wide), with a **section list** at its left, like Windows Settings: one row per card, Advanced's own cards indented under it. Choosing a row scrolls its card to the top (opening Advanced for one of its cards), and as the page scrolls the row of the card at the top is the one highlighted (scroll-spy). The list is in the tab order: Up and Down choose the previous or next card and scroll to it, Enter moves focus into the card. Below a 1000 px window the list becomes a **Jump to…** drop-down above the cards.
 
 | Card | Settings |
 |---|---|
-| General | Theme (System / Dark / Light), Start on (the page the app opens to) |
-| Output | Save to (the default for the run-bar choice: next to the originals, a folder, or replace the originals ⚠), Overwrite existing files (off: a taken name gets " (2)"), Working folder for unpacking (default %TEMP%\NoIntrovert) |
+| General | Start on (the page the app opens to) |
+| Appearance | Theme (System / Dark / Light), Dark theme and Light theme (each with Customize…, the theme editor), Light brightness, Row density (Compact / Comfortable). **More themes…** (collapsed): find a theme in the two lists, import a file or a web address, export the dark or light theme, open the themes folder, reload |
+| Output | Save to (the default for the run-bar choice: next to the originals, a folder, or replace the originals ⚠), Folder layout, Overwrite existing files (off: a taken name gets " (2)"), Working folder for unpacking (default %TEMP%\NoIntrovert) |
 | Performance | Jobs at once (stepper, default 2), Check each file after converting (on; required before originals are replaced) |
 | Log | Open the log when a run has errors (on), Keep logs for (30 days), Open log folder |
 | Default presets | One preset dropdown per system (PlayStation, PS2, PSP, Dreamcast, Saturn, GameCube/Wii…), then Saved presets with Manage… |
 | Library | Library folders that Optimize scans (add/remove), Emulator data source and date with Check now |
-| About | Version, bundled tool versions, Check for updates, Licenses |
+| Keys | Wii U, 3DS, Switch, PS3 and PS Vita keys. A row that failed for missing keys has **Set up keys**, which opens Settings with this card at the top and focus on its first button |
+| Advanced (collapsed) | Power user · Archives · Files and folders · Game databases · Target formats · Diagnostics (Power-user mode only) |
+| About | The NoIntrovert illustration (120 px), version, bundled tool versions, Check for updates, Licenses |
+
+Links into the page name a card (`SettingsViewModel.ShowSection("Keys")`; `ShowKeys()` for Set up keys); the page scrolls it to the top and focuses its first control.
 
 ## Activity: the status bar and its drawer (replaces the log bar and the queue drawer, 14 Nov 2026)
 
@@ -95,9 +114,19 @@ around the list while it runs, and the taskbar button's progress, stay as they w
 - The toolbar summary starts with the selection count: "3 selected · 9 items · 2 done · 1 failed".
 - The panel header says "Focused: row 3 of 9 · 3 selected".
 
+## Small windows (14 Nov 2026)
+
+On Optimize, Convert, Verify and Organize, when the page is narrower than **880 px** the side panel leaves the layout and the job list takes the full width (Views/SidePanelHost.cs).
+
+- The breakpoint follows the page's own width, not the window's. Below a 1100 px window the rail shrinks to icons and gives the page about 126 px back. With the full rail, a 1100 px window leaves the page 886 px, so a breakpoint at or under that can't make the panel flip back and forth as the rail changes. In practice the panel collapses below a window about 968 px wide, so it is collapsed at the 900×600 minimum. While the panel is a column, the list is never narrower than about 570 px.
+- A thin **Details** tab at the page's right edge opens the panel as an overlay from the right, 340 px wide, over a faint scrim. Its tooltip is "Show details for the selected file (Ctrl+I)". **Ctrl+I** (⌘I) does the same while the panel is collapsed.
+- The overlay shows the same panel and the same controls, with a DETAILS heading and ✕. **Escape**, ✕ or a click on the list beside it closes the overlay. If a dropdown in the panel is open, Escape closes the dropdown first.
+- Opening moves focus to the panel's first control (✕ when it has none), and Tab stays inside the overlay. Closing puts focus back on the Details tab.
+- When the page grows past the breakpoint, the overlay closes and the panel returns to its column.
+
 ## Row density (14 Nov 2026)
 
-The job list (Optimize, Convert, Verify, Organize) has two densities, chosen in Settings › General › **Row density** and saved as `General.ListDensity`. Compact is the default for new and existing users. It's a visual change only. The list stays virtualised (a `VirtualizingStackPanel`) at the 5,000-game scale.
+The job list (Optimize, Convert, Verify, Organize) has two densities, chosen in Settings › Appearance › **Row density** and saved as `General.ListDensity`. Compact is the default for new and existing users. It's a visual change only. The list stays virtualised (a `VirtualizingStackPanel`) at the 5,000-game scale.
 
 - **Compact**: one line per row, about 32 px. At the default 1180×820 window, Convert shows about 13 rows, against about 7 in Comfortable.
   - The folder is not shown under the name. The row's tooltip has the full path.
@@ -106,11 +135,35 @@ The job list (Optimize, Convert, Verify, Organize) has two densities, chosen in 
     - why a file the rules leave is left ("Optimal", "Left as is (your setting)");
     - the extension when the preset's name doesn't contain it ("→ .rvz" for Custom or for a saved preset named "My PS1").
     "CHD · Standard ★" making a .chd, or Leave as is chosen by hand, adds no note.
-  - CHANGES (Optimize, Organize) is one line with an ellipsis. Its tooltip has the steps in full.
+  - CHANGES (Optimize, Organize) is one line: the destination, trimmed at its start so the file name stays in view. Its tooltip has the step chips and the steps in full (see "CHANGES").
   - Progress is the bar only, hidden until the row runs. The stage is in the bar's tooltip.
   - Result is one line, with "Set up keys" beside it. The speed is in its tooltip.
 - **Comfortable**: the earlier two-line layout. It has the folder under the name, a bordered dropdown with the note under it, the stage under the bar, and the speed and "Set up keys" under the result.
 - In both densities, a row whose preset isn't the recommended one gets a small **accent dot** before the preset, and its tooltip says "Not the recommended preset (CHD · Standard ★)." The recommended preset is the system's ★ preset, or Leave as is when the rules leave the file. A row with nothing to recommend (an unknown system, or a ★ preset the file can't use) is never marked. The dot's slot is kept on every row, so the names line up.
+
+## Job list toolbar (14 Nov 2026, UX review R4)
+
+- One line, on every page and at every window size: **Add ▾**, a gap, **Remove**, then **⋯**; the summary and the filter box sit at the right.
+- **Add ▾** is a split button. Its main part adds files (Ctrl+O; accessible name "Add files"). Its arrow opens a menu with Add files… (Ctrl+O), Add folder… and, on Convert only, Add folder as one archive….
+- **⋯** ("More list actions") holds Clear finished and Clear all. Clear all still asks first when a row failed or the list is long.
+- The filter narrows with the list (240 px, down to 150 px). When the list is narrow, the summary moves under the filter. Ctrl+F still focuses it, and Delete still removes the selected rows.
+
+## CHANGES (14 Nov 2026, UX review R5)
+
+On Optimize and Organize, CHANGES leads with the outcome, not with the steps in run order:
+
+- **Where the file ends up**, relative to its library folder: "roms/gc/Baldur's Gate - Dark Alliance (USA).rvz". With a new library, it starts "New library: ".
+- **Before Verify** (Optimize), the folder is known but the name isn't: "roms/nes/….7z, name after Verify". A file the databases turn out not to know is still converted where it is, under its own name, as the tooltip says.
+- **Why nothing happens**, muted: "Left alone: not verified yet", "Already named and in place", "Stays as it is: its box is unticked".
+- **A clash**, in the warning colour with a warning glyph: "Clash: X.chd already exists". **A duplicate**: "To the trash (duplicate)".
+- The **steps** are chips in run order: Verify · Convert · Rename · Move (Copy for a new library, Remove for a duplicate). In Comfortable they're a second line under the destination. In Compact the row stays one line: the destination is trimmed at its start, so the file name stays in view, and the chips are in the tooltip with the steps in full.
+
+## Empty list (14 Nov 2026, UX review R8)
+
+- An empty list is a dashed drop zone filling the list area: an icon, one line ("Drop games, folders or archives here", worded for each page), **Add files…** and **Add folder…**, and a small **What can I add?** that shows the page's longer description of what it takes.
+- The column headings are hidden while the list is empty.
+- While files are dragged over the window, the zone's border turns the accent colour with a light tint. The window still takes the drop wherever it lands.
+- The zone has an empty slot above the icon for the NoIntrovert illustration.
 
 ## 1. File section (focused row)
 

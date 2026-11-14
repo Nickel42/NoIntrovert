@@ -30,7 +30,7 @@ public sealed class ThemeOption(ThemeDefinition theme)
 }
 
 /// <summary>
-/// Settings › General's themes: which dark and which light theme the app uses, the theme editor, and
+/// Settings › Appearance's themes: which dark and which light theme the app uses, the theme editor, and
 /// importing themes (an Avalonia ResourceDictionary, or a Base16/Base24 scheme from a file or the web).
 /// App listens to <see cref="Changed"/> and applies <see cref="ActiveDark"/> and <see cref="ActiveLight"/>.
 /// </summary>
