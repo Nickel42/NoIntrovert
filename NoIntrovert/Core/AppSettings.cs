@@ -199,9 +199,15 @@ public sealed class GeneralSettings
 
     /// <summary>Days a saved session log is kept in <see cref="AppSettings.LogDirectory"/>.</summary>
     public int KeepLogsDays { get; set; } = 30;
+
+    /// <summary>How tall the job list's rows are: one line each (Compact), or two with the folder and notes (Comfortable).</summary>
+    public ListDensity ListDensity { get; set; } = ListDensity.Compact;
 }
 
 public enum AppTheme { System, Dark, Light }
+
+/// <summary>The job list's row height (docs/requirements/ui-redesign.md, "Row density").</summary>
+public enum ListDensity { Compact, Comfortable }
 
 /// <summary>Where a run saves its results: the run bar's three choices, and the default Settings gives them.</summary>
 public enum SaveTo
