@@ -44,19 +44,48 @@ One scrolling page in the main area, titled "Settings · Changes are saved as yo
 | Library | Library folders that Optimize scans (add/remove), Emulator data source and date with Check now |
 | About | Version, bundled tool versions, Check for updates, Licenses |
 
-## Log (collapsed by default, 3 Nov 2026)
+## Activity: the status bar and its drawer (replaces the log bar and the queue drawer, 14 Nov 2026)
 
-Most users don't need the log, so it starts collapsed to a single bar: "Log", the error and warning counts, and a **Show log** button at the right. The job list takes the freed height.
+A two-hour batch needs one answer: how far along it is, how long is left, and what failed. That answer is in one
+place, the status bar at the bottom of the window. The queue and the log are in one drawer above it, closed by
+default, so no log card or queue drawer takes height from the page.
 
-- The counts turn red when there's at least one error, so problems are still noticed while the log is collapsed. The failed row also shows its reason in Result.
-- Show log expands it to the full view, with Show debug, Show only errors, Copy, Save… and Clear, and the button becomes **Hide log**. The app remembers the choice. Show only errors leaves only the error lines (Show debug is off while it's on), and Copy and Save… then write only those; the counts still count every line.
+**Status bar**, left to right:
 
-## Queue progress (status bar, 3 Nov 2026)
+- The queue summary: "Queue 1 running · 4 queued · 3 done · 7 min left · 52 MB/s"; "Idle · 3 done" once it's
+  finished, and only "Queue empty" when there's nothing in it. Below 1100 px wide it drops the time left and the
+  speed (its tooltip keeps them).
+- The queue's overall progress bar, filling the space, with the percentage at its right end ("45%"). Progress =
+  (finished items + the running items' fractions) ÷ all items in the queue; skipped items don't count. Hidden when
+  the queue is empty.
+- **2 failed**, a red badge, only when a job in the queue failed (the queue's Clear finished removes it). Clicking
+  it filters the page showing to its failed rows: the filter box reads `is:failed`, a word that matches the row's
+  status and nothing else (plain "failed" would also keep a file or folder with "failed" in its name), and has
+  focus, so Escape clears it. When the page showing has no failed rows, the first page that has some is shown and
+  filtered.
+- The log's counts, "1 error · 3 warnings" (only the counts there are; red with an error), when anything was
+  logged at warning or error. Clicking it opens Activity on its Log tab, with Show only errors on when there's an
+  error.
+- **Activity** at the right, with the number of jobs running or waiting and a chevron. It opens and closes the
+  drawer; so does Ctrl+J (⌘J), from anywhere, a text box included. Tooltip: "Show the queue and the log (Ctrl+J)".
 
-The bottom status bar has an overall queue progress bar between the queue summary ("1 running · 4 queued · 3 done · 52 MB/s · 7 min left") and **Show queue**. It fills the space between them, with the percentage at its right end (e.g. "45%").
+**The Activity drawer** opens above the status bar across the page (not the rail). A splitter above it changes its
+height (default 260 px), which is remembered; a short window shows it shorter, so the page keeps its run bar.
+Its header has two tabs and ✕:
 
-- Progress = (finished items + the running items' fractions) ÷ all items in the queue. Skipped items don't count.
-- When the queue is empty, the bar and the percentage are hidden and the bar reads only "Queue empty".
+- **Queue**: every job from every page, in the order it was added, each with its page, stage, progress and
+  Cancel; Clear finished and Cancel all.
+- **Log**: the session's lines with Show debug, Show only errors, Copy, Save… and Clear (and, in Power-user mode,
+  lib-chd-kit messages and Progress). Show only errors leaves only the error lines (Show debug is off while it's
+  on), and Copy and Save… then write only those; the counts still count every line.
+
+Whether it's open and which tab show are remembered. Settings › Log › "Open the log when a run has errors" opens a
+closed drawer on the Log tab when an error is logged; that isn't saved as the user's choice. A settings file from
+before the drawer that had the log expanded opens on the Log tab.
+
+Each page's run bar keeps only a one-line status ("Working on 7 items…", then "Finished in 0:12:04 · 40 done,
+2 failed"), trimmed with the whole text in its tooltip; the progress is on the status bar and on each row. The beam
+around the list while it runs, and the taskbar button's progress, stay as they were.
 
 ## Selection and focus (decided 2 Nov 2026)
 
@@ -65,6 +94,23 @@ The bottom status bar has an overall queue progress bar between the queue summar
 - The focused row gets a stronger fill, a 2 px **orange (#FF8C42, the palette's accent)** outline and a 4 px orange bar on its left edge, so it stands apart from the lilac/grey selection colours. It is also selected.
 - The toolbar summary starts with the selection count: "3 selected · 9 items · 2 done · 1 failed".
 - The panel header says "Focused: row 3 of 9 · 3 selected".
+
+## Row density (14 Nov 2026)
+
+The job list (Optimize, Convert, Verify, Organize) has two densities, chosen in Settings › General › **Row density** and saved as `General.ListDensity`. Compact is the default for new and existing users. It's a visual change only. The list stays virtualised (a `VirtualizingStackPanel`) at the 5,000-game scale.
+
+- **Compact**: one line per row, about 32 px. At the default 1180×820 window, Convert shows about 13 rows, against about 7 in Comfortable.
+  - The folder is not shown under the name. The row's tooltip has the full path.
+  - **Preset** is still a dropdown, so the keyboard and screen readers work as before, but it's drawn flat: no border or background at rest, so it reads as text. A chevron shows when the pointer is over the row, when the row is focused, or when the dropdown itself is pointed at or focused. Open, it has the full dropdown look; with keyboard focus it gets an accent outline.
+  - "Convert → .chd" moves into the dropdown's tooltip, with the system's name. A muted note follows the preset's name only when it says something the name doesn't:
+    - why a file the rules leave is left ("Optimal", "Left as is (your setting)");
+    - the extension when the preset's name doesn't contain it ("→ .rvz" for Custom or for a saved preset named "My PS1").
+    "CHD · Standard ★" making a .chd, or Leave as is chosen by hand, adds no note.
+  - CHANGES (Optimize, Organize) is one line with an ellipsis. Its tooltip has the steps in full.
+  - Progress is the bar only, hidden until the row runs. The stage is in the bar's tooltip.
+  - Result is one line, with "Set up keys" beside it. The speed is in its tooltip.
+- **Comfortable**: the earlier two-line layout. It has the folder under the name, a bordered dropdown with the note under it, the stage under the bar, and the speed and "Set up keys" under the result.
+- In both densities, a row whose preset isn't the recommended one gets a small **accent dot** before the preset, and its tooltip says "Not the recommended preset (CHD · Standard ★)." The recommended preset is the system's ★ preset, or Leave as is when the rules leave the file. A row with nothing to recommend (an unknown system, or a ★ preset the file can't use) is never marked. The dot's slot is kept on every row, so the names line up.
 
 ## 1. File section (focused row)
 

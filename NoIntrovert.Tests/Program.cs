@@ -927,6 +927,7 @@ OptUxTests.Run(Test, Dir);
 OptCleanupTests.Run(Test, Dir);
 SelectedFileTests.Run(Test);
 QueueClearTests.Run(Test);
+ActivityTests.Run(Test, Dir);
 OptimizeTests.Run(Test, Dir);
 FormatPresetTests.Run(Test, Dir, log);
 EmulatorTests.Run(Test);

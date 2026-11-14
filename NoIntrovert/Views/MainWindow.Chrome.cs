@@ -11,7 +11,7 @@ namespace NoIntrovert.Views;
 
 /// <summary>
 /// The window's platform conventions: Windows 11 caption buttons, the page
-/// shortcuts (Ctrl+1…4, Ctrl+,) and the Keyboard shortcuts sheet (F1, Ctrl+/).
+/// shortcuts (Ctrl+1…4, Ctrl+,), Activity (Ctrl+J) and the Keyboard shortcuts sheet (F1, Ctrl+/).
 /// </summary>
 public partial class MainWindow
 {
@@ -63,10 +63,15 @@ public partial class MainWindow
         e.Handled = WindowShortcut(vm, e.Key, e.KeyModifiers);
     }
 
-    /// <summary>Runs the window's shortcut for <paramref name="key"/>: a page, or the shortcuts sheet. False when it isn't one.</summary>
+    /// <summary>Runs the window's shortcut for <paramref name="key"/>: a page, Activity (Ctrl+J), or the shortcuts sheet. False when it isn't one.</summary>
     public bool WindowShortcut(MainViewModel vm, Key key, KeyModifiers modifiers)
     {
         if (PageShortcuts.PageFor(key, modifiers) is { } page) return vm.Show(page);
+        if (PageShortcuts.TogglesActivity(key, modifiers))
+        {
+            vm.Activity.Toggle();
+            return true;
+        }
         if (!PageShortcuts.OpensSheet(key, modifiers)) return false;
         _ = ShowShortcutsAsync();
         return true;

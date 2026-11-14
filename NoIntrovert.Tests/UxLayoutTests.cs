@@ -92,9 +92,10 @@ static class UxLayoutTests
         {
             f.Resize(1366, 768);
             var log = f.Vm.Log;
-            var expanded = log.IsExpanded;
+            var activity = f.Vm.Activity;
+            var (open, tab) = (activity.IsOpen, activity.Tab);
             var entry = new NoIntrovert.Core.LogEntry(DateTime.Now, NoIntrovert.Core.LogLevel.Warning, "layout test: a warning");
-            log.IsExpanded = true;
+            activity.Open(NoIntrovert.Core.ActivityTab.Log);
             try
             {
                 // Straight into the list: the log's drain timer doesn't tick on the headless clock.
@@ -106,7 +107,7 @@ static class UxLayoutTests
                 if (glyph is null) return "no ⚠ beside the warning";
                 return AutomationProperties.GetName(glyph) == "Warning" ? null : $"the glyph's name is '{AutomationProperties.GetName(glyph)}'";
             }
-            finally { log.Entries.Remove(entry); log.IsExpanded = expanded; f.Layout(); }
+            finally { log.Entries.Remove(entry); activity.Tab = tab; activity.IsOpen = open; f.Layout(); }
         }));
 
         test("Accessibility: inputs and icon-only buttons on Optimize, Convert, Verify and Organize have names", () => dispatch(() =>

@@ -56,7 +56,11 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
     public bool NeedsKeys => IsFailed && (KeysLink.PointsToKeys(Result) || KeysLink.PointsToKeys(Details));
 
     partial void OnResultChanged(string value) => OnPropertyChanged(nameof(NeedsKeys));
-    partial void OnDetailsChanged(string value) => OnPropertyChanged(nameof(NeedsKeys));
+    partial void OnDetailsChanged(string value)
+    {
+        OnPropertyChanged(nameof(NeedsKeys));
+        OnPropertyChanged(nameof(ResultTip));
+    }
 
     public string StatusText => Status switch
     {
@@ -157,6 +161,7 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
             OnPropertyChanged(nameof(Preset));
             OnPropertyChanged(nameof(IsCustom));
             OnPropertyChanged(nameof(PresetLabel));
+            OnPropertyChanged(nameof(IsNotRecommended));
             SyncTarget();
         }
     }
@@ -201,7 +206,71 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
         Target = Targets.FirstOrDefault(t => t.Kind == kind) ?? Core.Formats.TargetChoice.Leave;
         OnPropertyChanged(nameof(Values));
         OnPropertyChanged(nameof(PresetNote));
+        OnPropertyChanged(nameof(PresetSuffix));
+        OnPropertyChanged(nameof(PresetTip));
     }
+
+    // ---- How the Preset cell reads in a dense list (docs/requirements/ui-redesign.md, "Row density") ----
+
+    /// <summary>
+    /// The entry this row would be on if nobody had chosen: Leave as is when the
+    /// rules leave the file, else the system's recommended (★) preset. Null when
+    /// there's nothing to recommend (an unknown system, or ★ isn't usable for this file).
+    /// </summary>
+    public FormatPreset? RecommendedPreset =>
+        PlannedTarget == Core.Formats.TargetKind.Leave
+            ? OptionFor(FormatPreset.LeaveId)?.Preset
+            : FormatPresets.Recommended(SystemId) is { } star ? OptionFor(star.Id)?.Preset : null;
+
+    /// <summary>The row's preset isn't the recommended one: the list marks it with an accent dot, to be spotted in a long list.</summary>
+    public bool IsNotRecommended => Preset is not null && RecommendedPreset is { } r && r.Id != Preset.Id;
+
+    /// <summary>
+    /// The muted text after the preset's name in a dense row, only when it says
+    /// something the name doesn't (<see cref="SuffixFor"/>); the full note is in the tooltip.
+    /// </summary>
+    public string PresetSuffix => SuffixFor(Preset, CustomValues, SystemId, PlannedTarget, FormatStatus);
+
+    /// <summary>
+    /// <see cref="PresetSuffix"/>'s rule. A file left as is because the rules
+    /// leave it says why ("Optimal", "Left as is (your setting)"); a preset whose
+    /// name doesn't say the extension it makes (Custom, a saved preset named
+    /// "My PS1") says it ("→ .rvz"). "CHD · Standard" making a .chd, or Leave
+    /// as is chosen by hand, says nothing more.
+    /// </summary>
+    public static string SuffixFor(FormatPreset? preset, PresetValues? customValues, string? systemId,
+        Core.Formats.TargetKind planned, string formatStatus)
+    {
+        if (preset is null) return "";
+        if (preset.IsLeave) return planned == Core.Formats.TargetKind.Leave ? formatStatus : "";
+        var ext = (preset.IsCustom ? customValues?.OutputExtension(systemId) : preset.OutputExtension(systemId))?.TrimStart('.');
+        if (string.IsNullOrEmpty(ext) || preset.Label.Contains(ext, StringComparison.OrdinalIgnoreCase)) return "";
+        return $"→ .{ext}";
+    }
+
+    /// <summary>The Preset dropdown's tooltip: what the row becomes, the system, and whether the preset is the recommended one.</summary>
+    public string PresetTip
+    {
+        get
+        {
+            var lines = new List<string>();
+            var note = PresetNote;
+            lines.Add(FormatDetails.Length > 0 && note.Length > 0 ? $"{note} · {FormatDetails}" : note.Length > 0 ? note : FormatDetails);
+            if (IsNotRecommended) lines.Add($"Not the recommended preset ({RecommendedPreset!.Label}).");
+            lines.Add("This file's preset: its format and settings.");
+            return string.Join("\n", lines.Where(l => l.Length > 0));
+        }
+    }
+
+    /// <summary>The Result cell's tooltip: the details, and the speed (a dense row has no line for it).</summary>
+    public string? ResultTip => string.Join("\n", new[] { Details, SpeedText.Length > 0 ? $"Speed: {SpeedText}" : "" }.Where(s => s.Length > 0)) is { Length: > 0 } tip ? tip : null;
+
+    partial void OnSpeedTextChanged(string value) => OnPropertyChanged(nameof(ResultTip));
+
+    partial void OnStageChanged(string value) => OnPropertyChanged(nameof(StageTip));
+
+    /// <summary>The progress cell's tooltip: the stage the job is at (a dense row has no line for it).</summary>
+    public string? StageTip => Stage.Length > 0 ? Stage : null;
 
     /// <summary>
     /// The line under the row's Preset dropdown: "Convert → .chd" for the

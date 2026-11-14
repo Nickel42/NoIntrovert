@@ -6,7 +6,8 @@
              xmlns:presets="using:NoIntrovert.Core.Presets"
              x:Class="NoIntrovert.Views.JobListPanel"
              x:DataType="vm:BatchTabViewModel"
-             v:Responsive.Below="medium:1100,compact:900,narrow:700">
+             v:Responsive.Below="medium:1100,compact:900,narrow:700"
+             Classes.dense="{Binding Settings.General.IsCompactRows}">
 
     <UserControl.Styles>
         <!-- Column widths, shared by the headings and the rows; the file name takes what's left.
@@ -36,7 +37,32 @@
         <!-- A failed row's reason -->
         <Style Selector="TextBlock.failed"><Setter Property="Foreground" Value="{DynamicResource DangerText}" /></Style>
 
-        <!-- Run bar: progress and status at the left, then Save to, then Cancel and Convert.
+        <!-- Row density (Settings › General; docs/requirements/ui-redesign.md, "Row density"). Comfortable is
+             the template as written: two lines per row. Compact ("dense" on the panel; "compact" is taken by the
+             width classes above) makes every row one line: the second lines (folder, preset note, stage, speed)
+             go, and their text is in the row's tooltips. -->
+        <Style Selector="v|JobListPanel.dense :is(Control).secondline"><Setter Property="IsVisible" Value="False" /></Style>
+        <!-- The muted note after the preset's name, only in Compact (and only when it says something the name doesn't) -->
+        <Style Selector="TextBlock.presetsuffix"><Setter Property="IsVisible" Value="False" /></Style>
+        <Style Selector="v|JobListPanel.dense TextBlock.presetsuffix"><Setter Property="IsVisible" Value="True" /></Style>
+        <!-- CHANGES: two lines in Comfortable, one with an ellipsis in Compact (the tooltip has it all) -->
+        <Style Selector="TextBlock.changes">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="MaxLines" Value="2" />
+        </Style>
+        <Style Selector="v|JobListPanel.dense TextBlock.changes">
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="MaxLines" Value="1" />
+        </Style>
+        <!-- Set up keys: under the result in Comfortable, beside it in Compact -->
+        <Style Selector="HyperlinkButton.keyslink"><Setter Property="DockPanel.Dock" Value="Bottom" /></Style>
+        <Style Selector="v|JobListPanel.dense HyperlinkButton.keyslink">
+            <Setter Property="DockPanel.Dock" Value="Right" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Run bar: the run's status at the left, then Save to, then Cancel and Convert.
              When the list is narrow, the status moves under the rest. -->
         <Style Selector="StackPanel.runstatus">
             <Setter Property="Width" Value="320" />
@@ -159,7 +185,82 @@
                             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             <Setter Property="Background" Value="{DynamicResource FocusedRowFill}" />
                         </Style>
+                        <!-- Compact: one line, about 32 px with the frame -->
+                        <Style Selector="v|JobListPanel.dense Border.rowframe">
+                            <Setter Property="Padding" Value="10,1" />
+                            <Setter Property="MinHeight" Value="32" />
+                        </Style>
+
+                        <!-- The row's Preset dropdown. Comfortable: today's bordered dropdown, the note under it. -->
+                        <Style Selector="ComboBox.rowpreset">
+                            <Setter Property="DockPanel.Dock" Value="Top" />
+                            <Setter Property="HorizontalAlignment" Value="Stretch" />
+                        </Style>
+                        <!-- Compact: flat, reading as the preset's name; a chevron shows on the row's hover or focus,
+                             and the full dropdown look while it's open or has keyboard focus. -->
+                        <Style Selector="v|JobListPanel.dense ComboBox.rowpreset">
+                            <Setter Property="DockPanel.Dock" Value="Left" />
+                            <Setter Property="HorizontalAlignment" Value="Left" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="MinHeight" Value="0" />
+                            <Setter Property="MinWidth" Value="100" />
+                            <Setter Property="Height" Value="26" />
+                            <Setter Property="Template">
+                                <ControlTemplate>
+                                    <Panel>
+                                        <Border Name="frame" Background="Transparent" BorderBrush="Transparent" BorderThickness="1"
+                                                CornerRadius="6" Padding="6,0,4,0">
+                                            <DockPanel>
+                                                <Path Name="chevron" DockPanel.Dock="Right" Width="10" Height="6" Margin="6,1,0,0" VerticalAlignment="Center"
+                                                      Data="M1,1 L5,5 L9,1" Stroke="{DynamicResource SubtleText}" StrokeThickness="1.5"
+                                                      StrokeLineCap="Round" StrokeJoin="Round" Opacity="0" />
+                                                <ContentControl Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                                Foreground="{DynamicResource SukiText}" VerticalAlignment="Center" />
+                                            </DockPanel>
+                                        </Border>
+                                        <Popup Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen, Mode=TwoWay}" PlacementTarget="frame"
+                                               MaxHeight="{TemplateBinding MaxDropDownHeight}" IsLightDismissEnabled="True" InheritsTransform="True"
+                                               WindowManagerAddShadowHint="False">
+                                            <Border Background="{DynamicResource PanelRaised}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"
+                                                    CornerRadius="8" Padding="4" BoxShadow="0 4 16 0 #40000000" Margin="0,2,0,8">
+                                                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                                    <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+                                                </ScrollViewer>
+                                            </Border>
+                                        </Popup>
+                                    </Panel>
+                                </ControlTemplate>
+                            </Setter>
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense ComboBox.rowpreset:pointerover /template/ Border#frame">
+                            <Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}" />
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense ComboBox.rowpreset:dropdownopen /template/ Border#frame">
+                            <Setter Property="Background" Value="{DynamicResource PanelBackground}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}" />
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense ComboBox.rowpreset:focus-visible /template/ Border#frame">
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense ListBoxItem:pointerover ComboBox.rowpreset /template/ Path#chevron">
+                            <Setter Property="Opacity" Value="1" />
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense Border.rowframe.focused ComboBox.rowpreset /template/ Path#chevron">
+                            <Setter Property="Opacity" Value="1" />
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense ComboBox.rowpreset:focus /template/ Path#chevron">
+                            <Setter Property="Opacity" Value="1" />
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense ComboBox.rowpreset:dropdownopen /template/ Path#chevron">
+                            <Setter Property="Opacity" Value="1" />
+                        </Style>
                     </ListBox.Styles>
+                    <!-- Rows are made only for what's in view: the list must stay fast at 5,000 files -->
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:JobItemViewModel">
                             <Panel>
@@ -169,15 +270,23 @@
                                           Focusable="False" AutomationProperties.Name="{Binding Name, StringFormat='Select {0}'}" />
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
                                     <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding Folder}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="LeadingCharacterEllipsis" />
+                                    <!-- The folder: Comfortable only (the row's tooltip has the whole path) -->
+                                    <TextBlock Text="{Binding Folder}" Classes="hint secondline" FontSize="11" TextWrapping="NoWrap" TextTrimming="LeadingCharacterEllipsis" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="2" Text="{Binding TypeText}" VerticalAlignment="Center" Classes="hint col-type" TextTrimming="CharacterEllipsis" />
-                                <StackPanel Grid.Column="3" Width="210" Margin="0,0,8,0" VerticalAlignment="Center"
-                                            IsVisible="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).ShowsTargets}">
-                                    <ComboBox ItemsSource="{Binding PresetOptions}" SelectedItem="{Binding PresetChoice}" IsVisible="{Binding HasPresets}"
-                                              HorizontalAlignment="Stretch" MaxDropDownHeight="520"
+                                <DockPanel Grid.Column="3" Width="210" Margin="0,0,8,0" VerticalAlignment="Center"
+                                           IsVisible="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).ShowsTargets}">
+                                    <!-- Not the recommended (★) preset: an accent dot, so the odd one out shows in a long list -->
+                                    <!-- (its slot is kept on every row, so the names line up) -->
+                                    <Panel DockPanel.Dock="Left" Width="11" VerticalAlignment="Center">
+                                        <Ellipse Classes="notrecommended" Width="7" Height="7" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                 Fill="{DynamicResource AccentBrush}" IsVisible="{Binding IsNotRecommended}"
+                                                 ToolTip.Tip="{Binding PresetTip}" />
+                                    </Panel>
+                                    <ComboBox Classes="rowpreset" ItemsSource="{Binding PresetOptions}" SelectedItem="{Binding PresetChoice}" IsVisible="{Binding HasPresets}"
+                                              MaxDropDownHeight="520"
                                               AutomationProperties.Name="{Binding Name, StringFormat='Preset for {0}'}"
-                                              ToolTip.Tip="This file's preset: its format and settings.">
+                                              ToolTip.Tip="{Binding PresetTip}">
                                         <ComboBox.Styles>
                                             <Style Selector="ComboBoxItem" x:DataType="presets:PresetListItem">
                                                 <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
@@ -194,39 +303,44 @@
                                             </DataTemplate>
                                         </ComboBox.SelectionBoxItemTemplate>
                                     </ComboBox>
-                                    <TextBlock Text="{Binding Target}" IsVisible="{Binding !HasPresets}" Classes="hint" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                    <!-- "Convert → .chd", or "Optimal" when left as is -->
-                                    <TextBlock Text="{Binding PresetNote}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                    <TextBlock Text="{Binding Target}" IsVisible="{Binding !HasPresets}" Classes="hint" DockPanel.Dock="Top" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <!-- Comfortable: "Convert → .chd", or "Optimal" when left as is, under the dropdown -->
+                                    <TextBlock Text="{Binding PresetNote}" Classes="hint secondline" DockPanel.Dock="Top" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                                                Margin="2,3,0,0" ToolTip.Tip="{Binding FormatDetails}" />
-                                </StackPanel>
+                                    <!-- Compact: after the name, only what the name doesn't say ("Optimal", "→ .rvz" for Custom) -->
+                                    <TextBlock Text="{Binding PresetSuffix}" Classes="hint presetsuffix" FontSize="12" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center" Margin="4,0,0,0" ToolTip.Tip="{Binding PresetTip}" />
+                                </DockPanel>
                                 <!-- Optimize and Organize: "Verify → Convert → roms/psx/Crash (USA).chd" -->
-                                <TextBlock Grid.Column="3" Classes="col-changes" Margin="0,0,8,0" VerticalAlignment="Center"
+                                <TextBlock Grid.Column="3" Classes="col-changes changes" Margin="0,0,8,0" VerticalAlignment="Center"
                                            IsVisible="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).ShowsChanges}"
-                                           Text="{Binding Changes}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                           Text="{Binding Changes}" TextTrimming="CharacterEllipsis"
                                            ToolTip.Tip="{Binding ChangesDetails}" />
                                 <TextBlock Grid.Column="4" Text="{Binding SizeText}" VerticalAlignment="Center" TextAlignment="Right" Padding="0,0,10,0" Classes="col-size" />
                                 <DockPanel Grid.Column="5" VerticalAlignment="Center" Classes="col-status">
                                     <Ellipse Width="8" Height="8" Margin="0,0,6,0" Fill="{Binding Status, Converter={x:Static v:Palette.StatusBrush}}" />
                                     <TextBlock Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" Margin="0,0,6,0" />
                                 </DockPanel>
-                                <StackPanel Grid.Column="6" VerticalAlignment="Center" Classes="col-progress">
+                                <StackPanel Grid.Column="6" VerticalAlignment="Center" Classes="col-progress" ToolTip.Tip="{Binding StageTip}">
                                     <!-- No empty track on rows that are only ready or waiting -->
                                     <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Height="6" MinWidth="0" Margin="0,0,10,0"
                                                  IsVisible="{Binding ShowsProgress}" />
-                                    <TextBlock Text="{Binding Stage}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                    <!-- The stage: Comfortable only (Compact has it in the tooltip) -->
+                                    <TextBlock Text="{Binding Stage}" Classes="hint secondline" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="7" Text="{Binding ElapsedText}" VerticalAlignment="Center" Classes="col-time" />
-                                <StackPanel Grid.Column="8" VerticalAlignment="Center" Classes="col-result">
-                                    <!-- "Game.chd · 58%", or a failure's reason in red; the speed below -->
-                                    <TextBlock Text="{Binding Result}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Details}"
-                                               Classes.failed="{Binding IsFailed}" />
-                                    <TextBlock Text="{Binding SpeedText}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                <!-- "Game.chd · 58%", or a failure's reason in red; Comfortable has the speed and the keys link under it,
+                                     Compact the link beside it and the speed in the tooltip -->
+                                <DockPanel Grid.Column="8" VerticalAlignment="Center" Classes="col-result">
                                     <!-- Failed for missing keys: a link to Settings › Keys -->
-                                    <HyperlinkButton Content="Set up keys" IsVisible="{Binding NeedsKeys}" Padding="0" MinHeight="0" FontSize="11"
+                                    <HyperlinkButton Classes="keyslink" Content="Set up keys" IsVisible="{Binding NeedsKeys}" Padding="0" MinHeight="0" FontSize="11"
                                                      Command="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).OpenKeysCommand}"
                                                      ToolTip.Tip="Open Settings › Keys"
                                                      AutomationProperties.Name="{Binding Name, StringFormat='Set up keys for {0}'}" />
-                                </StackPanel>
+                                    <TextBlock Text="{Binding SpeedText}" Classes="hint secondline" DockPanel.Dock="Bottom" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Result}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ResultTip}"
+                                               VerticalAlignment="Center" Classes.failed="{Binding IsFailed}" />
+                                </DockPanel>
                             </Grid>
                             </Border>
                             <Border Width="4" HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" CornerRadius="4,0,0,4" IsVisible="{Binding IsFocusedRow}" />
@@ -245,16 +359,17 @@
             <!-- Run bar -->
             <Border Grid.Row="3" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="12,10">
                 <DockPanel>
-                    <!-- The run's progress and status: "Working on 7 items…" -->
-                    <StackPanel Classes="runstatus" VerticalAlignment="Center" Spacing="6">
+                    <!-- The run's status, on one line: "Working on 7 items…", then "Finished in 0:12:04 · 40 done, 2 failed".
+                         Progress is on the status bar and each row; the full text is in the tooltip. -->
+                    <StackPanel Classes="runstatus" VerticalAlignment="Center">
                         <StackPanel.IsVisible>
                             <MultiBinding Converter="{x:Static BoolConverters.Or}">
                                 <Binding Path="IsRunning" />
                                 <Binding Path="RunStatus" Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
                             </MultiBinding>
                         </StackPanel.IsVisible>
-                        <ProgressBar Value="{Binding OverallProgress}" Height="8" MinWidth="0" IsVisible="{Binding IsRunning}" />
-                        <TextBlock Text="{Binding RunStatus}" Classes="hint" TextWrapping="Wrap" />
+                        <TextBlock x:Name="RunStatusText" Text="{Binding RunStatus}" Classes="hint" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding RunStatus}" />
                     </StackPanel>
                     <!-- Cancel and Convert, at the right -->
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="16,0,0,0">

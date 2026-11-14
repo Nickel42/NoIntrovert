@@ -124,13 +124,82 @@
             <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
         </Style>
 
-        <!-- The log's counts turn red once there's an error, so it's noticed while the log is collapsed -->
+        <!-- The log's counts (the status bar's chip) turn red once there's an error, so it's noticed while Activity is closed -->
         <Style Selector="TextBlock.counts">
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="Medium" />
         </Style>
         <Style Selector="TextBlock.counts.error">
             <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
+        </Style>
+
+        <!-- The status bar's buttons: the failure badge, the error and warning chip, and Activity, all compact -->
+        <Style Selector="Border.statusbar Button">
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.statusbar Button.chip">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.statusbar Button.chip.error">
+            <Setter Property="BorderBrush" Value="{DynamicResource DangerText}" />
+        </Style>
+        <Style Selector="Border.statusbar Button.activity.open">
+            <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
+        </Style>
+        <!-- The number of jobs running or waiting, on the Activity button -->
+        <Style Selector="Border.countbadge">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="MinWidth" Value="18" />
+            <Setter Property="Padding" Value="5,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.countbadge TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource AccentForeground}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <!-- A narrow window: the summary drops the time left and speed (its tooltip keeps them) and the "Queue" label -->
+        <Style Selector="Border.statusbar TextBlock.statusshort"><Setter Property="IsVisible" Value="False" /></Style>
+        <Style Selector="Border.statusbar.narrow TextBlock.statusshort"><Setter Property="IsVisible" Value="True" /></Style>
+        <Style Selector="Border.statusbar.narrow TextBlock.statuslong"><Setter Property="IsVisible" Value="False" /></Style>
+        <Style Selector="Border.statusbar.narrow TextBlock.queuelabel"><Setter Property="IsVisible" Value="False" /></Style>
+
+        <!-- Activity's tabs: a segmented control of two radio buttons, as Settings › Theme -->
+        <Style Selector="Border.segmented">
+            <Setter Property="Background" Value="{DynamicResource SettingsFieldBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SettingsFieldBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="2" />
+        </Style>
+        <Style Selector="RadioButton.segment">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource SettingsFieldText}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="MinWidth" Value="64" />
+            <Setter Property="Padding" Value="13,5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="7" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.segment:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SettingsSegmentHover}" />
+        </Style>
+        <Style Selector="RadioButton.segment:checked">
+            <Setter Property="Background" Value="{DynamicResource SettingsAccent}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}" />
+            <Setter Property="FontWeight" Value="Bold" />
         </Style>
         <!-- Rail icons and the line under a title are muted; on the selected page (a tint with the accent bar)
              the icon takes the text colour, and the line under the title a stronger grey that reads on the tint -->
@@ -205,25 +274,43 @@
             </DockPanel>
         </Border>
 
-        <!-- The page, then the log and the queue drawer. The log row is Auto while collapsed to its bar
-             (the page takes the height) and a resizable 230 px when expanded; see MainWindow.axaml.cs. -->
-        <Grid Grid.Column="1" x:Name="BodyGrid" RowDefinitions="*,Auto,Auto,Auto">
+        <!-- The page, then the Activity drawer (the queue and the log) under it. The drawer's row is Auto while it's
+             closed (the page takes the height) and a resizable height when open; see MainWindow.axaml.cs. -->
+        <Grid Grid.Column="1" x:Name="BodyGrid" RowDefinitions="*,Auto,Auto">
             <ContentControl Grid.Row="0" Content="{Binding SelectedPage.Content}" Margin="12,6,12,0" />
 
-            <GridSplitter Grid.Row="1" Height="6" Background="Transparent" ResizeDirection="Rows" IsVisible="{Binding Log.IsExpanded}" />
-            <Border Grid.Row="1" Height="6" IsVisible="{Binding !Log.IsExpanded}" />
+            <GridSplitter Grid.Row="1" x:Name="ActivitySplitter" Height="8" Background="Transparent" ResizeDirection="Rows" IsVisible="{Binding Activity.IsOpen}" />
+            <Border Grid.Row="1" Height="10" IsVisible="{Binding !Activity.IsOpen}" />
 
-            <!-- Log -->
-            <Border Grid.Row="2" Classes="card" Margin="12,0,12,12" Padding="0" x:Name="LogCard">
+            <!-- Activity: Queue and Log tabs, their controls, and ✕ -->
+            <Border Grid.Row="2" Classes="card" Margin="12,0,12,10" Padding="0" x:Name="ActivityCard" IsVisible="{Binding Activity.IsOpen}">
                 <Grid RowDefinitions="Auto,*">
-                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,6">
-                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="Log" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
-                            <TextBlock Classes="hint counts" Classes.error="{Binding Log.HasErrors}" VerticalAlignment="Center"
-                                       Text="{Binding Log.CountsText}" />
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="10,6,6,6">
+                        <Border Classes="segmented" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <RadioButton Classes="segment" x:Name="QueueTab" GroupName="ActivityTab" IsChecked="{Binding Activity.IsQueueTab}"
+                                             AutomationProperties.Name="Queue">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Queue" VerticalAlignment="Center" />
+                                        <Border Classes="countbadge" IsVisible="{Binding Queue.HasActive}">
+                                            <TextBlock Text="{Binding Queue.ActiveCount}" />
+                                        </Border>
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton Classes="segment" x:Name="LogTab" GroupName="ActivityTab" IsChecked="{Binding Activity.IsLogTab}"
+                                             AutomationProperties.Name="Log" Content="Log" />
+                            </StackPanel>
+                        </Border>
+                        <!-- What the tab shows: the queue's order, or the log's counts (red with an error) -->
+                        <TextBlock Grid.Column="1" Text="Every job from every page, in the order it was added." Classes="hint"
+                                   VerticalAlignment="Center" Margin="12,0,8,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" IsVisible="{Binding Activity.IsQueueTab}" />
+                        <TextBlock Grid.Column="1" Classes="hint counts" Classes.error="{Binding Log.HasErrors}" Text="{Binding Log.CountsText}"
+                                   VerticalAlignment="Center" Margin="12,0,8,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" IsVisible="{Binding Activity.IsLogTab}" />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" IsVisible="{Binding Activity.IsQueueTab}">
+                            <Button Classes="tool" Content="Clear finished" Command="{Binding Queue.ClearFinishedCommand}" />
+                            <Button Classes="tool" Content="Cancel all" Command="{Binding Queue.CancelAllCommand}" IsEnabled="{Binding Queue.IsBusy}" />
                         </StackPanel>
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
-                            <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Log.IsExpanded}">
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" IsVisible="{Binding Activity.IsLogTab}">
                             <CheckBox Content="Show debug" IsChecked="{Binding Log.ShowDebug}" IsEnabled="{Binding !Log.ShowOnlyErrors}" />
                             <CheckBox Content="Show only errors" IsChecked="{Binding Log.ShowOnlyErrors}"
                                       ToolTip.Tip="Show only the error lines. Copy and Save… then include only those too." />
@@ -231,53 +318,19 @@
                                       ToolTip.Tip="Log every message lib-chd-kit sends (shown as debug lines)." />
                             <CheckBox Content="Progress" IsChecked="{Binding Settings.General.LogProgress}" IsVisible="{Binding Settings.General.PowerUserMode}"
                                       ToolTip.Tip="Log lib-chd-kit progress reports every 10% (debug lines)." />
-                            <Button Content="Copy" Command="{Binding Log.CopyCommand}" />
-                            <Button Content="Save…" Command="{Binding Log.SaveCommand}" />
-                            <Button Content="Clear" Command="{Binding Log.ClearCommand}"
+                            <Button Classes="tool" Content="Copy" Command="{Binding Log.CopyCommand}" />
+                            <Button Classes="tool" Content="Save…" Command="{Binding Log.SaveCommand}" />
+                            <Button Classes="tool" Content="Clear" Command="{Binding Log.ClearCommand}"
                                     ToolTip.Tip="Clear the lines shown here (and what Copy and Save… include). The session's log file keeps every line: Settings › Log › Open log folder." />
-                            </StackPanel>
-                            <Button Content="{Binding Log.ToggleText}" Command="{Binding Log.ToggleExpandedCommand}" MinWidth="84" />
                         </StackPanel>
+                        <Button Grid.Column="3" x:Name="ActivityClose" Classes="tool" Content="✕" Margin="8,0,0,0" Padding="10,6"
+                                Command="{Binding Activity.CloseCommand}" ToolTip.Tip="{Binding Activity.ToolTipText}"
+                                AutomationProperties.Name="Close Activity" />
                     </Grid>
-                    <ListBox Grid.Row="1" x:Name="LogList" ItemsSource="{Binding Log.Entries}" IsVisible="{Binding Log.IsExpanded}" AutomationProperties.Name="Log"
-                             Background="{DynamicResource LogBackground}" Padding="0,2">
-                        <ListBox.Styles>
-                            <Style Selector="ListBoxItem">
-                                <Setter Property="Padding" Value="10,1" />
-                                <Setter Property="MinHeight" Value="0" />
-                            </Style>
-                        </ListBox.Styles>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="core:LogEntry">
-                                <Grid ColumnDefinitions="64,34,*" Opacity="{Binding Level, Converter={x:Static v:Palette.LevelOpacity}}">
-                                    <TextBlock Text="{Binding TimeText}" FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace" FontSize="12" FontWeight="Normal" Classes="hint" />
-                                    <!-- The level as a glyph (✕ ⚠ ✓ i ·), in its colour, so it doesn't rest on colour alone -->
-                                    <TextBlock Grid.Column="1" Classes="levelglyph" Text="{Binding Level, Converter={x:Static v:Palette.LevelGlyph}}"
-                                               Foreground="{Binding Level, Converter={x:Static v:Palette.LevelBrush}}"
-                                               FontSize="12" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                               AutomationProperties.Name="{Binding Level, Converter={x:Static v:Palette.LevelName}}" />
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Message}" FontWeight="Normal" FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace"
-                                                         FontSize="12" TextWrapping="Wrap" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </Grid>
-            </Border>
 
-            <!-- Queue drawer: every job from every tab -->
-            <Border Grid.Row="3" Classes="card" Margin="12,0,12,8" Padding="0" IsVisible="{Binding Queue.IsOpen}">
-                <Grid RowDefinitions="Auto,*">
-                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,6">
-                        <TextBlock Text="Queue" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="Every job from every page, in the order it was added." Classes="hint"
-                                   VerticalAlignment="Center" Margin="10,0,0,0" />
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
-                            <Button Classes="tool" Content="Clear finished" Command="{Binding Queue.ClearFinishedCommand}" />
-                            <Button Classes="tool" Content="Cancel all" Command="{Binding Queue.CancelAllCommand}" IsEnabled="{Binding Queue.IsBusy}" />
-                        </StackPanel>
-                    </Grid>
-                    <ListBox Grid.Row="1" x:Name="QueueList" MaxHeight="220" ItemsSource="{Binding Queue.Rows}" Margin="12,0,12,8" Background="Transparent">
+                    <!-- Queue: every job from every page -->
+                    <ListBox Grid.Row="1" x:Name="QueueList" ItemsSource="{Binding Queue.Rows}" Margin="12,0,12,8" Background="Transparent"
+                             IsVisible="{Binding Activity.IsQueueTab}" AutomationProperties.Name="Queue">
                             <ListBox.Styles>
                                 <Style Selector="ListBoxItem">
                                     <Setter Property="Padding" Value="0" />
@@ -303,21 +356,76 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                     </ListBox>
+                    <Panel Grid.Row="1" IsVisible="{Binding Activity.IsQueueTab}">
+                        <TextBlock Text="Nothing in the queue. A run's jobs show here, from every page." Classes="hint"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20" IsVisible="{Binding !Queue.HasRows}" />
+                    </Panel>
+
+                    <!-- Log -->
+                    <ListBox Grid.Row="1" x:Name="LogList" ItemsSource="{Binding Log.Entries}" IsVisible="{Binding Activity.IsLogTab}" AutomationProperties.Name="Log"
+                             Background="{DynamicResource LogBackground}" Padding="0,2" Margin="0,0,0,1">
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="10,1" />
+                                <Setter Property="MinHeight" Value="0" />
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="core:LogEntry">
+                                <Grid ColumnDefinitions="64,34,*" Opacity="{Binding Level, Converter={x:Static v:Palette.LevelOpacity}}">
+                                    <TextBlock Text="{Binding TimeText}" FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace" FontSize="12" FontWeight="Normal" Classes="hint" />
+                                    <!-- The level as a glyph (✕ ⚠ ✓ i ·), in its colour, so it doesn't rest on colour alone -->
+                                    <TextBlock Grid.Column="1" Classes="levelglyph" Text="{Binding Level, Converter={x:Static v:Palette.LevelGlyph}}"
+                                               Foreground="{Binding Level, Converter={x:Static v:Palette.LevelBrush}}"
+                                               FontSize="12" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                               AutomationProperties.Name="{Binding Level, Converter={x:Static v:Palette.LevelName}}" />
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Message}" FontWeight="Normal" FontFamily="Cascadia Mono,Consolas,Menlo,DejaVu Sans Mono,Liberation Mono,monospace"
+                                                         FontSize="12" TextWrapping="Wrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                 </Grid>
             </Border>
         </Grid>
 
-        <!-- Status bar: the queue summary, then the whole queue's progress (by item) filling the space up to Show queue.
-             An empty queue reads only "Queue empty". -->
-        <Border Grid.Row="1" Grid.ColumnSpan="2" Classes="statusbar" Background="{DynamicResource HeaderBackground}" Padding="18,6">
-            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
-                <TextBlock Text="Queue" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0" IsVisible="{Binding Queue.HasRows}" />
-                <TextBlock Grid.Column="1" Text="{Binding Queue.StatusText}" Foreground="{DynamicResource SubtleText}" VerticalAlignment="Center" Margin="0,0,12,0" />
-                <ProgressBar Grid.Column="2" Value="{Binding Queue.OverallPercent}" Minimum="0" Maximum="100" Height="6" MinWidth="0" Margin="12,0,0,0"
+        <!-- Status bar, the one summary of every run: the queue (what's running and waiting, the time left and speed),
+             the whole queue's progress (by item) filling the space, "2 failed" (shows the page's failed rows), the log's
+             errors and warnings (opens the Log tab), and Activity (Ctrl+J). An empty queue reads only "Queue empty".
+             Narrower than 1100 px, the summary leaves the time left and speed to its tooltip. -->
+        <Border Grid.Row="1" Grid.ColumnSpan="2" x:Name="StatusBar" Classes="statusbar" Background="{DynamicResource HeaderBackground}" Padding="18,5,12,5"
+                v:Responsive.Below="narrow:1100">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto">
+                <TextBlock Classes="queuelabel" Text="Queue" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0" IsVisible="{Binding Queue.HasRows}" />
+                <Panel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0" ToolTip.Tip="{Binding Queue.StatusText}">
+                    <TextBlock Classes="statuslong" Text="{Binding Queue.StatusText}" Foreground="{DynamicResource SubtleText}" MaxWidth="560" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="statusshort" Text="{Binding Queue.ShortStatusText}" Foreground="{DynamicResource SubtleText}" MaxWidth="300" TextTrimming="CharacterEllipsis" />
+                </Panel>
+                <ProgressBar Grid.Column="2" Value="{Binding Queue.OverallPercent}" Minimum="0" Maximum="100" Height="6" MinWidth="40" Margin="12,0,0,0"
                              VerticalAlignment="Center" IsVisible="{Binding Queue.ShowsProgress}" />
                 <TextBlock Grid.Column="3" Text="{Binding Queue.OverallPercent, StringFormat={}{0:F0}%}" FontWeight="SemiBold" VerticalAlignment="Center"
-                           Margin="10,0,24,0" MinWidth="34" TextAlignment="Right" IsVisible="{Binding Queue.ShowsProgress}" />
-                <Button Grid.Column="4" Content="{Binding Queue.ToggleText}" Command="{Binding Queue.ToggleCommand}" />
+                           Margin="10,0,16,0" MinWidth="34" TextAlignment="Right" IsVisible="{Binding Queue.ShowsProgress}" />
+                <Button Grid.Column="4" x:Name="FailedBadge" Classes="danger" Content="{Binding Queue.FailedText}" IsVisible="{Binding Queue.HasFailures}"
+                        Command="{Binding ShowFailedRowsCommand}" Margin="0,0,8,0"
+                        ToolTip.Tip="Show only the failed rows on this page (Escape in the filter box shows them all again)." />
+                <Button Grid.Column="5" x:Name="ProblemsChip" Classes="chip" Classes.error="{Binding Log.HasErrors}" IsVisible="{Binding Log.HasProblems}"
+                        Command="{Binding Activity.ShowProblemsCommand}" Margin="0,0,8,0" AutomationProperties.Name="{Binding Log.ChipText}"
+                        ToolTip.Tip="Open the log (only its errors, when there are any).">
+                    <TextBlock Classes="counts" Classes.error="{Binding Log.HasErrors}" Text="{Binding Log.ChipText}" />
+                </Button>
+                <Button Grid.Column="6" x:Name="ActivityButton" Classes="activity" Classes.open="{Binding Activity.IsOpen}" Command="{Binding Activity.ToggleCommand}"
+                        ToolTip.Tip="{Binding Activity.ToolTipText}" AutomationProperties.Name="Activity">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <TextBlock Text="Activity" VerticalAlignment="Center" />
+                        <Border Classes="countbadge" IsVisible="{Binding Queue.HasActive}">
+                            <TextBlock Text="{Binding Queue.ActiveCount}" />
+                        </Border>
+                        <!-- ˄ while closed (it opens upwards), ˅ while open -->
+                        <Path Width="10" Height="6" Stretch="Uniform" VerticalAlignment="Center" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
+                              Stroke="{Binding $parent[Button].Foreground}"
+                              Data="{Binding Activity.IsOpen, Converter={x:Static v:MainWindow.Chevron}}" />
+                    </StackPanel>
+                </Button>
             </Grid>
         </Border>
     </Grid>

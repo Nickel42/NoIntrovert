@@ -209,8 +209,9 @@ internal static class OptUxTests
         test("Log: Show only errors sits next to Show debug, which is off while it's on", () => dispatch(() =>
         {
             var log = f.Vm.Log;
-            var expanded = log.IsExpanded;
-            log.IsExpanded = true;
+            var activity = f.Vm.Activity;
+            var (open, tab) = (activity.IsOpen, activity.Tab);
+            activity.Open(NoIntrovert.Core.ActivityTab.Log);
             try
             {
                 foreach (var (width, height) in new[] { (900, 600), (1366, 768) })
@@ -234,7 +235,7 @@ internal static class OptUxTests
                 }
                 return null;
             }
-            finally { log.ShowOnlyErrors = false; log.IsExpanded = expanded; f.Layout(); }
+            finally { log.ShowOnlyErrors = false; activity.Tab = tab; activity.IsOpen = open; f.Layout(); }
         }));
     }
 

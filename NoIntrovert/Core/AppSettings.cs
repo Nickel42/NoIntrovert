@@ -85,6 +85,8 @@ public sealed class AppSettings
                 }
                 // Before Save to: the old "remove originals" switches and presets, and the output folder.
                 migrated |= OutputSettings.Migrate(loaded, settings);
+                // Before the Activity drawer: an expanded log opens Activity on its Log tab.
+                migrated |= GeneralSettings.Migrate(loaded, settings);
                 // Before format presets: each action's chosen preset seeds the systems' defaults.
                 if (loaded[nameof(Presets)] is not JsonObject presets || !presets.ContainsKey(nameof(Core.Presets.PresetSettings.DefaultBySystem)))
                 {
@@ -191,17 +193,58 @@ public sealed class GeneralSettings
     /// <summary>The page the app opens on, by page id; empty = Optimize once the library has folders, otherwise Convert.</summary>
     public string StartPage { get; set; } = "";
 
-    /// <summary>Whether the log is expanded (Show log) rather than collapsed to its bar.</summary>
+    /// <summary>
+    /// Before the Activity drawer: whether the log was expanded. Read only to migrate it
+    /// (true opens Activity on its Log tab, see <see cref="Migrate"/>); never written again.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool LogExpanded { get; set; }
 
-    /// <summary>Expands the log when a run logs an error.</summary>
+    /// <summary>Whether the Activity drawer (the queue and the log, above the status bar) is open.</summary>
+    public bool ActivityOpen { get; set; }
+
+    /// <summary>The Activity drawer's tab: the queue or the log.</summary>
+    public ActivityTab ActivityTab { get; set; } = ActivityTab.Queue;
+
+    /// <summary>The Activity drawer's height, as its splitter left it.</summary>
+    public double ActivityHeight { get; set; } = DefaultActivityHeight;
+
+    public const double DefaultActivityHeight = 260;
+
+    /// <summary>Opens Activity on its Log tab when a run logs an error.</summary>
     public bool OpenLogOnErrors { get; set; } = true;
 
     /// <summary>Days a saved session log is kept in <see cref="AppSettings.LogDirectory"/>.</summary>
     public int KeepLogsDays { get; set; } = 30;
+
+    /// <summary>How tall the job list's rows are: one line each (Compact), or two with the folder and notes (Comfortable).</summary>
+    public ListDensity ListDensity { get; set; } = ListDensity.Compact;
+
+    /// <summary>
+    /// A file from before the Activity drawer: an expanded log becomes Activity open on its
+    /// Log tab, and LogExpanded is dropped. True when something changed (the file is saved).
+    /// </summary>
+    internal static bool Migrate(JsonObject root, AppSettings settings)
+    {
+        if (root[nameof(AppSettings.General)] is not JsonObject general || !general.ContainsKey(nameof(LogExpanded))) return false;
+        var g = settings.General;
+        if (g.LogExpanded && !general.ContainsKey(nameof(ActivityOpen)))
+        {
+            g.ActivityOpen = true;
+            g.ActivityTab = ActivityTab.Log;
+        }
+        g.LogExpanded = false;
+        return true;
+    }
 }
 
 public enum AppTheme { System, Dark, Light }
+
+/// <summary>The job list's row height (docs/requirements/ui-redesign.md, "Row density").</summary>
+public enum ListDensity { Compact, Comfortable }
+
+/// <summary>The Activity drawer's two tabs.</summary>
+public enum ActivityTab { Queue, Log }
 
 /// <summary>Where a run saves its results: the run bar's three choices, and the default Settings gives them.</summary>
 public enum SaveTo

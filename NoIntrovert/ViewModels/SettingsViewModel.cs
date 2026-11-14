@@ -156,6 +156,18 @@ public sealed class GeneralSettingsViewModel(AppSettings settings, IDialogs dial
         foreach (var name in new[] { nameof(Theme), nameof(IsSystemTheme), nameof(IsDarkTheme), nameof(IsLightTheme) }) OnPropertyChanged(name);
     }
 
+    // Row density: a segmented control like Theme. The job lists follow IsCompactRows at once.
+    public ListDensity ListDensity => S.General.ListDensity;
+    public bool IsCompactRows { get => ListDensity == ListDensity.Compact; set { if (value) ChooseDensity(ListDensity.Compact); } }
+    public bool IsComfortableRows { get => ListDensity == ListDensity.Comfortable; set { if (value) ChooseDensity(ListDensity.Comfortable); } }
+
+    private void ChooseDensity(ListDensity density)
+    {
+        if (!Set(density, (s, v) => s.General.ListDensity = v, nameof(ListDensity))) return;
+        OnPropertyChanged(nameof(IsCompactRows));
+        OnPropertyChanged(nameof(IsComfortableRows));
+    }
+
     private IReadOnlyList<StartPageOption> _startPages = [new("", "Automatic")];
 
     /// <summary>
