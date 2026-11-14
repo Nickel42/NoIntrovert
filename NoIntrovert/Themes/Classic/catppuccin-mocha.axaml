@@ -1,0 +1,25 @@
+<!--
+  Mocha's base window, surface0 cards, mauve buttons, peach accent and teal headings.
+  A classic theme NoIntrovert ships: an Avalonia ResourceDictionary like NoIntrovert's own. Each ThemeXxx
+  colour is one of the theme's roles; the app works out the rest from them.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:String x:Key="ThemeName">Catppuccin Mocha</x:String>
+    <x:String x:Key="ThemeVariant">Dark</x:String>
+    <x:String x:Key="ThemeAuthor">Catppuccin</x:String>
+    <Color x:Key="ThemeBackground">#1E1E2E</Color>
+    <Color x:Key="ThemeSurface">#313244</Color>
+    <Color x:Key="ThemeRaised">#3A3B50</Color>
+    <Color x:Key="ThemeHeader">#181825</Color>
+    <Color x:Key="ThemeBorder">#45475A</Color>
+    <Color x:Key="ThemeControlBorder">#585B70</Color>
+    <Color x:Key="ThemeText">#CDD6F4</Color>
+    <Color x:Key="ThemeSubtleText">#A6ADC8</Color>
+    <Color x:Key="ThemeSectionText">#94E2D5</Color>
+    <Color x:Key="ThemePrimary">#CBA6F7</Color>
+    <Color x:Key="ThemeAccent">#FAB387</Color>
+    <Color x:Key="ThemeDanger">#F38BA8</Color>
+    <Color x:Key="ThemeWarning">#F9E2AF</Color>
+    <Color x:Key="ThemeSuccess">#A6E3A1</Color>
+</ResourceDictionary>

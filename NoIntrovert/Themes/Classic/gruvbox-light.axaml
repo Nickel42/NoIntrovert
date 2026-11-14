@@ -1,0 +1,25 @@
+<!--
+  Gruvbox's bg0 cards on bg0_s, dark brown text, and the faded accents that read on cream.
+  A classic theme NoIntrovert ships: an Avalonia ResourceDictionary like NoIntrovert's own. Each ThemeXxx
+  colour is one of the theme's roles; the app works out the rest from them.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:String x:Key="ThemeName">Gruvbox Light</x:String>
+    <x:String x:Key="ThemeVariant">Light</x:String>
+    <x:String x:Key="ThemeAuthor">Pavel Pertsev</x:String>
+    <Color x:Key="ThemeBackground">#F2E5BC</Color>
+    <Color x:Key="ThemeSurface">#FBF1C7</Color>
+    <Color x:Key="ThemeRaised">#F6EBC1</Color>
+    <Color x:Key="ThemeHeader">#FBF1C7</Color>
+    <Color x:Key="ThemeBorder">#EBDBB2</Color>
+    <Color x:Key="ThemeControlBorder">#BDAE93</Color>
+    <Color x:Key="ThemeText">#3C3836</Color>
+    <Color x:Key="ThemeSubtleText">#665C54</Color>
+    <Color x:Key="ThemeSectionText">#AF3A03</Color>
+    <Color x:Key="ThemePrimary">#AF3A03</Color>
+    <Color x:Key="ThemeAccent">#427B58</Color>
+    <Color x:Key="ThemeDanger">#9D0006</Color>
+    <Color x:Key="ThemeWarning">#B57614</Color>
+    <Color x:Key="ThemeSuccess">#79740E</Color>
+</ResourceDictionary>

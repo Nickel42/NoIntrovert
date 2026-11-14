@@ -1,0 +1,28 @@
+<!--
+  Monokai's olive-black background, green buttons, yellow accent, pink for danger.
+  A classic theme NoIntrovert ships: an Avalonia ResourceDictionary like NoIntrovert's own. Each ThemeXxx
+  colour is one of the theme's roles; the app works out the rest from them.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:String x:Key="ThemeName">Monokai</x:String>
+    <x:String x:Key="ThemeVariant">Dark</x:String>
+    <x:String x:Key="ThemeAuthor">Wimer Hazenberg</x:String>
+    <Color x:Key="ThemeBackground">#272822</Color>
+    <Color x:Key="ThemeSurface">#31322B</Color>
+    <Color x:Key="ThemeRaised">#3E3D32</Color>
+    <Color x:Key="ThemeHeader">#1E1F1C</Color>
+    <Color x:Key="ThemeBorder">#49483E</Color>
+    <Color x:Key="ThemeControlBorder">#75715E</Color>
+    <Color x:Key="ThemeText">#F8F8F2</Color>
+    <Color x:Key="ThemeSubtleText">#B8B49F</Color>
+    <Color x:Key="ThemeSectionText">#66D9EF</Color>
+    <Color x:Key="ThemePrimary">#A6E22E</Color>
+    <Color x:Key="ThemeAccent">#E6DB74</Color>
+    <Color x:Key="ThemeDanger">#F92672</Color>
+    <Color x:Key="ThemeWarning">#FD971F</Color>
+    <Color x:Key="ThemeSuccess">#A6E22E</Color>
+
+    <!-- Exact colours where the palette's own one wouldn't read as text. -->
+    <SolidColorBrush x:Key="DangerText" Color="#FB679C" />
+</ResourceDictionary>

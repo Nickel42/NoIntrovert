@@ -1,0 +1,29 @@
+<!--
+  Solarized's base3 cards on a base2 window, base02 text, base01 for secondary text, violet for focus.
+  A classic theme NoIntrovert ships: an Avalonia ResourceDictionary like NoIntrovert's own. Each ThemeXxx
+  colour is one of the theme's roles; the app works out the rest from them.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:String x:Key="ThemeName">Solarized Light</x:String>
+    <x:String x:Key="ThemeVariant">Light</x:String>
+    <x:String x:Key="ThemeAuthor">Ethan Schoonover</x:String>
+    <Color x:Key="ThemeBackground">#EEE8D5</Color>
+    <Color x:Key="ThemeSurface">#FDF6E3</Color>
+    <Color x:Key="ThemeRaised">#F6EFDB</Color>
+    <Color x:Key="ThemeHeader">#FDF6E3</Color>
+    <Color x:Key="ThemeBorder">#E3DCC6</Color>
+    <Color x:Key="ThemeControlBorder">#93A1A1</Color>
+    <Color x:Key="ThemeText">#073642</Color>
+    <Color x:Key="ThemeSubtleText">#546A70</Color>
+    <Color x:Key="ThemeSectionText">#1F6FA8</Color>
+    <Color x:Key="ThemePrimary">#1F6FA8</Color>
+    <Color x:Key="ThemeAccent">#6267BE</Color>
+    <Color x:Key="ThemeDanger">#DC322F</Color>
+    <Color x:Key="ThemeWarning">#CB4B16</Color>
+    <Color x:Key="ThemeSuccess">#859900</Color>
+
+    <!-- Exact colours where the palette's own one wouldn't read as text. -->
+    <SolidColorBrush x:Key="DangerText" Color="#C42C29" />
+    <SolidColorBrush x:Key="VerifiedText" Color="#002B36" />
+</ResourceDictionary>

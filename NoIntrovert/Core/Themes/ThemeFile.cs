@@ -29,17 +29,20 @@ public static class ThemeFile
 
     /// <summary>Reads every theme in <paramref name="text"/>: a ResourceDictionary, or a Base16/Base24 scheme.</summary>
     /// <exception cref="FormatException">It's neither, or has no colours.</exception>
-    public static IReadOnlyList<ThemeDefinition> Parse(string text, string id, string? fallbackName = null, bool builtIn = false, string? path = null)
+    /// <param name="collection">Where a built-in theme belongs (NoIntrovert's own unless said).</param>
+    public static IReadOnlyList<ThemeDefinition> Parse(string text, string id, string? fallbackName = null, bool builtIn = false, string? path = null,
+        ThemeCollection collection = ThemeCollection.NoIntrovert)
     {
         if (text.Length > MaxBytes) throw new FormatException("The file is too big to be a theme.");
         var trimmed = text.TrimStart('﻿', ' ', '\t', '\r', '\n');
-        if (trimmed.StartsWith('<')) return ParseXaml(trimmed, id, fallbackName, builtIn, path);
+        if (trimmed.StartsWith('<')) return ParseXaml(trimmed, id, fallbackName, builtIn ? collection : null, path);
         if (Base16.Looks(trimmed)) return [Base16.Parse(trimmed, id, fallbackName, path)]; // a NoIntrovert theme is never Base16
 
         throw new FormatException("This isn't a theme file: expected an Avalonia ResourceDictionary (.axaml) or a Base16/Base24 scheme (.yaml).");
     }
 
-    private static IReadOnlyList<ThemeDefinition> ParseXaml(string text, string id, string? fallbackName, bool builtIn, string? path)
+    /// <param name="builtIn">The collection of a built-in theme; null for a file of the themes folder.</param>
+    private static IReadOnlyList<ThemeDefinition> ParseXaml(string text, string id, string? fallbackName, ThemeCollection? builtIn, string? path)
     {
         XDocument doc;
         try
@@ -94,7 +97,7 @@ public static class ThemeFile
         return ThemeKind.Dark;
     }
 
-    private static ThemeDefinition Make(Entries e, string id, string name, ThemeKind kind, string author, bool builtIn, string? path)
+    private static ThemeDefinition Make(Entries e, string id, string name, ThemeKind kind, string author, ThemeCollection? builtIn, string? path)
     {
         var roles = new Dictionary<ThemeRole, Color>();
         var overrides = new Dictionary<string, ThemeOverride>(StringComparer.Ordinal);
@@ -122,8 +125,8 @@ public static class ThemeFile
         From(ThemeRole.Success, "SukiSuccessColor");
         return new ThemeDefinition
         {
-            Id = id, Name = name.Trim(), Kind = kind, Author = author, IsBuiltIn = builtIn, FilePath = path,
-            Collection = builtIn ? ThemeCollection.NoIntrovert : ThemeCollection.Custom,
+            Id = id, Name = name.Trim(), Kind = kind, Author = author, IsBuiltIn = builtIn is not null, FilePath = path,
+            Collection = builtIn ?? ThemeCollection.Custom,
             Roles = ThemeRoles.Complete(kind, roles), Overrides = overrides,
         };
     }

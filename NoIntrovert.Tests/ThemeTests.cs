@@ -228,8 +228,8 @@ static class ThemeTests
             lib.Delete(lib.Find("user:peach-fizz-2")!);
             if (lib.Find("user:peach-fizz-2") is not null || File.Exists(Path.Combine(folder, "peach-fizz-2.axaml"))) return "delete left the theme";
             lib.Delete(ThemeLibrary.BuiltIn[0]);
-            lib.Delete(lib.Find("base16-nord")!);
-            if (lib.Find("base16-nord") is null) return "a built-in Base16 scheme was deleted";
+            lib.Delete(lib.Find("nord")!);
+            if (lib.Find("nord") is null) return "a built-in classic theme was deleted";
             return lib.Find(ThemeLibrary.BuiltIn[0].Id) is null ? "a built-in theme was deleted" : null;
         });
 
@@ -242,20 +242,62 @@ static class ThemeTests
                 ? null : "didn't fall back";
         });
 
-        test("Themes: every Base16 scheme from tinted-theming is built in, each with its own name and its author", () =>
+        test("Themes: the classic themes are built in, A to Z, each with its kind and its maker", () =>
         {
-            var schemes = ThemeLibrary.BuiltIn.Where(t => t.Collection == ThemeCollection.Base16).ToList();
-            if (schemes.Count < 370) return $"only {schemes.Count} Base16 schemes";
-            if (schemes.Count(t => t.Kind == ThemeKind.Light) < 100) return "fewer than 100 light ones";
-            if (schemes.Any(t => !t.IsBuiltIn || !t.Id.StartsWith(ThemeLibrary.Base16Prefix))) return "a scheme isn't a built-in base16- theme";
-            var clash = schemes.GroupBy(t => (t.Kind, t.Name.ToLowerInvariant())).FirstOrDefault(g => g.Count() > 1);
-            if (clash is not null) return $"two {clash.Key.Kind} themes called {clash.First().Name}";
-            // A few schemes leave author empty in tinted-theming's own files (Seti UI); the rest credit theirs.
-            if (schemes.Count(t => t.Author.Length == 0) > 5) return $"{schemes.Count(t => t.Author.Length == 0)} schemes have no author";
-            if (schemes.FirstOrDefault(t => t.Name.Contains(',') || char.IsLower(t.Name[0]) && !t.Name.StartsWith("iA ")) is { } untidy) return $"untidy name: {untidy.Name}";
-            var nord = schemes.FirstOrDefault(t => t.Id == "base16-nord");
-            if (nord is not { Name: "Nord", Kind: ThemeKind.Dark }) return "Nord isn't there as a dark theme";
-            return schemes.Any(t => t.Id == "base16-cyberpunk") ? null : "the .yml scheme (cyberpunk) is missing";
+            var classic = ThemeLibrary.BuiltIn.Where(t => t.Collection == ThemeCollection.Classic).ToList();
+            var want = new (string Id, string Name, ThemeKind Kind)[]
+            {
+                ("catppuccin-latte", "Catppuccin Latte", ThemeKind.Light), ("catppuccin-mocha", "Catppuccin Mocha", ThemeKind.Dark),
+                ("dracula", "Dracula", ThemeKind.Dark), ("github-dark", "GitHub Dark", ThemeKind.Dark), ("github-light", "GitHub Light", ThemeKind.Light),
+                ("gruvbox-dark", "Gruvbox Dark", ThemeKind.Dark), ("gruvbox-light", "Gruvbox Light", ThemeKind.Light),
+                ("monokai", "Monokai", ThemeKind.Dark), ("nord", "Nord", ThemeKind.Dark), ("one-dark", "One Dark", ThemeKind.Dark),
+                ("rose-pine", "Rosé Pine", ThemeKind.Dark), ("solarized-dark", "Solarized Dark", ThemeKind.Dark),
+                ("solarized-light", "Solarized Light", ThemeKind.Light), ("tokyo-night", "Tokyo Night", ThemeKind.Dark),
+                ("tokyo-night-light", "Tokyo Night Light", ThemeKind.Light),
+            };
+            var got = classic.Select(t => (t.Id, t.Name, t.Kind)).ToList();
+            if (!got.SequenceEqual(want)) return "classic: " + string.Join(", ", got.Select(g => $"{g.Id}={g.Name}/{g.Kind}"));
+            if (classic.Any(t => !t.IsBuiltIn || t.Author.Length == 0)) return "a classic theme isn't built in or names no maker";
+            // Only NoIntrovert's own and these: nothing else is shipped.
+            return ThemeLibrary.BuiltIn.All(t => t.Collection is ThemeCollection.NoIntrovert or ThemeCollection.Classic) ? null : "another kind of built-in theme";
+        });
+
+        test("Themes: every classic theme's text, buttons and focus colours meet WCAG AA", () =>
+        {
+            var problems = new List<string>();
+            foreach (var t in ThemeLibrary.BuiltIn.Where(t => t.Collection == ThemeCollection.Classic))
+            {
+                var c = ThemeResources.Colors(t);
+                void Need(string what, Color a, Color b, double ratio)
+                {
+                    var r = ThemeRoles.Contrast(a, b);
+                    if (r < ratio) problems.Add($"{t.Name}: {what} {r:F2}:1 (wants {ratio}:1)");
+                }
+                Need("text on cards", t[ThemeRole.Text], t[ThemeRole.Surface], 4.5);
+                Need("text on the window", t[ThemeRole.Text], t[ThemeRole.Background], 4.5);
+                Need("text on raised panels", t[ThemeRole.Text], t[ThemeRole.Raised], 4.5);
+                Need("secondary text on cards", t[ThemeRole.SubtleText], t[ThemeRole.Surface], 4.5);
+                Need("secondary text on the window", t[ThemeRole.SubtleText], t[ThemeRole.Background], 4.5);
+                Need("section headings on cards", t[ThemeRole.SectionText], t[ThemeRole.Surface], 4.5);
+                Need("a primary button's text", c["PrimaryForeground"], t[ThemeRole.Primary], 4.5);
+                Need("the selected rail item's text", c["AccentForeground"], t[ThemeRole.Accent], 4.5);
+                Need("the accent outline against cards", t[ThemeRole.Accent], t[ThemeRole.Surface], 3);
+                Need("error text on cards", c["DangerText"], t[ThemeRole.Surface], 4.5);
+                Need("error text on the window", c["DangerText"], t[ThemeRole.Background], 4.5);
+                Need("a warning's text", c["WarningText"], c["WarningFill"], 4.5);
+                Need("the Verified badge's text", c["VerifiedText"], c["VerifiedFill"], 4.5);
+                Need("a settings field's text", c["SettingsFieldText"], c["SettingsFieldBackground"], 4.5);
+            }
+            return problems.Count == 0 ? null : string.Join("; ", problems);
+        });
+
+        test("Themes: a saved choice of a Base16 scheme NoIntrovert used to ship finds the classic theme of that name", () =>
+        {
+            var lib = new ThemeLibrary(dir("themes-old-ids"));
+            return lib.Resolve("base16-nord", ThemeKind.Dark).Id == "nord"
+                && lib.Resolve("base16-solarized-light", ThemeKind.Light).Id == "solarized-light"
+                && lib.Resolve("base16-zenburn", ThemeKind.Dark).Id == ThemeLibrary.DefaultDarkId
+                ? null : "an old id wasn't mapped (or a gone one didn't fall back)";
         });
 
         test("Themes: scheme names are tidied into theme names", () =>
@@ -270,25 +312,25 @@ static class ThemeTests
             return wrong.Count == 0 ? null : string.Join("; ", wrong);
         });
 
-        test("Themes: the lists put NoIntrovert's themes first, then custom ones, then Base16 A to Z; search narrows both", () => WithThemes(dir("themes-lists"), null, (t, _) =>
+        test("Themes: the lists put NoIntrovert's themes first, then custom ones, then the classic ones A to Z; search narrows both", () => WithThemes(dir("themes-lists"), null, (t, _) =>
         {
             t.Customize("Dark");
             t.Editor!.Name = "Zebra";
             t.Editor.SaveCommand.Execute(null);
             var order = t.DarkThemes.Select(o => o.Theme.Collection).ToList();
-            if (order.Take(3).Any(c => c != ThemeCollection.NoIntrovert) || order[3] != ThemeCollection.Custom || order[4] != ThemeCollection.Base16)
+            if (order.Take(3).Any(c => c != ThemeCollection.NoIntrovert) || order[3] != ThemeCollection.Custom || order[4] != ThemeCollection.Classic)
                 return "out of order: " + string.Join(", ", t.DarkThemes.Take(6).Select(o => o.Name));
-            var base16 = t.DarkThemes.Where(o => o.Theme.Collection == ThemeCollection.Base16).Select(o => o.Name).ToList();
-            if (!base16.SequenceEqual(base16.OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase))) return "the Base16 schemes aren't A to Z";
+            var classic = t.DarkThemes.Where(o => o.Theme.Collection == ThemeCollection.Classic).Select(o => o.Name).ToList();
+            if (!classic.SequenceEqual(classic.OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase))) return "the classic themes aren't A to Z";
             if (!t.SearchHint.StartsWith("Search ")) return t.SearchHint;
-            t.Search = "gruvbox material";
-            if (t.DarkThemes.Count != 4 || t.DarkThemes.Skip(1).Any(o => !o.Name.StartsWith("Gruvbox Material Dark")))
+            t.Search = "tokyo";
+            if (t.DarkThemes.Count != 2 || t.DarkThemes[1].Name != "Tokyo Night")
                 return "searching found " + string.Join(", ", t.DarkThemes.Select(o => o.Name));
             if (t.SelectedDark?.Name != "Zebra") return "the chosen theme left the list";
-            t.SelectedDark = t.DarkThemes.First(o => o.Name == "Gruvbox Material Dark Hard");
-            if (t.ActiveDark.Id != "base16-gruvbox-material-dark-hard") return "choosing a search result didn't use it";
+            t.SelectedDark = t.DarkThemes.First(o => o.Name == "Tokyo Night");
+            if (t.ActiveDark.Id != "tokyo-night") return "choosing a search result didn't use it";
             t.Search = "";
-            return t.DarkThemes.Count > 250 ? null : "clearing the search didn't bring the list back";
+            return t.DarkThemes.Count == 14 ? null : $"clearing the search left {t.DarkThemes.Count} dark themes, not 14";
         }));
 
         test("Themes: Import from web downloads a scheme and uses it for its kind", () => WithThemes(dir("themes-web"), new FakeWeb(Gruvbox), (t, file) =>
