@@ -290,6 +290,9 @@ public static class TargetResolver
             // A plain image chosen in place of a CHD or RVZ: extract or decode it back.
             ".iso" or ".cue" or ".gdi" when set.Format == KnownFormats.Chd => TargetChoice.DiscImage,
             ".iso" when NintendoDisc.IsDecodable(set.Primary) => TargetChoice.Iso,
+            // PSP and PS2 discs compressed for real hardware (a PSP, OPL on a PS2).
+            ".cso" when Jobs.CsoJobs.TakesInput(set) => TargetChoice.Cso,
+            ".zso" when Jobs.CsoJobs.TakesInput(set) => TargetChoice.Zso,
             _ => null,
         };
         var label = choice == TargetChoice.Chd ? ".chd" : targetExt == ".cue" ? "cue/bin" : targetExt;
@@ -297,7 +300,7 @@ public static class TargetResolver
         if (!isArchive && (ext == targetExt || (id == "wii-u" && set.Format == KnownFormats.Wua)))
             return Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", alternatives);
         if (!target.Producible) return NotYet(id, target, alternatives, ext == ".xci" && targetExt == ".nsz" ? "repack to NSP first" : null);
-        if (choice == TargetChoice.DiscImage || choice == TargetChoice.Iso)
+        if (choice == TargetChoice.DiscImage || choice == TargetChoice.Iso || choice == TargetChoice.Cso || choice == TargetChoice.Zso)
             return Plan(id, TargetStatus.Convert, choice, $"Convert → {label}", alternatives);
 
         if (isArchive)
@@ -386,6 +389,8 @@ public static class TargetResolver
                 "zcci" when system.Id == "nintendo-3ds" && isArchive => TargetChoice.Zcci, // D2: unpacked, then compressed for Azahar
                 "iso" when NintendoDisc.IsDecodable(set.Primary) => TargetChoice.Iso,
                 "iso" or "cue-bin" or "gdi" when set.Format == KnownFormats.Chd => TargetChoice.DiscImage,
+                "cso" when ext != ".cso" && Jobs.CsoJobs.TakesInput(set) => TargetChoice.Cso,
+                "zso" when ext != ".zso" && Jobs.CsoJobs.TakesInput(set) => TargetChoice.Zso,
                 _ => null,
             };
             if (choice is not null && !list.Contains(choice)) list.Add(choice);

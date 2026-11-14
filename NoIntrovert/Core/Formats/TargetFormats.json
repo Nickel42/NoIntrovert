@@ -808,7 +808,8 @@
     "folders": ["ps2", "playstation2", "sonyplaystation2"],
     "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
     "alternatives": [
-      {"id": "cso", "label": "CSO/ZSO", "producible": false},
+      {"id": "zso", "label": "ZSO (OPL)", "producible": true},
+      {"id": "cso", "label": "CSO", "producible": true},
       {"id": "iso", "label": "Bare .iso", "producible": true}
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],
@@ -839,7 +840,7 @@
     "folders": ["psp", "playstationportable", "sonypsp"],
     "target": {"format": ".chd", "container": "bare", "label": ".chd", "producible": true},
     "alternatives": [
-      {"id": "cso", "label": "CSO", "producible": false},
+      {"id": "cso", "label": "CSO", "producible": true},
       {"id": "pbp", "label": ".pbp", "producible": false}
     ],
     "rules": ["R2", "R7", "R10", "R11", "R13"],

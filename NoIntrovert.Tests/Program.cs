@@ -4019,6 +4019,7 @@ if (rvzProblem is null)
 JobPerformanceTests.Run(Test, Dir, log, (work, configure) => RunJob(work, configure), rvzLoads: rvzProblem is null);
 Ps3Tests.Run(Test, Dir, log, (work, configure) => RunJob(work, configure));
 OptCoreTests.Run(Test, Dir, log, (work, configure) => RunJob(work, configure), rvzLoads: rvzProblem is null);
+CsoEncoderTests.Run(Test, Dir, log, (work, configure) => RunJob(work, configure), isoSlice);
 
 // ---- Library tests tab -------------------------------------------------------
 

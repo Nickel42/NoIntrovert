@@ -28,8 +28,15 @@ internal static class CsoDecoder
     public static void Decode(string inputPath, string outputPath, IProgress<double>? progress, CancellationToken token,
         int threads = 0, int batchBytes = BlockBatches.DefaultBatchBytes)
     {
-        using var input = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, FileOptions.SequentialScan);
         using var output = new BufferedStream(File.Create(outputPath), 1 << 20);
+        Decode(inputPath, output, progress, token, threads, batchBytes);
+    }
+
+    /// <summary>Decodes into <paramref name="output"/> (a file, or a hash when checking a new CSO).</summary>
+    public static void Decode(string inputPath, Stream output, IProgress<double>? progress, CancellationToken token,
+        int threads = 0, int batchBytes = BlockBatches.DefaultBatchBytes)
+    {
+        using var input = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, FileOptions.SequentialScan);
 
         var header = new byte[24];
         input.ReadExactly(header);
@@ -69,8 +76,9 @@ internal static class CsoDecoder
 
         void DecodeBlock(int i, byte[] compressed, int offset, BlockBatches.Block b, Span<byte> slot)
         {
-            // Version 2 files mark raw blocks by size instead of the top bit.
-            if ((index[i] & 0x80000000) != 0 || b.Length >= blockSize)
+            // Version 2 files mark raw blocks by size instead of the top bit. In version 1 the size can
+            // include alignment padding (an index shift), so only the top bit counts.
+            if ((index[i] & 0x80000000) != 0 || (version == 2 && b.Length >= blockSize))
             {
                 var copy = Math.Min(b.Length, b.OutLength);
                 compressed.AsSpan(offset, copy).CopyTo(slot);
@@ -78,8 +86,15 @@ internal static class CsoDecoder
             }
             else if (isLz4)
             {
-                var n = LZ4Codec.Decode(compressed.AsSpan(offset, b.Length), slot);
-                if (n < b.OutLength) throw new InvalidDataException($"ZSO block {i} did not decompress fully.");
+                // An LZ4 block must end exactly where its data does. With an index shift, zero padding (up to
+                // 2^shift - 1 bytes) follows it, so the padding is trimmed until the block decodes in full: a
+                // longer length includes bytes LZ4 can't end on, so the first full decode is the block's own length.
+                var data = compressed.AsSpan(offset, b.Length);
+                var target = slot[..b.OutLength];
+                var n = LZ4Codec.Decode(data, target);
+                for (var trim = 1; n != b.OutLength && shift > 0 && trim < 1 << shift && trim < data.Length && data[^trim] == 0; trim++)
+                    n = LZ4Codec.Decode(data[..^trim], target);
+                if (n != b.OutLength) throw new InvalidDataException($"ZSO block {i} did not decompress fully.");
             }
             else
             {

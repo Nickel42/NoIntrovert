@@ -35,6 +35,10 @@ public enum TargetKind
     Ps3Iso,
     /// <summary>A PS3 disc's files as a JB folder (PS3_DISC.SFB, PS3_GAME/…), by lib-ps3-kit with its .dkey.</summary>
     Ps3Folder,
+    /// <summary>A PSP or PS2 disc as a CSO (deflate blocks), for a real PSP, Adrenaline and PPSSPP.</summary>
+    Cso,
+    /// <summary>A PS2 (or PSP) disc as a ZSO (LZ4 blocks), for OPL on a real PS2 and PCSX2.</summary>
+    Zso,
     SevenZip,
     Zip,
     /// <summary>An archive's files, unpacked.</summary>
@@ -63,6 +67,8 @@ public sealed record TargetChoice(TargetKind Kind, string Label)
     public static readonly TargetChoice Zar = new(TargetKind.Zar, ".zar (Xenia Canary)");
     public static readonly TargetChoice Ps3Iso = new(TargetKind.Ps3Iso, "Decrypted ISO");
     public static readonly TargetChoice Ps3Folder = new(TargetKind.Ps3Folder, "JB folder");
+    public static readonly TargetChoice Cso = new(TargetKind.Cso, "CSO");
+    public static readonly TargetChoice Zso = new(TargetKind.Zso, "ZSO");
     public static readonly TargetChoice SevenZip = new(TargetKind.SevenZip, "7z");
     public static readonly TargetChoice Zip = new(TargetKind.Zip, "zip");
     public static readonly TargetChoice Files = new(TargetKind.Files, "Unpack files");
