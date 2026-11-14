@@ -39,7 +39,18 @@ internal static class OptimizeTests
             if (removed?.Single() != a || !w.IsRemoved(a) || w.Paths.Contains(a)) return "Remove didn't take the file off";
             w.Add([a]);
             if (w.IsRemoved(a)) return "adding a removed file again left it removed";
-            var b = Path.Combine(folder, "B.chd");
+            // Removing a folder's rows and choosing Add folder again brings them back (it once added nothing).
+            IReadOnlyList<string>? restored = null;
+            w.Restored += r => restored = r;
+            w.Remove([a]);
+            w.Add([folder]);
+            if (w.IsRemoved(a)) return "adding its folder again left a removed file removed";
+            if (restored?.SingleOrDefault() != folder) return "adding the folder again didn't tell the other pages to look through it";
+            restored = null;
+            w.Add([folder]);
+            if (restored is not null) return "adding a folder with nothing removed in it raised Restored";
+            w.Add([a]); // back on the list for the Move below
+            var b =Path.Combine(folder, "B.chd");
             w.Move(new Dictionary<string, string> { [a] = b });
             if (moved is null || !w.Paths.Contains(b) || w.Paths.Contains(a)) return "Move didn't follow the file";
             w.Clear();
