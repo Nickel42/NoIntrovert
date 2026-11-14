@@ -167,9 +167,12 @@
         </Style>
         <!-- SukiUI's bar draws only the fill, so on a card a run at 20% looked like a short stub.
              A bar with a known amount gets a visible track the fill grows along. -->
+        <Style Selector="ProgressBar:indeterminate">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        </Style>
         <Style Selector="ProgressBar:not(:indeterminate)">
             <Setter Property="Background" Value="{DynamicResource PanelBorder}" />
-            <Setter Property="Foreground" Value="{DynamicResource SukiPrimaryColor}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}"
@@ -208,7 +211,7 @@
             <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
         </Style>
 
-        <!-- Navigation rail: quiet until hovered; the selected page is a filled lilac pill. -->
+        <!-- Navigation rail: quiet until hovered; the selected page is a filled pill in the theme's accent colour. -->
         <Style Selector="Button.rail">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -242,11 +245,11 @@
             <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
         </Style>
         <Style Selector="Button.rail.selected, Button.rail.selected:pointerover">
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentForeground}" />
             <Setter Property="FontWeight" Value="Bold" />
         </Style>
         <Style Selector="Button.rail.selected /template/ Border">
-            <Setter Property="Background" Value="{DynamicResource SukiPrimaryColor}" />
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
         </Style>
     </Application.Styles>
 </Application>

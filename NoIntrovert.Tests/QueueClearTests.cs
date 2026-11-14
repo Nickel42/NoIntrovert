@@ -88,11 +88,12 @@ internal static class QueueClearTests
                     if (width == 1366 && screenshots is not null) f.Save(Path.Combine(screenshots, "queue-long-result.png"));
                 }
                 // The drawer's Clear finished button is enabled, and clicking it empties the list.
-                if (f.Find<Button>(b => b.Content as string == "Clear finished" && b.IsEffectivelyVisible) is not { } clear) return "no Clear finished button";
+                // The drawer's own button (each page's list has one by that name too).
+                if (f.Find<Button>(b => b.Content as string == "Clear finished" && b.IsEffectivelyVisible && b.Command == model.ClearFinishedCommand) is not { } clear) return "no Clear finished button in the queue drawer";
                 if (!clear.IsEffectivelyEnabled || clear.Command?.CanExecute(null) != true) return "Clear finished is disabled with a finished job in the queue";
                 clear.Command.Execute(null);
                 f.Pump(() => model.Rows.Count == 0);
-                return model.Rows.Count == 0 ? null : $"{model.Rows.Count} row(s) left after Clear finished";
+                return model.Rows.Count == 0 ? null : $"{model.Rows.Count} row(s) left after Clear finished: " + string.Join(", ", model.Queue.Jobs.Select(j => $"{j.Spec.Name} ({j.State})"));
             }
             finally
             {

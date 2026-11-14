@@ -53,7 +53,7 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Classes="railtext">
                         <TextBlock Text="{Binding Title}" />
                         <TextBlock Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" FontSize="11" FontWeight="Medium"
-                                   Foreground="{DynamicResource SubtleText}" TextWrapping="Wrap" Margin="0,1,0,0" />
+                                   Classes="railsub" TextWrapping="Wrap" Margin="0,1,0,0" />
                     </StackPanel>
                 </Grid>
             </Button>
@@ -99,20 +99,20 @@
         <Style Selector="TextBlock.counts.error">
             <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
         </Style>
-        <Style Selector="TextBlock.railsection">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Foreground" Value="{DynamicResource SectionText}" />
-            <Setter Property="Margin" Value="12,8,0,4" />
-        </Style>
-
-        <!-- Rail icons are muted, white on the selected page's lilac pill -->
+        <!-- Rail icons and the line under a title are muted; on the selected page's accent pill they take its text colour -->
         <Style Selector="Path.railicon">
             <Setter Property="Margin" Value="0,0,10,0" />
             <Setter Property="Stroke" Value="{DynamicResource SubtleText}" />
         </Style>
         <Style Selector="Button.rail.selected Path.railicon">
-            <Setter Property="Stroke" Value="White" />
+            <Setter Property="Stroke" Value="{DynamicResource AccentForeground}" />
+        </Style>
+        <Style Selector="TextBlock.railsub">
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+        </Style>
+        <Style Selector="Button.rail.selected TextBlock.railsub">
+            <Setter Property="Foreground" Value="{DynamicResource AccentForeground}" />
+            <Setter Property="Opacity" Value="0.85" />
         </Style>
         <!-- A page with a line of small text under its name (Optimize) sits on a card of its own -->
         <Style Selector="Button.rail.featured:not(.selected) /template/ Border">
@@ -148,11 +148,6 @@
         <Style Selector="Grid.shell.compact Button.rail">
             <Setter Property="HorizontalContentAlignment" Value="Center" />
         </Style>
-        <!-- The section names give way to a small gap -->
-        <Style Selector="Grid.shell.compact TextBlock.railsection">
-            <Setter Property="Opacity" Value="0" />
-            <Setter Property="Height" Value="8" />
-        </Style>
 
         <Style Selector="Border.statusbar TextBlock">
             <Setter Property="FontSize" Value="14" />
@@ -162,7 +157,7 @@
     <!-- Navigation rail | the page with the log and queue under it; the status bar spans the bottom. -->
     <Grid ColumnDefinitions="Auto,*" RowDefinitions="*,Auto" Classes="shell" v:Responsive.Below="compact:1100" Background="{DynamicResource AppBackground}">
 
-        <!-- Navigation rail: the logo, then LIBRARY and FILES, with Settings at the bottom below a divider -->
+        <!-- Navigation rail: the logo, then the pages, with Settings at the bottom below a divider -->
         <Border Grid.Column="0" Classes="railpane" Background="{DynamicResource HeaderBackground}">
             <DockPanel>
                 <Image DockPanel.Dock="Top" Classes="logo" Source="/Assets/nointrovert-logo.png" Stretch="Uniform" Margin="0,0,0,10"
@@ -172,12 +167,7 @@
                     <ItemsControl ItemsSource="{Binding BottomPages}" ItemTemplate="{StaticResource RailButton}" />
                 </StackPanel>
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
-                        <TextBlock Text="LIBRARY" Classes="railsection" />
-                        <ItemsControl ItemsSource="{Binding LibraryPages}" ItemTemplate="{StaticResource RailButton}" />
-                        <TextBlock Text="FILES" Classes="railsection" Margin="12,14,0,4" />
-                        <ItemsControl ItemsSource="{Binding FilePages}" ItemTemplate="{StaticResource RailButton}" />
-                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding MainPages}" ItemTemplate="{StaticResource RailButton}" Margin="0,4,0,0" />
                 </ScrollViewer>
             </DockPanel>
         </Border>

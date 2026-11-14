@@ -8,7 +8,7 @@ using NoIntrovert.Views;
 namespace NoIntrovert.Tests;
 
 /// <summary>
-/// SELECTED FILE on every page that lists files: Optimize (the Library), Convert, Verify and Organize show the
+/// SELECTED FILE on every page that lists files: Optimize, Convert, Verify and Organize show the
 /// selected file's system, format, size and match result the same way (FileFacts), following the selection alike.
 /// </summary>
 internal static class SelectedFileTests
@@ -76,55 +76,26 @@ internal static class SelectedFileTests
             finally { verify.FocusedItem = null; }
         }));
 
-        test("Selected file: Optimize shows the selected game's file, with its match result once the details are read", () => dispatch(() =>
+        // Optimize and Organize list files as Verify does: SELECTED FILE follows the focused row.
+        string? FocusedOn<TPage>(PlanTabViewModel tab, string id, string name) where TPage : Visual
         {
-            var library = f.Vm.Library;
-            f.Show("library");
+            f.Show(id);
             f.Layout();
-            if (FactsOn<LibraryView>() is not null) return "SELECTED FILE shows with no game selected";
-            var game = library.VisibleGames.FirstOrDefault();
-            if (game is null) return "the Library has no games";
-            library.SelectedGame = game;
-            f.Pump(() => library.DetailsLoaded.IsCompleted);
+            tab.FocusedItem = tab.Items.FirstOrDefault(i => i.Path.EndsWith(".nes", StringComparison.OrdinalIgnoreCase));
             f.Layout();
             try
             {
-                var facts = library.SelectedFile.Facts;
-                if (facts.Mode != FileFactsMode.File || facts.SystemId != game.Game.System || facts.Path != game.Game.Items[0].Path)
-                    return $"shows {facts.Mode} {facts.SystemId} {facts.Path}";
-                if (FactsOn<LibraryView>() is null) return "no SELECTED FILE on the Optimize page";
-                return Fits("optimize");
+                if (tab.FocusedItem is null) return $"{name} has no .nes row";
+                if (tab.SelectedFile.Facts is not { Mode: FileFactsMode.File, SystemId: "nes-famicom" } facts) return $"shows {tab.SelectedFile.Facts.Mode} {tab.SelectedFile.Facts.SystemId}";
+                if (facts.Path != tab.FocusedItem.Path) return $"shows {facts.Path}";
+                if (FactsOn<TPage>() is not { DataContext: FileFactsViewModel shown } || shown != facts) return $"no SELECTED FILE on the {name} page";
+                return Fits(name.ToLowerInvariant());
             }
-            finally { library.SelectedGame = null; }
-        }));
+            finally { tab.FocusedItem = null; }
+        }
 
-        test("Selected file: Organize shows the picked step's file", () => dispatch(() =>
-        {
-            var cleanup = f.Vm.Cleanup;
-            f.Show("cleanup");
-            var nes = Directory.GetFiles(Path.Combine(f.LibraryFolder, "NES"))[0];
-            cleanup.ShowPlan(new CleanupPlan([new CleanupStep
-            {
-                Kind = CleanupKind.Move, GameKey = "g", Game = Path.GetFileNameWithoutExtension(nes), SystemId = "nes-famicom",
-                Root = f.LibraryFolder, Sources = [nes], Reason = "",
-            }]));
-            f.Layout();
-            try
-            {
-                if (cleanup.SelectedFile.Facts.Mode != FileFactsMode.Empty) return "a step shows before one is picked";
-                cleanup.SelectedStep = cleanup.Steps[0];
-                f.Layout();
-                var facts = cleanup.SelectedFile.Facts;
-                if (facts.Mode != FileFactsMode.File || facts.SystemId != "nes-famicom" || facts.Path != nes) return $"shows {facts.Mode} {facts.SystemId} {facts.Path}";
-                if (FactsOn<CleanupView>() is null) return "no SELECTED FILE on the Organize page";
-                return Fits("organize");
-            }
-            finally
-            {
-                cleanup.SelectedStep = null;
-                cleanup.ShowPlan(new CleanupPlan([]));
-            }
-        }));
+        test("Selected file: Optimize shows the focused file as Convert does", () => dispatch(() => FocusedOn<OptimizeView>(f.Vm.Optimize, "optimize", "Optimize")));
+        test("Selected file: Organize shows the focused file as Convert does", () => dispatch(() => FocusedOn<CleanupView>(f.Vm.Cleanup, "cleanup", "Organize")));
 
         test("Selected file: Convert keeps its own side panel (the shared one stays idle there)", () => dispatch(() =>
         {

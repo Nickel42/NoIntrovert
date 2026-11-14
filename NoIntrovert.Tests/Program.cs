@@ -925,6 +925,7 @@ OptUxTests.Run(Test, Dir);
 OptCleanupTests.Run(Test, Dir);
 SelectedFileTests.Run(Test);
 QueueClearTests.Run(Test);
+OptimizeTests.Run(Test, Dir);
 FormatPresetTests.Run(Test, Dir, log);
 EmulatorTests.Run(Test);
 LayoutTests.Run(Test, Dir, ArgValue("--screenshots"));
@@ -3245,10 +3246,10 @@ if (SevenZipEngine.IsAvailable(out _))
         return files.Count == 0 ? null : $"still there: {string.Join(", ", files)}";
     });
 
-    Test("Cleanup: a new library can't be inside a Library folder or hold one (FR-8)", () =>
+    Test("Cleanup: a new library can't be inside a folder in the list or hold one (FR-8)", () =>
     {
         var lib = Path.Combine(Path.GetTempPath(), "Lib");
-        string? P(string folder) => NoIntrovert.ViewModels.CleanupViewModel.NewLibraryProblem(folder, [lib]);
+        string? P(string folder) => NoIntrovert.ViewModels.OrganizeOptions.NewLibraryProblem(folder, [lib]);
         return P("") is not null && P(Path.Combine(lib, "new")) is not null && P(Path.GetTempPath()) is not null
                && P(lib) is not null && P(Path.Combine(Path.GetTempPath(), "Lib2")) is null && P(Path.Combine(Path.GetTempPath(), "New")) is null
             ? null : "wrong answer for one of the folders";

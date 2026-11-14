@@ -93,16 +93,22 @@ public static class CleanupPlanner
 {
     /// <param name="newLibrary">FR-8: the folder to build a new library in; null tidies the Library in place.</param>
     /// <param name="copyUnmatched">FR-8: copy files that aren't matched (unknown, unchecked, damaged) as they are, rather than leave them out.</param>
-    public static CleanupPlan Plan(IReadOnlyList<Game> games, AppSettings settings, MatchStore matches, string? newLibrary = null, bool copyUnmatched = true)
+    /// <param name="convertUnmatched">
+    /// Optimize: a file that isn't matched (but isn't damaged) and isn't in its target format is still
+    /// converted where it is, keeping its own name; in a new library it's converted into it.
+    /// </param>
+    public static CleanupPlan Plan(IReadOnlyList<Game> games, AppSettings settings, MatchStore matches, string? newLibrary = null, bool copyUnmatched = true,
+        bool convertUnmatched = false)
     {
         if (newLibrary is not null) newLibrary = Path.TrimEndingDirectorySeparator(Path.GetFullPath(newLibrary));
         var steps = new List<CleanupStep>();
-        foreach (var game in games) PlanGame(game, settings, matches, newLibrary, copyUnmatched, steps);
+        foreach (var game in games) PlanGame(game, settings, matches, newLibrary, copyUnmatched, convertUnmatched, steps);
         MarkClashes(steps);
         return new CleanupPlan(steps);
     }
 
-    private static void PlanGame(Game game, AppSettings settings, MatchStore matches, string? dest, bool copyUnmatched, List<CleanupStep> steps)
+    private static void PlanGame(Game game, AppSettings settings, MatchStore matches, string? dest, bool copyUnmatched, bool convertUnmatched,
+        List<CleanupStep> steps)
     {
         var copy = dest is not null;
         CleanupStep Step(CleanupKind kind, LibraryItem item, IReadOnlyList<string> sources, string? target, string reason, long saved = 0,
@@ -115,6 +121,15 @@ public static class CleanupPlanner
         // What isn't touched in place: in a new library it's copied as it is (in its system folder when it has one), or left out.
         void Leave(LibraryItem item, string reason, bool tick = true)
         {
+            // Optimize: not matched, but it can still be converted (under its own name, where it is).
+            if (convertUnmatched && tick && item.FormatStatus == TargetStatus.Convert && ConvertedExtension(item.Target) is { } ext)
+            {
+                var converted = Path.GetFileNameWithoutExtension(Path.TrimEndingDirectorySeparator(item.Path)) + ext;
+                var folder = copy ? Mirror(item, Path.GetDirectoryName(item.Path) ?? item.Root, dest) : Path.GetDirectoryName(item.Path) ?? item.Root;
+                steps.Add(Step(CleanupKind.Convert, item, [item.Path], Path.Combine(folder, converted),
+                    $"{item.FormatStatusText}; {char.ToLowerInvariant(reason[0])}{reason[1..]}, so it keeps its name", Estimate(item.Size, ext), item.Target));
+                return;
+            }
             if (!copy || !copyUnmatched)
             {
                 steps.Add(Step(CleanupKind.Untouched, item, item.Members, null, copy ? $"{reason}: not copied" : reason));
@@ -157,7 +172,7 @@ public static class CleanupPlanner
         // their own name; there's no DAT entry to rename them by. They're never looked inside or flattened.
         foreach (var i in items.Where(IsFolderGame).ToList())
         {
-            if (settings.Library.Layout != LibraryLayout.EsDe || EsdeSystems.FolderOf(system) is null) break;
+            if (!CanArrange(system, settings)) break;
             items.Remove(i);
             var target = Path.Combine(FolderFor(i, system, settings, dest), FolderGameName(i));
             if (!copy && SamePath(target, i.Path) && Path.GetFileName(target) == Path.GetFileName(i.Path)) continue;
@@ -180,6 +195,11 @@ public static class CleanupPlanner
         }
 
         var esde = settings.Library.Layout == LibraryLayout.EsDe;
+        // Every layout but Keep the current one gives a game its place: a system folder, or the top of the folder.
+        var arranged = CanArrange(system, settings);
+        // RomM: a multi-disc game is a folder of its own (its playlist and discs inside), so it's one game there.
+        string PlaylistFolder(string systemFolder) =>
+            settings.Library.Layout == LibraryLayout.RomM ? Path.Combine(systemFolder, game.Title) : systemFolder;
 
         // FR-7 in R7 form: two or more discs to convert together, with an .m3u in the system folder and the
         // discs in its hidden/ folder (in both layouts; ES-DE is told to skip hidden/ with a noload.txt).
@@ -187,7 +207,7 @@ public static class CleanupPlanner
         if (discs.Select(d => d.Item.Disc).Distinct().Count() >= 2)
         {
             var first = discs[0].Item;
-            var folder = FolderFor(first, system, settings, dest);
+            var folder = arranged ? PlaylistFolder(FolderFor(first, system, settings, dest)) : FolderFor(first, system, settings, dest);
             var ext = first.Target == TargetKind.Rvz ? ".rvz" : ".chd";
             var playlist = PlaylistIn(folder, game.Title);
             var step = Step(CleanupKind.Convert, first, discs.Select(d => d.Item.Path).ToList(), playlist,
@@ -203,11 +223,11 @@ public static class CleanupPlanner
         // A new library gets them this way in either layout, so it has their playlist too.
         var ready = matched.Where(d => !handled.Contains(d.Item) && d.Item.Disc.Length > 0 && d.Item.FormatStatus != TargetStatus.Convert
                                        && d.Item.Members.Count == 1 && File.Exists(d.Item.Path)).ToList();
-        if ((esde || copy) && ready.Select(d => d.Item.Disc).Distinct().Count() >= 2)
+        if ((arranged || copy) && ready.Select(d => d.Item.Disc).Distinct().Count() >= 2)
         {
             var first = ready[0].Item;
             var hidden = MultiDiscFolderName(settings);
-            var folder = esde ? FolderFor(first, system, settings, dest) : Mirror(first, SystemFolderOfDisc(first.Path, hidden), dest);
+            var folder = arranged ? PlaylistFolder(FolderFor(first, system, settings, dest)) : Mirror(first, SystemFolderOfDisc(first.Path, hidden), dest);
             var playlist = PlaylistIn(folder, game.Title);
             var step = Step(copy ? CleanupKind.Copy : CleanupKind.Move, first, ready.Select(d => d.Item.Path).ToList(), playlist,
                 $"Into {hidden}/, with {game.Title}.m3u beside it", skipFile: esde ? Path.Combine(folder, hidden, EsdeSkipFile) : null);
@@ -216,15 +236,16 @@ public static class CleanupPlanner
             foreach (var d in ready) handled.Add(d.Item);
             var inPlace = !copy && ready.All(d => SamePath(Path.GetDirectoryName(d.Item.Path)!, Path.Combine(folder, hidden))
                                                   && Path.GetFileName(d.Item.Path) == step.Renames[Path.GetFileName(d.Item.Path)][(hidden.Length + 1)..]);
-            if (!(inPlace && File.Exists(playlist) && File.Exists(Path.Combine(folder, hidden, EsdeSkipFile)))) steps.Add(step);
+            // Already in place (with ES-DE's skip file, in that layout): nothing to do.
+            if (!(inPlace && File.Exists(playlist) && (!esde || File.Exists(Path.Combine(folder, hidden, EsdeSkipFile))))) steps.Add(step);
         }
 
         foreach (var (item, name) in matched.Where(d => !handled.Contains(d.Item)))
         {
             var folder = FolderFor(item, system, settings, dest);
             // R7: the discs of a multi-disc game live in hidden/, beside their playlist.
-            if (esde && game.Discs >= 2 && item.Disc.Length > 0)
-                folder = Path.Combine(folder, MultiDiscFolderName(settings));
+            if (arranged && game.Discs >= 2 && item.Disc.Length > 0)
+                folder = Path.Combine(PlaylistFolder(folder), MultiDiscFolderName(settings));
             if (item.FormatStatus == TargetStatus.Convert && ConvertedExtension(item.Target) is { } ext)
             {
                 steps.Add(Step(CleanupKind.Convert, item, [item.Path], Path.Combine(folder, name + ext),
@@ -263,10 +284,27 @@ public static class CleanupPlanner
     /// The folder name comes from ES-DE's own list (<see cref="EsdeSystems"/>), never a made-up one.
     /// With a new library (FR-8) the same folder is made there: <c>roms/psx</c> in it, or the item's folder below its library folder.
     /// </summary>
-    public static string FolderFor(LibraryItem item, SystemInfo system, AppSettings settings, string? newLibrary = null) =>
-        settings.Library.Layout == LibraryLayout.EsDe && EsdeSystems.FolderOf(system) is { } esde
-            ? Path.Combine(RomsFolder(newLibrary ?? item.Root), esde)
-            : Mirror(item, Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(item.Path))!, newLibrary);
+    public static string FolderFor(LibraryItem item, SystemInfo system, AppSettings settings, string? newLibrary = null) => settings.Library.Layout switch
+    {
+        LibraryLayout.EsDe when EsdeSystems.FolderOf(system) is { } esde => Path.Combine(RomsFolder(newLibrary ?? item.Root), esde),
+        // RomM's structure A: roms/<platform>/, with RomM's platform names.
+        LibraryLayout.RomM when system.Romm is { } platform => Path.Combine(RomsFolder(newLibrary ?? item.Root), platform),
+        // No subfolders: straight in the folder it was added from, or the new library.
+        LibraryLayout.Flat => Path.TrimEndingDirectorySeparator(newLibrary ?? item.Root),
+        _ => Mirror(item, Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(item.Path))!, newLibrary),
+    };
+
+    /// <summary>
+    /// Whether the layout gives this system's games a place of their own: ES-DE and RomM when they have a
+    /// folder name for the system, No subfolders always; Keep the current layout never.
+    /// </summary>
+    public static bool CanArrange(SystemInfo system, AppSettings settings) => settings.Library.Layout switch
+    {
+        LibraryLayout.EsDe => EsdeSystems.FolderOf(system) is not null,
+        LibraryLayout.RomM => system.Romm is not null,
+        LibraryLayout.Flat => true,
+        _ => false,
+    };
 
     /// <summary>
     /// FR-8: where <paramref name="path"/> (in the item's library folder) goes in the new library:
@@ -326,7 +364,13 @@ public static class CleanupPlanner
         && (SamePath(Path.GetDirectoryName(item.Path)!, folder)
             || (item.Disc.Length > 0 && SamePath(Path.GetDirectoryName(item.Path)!, Path.Combine(folder, MultiDiscFolderName(settings)))));
 
-    private static string? Folder(AppSettings settings) => settings.Library.Layout == LibraryLayout.EsDe ? "its ES-DE system folder" : null;
+    private static string? Folder(AppSettings settings) => settings.Library.Layout switch
+    {
+        LibraryLayout.EsDe => "its ES-DE system folder",
+        LibraryLayout.RomM => "its RomM platform folder",
+        LibraryLayout.Flat => "the top of its folder",
+        _ => null,
+    };
 
     /// <summary>The extension a conversion's result has; null for targets the wizard leaves to the Convert page (unpacking, extracting).</summary>
     private static string? ConvertedExtension(TargetKind target) => target switch

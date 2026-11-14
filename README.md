@@ -7,15 +7,16 @@ page to compare against it.
 
 Workflow on every page: **pick files → choose a preset → choose where to save → run the batch.** Each action
 has a recommended preset; its individual options appear only under Custom ([presets](docs/requirements/presets.md)).
-The window's left rail has two sections, **Library** (Optimize) and **Files** (Convert, Verify, Organize), with
-Settings at the bottom ([information architecture](docs/information-architecture.md)).
+The window's left rail lists Optimize, Convert, Verify and Organize, with Settings at the bottom
+([information architecture](docs/information-architecture.md)). The four pages share the files loaded: add
+them on any page and they're on the others too.
 
 | Page | What it does |
 |---|---|
-| Optimize | Your library: the folders you add, scanned into a list of games with their system, formats, size and status. From a selection (or the whole library) it hands games to Verify, Convert and Organize |
+| Optimize | Verify, Convert and Organize in one click. Each file is checked and looked up in the game databases first; then, game by game, it's converted to its best format, named as in the database and moved into its system's folder. The CHANGES column says what will happen to each file. A file the databases don't know is still converted, keeping its name. Save to: where they are or a new library, laid out for ES-DE, RomM, as they are, or with no subfolders |
 | Convert | Each row has its own target and preset: disc images → CHD (GameCube/Wii discs → RVZ, or CHD if you choose), Wii U → .wua, CHD → cue/bin (one bin per track or a single bin), gdi, iso or raw img, RVZ/WIA/GCZ → iso, files and folders → .7z or .zip (Add folder as one archive…), zip ↔ 7z, and unpacking zip/7z. New files are verified (archives tested) |
 | Verify | Checks each game for damage (CHDs against their stored SHA-1, 7z and zip by testing every file), then looks it up in the No-Intro and Redump databases: a good dump, a misnamed one (with the name it should have), or not in the database. The databases come from [libretro-database](https://github.com/libretro/libretro-database), only for the systems in your Library, checked for updates when the app starts ([requirement](docs/requirements/verify-match.md)) |
-| Organize | The Cleanup wizard: for the selected games or the whole Library, a dry run of converting to the target formats, renaming to the No-Intro/Redump names, moving into ES-DE system folders (or keeping each game where it is) and removing duplicates. Every step can be unticked, one at a time or a whole kind at once; a run can be undone, conversions included, until its trash is emptied ([requirement](docs/requirements/cleanup-wizard.md)) |
+| Organize | The Cleanup wizard: for the files in the list, a dry run (the CHANGES column) of converting to the target formats, renaming to the No-Intro/Redump names, moving into ES-DE or RomM system folders (or keeping each game where it is, or all in one folder) and removing duplicates, from what Verify already found. A whole kind of step can be turned off; a run can be undone, conversions included, until its trash is emptied ([requirement](docs/requirements/cleanup-wizard.md)) |
 | Library tests | Power-user mode only. Round trip (create → verify → extract → compare with the original data) and comparison with a chdman.exe (byte-for-byte output, timings); CSV export |
 | Settings | One page of cards, saved as you change them: General, Output, Performance, Log, Default presets, Library and About, with Advanced below them |
 

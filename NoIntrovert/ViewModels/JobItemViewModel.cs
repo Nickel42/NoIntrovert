@@ -221,6 +221,31 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
         OnPropertyChanged(nameof(StatusText));
     }
 
+    // ---- Optimize and Organize: what the run does to this file ----
+
+    /// <summary>The steps planned for this file, in the order they run ("Verify → Convert → .chd → Move into roms/psx/"); empty elsewhere.</summary>
+    [ObservableProperty] public partial string Changes { get; set; } = "";
+
+    /// <summary>The planned steps one per line, with where each file ends up and why (the column's tooltip).</summary>
+    [ObservableProperty] public partial string ChangesDetails { get; set; } = "";
+
+    /// <summary>
+    /// The row for this file's new path (<paramref name="moved"/>, made for it by its page) after Optimize or
+    /// Organize moved, renamed or converted it, keeping what the run said about it.
+    /// </summary>
+    public JobItemViewModel MovedTo(JobItemViewModel moved)
+    {
+        moved.Status = Status;
+        moved.Progress = Progress;
+        moved.Result = Result;
+        moved.Details = Details;
+        moved.ElapsedText = ElapsedText;
+        moved.SpeedText = SpeedText;
+        moved.Changes = Changes;
+        moved.ChangesDetails = ChangesDetails;
+        return moved;
+    }
+
     public void Reset()
     {
         Status = JobStatus.Queued;
