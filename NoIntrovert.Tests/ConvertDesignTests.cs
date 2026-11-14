@@ -78,6 +78,18 @@ internal static class ConvertDesignTests
             return wrong.Count == 0 ? null : string.Join("; ", wrong);
         });
 
+        test("Convert design: with no row focused the panel sums up the list (\"29 files · 3 systems\", presets in use)", () =>
+        {
+            var wrong = new List<string>();
+            void Want(string got, string want) { if (got != want) wrong.Add($"'{got}' (want '{want}')"); }
+            Want(SidePanelViewModel.ListSummaryText(29, 3), "29 files · 3 systems");
+            Want(SidePanelViewModel.ListSummaryText(1, 1), "1 file · 1 system");
+            Want(SidePanelViewModel.ListSummaryText(2, 0), "2 files");
+            var labels = Enumerable.Repeat("7z · Standard ★", 25).Concat(["CHD · Standard ★", "RVZ · Balanced ★", "CHD · Standard ★", "RVZ · Balanced ★", ""]);
+            Want(string.Join(" | ", SidePanelViewModel.PresetsInUseText(labels)), "7z · Standard ★ — 25 | CHD · Standard ★ — 2 | RVZ · Balanced ★ — 2");
+            return wrong.Count == 0 ? null : string.Join("; ", wrong);
+        });
+
         test("Convert design: Works with counts \"7 of 9 play it · 1 not confirmed\"", () =>
         {
             SupportState[] states = [.. Enumerable.Repeat(SupportState.Works, 7), SupportState.DoesNot, SupportState.Unknown];
