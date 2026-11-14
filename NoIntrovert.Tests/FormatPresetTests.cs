@@ -50,7 +50,8 @@ internal static class FormatPresetTests
             foreach (var id in new[] { "gamecube", "wii" })
                 if (FormatPresets.ForSystem(id).SingleOrDefault(p => p.Values.Target == TargetKind.Chd) is not { Warning: true }) return $"{id}'s CHD isn't ⚠";
             if (FormatPresets.ForSystem("wii").Single(p => p.Format == "WBFS").Producible) return "WBFS is producible";
-            if (FormatPresets.ForSystem("playstation-2").Single(p => p.Format == "CSO / ZSO").Producible) return "ZSO is producible";
+            if (FormatPresets.ForSystem("playstation-2").Single(p => p.Id == "zso-opl") is not { Producible: true, Values.Target: TargetKind.Zso })
+                return "the PS2 ZSO preset doesn't make a ZSO";
             // A file of an unknown system gets a standard preset for each of its targets.
             var unknown = FormatPresets.ListFor(null, [TargetKind.SevenZip, TargetKind.Zip, TargetKind.Leave], new PresetSettings());
             var names = string.Join(" | ", unknown.Where(i => i.IsPreset).Select(i => i.Label));
