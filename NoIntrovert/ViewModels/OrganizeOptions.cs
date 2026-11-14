@@ -151,16 +151,6 @@ public sealed partial class OrganizeOptions : ObservableObject
     /// Why the new library can't be built in the chosen folder, or null when it can: one has to be chosen,
     /// and it can't be inside a loaded folder or hold one, or the files would change after all.
     /// </summary>
-    public static string? NewLibraryProblem(string folder, IEnumerable<string> loadedFolders)
-    {
-        if (string.IsNullOrWhiteSpace(folder)) return "Choose a folder for the new library.";
-        static string Full(string p) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(p)) + Path.DirectorySeparatorChar;
-        var dest = Full(folder);
-        foreach (var lib in loadedFolders.Where(f => !string.IsNullOrWhiteSpace(f)).Select(Full))
-        {
-            if (dest.StartsWith(lib, PathNames.Comparison)) return $"The new library can't be inside a folder in the list ({lib.TrimEnd(Path.DirectorySeparatorChar)}).";
-            if (lib.StartsWith(dest, PathNames.Comparison)) return $"The new library's folder can't hold a folder in the list ({lib.TrimEnd(Path.DirectorySeparatorChar)}).";
-        }
-        return null;
-    }
+    public static string? NewLibraryProblem(string folder, IEnumerable<string> loadedFolders) =>
+        Core.Pipelines.OrganizePipeline.NewLibraryProblem(folder, loadedFolders);
 }

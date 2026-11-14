@@ -103,7 +103,12 @@ public sealed class MatchStore
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
         _entries = new ConcurrentDictionary<string, Entry>(loaded ?? [], StringComparer.OrdinalIgnoreCase);
-        _file = new ThrottledJsonFile(path, () => JsonSerializer.Serialize(_entries, JsonOptions));
+        _file = new ThrottledJsonFile(path, () => JsonSerializer.Serialize(_entries, JsonOptions), json =>
+        {
+            // Another process saved since: keep what it found that this one doesn't know yet.
+            if (JsonSerializer.Deserialize<Dictionary<string, Entry>>(json, JsonOptions) is { } disk)
+                foreach (var (key, entry) in disk) _entries.TryAdd(key, entry);
+        });
     }
 
     public static MatchStore Default =>

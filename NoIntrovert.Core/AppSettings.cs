@@ -107,6 +107,33 @@ public sealed class AppSettings
     /// A copy that's edited but never written to disk, e.g. one row's Custom
     /// values behind the Preset settings controls. Not saved, and not copied by <see cref="Clone"/>.
     /// </summary>
+    /// <summary>
+    /// The settings in <paramref name="path"/> (the app's own settings file by default) as they are, without
+    /// migrating or saving anything: for the command line, which reads the app's settings but doesn't write them.
+    /// </summary>
+    public static AppSettings Peek(string? path = null)
+    {
+        path ??= SettingsPath;
+        try
+        {
+            if (!File.Exists(path)) return new AppSettings();
+            var json = File.ReadAllText(path);
+            if (JsonNode.Parse(json) is JsonObject root && !root.ContainsKey(nameof(SchemaVersion)))
+                return FromV1(JsonSerializer.Deserialize<SettingsV1>(json, JsonOptions) ?? new SettingsV1());
+            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        {
+            return new AppSettings();
+        }
+    }
+
+    /// <summary>The app's settings file.</summary>
+    public static string FilePath => SettingsPath;
+
+    /// <summary>Settings from JSON in the settings file's layout (noi settings set rewrites a value this way).</summary>
+    public static AppSettings FromJson(string json) => JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+
     [JsonIgnore] public bool IsScratch { get; init; }
 
     public void Save()
