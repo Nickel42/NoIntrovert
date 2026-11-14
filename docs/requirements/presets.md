@@ -23,11 +23,12 @@ Issue [#33](https://github.com/Nickel42/NoIntrovert/issues/33). Code: `NoIntrove
   becomes.
 - **P8. Presets never remove files.** Where results go is the run bar's **Save to**: next to the originals,
   a folder, or *Replace the originals ⚠*. Only that last choice removes originals, and only after each new
-  file verifies (or its archive tests OK); it's confirmed once, the first time it's chosen, in the run bar or
-  in Settings › Output. There are no *Replace the originals* presets and no "remove originals" setting under
+  file verifies (or its archive tests OK). Each run that replaces originals asks first, with how many go
+  ("Don't ask again" lasts until NoIntrovert restarts); making it the default in Settings › Output asks once
+  more there. The run bar's choice is never saved, so a new session starts from that default. There are no *Replace the originals* presets and no "remove originals" setting under
   Custom. With **Overwrite existing files** off (Settings › Output), a name that's already taken gets " (2)".
   See [ui-redesign](ui-redesign.md#4-save-to-in-the-run-bar-revised-3-nov-2026).
-- **P9. Clean Up stays safe.** Clean Up converts with the presets' compression, but always verifies or tests
+- **P9. Organize stays safe.** Organize converts with the presets' compression, but always verifies or tests
   the result and keeps the originals (it moves them to its own trash), whatever the preset says.
 
 ## Actions and presets
@@ -40,9 +41,9 @@ Issue [#33](https://github.com/Nickel42/NoIntrovert/issues/33). Code: `NoIntrove
 | 7z and zip | ★ Balanced (Normal) · Smallest (Ultra) · Fastest (Fast) · Custom | level, solid, test, grouping (one archive per item, per entry, or one combined archive) |
 | CHD → disc image | ★ Best format for the disc · One .bin · Custom | format, one .bin per track |
 | Unpacking archives | ★ Into its own folder · Custom | own folder |
-| Checking games (Verify & match) | ★ Check and match · Check, match and fix CHD headers · Custom | fix a CHD's header SHA-1 |
+| Verify | ★ Verify · Verify and fix CHD headers · Custom | fix a CHD's header SHA-1 |
 
-Clean Up's file layout already works this way (★ ES-DE format, or keep the current layout) and has nothing else
+Organize's file layout already works this way (★ ES-DE format, or keep the current layout) and has nothing else
 to set, so it has no Custom.
 
 Custom values shared between actions: *verify* is one setting for CHD and RVZ. The pickers say so under

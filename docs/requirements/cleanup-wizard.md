@@ -44,6 +44,7 @@ Nothing happens until you've seen the whole plan, and everything the wizard did 
   - The plan is shown as a list of before → after, grouped by game, with the space saved. Both sides are paths in the Library folder, so you see where each file ends up (`NES/Mario.nes → roms/nes/Super Mario Bros. (World).7z`).
   - Every step can be unticked, one at a time or a whole kind at once (every move, say): each kind has a box with its count.
   - Nothing is written until **Run**.
+  - Only files Verify & match has checked are renamed and moved. When the list has files it hasn't checked, the plan says how many and offers **Verify them now** (runs Verify & match on just those files, then makes the plan again, without leaving Organize) or **Use Optimize instead** (which verifies first). With nothing to run, the Organize button is off and the run bar says "Nothing to organize yet".
 - **FR-3 Run.**
   - Steps go to the shared queue.
   - A step that depends on another (rename after convert) waits for it, and is skipped if it fails.
@@ -51,6 +52,7 @@ Nothing happens until you've seen the whole plan, and everything the wizard did 
   - Each run writes a journal beside the settings: every move and rename with its before and after paths, and every removed file with where it went.
   - Removed files (originals of conversions, duplicates) go to the run's trash, `.noi-trash/<run>/` in their Library folder: on the same drive, so it's a rename, and restorable without depending on the Recycle Bin. **Empty trash** sends a run's trash to the Recycle Bin.
   - **Undo run** reverses the run in reverse order, skipping anything changed since.
+  - Right after a run that changed files, a bar above the list says what it did ("Organized 27 games · 4 left alone") with **Undo** (asks first) and a close button; it stays until closed, the list is cleared, or another run starts. Past runs (each with Undo and Empty trash) sit directly under the plan, and Optimize shows the same list.
   - A conversion is undone by restoring its original from the trash and removing the new file (Q2). This works until the run's trash is emptied; a step that can no longer be undone is listed, not guessed at.
 - **FR-5 Safety.**
   - Never overwrites: a name clash becomes a step you have to resolve in the dry run.

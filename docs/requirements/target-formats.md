@@ -112,7 +112,7 @@ shows the recommendation with no Convert button, and each converter gets its own
     job fails and says where they go, with a Set up keys link to Settings › Keys; nothing is written.
   - The new file is checked against the hashes stored inside it (with *Check each file after
     converting*, or Replace the originals). The dump's own hashes are recorded (R11), and a `.zcci`
-    or `.zcia` is hashed as the file it holds, so Verify & match still recognises both.
+    or `.zcia` is hashed as the file it holds, so Verify still recognizes both.
 - **FR-12 Xbox.**
   - lib-xiso-kit (`native/lib-xiso-kit`) does every conversion; NoIntrovert only picks the output's
     name and folder, keeps the hashes, and removes the original when asked.
@@ -122,7 +122,7 @@ shows the recommendation with no Convert button, and each converter gets its own
     limit. An XISO can become a CCI too.
   - The conservative mode is used: files keep their original sectors, nothing is removed, no XBE is
     patched. lib-xiso-kit re-reads the new image and checks it before anything is replaced.
-  - The Redump image's hashes are kept for Verify & match (R11), since an XISO can't match Redump.
+  - The Redump image's hashes are kept for Verify (R11), since an XISO can't match Redump.
 - **FR-12b Xbox 360.**
   - An Xbox 360 disc is told from an original Xbox one by where its XDVDFS volume is (XGD2, XGD3 or
     the XGD2 hybrid), or, in an XISO, by a `default.xex` at its root.

@@ -44,8 +44,11 @@ Clear all act on every page, and a row follows its file when Optimize or Organiz
       keeping its name; a damaged one is left alone
     - Run bar: **Save to** (Where they are · New library: <path> · Change… · Layout: ES-DE, RomM, Keep as is
       or No subfolders), shared with Organize · Cancel · Optimize
-    - Side panel: Selected file (as on Convert) · the three steps in order, with the plan's summary · what
-      the chosen layout does, with an example · the new library's options · safety note
+    - After a run that changed files, a bar above the list: "Optimized 27 games · 4 left alone" · Undo (asks
+      first) · ✕. It stays until closed, the list is cleared, or another run starts
+    - Side panel: Selected file (as on Convert) · the three steps in order, with the plan's summary · past
+      runs (Undo, Empty trash; the same list as Organize's) · what the chosen layout does, with an example ·
+      the new library's options · safety note
   - **Convert** (start page otherwise)
     - Toolbar: Add files… · Add folder… · Add folder as one archive… · Remove · Clear finished · Clear all · filter
     - A banner above the list when the CHD converter (chdkit) is missing or blocked: reinstall, or check the antivirus quarantine
@@ -58,13 +61,19 @@ Clear all act on every page, and a row follows its file when Optimize or Organiz
       Cancel · Convert
   - **Verify** (was Verify & match)
     - Job list (as Convert, no Preset column, no Save to)
-    - Side panel: Selected file (as on Convert) · game databases (status, Update now) · *Checking games* preset
+    - Side panel: Selected file (as on Convert) · game databases (status, Update now) · *Verify* preset
   - **Organize** (was Cleanup)
     - Job list (as Optimize): CHANGES is the dry run, from what Verify & match already found (files it
       hasn't checked are left alone)
-    - Run bar: **Save to**, as on Optimize (the same choice) · Cancel · Organize
+    - Run bar: **Save to**, as on Optimize (the same choice) · Cancel · Organize. With nothing to run the
+      Organize button is off and the run bar says "Nothing to organize yet"
+    - After a run that changed files, a bar above the list: "Organized 27 games · 4 left alone" · Undo (asks
+      first) · ✕, as on Optimize
     - Side panel: Selected file (as on Convert) · the plan's summary and a box per kind of step, with its
-      count · what the chosen layout does · safety note · past runs (Undo, Empty trash)
+      count; when files haven't been checked, a callout ("33 files haven't been checked yet…") with
+      **Verify them now** (Verify & match runs on those files on the Verify page's rows, the page stays on
+      Organize and the plan is made again) and **Use Optimize instead** · past runs (Undo, Empty trash) ·
+      what the chosen layout does · safety note
   - **Library tests** (Power-user mode only): round trip and chdman comparison, results table, CSV export
 - **Settings** (one page of cards, saved as they change): General (theme, Start on) · Output (Save to's
   default, Folder layout, Overwrite existing files, working folder) · Performance · Log · Default presets · Library (folders,

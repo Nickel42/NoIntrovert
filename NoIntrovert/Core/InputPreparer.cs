@@ -115,7 +115,7 @@ internal sealed class InputPreparer(string tempRoot, IsoMode isoMode, ILog log)
 
             case ".pbp":
             {
-                log.Info($"Rebuilding the disc image(s) inside {Path.GetFileName(path)}...");
+                log.Info($"Rebuilding the disc images inside {Path.GetFileName(path)}...");
                 var discs = PbpExtractor.Extract(path, work.Path, name, Stage("Unpacking PBP"), token, Threads);
                 foreach (var d in discs)
                 {

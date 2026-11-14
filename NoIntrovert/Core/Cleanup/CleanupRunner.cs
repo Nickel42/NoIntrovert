@@ -47,10 +47,10 @@ public sealed class CleanupRun
     public string? NewLibrary { get; set; }
 
     [JsonIgnore] public string Summary =>
-        $"{StartedUtc.ToLocalTime():g}: {Steps} step(s), "
+        $"{StartedUtc.ToLocalTime():g}: {Words.Count(Steps, "step")}, "
         + (NewLibrary is { } lib
-            ? $"{Entries.Count(e => e.Action == JournalAction.Created)} file(s) made in {lib}"
-            : $"{Entries.Count(e => e.Action == JournalAction.Trashed)} file(s) in the trash")
+            ? $"{Words.Count(Entries.Count(e => e.Action == JournalAction.Created), "file")} made in {lib}"
+            : $"{Words.Count(Entries.Count(e => e.Action == JournalAction.Trashed), "file")} in the trash")
         + (Undone ? " · undone" : TrashEmptied ? " · trash emptied" : "");
 }
 
@@ -122,8 +122,8 @@ public sealed class CleanupRunner
                 return new JobOutcome(JobStatus.Failed, ex.Message);
             }
         }
-        c.Log.Success($"Organize: {steps[0].Game}: {done} step(s) done");
-        return new JobOutcome(JobStatus.Succeeded, $"{done} step(s)");
+        c.Log.Success($"Organize: {steps[0].Game}: {Words.Count(done, "step")} done");
+        return new JobOutcome(JobStatus.Succeeded, Words.Count(done, "step"));
     }
 
     /// <summary>
@@ -140,7 +140,9 @@ public sealed class CleanupRunner
         if (playlist && Directory.Exists(step.Target)) return $"{System.IO.Path.GetFileName(step.Target)} is a folder";
         var id = NextStep();
         Directory.CreateDirectory(folder);
-        var staging = System.IO.Path.Combine(folder, $".noi-cleanup-{Run.Id}");
+        // One staging folder per step: games run in parallel, and two converting into the same system folder
+        // must never see (or delete) each other's files.
+        var staging = System.IO.Path.Combine(folder, $".noi-cleanup-{Run.Id}-{id}");
         Directory.CreateDirectory(staging);
         try
         {

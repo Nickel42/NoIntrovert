@@ -151,9 +151,9 @@ public sealed class DatStore(string folder)
     {
         var state = LoadState();
         var count = CachedKeys().Count;
-        if (count == 0) return state.LastCheckedUtc is null ? "Game databases: not downloaded yet." : "Game databases: none needed yet (no systems in the Library have one).";
+        if (count == 0) return state.LastCheckedUtc is null ? "Not downloaded yet." : "None needed yet (no systems in the Library have one).";
         var when = state.LastCheckedUtc is { } t ? Ago(DateTime.UtcNow - t) : "at an unknown time";
-        return $"Game databases: libretro-database, updated {when} ({count} {(count == 1 ? "database" : "databases")}).";
+        return $"libretro-database, updated {when} ({Words.Count(count, "database")}).";
     }
 
     internal static string Ago(TimeSpan span) => span.TotalMinutes switch

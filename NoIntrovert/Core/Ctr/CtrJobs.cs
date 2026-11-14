@@ -68,7 +68,7 @@ public static class CtrJobs
         if (s.LoadedFrom.Count == 0) return "No 3DS keys found yet. Encrypted games, .cia files and eShop titles need them.";
         var where = string.Join(", ", s.LoadedFrom.Select(Path.GetFileName).Distinct(StringComparer.OrdinalIgnoreCase));
         return s.IsRetailReady
-            ? $"Found {where}: ready for encrypted games and .cia files{(s.SeedCount > 0 ? $" ({s.SeedCount} eShop seed(s))" : "")}."
+            ? $"Found {where}: ready for encrypted games and .cia files{(s.SeedCount > 0 ? $" ({Words.Count(s.SeedCount, "eShop seed")})" : "")}."
             : $"Found {where}, but some keys are missing (boot9.bin and aes_keys.txt are both needed for most games).";
     }
 

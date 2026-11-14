@@ -44,7 +44,7 @@ public partial class WorksWithViewModel : ViewModelBase
     /// <summary>The footer, e.g. "From libretro core info and ES-DE · 4 Nov 2026".</summary>
     [ObservableProperty] public partial string Source { get; private set; } = "";
 
-    /// <summary>The heading's count: "7 of 9 play it", plus "· 1 not confirmed" when some are unknown.</summary>
+    /// <summary>The heading's count: "Plays in 7 of 9 emulators", plus "· 1 not confirmed" when some are unknown.</summary>
     [ObservableProperty] public partial string PlayCount { get; private set; } = "";
 
     /// <summary>The footer, e.g. "Cores: libretro · Standalone: ES-DE · 2 Nov 2026".</summary>
@@ -106,13 +106,13 @@ public partial class WorksWithViewModel : ViewModelBase
         PlayCount = CountText(entries.Select(e => e.State).ToList());
     }
 
-    /// <summary>"7 of 9 play it · 1 not confirmed" (empty for no emulators).</summary>
+    /// <summary>"Plays in 7 of 9 emulators · 1 not confirmed" (empty for no emulators).</summary>
     public static string CountText(IReadOnlyCollection<SupportState> states)
     {
         if (states.Count == 0) return "";
         var works = states.Count(s => s == SupportState.Works);
         var unknown = states.Count(s => s == SupportState.Unknown);
-        return $"{works} of {states.Count} play it" + (unknown > 0 ? $" · {unknown} not confirmed" : "");
+        return $"Plays in {works} of {Words.Count(states.Count, "emulator")}" + (unknown > 0 ? $" · {unknown} not confirmed" : "");
     }
 
     /// <summary>"Cores: libretro · Standalone: ES-DE · 2 Nov 2026": where each group comes from, and the data's date.</summary>

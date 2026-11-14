@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NoIntrovert.ViewModels"
+             xmlns:v="using:NoIntrovert.Views"
+             x:Class="NoIntrovert.Views.PastRunsPanel"
+             x:DataType="vm:PlanTabViewModel">
+    <!-- Past runs, on Optimize and Organize alike (every run either made): each can be undone, or its trash emptied. -->
+    <StackPanel Spacing="6">
+        <TextBlock Text="PAST RUNS" Classes="section" />
+        <TextBlock Text="No runs yet." Classes="hint" IsVisible="{Binding !HasRuns}" />
+        <ItemsControl x:Name="RunList" ItemsSource="{Binding Runs}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:CleanupRunRow">
+                    <StackPanel Spacing="4" Margin="0,0,0,10">
+                        <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Button Classes="tool" Content="Undo" IsVisible="{Binding CanUndo}"
+                                    ToolTip.Tip="Put back everything this run changed. You're asked first."
+                                    Command="{Binding $parent[v:PastRunsPanel].((vm:PlanTabViewModel)DataContext).UndoCommand}" CommandParameter="{Binding}" />
+                            <Button Classes="tool" Content="Empty trash" IsVisible="{Binding CanEmpty}"
+                                    ToolTip.Tip="{Binding $parent[v:PastRunsPanel].((vm:PlanTabViewModel)DataContext).EmptyTrashTip}"
+                                    Command="{Binding $parent[v:PastRunsPanel].((vm:PlanTabViewModel)DataContext).EmptyTrashCommand}" CommandParameter="{Binding}" />
+                        </StackPanel>
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>

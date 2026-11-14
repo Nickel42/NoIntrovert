@@ -79,7 +79,7 @@ static class ThemeTests
                 var original = t.Id == ThemeLibrary.DefaultLightId;
                 void Need(string what, Color a, Color b, double ratio)
                 {
-                    if (original) ratio = Math.Min(ratio, what switch { "secondary text on cards" => 4.3, "the accent outline against cards" => 2.3, _ => ratio });
+                    if (original) ratio = Math.Min(ratio, what switch { "the accent outline against cards" => 2.3, _ => ratio });
                     var r = ThemeRoles.Contrast(a, b);
                     if (r < ratio) problems.Add($"{t.Name}: {what} {r:F1}:1 (wants {ratio}:1)");
                 }
@@ -87,12 +87,53 @@ static class ThemeTests
                 Need("text on the window", t[ThemeRole.Text], t[ThemeRole.Background], 7);
                 Need("secondary text on cards", t[ThemeRole.SubtleText], t[ThemeRole.Surface], 4.5);
                 Need("section headings on cards", t[ThemeRole.SectionText], t[ThemeRole.Surface], 4.5);
-                Need("a primary button's text", c["PrimaryForeground"], t[ThemeRole.Primary], 3);
-                Need("the selected rail item's text", c["PrimaryForeground"], t[ThemeRole.Primary], 3);
+                Need("the run button's text", c["AccentForeground"], t[ThemeRole.Accent], 4.5);
+                Need("the run button's text under the pointer", c["AccentForeground"], c["AccentHover"], 4.5);
+                Need("the selected rail item's text", c["SukiText"], ThemeRoles.Over(c["HeaderBackground"], c["PrimaryTint"]), 4.5);
+                Need("the selected rail item's second line", c["SukiLowText"], ThemeRoles.Over(c["HeaderBackground"], c["PrimaryTint"]), 4.5);
                 Need("the accent outline against cards", t[ThemeRole.Accent], t[ThemeRole.Surface], 2.5);
                 Need("a warning's text", c["WarningText"], c["WarningFill"], 4.5);
             }
             return problems.Count == 0 ? null : string.Join("; ", problems);
+        });
+
+        test("Themes: secondary text, control outlines, status colours and the focused row's outline read in every NoIntrovert and Classic theme", () =>
+        {
+            var problems = new List<string>();
+            var themes = ThemeLibrary.BuiltIn.Where(t => t.Collection == ThemeCollection.NoIntrovert)
+                .Concat(ThemeLibrary.BuiltIn.Where(t => t.Collection == ThemeCollection.Classic));
+            foreach (var t in themes)
+            {
+                var c = ThemeResources.Colors(t);
+                var (surface, bg) = (c["PanelBackground"], c["AppBackground"]);
+                void Need(string what, Color a, double ratio, params Color[] on)
+                {
+                    // A few schemes put a bright card on a dark window, where nothing reaches 4.5:1 on both.
+                    ratio = Math.Min(ratio, ThemeRoles.BestContrast(on));
+                    foreach (var b in on)
+                        if (ThemeRoles.Contrast(a, b) is var r && r < ratio - 0.005)
+                        {
+                            problems.Add($"{t.Name}: {what} {r:F2}:1 on {ThemeRoles.Hex(b)} (wants {ratio}:1)");
+                            return;
+                        }
+                }
+                Need("text", c["SukiText"], 4.5, surface, bg);
+                Need("secondary text", c["SubtleText"], 4.5, surface, bg);
+                Need("a control's outline", c["ControlBorder"], 3, surface, bg);
+                foreach (var key in new[] { "StatusOk", "StatusWarn", "StatusBad", "StatusBusy", "StatusMuted" })
+                    Need(key, c[key], 3, surface, bg, c["LogBackground"]);
+                Need("StatusOkText", c["StatusOkText"], 4.5, surface, bg);
+                Need("StatusBadText", c["StatusBadText"], 4.5, surface, bg);
+                // The focused row's outline against its fill, selected or not. Where the accent is already under
+                // 3:1 without the fill, it can't get there; the fill just mustn't take much more away.
+                var accent = c["AccentBrush"];
+                var selected = ThemeRoles.Over(ThemeRoles.Over(surface, c["PrimaryTint"]), c["SelectionFill"]);
+                static double Goal(double without) => without >= 3 ? 3 : without * 0.9;
+                Need("the focused row's outline", accent, Goal(ThemeRoles.Contrast(accent, surface)), ThemeRoles.Over(surface, c["FocusedRowFill"]));
+                Need("the focused, selected row's outline", accent, Goal(ThemeRoles.Contrast(accent, selected)), ThemeRoles.Over(selected, c["FocusedRowFill"]));
+                if (problems.Count > 12) break;
+            }
+            return problems.Count == 0 ? null : string.Join("; ", problems.Take(12));
         });
 
         test("Themes: the NoIntrovert themes keep the design's colours from before themes", () =>

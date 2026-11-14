@@ -178,7 +178,13 @@ public partial class ConvertViewModel : BatchTabViewModel
     private void OnItemChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(JobItemViewModel.PresetChoice) or nameof(JobItemViewModel.CustomValues)) _panel.Request();
+        // A row switched to or from Leave as is changes how many originals the run button says it replaces.
+        if (e.PropertyName is nameof(JobItemViewModel.Target) && IsReplacing) RequestRunLabel();
     }
+
+    /// <summary>A row on Leave as is makes no new file, so its original stays even with Replace the originals.</summary>
+    protected override bool WouldReplace(JobItemViewModel row) =>
+        base.WouldReplace(row) && (row.Target?.Kind ?? TargetKind.Leave) != TargetKind.Leave;
 
     // ---- Running: the planner turns rows and targets into queue jobs ----
 

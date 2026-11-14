@@ -47,7 +47,7 @@ public partial class InfoViewModel : ViewModelBase
                 return chdman.Info(path, hunkStats: false);
             });
             Show(path, info);
-            _log.Info($"Info: read {System.IO.Path.GetFileName(path)} ({ChdService.Describe(info.MediaType)}, {info.Metadata.Count} metadata item(s))");
+            _log.Info($"Info: read {System.IO.Path.GetFileName(path)} ({ChdService.Describe(info.MediaType)}, {Words.Count(info.Metadata.Count, "metadata item")})");
         }
         catch (Exception ex) when (ex is ChdmanException or IOException)
         {

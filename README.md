@@ -16,7 +16,7 @@ them on any page and they're on the others too.
 | Optimize | Verify, Convert and Organize in one click. Each file is checked and looked up in the game databases first; then, game by game, it's converted to its best format, named as in the database and moved into its system's folder. The CHANGES column says what will happen to each file. A file the databases don't know is still converted, keeping its name. Save to: where they are or a new library, laid out for ES-DE, RomM, as they are, or with no subfolders |
 | Convert | Each row has its own target and preset: disc images → CHD (GameCube/Wii discs → RVZ, or CHD if you choose), Wii U → .wua, CHD → cue/bin (one bin per track or a single bin), gdi, iso or raw img, RVZ/WIA/GCZ → iso, files and folders → .7z or .zip (Add folder as one archive…), zip ↔ 7z, and unpacking zip/7z. New files are verified (archives tested) |
 | Verify | Checks each game for damage (CHDs against their stored SHA-1, 7z and zip by testing every file), then looks it up in the No-Intro and Redump databases: a good dump, a misnamed one (with the name it should have), or not in the database. The databases come from [libretro-database](https://github.com/libretro/libretro-database), only for the systems in your Library, checked for updates when the app starts ([requirement](docs/requirements/verify-match.md)) |
-| Organize | The Cleanup wizard: for the files in the list, a dry run (the CHANGES column) of converting to the target formats, renaming to the No-Intro/Redump names, moving into ES-DE or RomM system folders (or keeping each game where it is, or all in one folder) and removing duplicates, from what Verify already found. A whole kind of step can be turned off; a run can be undone, conversions included, until its trash is emptied ([requirement](docs/requirements/cleanup-wizard.md)) |
+| Organize | For the files in the list, a dry run (the CHANGES column) of converting to the target formats, renaming to the No-Intro/Redump names, moving into ES-DE or RomM system folders (or keeping each game where it is, or all in one folder) and removing duplicates, from what Verify already found. A whole kind of step can be turned off; a run can be undone, conversions included, until its trash is emptied ([requirement](docs/requirements/cleanup-wizard.md)) |
 | Library tests | Power-user mode only. Round trip (create → verify → extract → compare with the original data) and comparison with a chdman.exe (byte-for-byte output, timings); CSV export |
 | Settings | One page of cards, saved as you change them: General, Output, Performance, Log, Default presets, Library and About, with Advanced below them |
 
@@ -197,7 +197,7 @@ or zip is unpacked), or a `.zcci`, which Azahar plays without unpacking
 (choose it in Settings › Target formats, or per file on the Convert page). A
 3DS game is never packed into a 7z or zip. An update or DLC `.cia`
 can't become a cartridge image and is left alone. A `.zcci` is hashed as the
-image it holds, so Verify & match recognises it.
+image it holds, so Verify recognizes it.
 
 Decrypting needs your own keys, dumped from your 3DS: `boot9.bin` and
 `aes_keys.txt` (plus `seeddb.bin` for some eShop titles). NoIntrovert finds
@@ -217,7 +217,7 @@ Settings › Target formats for a modded console running Cerbios: it's
 compressed and split below the hard drive's 4 GiB file limit (xemu can't read
 it). The conversion only trims: files keep their sectors, nothing is removed,
 and no executable is patched. Every new image is re-read and checked, and the
-Redump hashes are kept so Verify & match still recognises the game. All of
+Redump hashes are kept so Verify still recognizes the game. All of
 the Xbox code is lib-xiso-kit, a managed .NET library in its own repository
 ([Nickel42/lib-xiso-kit](https://github.com/Nickel42/lib-xiso-kit)), checked
 out as a git submodule in `native/lib-xiso-kit`. The tests use a synthetic
@@ -231,7 +231,7 @@ ZArchive without unpacking it. lib-xiso-kit reads the disc's files and
 lib-wii-u-kit writes them into the archive, which is re-read and checked
 (its own SHA-256 and every file's SHA-1) before it replaces anything. A
 `.zar` can't become the Redump image again, so the Redump hashes are kept
-and Verify & match still recognises the game. XBLA games, DLC, title updates
+and Verify still recognizes the game. XBLA games, DLC, title updates
 and Games on Demand packages are recognised by their CON, LIVE or PIRS
 header (they usually have no extension) and left as they are; Xenia installs
 them. The tests use a synthetic disc and package headers, so try a real dump
@@ -246,7 +246,7 @@ folder instead; a decrypted ISO can become a JB folder too. Each disc needs
 its own key, the `.dkey` file Redump publishes: keep it beside the image with
 the same name, or put them all in the folder set in Settings › Keys. A wrong
 key is caught before anything is written, every result is re-read and
-checked, and the Redump hashes are kept so Verify & match still recognises the
+checked, and the Redump hashes are kept so Verify still recognizes the
 game (a decrypted ISO re-encrypted with its key is the Redump image again).
 All of the PS3 code is lib-ps3-kit, a managed .NET library in its own
 repository ([Nickel42/lib-ps3-kit](https://github.com/Nickel42/lib-ps3-kit)),

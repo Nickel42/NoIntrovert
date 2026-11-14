@@ -28,6 +28,7 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
         _replan = new Coalesced(() => _ = MakePlanAsync());
         Items.CollectionChanged += (_, _) => RequestPlan();
         options.Changed += RequestPlan;
+        WatchRuns();
     }
 
     /// <summary>The layout and where the files go, shared by Optimize and Organize.</summary>
@@ -71,11 +72,21 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
     /// <summary>What the plan does in all ("12 to convert · 30 to rename · frees about 4 GB"), or why it can't run.</summary>
     [ObservableProperty] public partial string PlanSummary { get; set; } = "";
 
+    /// <summary>How many rows are files Verify &amp; match hasn't checked yet, as of the plan shown.</summary>
+    [ObservableProperty] public partial int UncheckedCount { get; set; }
+
+    /// <summary>The rows' paths Verify &amp; match hasn't checked yet, as of the plan shown.</summary>
+    public IReadOnlyList<string> UncheckedPaths { get; private set; } = [];
+
     /// <summary>The latest plan being made (tests wait on it).</summary>
     internal Task PlanMade { get; private set; } = Task.CompletedTask;
 
     /// <summary>Makes the plan again soon (the page was opened: Verify may have matched files since).</summary>
-    public void Replan() => RequestPlan();
+    public void Replan()
+    {
+        RefreshRuns(); // the other page may have run, undone or emptied a run since
+        RequestPlan();
+    }
 
     /// <summary>Makes the plan again soon (the rows or options changed); not while a run is changing the files.</summary>
     protected void RequestPlan()
@@ -158,6 +169,8 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
             }
         ItemsByRow = items;
         StepsByRow = steps.ToDictionary(p => p.Key, p => (IReadOnlyList<CleanupStep>)p.Value, PathNames.Comparer);
+        UncheckedPaths = plan is null ? [] : rows.Where(r => items.ContainsKey(r.Path) && !Checked.Contains(r.Path)).Select(r => r.Path).ToList();
+        UncheckedCount = UncheckedPaths.Count;
         foreach (var row in rows)
         {
             if (row.IsRunning) continue;
@@ -207,9 +220,9 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
             CleanupKind.Move when many => $"Move {step.Renames.Count} discs, with {Path.GetFileName(step.Target)} → {Where()}",
             CleanupKind.Move => $"Move → {Where()}",
             CleanupKind.Copy => $"Copy → {step.Target}",
-            CleanupKind.RemoveDuplicate => $"Remove: {step.Reason.ToLowerInvariant()}",
+            CleanupKind.RemoveDuplicate => $"Remove: {Words.LowerFirst(step.Reason)}",
             CleanupKind.Clash => $"Clash: {step.Reason}",
-            _ => $"Left alone: {step.Reason}",
+            _ => $"Left alone: {Words.LowerFirst(step.Reason)}",
         };
     }
 
@@ -224,13 +237,13 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
         var parts = CleanupKindToggle.RunnableKinds
             .Select(k => (Kind: k, Count: plan.Steps.Count(s => s.Kind == k && s.Runs)))
             .Where(p => p.Count > 0)
-            .Select(p => $"{p.Count} {p.Kind switch { CleanupKind.Convert => "to convert", CleanupKind.Copy => "to copy", CleanupKind.Rename => "to rename", CleanupKind.Move => "to move", _ => "duplicate(s) to remove" }}");
+            .Select(p => p.Kind switch { CleanupKind.Convert => $"{p.Count:N0} to convert", CleanupKind.Copy => $"{p.Count:N0} to copy", CleanupKind.Rename => $"{p.Count:N0} to rename", CleanupKind.Move => $"{p.Count:N0} to move", _ => $"{Words.Count(p.Count, "duplicate")} to remove" });
         var left = plan.Count(CleanupKind.Untouched);
         var clashes = plan.Count(CleanupKind.Clash);
         return (runs == 0 ? "Nothing to do." : copies
                    ? string.Join(" · ", parts)
                    : $"{string.Join(" · ", parts)} · frees about {ChdJobs.Size(plan.BytesSaved)}")
-               + (clashes > 0 ? $" · {clashes} clash(es) to sort out first" : "")
+               + (clashes > 0 ? $" · {Words.Count(clashes, "clash", "clashes")} to sort out first" : "")
                + (left > 0 ? $" · {left} {(copies ? "left out" : "left alone")}" : "");
     }
 
@@ -260,6 +273,7 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
         foreach (var row in rowsOf.GetValueOrDefault("") ?? [])
             row.Finished(RowOutcome(row, new JobOutcome(JobStatus.Skipped, StepsText(ItemsByRow.GetValueOrDefault(row.Path), stepsOf.GetValueOrDefault(row.Path) ?? []))));
         var keys = plan.Steps.Where(s => s.Runs).Select(s => s.GameKey).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        int done = 0, failed = 0;
         var batch = jobs.Select((j, n) =>
         {
             var group = rowsOf.GetValueOrDefault(keys[n]) ?? [];
@@ -268,11 +282,13 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
                 _ => Dispatcher.UIThread.Post(() => { foreach (var r in group) r.Started(); }),
                 outcome => Dispatcher.UIThread.Post(() =>
                 {
+                    if (outcome.Status is JobStatus.Succeeded or JobStatus.Warning) done++;
+                    else if (outcome.Status == JobStatus.Failed) failed++;
                     foreach (var r in group) r.Finished(RowOutcome(r, Done(outcome, stepsOf.GetValueOrDefault(r.Path) ?? [])));
                 }),
                 j.Cost);
         }).ToList();
-        Log.Info($"{Title}: running {runner.Run.Steps} step(s) for {batch.Count} game(s)"
+        Log.Info($"{Title}: running {Words.Count(runner.Run.Steps, "step")} for {Words.Count(batch.Count, "game")}"
                  + (runner.Run.NewLibrary is { } lib ? $", building a new library in {lib}; the files themselves aren't changed" : ""));
         try
         {
@@ -282,6 +298,8 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
         {
             FollowFiles(runner.Run);
             RunFinished(runner.Run);
+            RefreshRuns();
+            ShowLastRun(runner.Run, done, failed, plan.Count(CleanupKind.Untouched));
         }
     }
 

@@ -82,6 +82,6 @@ public static class ZrifLibrary
             return "No zRIF list chosen. PS Vita games and DLC need a zRIF: put it in a .zrif file next to each .pkg, or choose a list.";
         var list = Load(listPath, out var problem);
         if (list is null) return problem ?? $"{listPath} can't be read.";
-        return list.Count == 0 ? $"{listPath} holds no zRIFs." : $"{list.Count:N0} zRIF(s) in {listPath}. A .zrif file next to a .pkg is used first.";
+        return list.Count == 0 ? $"{listPath} holds no zRIFs." : $"{list.Count:N0} {(list.Count == 1 ? "zRIF" : "zRIFs")} in {listPath}. A .zrif file next to a .pkg is used first.";
     }
 }

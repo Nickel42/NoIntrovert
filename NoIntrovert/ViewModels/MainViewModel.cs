@@ -61,6 +61,25 @@ public partial class MainViewModel : ViewModelBase
             tab.OpenSettingsRequested = () => Show("settings");
             tab.OpenKeysRequested = ShowKeys;
         }
+        // Organize's callout for files not checked yet: Verify them (on the Verify page's rows, staying on Organize), or use Optimize.
+        Cleanup.VerifyRequested = async paths =>
+        {
+            await Verify.SyncAsync();
+            await Verify.StartRunAsync(paths);
+        };
+        Cleanup.OpenOptimizeRequested = () => Show("optimize");
+        // The row menu's Verify, on the pages that aren't Verify: the same run, on the right-clicked or selected rows.
+        foreach (var tab in new BatchTabViewModel[] { Optimize, Convert, Cleanup })
+        {
+            var page = tab;
+            page.VerifyFilesAvailable = () => !Verify.IsRunning && !Verify.IsScanning;
+            page.VerifyFilesRequested = async paths =>
+            {
+                await Verify.SyncAsync();
+                await Verify.StartRunAsync(paths);
+                if (page is PlanTabViewModel plans) plans.Replan();
+            };
+        }
         if (settings.Library.RescanOnStart) Workspace.Add(settings.Library.Folders.Where(Directory.Exists));
         _ = CheckEsdeAsync(startup: true);
 

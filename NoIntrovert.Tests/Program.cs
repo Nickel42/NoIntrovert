@@ -2695,7 +2695,7 @@ if (SevenZipEngine.IsAvailable(out _))
         {
             void Configure(AppSettings s) { s.Keys.VitaZrifPath = Q("zrifs.tsv"); s.TargetFormats.WriteVitaLauncher = true; }
             var text = NoIntrovert.Core.Vita.ZrifLibrary.Describe(Q("zrifs.tsv"));
-            if (!text.StartsWith("1 zRIF(s) in ")) return text;
+            if (!text.StartsWith("1 zRIF in ")) return text;
             var dlc = ConvertTargets.For(Set3("VitaPkg-more/dlc.pkg"), new AppSettings());
             var update = ConvertTargets.For(Set3("VitaPkg-more/update.pkg"), new AppSettings());
             if (dlc.Plan.Text != "Convert → .zip (DLC)" || update.Plan.Text != "Convert → .zip (update)") return $"{dlc.Plan.Text} / {update.Plan.Text}";
@@ -3550,6 +3550,44 @@ if (SevenZipEngine.IsAvailable(out _))
         if (!tree.Contains("roms/psx/Crash Bandicoot (USA).chd")) return "a conversion whose originals are gone was undone anyway";
         return problems.Any(p => p.Contains("no longer in the trash")) ? Note($"{problems.Count} kept") : string.Join(" | ", problems);
     });
+
+    // Two games converted into one system folder at the same time (Jobs at once: 2). Each conversion has its own
+    // staging folder: a shared one let the first game to finish take the other's file ("… already exists") and
+    // journal it as its own, so that game's row didn't follow its file.
+    Test("Cleanup: two games converting into one folder at once each get their own file, and both rows follow", () =>
+    {
+        var lib = Path.GetFullPath(Dir("m7p/Library"));
+        Directory.CreateDirectory(Path.Combine(lib, "NES"));
+        var a = Path.Combine(lib, "NES", "A.nes");
+        var b = Path.Combine(lib, "NES", "B.nes");
+        File.WriteAllBytes(a, mario);
+        File.WriteAllBytes(b, metroid);
+        var s = new AppSettings { Library = { Layout = LibraryLayout.EsDe } };
+        var plan = NoIntrovert.Core.Cleanup.CleanupPlanner.Plan(ScanAndVerify(s, lib), s, NoIntrovert.Core.Dats.MatchStore.Default);
+        var runner = new NoIntrovert.Core.Cleanup.CleanupRunner();
+        var jobs = runner.Jobs(plan);
+        var first = jobs.FirstOrDefault(j => j.Name == "A");
+        var second = jobs.FirstOrDefault(j => j.Name == "B");
+        if (first.Work is null || second.Work is null) return $"jobs: {string.Join(", ", jobs.Select(j => j.Name))}";
+        // The first game waits once its archive is written (its Testing stage) until the second has finished.
+        using var written = new ManualResetEventSlim();
+        using var secondDone = new ManualResetEventSlim();
+        var pause = new PauseAtStage("Testing", written, secondDone);
+        var firstRun = Task.Run(() => RunJob(first.Work, report: pause));
+        if (!written.Wait(TimeSpan.FromSeconds(60))) return "the first game never reached Testing";
+        var o2 = RunJob(second.Work);
+        secondDone.Set();
+        var o1 = firstRun.GetAwaiter().GetResult();
+        var roms = Path.Combine(lib, "roms", "nes");
+        var made = Directory.Exists(roms) ? Directory.GetFiles(roms).Select(Path.GetFileName).Order().ToList() : [];
+        if (o1.Status != JobStatus.Succeeded || o2.Status != JobStatus.Succeeded)
+            return $"Mario: {o1.Status} {o1.Summary}; Metroid: {o2.Status} {o2.Summary}; made: {string.Join(", ", made)}";
+        if (!made.SequenceEqual(["Metroid (USA).7z", "Super Mario Bros. (World).7z"])) return $"made: {string.Join(", ", made)}";
+        var (moves, _) = NoIntrovert.ViewModels.PlanTabViewModel.MovesOf(runner.Run, [a, b]);
+        string? To(string from) => moves.TryGetValue(from, out var to) ? Path.GetFileName(to) : null;
+        return To(a) == "Super Mario Bros. (World).7z" && To(b) == "Metroid (USA).7z" ? null
+            : $"rows follow: A → {To(a)}, B → {To(b)}; journal: {string.Join(" | ", runner.Run.Entries.Select(e => $"{e.Step} {e.Action} {e.From} → {e.Path}"))}";
+    });
 }
 
 // ---- Library (M5): scanning folders into games ----
@@ -4351,6 +4389,19 @@ sealed class RecordingReport(List<double> values) : IJobReport
 {
     public void SetStage(string stage) { }
     public void SetProgress(double fraction) { lock (values) values.Add(fraction); }
+}
+
+/// <summary>A report that holds the job the first time it enters a stage (says so, then waits to be let go, at most a minute).</summary>
+sealed class PauseAtStage(string stage, ManualResetEventSlim reached, ManualResetEventSlim release) : IJobReport
+{
+    private int _paused;
+    public void SetStage(string s)
+    {
+        if (!s.Contains(stage) || Interlocked.Exchange(ref _paused, 1) == 1) return;
+        reached.Set();
+        release.Wait(TimeSpan.FromSeconds(60));
+    }
+    public void SetProgress(double fraction) { }
 }
 
 sealed class NullReport : IJobReport

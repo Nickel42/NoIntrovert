@@ -61,10 +61,48 @@ can merge one of these files as it is.
 ```
 
 The roles (`Theme` + the name): `Background`, `Surface` (cards and panels), `Raised`, `Header` (title bar and
-rail), `Border`, `ControlBorder`, `Text`, `SubtleText`, `SectionText`, `Primary` (buttons, selection), `Accent`
-(focus, highlights), `Danger`, `Warning`, `Success`. A role left out is worked out from the others. Every other
-colour (row tints, tags, SukiUI's control colours) is worked out from the roles in
+rail), `Border`, `ControlBorder`, `Text`, `SubtleText`, `SectionText`, `Primary` (selection, tints), `Accent`
+(the run button, focus, the selected page's bar), `Danger`, `Warning`, `Success`. A role left out is worked out
+from the others. Every other colour (row tints, tags, SukiUI's control colours) is worked out from the roles in
 `NoIntrovert/Core/Themes/ThemeResources.cs`, unless the file sets that key itself.
+
+### Where the accent goes
+
+The accent is the one strong colour on screen: it fills the run button (Convert, Optimize, Verify, Organize; also
+*Save theme*), with `AccentForeground` text, dark or white, whichever reads at 4.5:1 or better. The selected page
+in the rail is not filled with it: it's the `PrimaryTint` with a 4 px accent bar at its left and the normal text
+colour, as Windows 11's navigation draws it, and the bar shows on the icon-only rail too.
+
+### Contrast is kept, whatever the theme says
+
+So that an imported or hand-made theme can't come out unreadable, the colours actually used are nudged lighter
+(on a dark theme) or darker (on a light one), keeping their hue, until they read on the cards and the window:
+
+| What | At least |
+|---|---|
+| `Text`, `SubtleText` (hints, folder paths) | 4.5:1 |
+| `ControlBorder` (checkbox, radio, text box and button outlines; Settings' fields) | 3:1 |
+| Status dots and log glyphs (`StatusOk`, `StatusWarn`, `StatusBad`, `StatusBusy`, `StatusMuted`) | 3:1, on the log too |
+| Status words (`StatusOkText`, `StatusBadText`, e.g. PASS/FAIL) | 4.5:1 |
+
+A colour already that far is left as it is. Where nothing can get there (a scheme with a bright card on a dark
+window), the colour is whichever of black and white reads best. The editor shows a role's colour as chosen.
+
+The status colours come from the roles: bad is `Danger`, warning is `Warning`, done is `Success` when it's a
+green (as in Base16 schemes) and a green of the app's own otherwise (NoIntrovert's `Success` is the Verified
+badge's yellow); running is a blue, nothing-yet is a grey from `SubtleText`. A theme file can set any of these keys.
+
+`FocusedRowFill` (the row the keyboard is on) is the primary's tint, as strong as it can be while the accent
+outline around it still reads at 3:1, selected or not. Where the accent is under 3:1 on the cards to begin with
+(an orange on white), the fill takes almost nothing more away, and the row is told apart by its outline and its
+accent bar.
+
+The theme button in the title bar cycles *System* → *Dark* → *Light* → *System* (a monitor, a moon, a sun), and
+its tooltip says the mode and what a click gives ("Theme: System (follows Windows). Click for Dark.").
+
+The animated border around the job list while a run goes is drawn only when the OS allows animations (Windows:
+Settings › Accessibility › Visual effects › Animation effects; macOS: Reduce motion; GNOME: enable-animations).
+Nothing pulses while idle.
 
 The importer also reads a dictionary with `ResourceDictionary.ThemeDictionaries` (`Dark` and `Light`), giving
 one theme of each. It also reads a dictionary made only of the app's own keys (`AppBackground`, `PanelBackground`,

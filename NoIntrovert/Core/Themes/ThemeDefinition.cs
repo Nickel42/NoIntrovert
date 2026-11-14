@@ -160,11 +160,52 @@ public static class ThemeRoles
         return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
     }
 
-    /// <summary>White or the theme's dark text, whichever reads better on <paramref name="fill"/>; white wins a near tie, as the design has it.</summary>
+    /// <summary>
+    /// White or the theme's dark text, whichever reads better on <paramref name="fill"/>; white wins a near tie, as the
+    /// design has it, but only while it still reads at 4.5:1.
+    /// </summary>
     public static Color TextOn(Color fill, Color darkText)
     {
         var dark = Luminance(darkText) < 0.2 ? darkText : Color.Parse("#1B1B24");
-        return Contrast(fill, Colors.White) * 1.35 >= Contrast(fill, dark) ? Colors.White : dark;
+        var (white, onDark) = (Contrast(fill, Colors.White), Contrast(fill, dark));
+        if (white < 4.5 && onDark > white) return dark;
+        return white * 1.35 >= onDark ? Colors.White : dark;
+    }
+
+    /// <summary>
+    /// <paramref name="color"/>, lightened (on dark backgrounds) or darkened (on light ones) just enough to reach
+    /// <paramref name="target"/>:1 against every one of <paramref name="on"/>; unchanged when it already does.
+    /// Keeps the hue, so a theme's own colour survives as closely as it can. When no shade can (a scheme whose
+    /// window and cards are far apart in brightness), it's whichever of black and white reads best.
+    /// </summary>
+    public static Color Readable(Color color, double target, params Color[] on)
+    {
+        if (on.Length == 0) return color;
+        double Worst(Color c) => on.Min(b => Contrast(c, b));
+        if (Worst(color) >= target) return color;
+        Color? best = null;
+        var bestT = double.MaxValue;
+        foreach (var toward in new[] { Colors.White, Colors.Black })
+            for (var t = 0.02; t <= 1.0001 && t < bestT; t += 0.02)
+            {
+                var c = Mix(color, toward, t);
+                if (Worst(c) < target) continue;
+                (best, bestT) = (c, t);
+                break;
+            }
+        return best ?? (Worst(Colors.White) >= Worst(Colors.Black) ? Colors.White : Colors.Black);
+    }
+
+    /// <summary>The most any colour can reach against every one of <paramref name="on"/> (black's or white's worst).</summary>
+    public static double BestContrast(params Color[] on) =>
+        Math.Max(on.Min(b => Contrast(Colors.White, b)), on.Min(b => Contrast(Colors.Black, b)));
+
+    /// <summary><paramref name="top"/> (with its alpha) painted over the opaque <paramref name="under"/>.</summary>
+    public static Color Over(Color under, Color top)
+    {
+        var a = top.A / 255.0;
+        static byte L(byte u, byte t, double a) => (byte)Math.Clamp(Math.Round(u + (t - u) * a), 0, 255);
+        return Color.FromRgb(L(under.R, top.R, a), L(under.G, top.G, a), L(under.B, top.B, a));
     }
 
     /// <summary>"#RRGGBB" (or "#AARRGGBB" when not opaque).</summary>

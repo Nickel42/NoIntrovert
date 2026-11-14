@@ -22,9 +22,10 @@
         </Border>
     </suki:SukiWindow.LogoContent>
     <suki:SukiWindow.RightWindowTitleBarControls>
-        <Button x:Name="ThemeToggle" Classes="WindowControlsButton themetoggle" Click="OnThemeToggleClick"
-                ToolTip.Tip="{DynamicResource ThemeToggleTip}" AutomationProperties.Name="{DynamicResource ThemeToggleTip}">
-            <Path Data="{DynamicResource ThemeToggleIcon}" Width="16" Height="16" Stretch="Uniform"
+        <!-- Cycles Settings › Theme: System → Dark → Light → System. Its icon (monitor, moon, sun), tooltip and
+             accessible name say the current mode and the next; MainWindow.axaml.cs keeps them in step. -->
+        <Button x:Name="ThemeToggle" Classes="WindowControlsButton themetoggle" Click="OnThemeToggleClick">
+            <Path x:Name="ThemeToggleIcon" Width="16" Height="16" Stretch="Uniform"
                   Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" />
         </Button>
     </suki:SukiWindow.RightWindowTitleBarControls>
@@ -32,19 +33,19 @@
     <Window.Resources>
         <ResourceDictionary>
         <ResourceDictionary.ThemeDictionaries>
-            <!-- The toggle shows the moon on the dark theme and the sun on the light one, as in the design. -->
+            <!-- Windows caption buttons' hover and press: a neutral tint, as Windows 11 draws them -->
             <ResourceDictionary x:Key="Dark">
-                <StreamGeometry x:Key="ThemeToggleIcon">M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z</StreamGeometry>
-                <x:String x:Key="ThemeToggleTip">Switch to the light theme</x:String>
+                <SolidColorBrush x:Key="CaptionHover" Color="#17FFFFFF" />
+                <SolidColorBrush x:Key="CaptionPressed" Color="#0FFFFFFF" />
             </ResourceDictionary>
             <ResourceDictionary x:Key="Light">
-                <StreamGeometry x:Key="ThemeToggleIcon">M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4</StreamGeometry>
-                <x:String x:Key="ThemeToggleTip">Switch to the dark theme</x:String>
+                <SolidColorBrush x:Key="CaptionHover" Color="#10000000" />
+                <SolidColorBrush x:Key="CaptionPressed" Color="#0A000000" />
             </ResourceDictionary>
         </ResourceDictionary.ThemeDictionaries>
         <!-- One rail button: icon, title, and an optional line of small text under the title -->
         <DataTemplate x:Key="RailButton" x:DataType="vm:PageViewModel">
-            <Button Classes="rail" Classes.selected="{Binding IsSelected}" Classes.featured="{Binding HasSubtitle}" IsVisible="{Binding IsVisible}" ToolTip.Tip="{Binding Title}"
+            <Button Classes="rail" Classes.selected="{Binding IsSelected}" Classes.featured="{Binding HasSubtitle}" IsVisible="{Binding IsVisible}" ToolTip.Tip="{Binding ToolTipText}"
                     Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectPageCommand}" CommandParameter="{Binding}"
                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center" Margin="0,0,0,4">
                 <Grid ColumnDefinitions="Auto,*" Margin="0,10">
@@ -62,32 +63,64 @@
     </Window.Resources>
 
     <Window.Styles>
-        <!-- Title bar: the rail's colour, with round 28 px window buttons; close is red on a red tint. -->
-        <Style Selector="Button.WindowControlsButton">
+        <!-- Title bar on macOS and Linux: the rail's colour, with round 28 px window buttons; close is red on a red tint. -->
+        <Style Selector=":is(Window):not(.wincaption) Button.WindowControlsButton">
             <Setter Property="Width" Value="28" />
             <Setter Property="Height" Value="28" />
             <Setter Property="CornerRadius" Value="14" />
             <Setter Property="Background" Value="{DynamicResource WindowButtonBackground}" />
             <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
         </Style>
-        <Style Selector="Button.WindowControlsButton:pointerover">
+        <Style Selector=":is(Window):not(.wincaption) Button.WindowControlsButton:pointerover">
             <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
         </Style>
-        <Style Selector="Button.WindowControlsButton.Close">
+        <Style Selector=":is(Window):not(.wincaption) Button.WindowControlsButton.Close">
             <Setter Property="Background" Value="{DynamicResource DangerTint}" />
             <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
         </Style>
-        <Style Selector="Button.WindowControlsButton.Close:pointerover">
+        <Style Selector=":is(Window):not(.wincaption) Button.WindowControlsButton.Close:pointerover">
             <Setter Property="Background" Value="{DynamicResource DangerText}" />
             <Setter Property="Foreground" Value="White" />
         </Style>
-        <Style Selector="Button.WindowControlsButton.themetoggle">
+        <Style Selector=":is(Window):not(.wincaption) Button.WindowControlsButton.themetoggle">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
             <Setter Property="Margin" Value="0,0,7,0" />
         </Style>
-        <Style Selector="Button.WindowControlsButton.themetoggle:pointerover">
+        <Style Selector=":is(Window):not(.wincaption) Button.WindowControlsButton.themetoggle:pointerover">
             <Setter Property="Background" Value="{DynamicResource WindowButtonBackground}" />
+            <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
+        </Style>
+
+        <!-- Title bar on Windows (the window gets .wincaption, see MainWindow.axaml.cs): Windows 11's caption buttons,
+             46×32 rectangles flush with the top-right corner, transparent at rest with a neutral tint on hover;
+             Close turns red (#C42B1C) with a white glyph only on hover and press. The theme button matches. -->
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
+        </Style>
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource CaptionHover}" />
+        </Style>
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton:pressed">
+            <Setter Property="Background" Value="{DynamicResource CaptionPressed}" />
+        </Style>
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton.Close:pointerover">
+            <Setter Property="Background" Value="#C42B1C" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton.Close:pressed">
+            <Setter Property="Background" Value="#E6C42B1C" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton.themetoggle">
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+        </Style>
+        <Style Selector=":is(Window).wincaption Button.WindowControlsButton.themetoggle:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource SukiText}" />
         </Style>
 
@@ -99,28 +132,28 @@
         <Style Selector="TextBlock.counts.error">
             <Setter Property="Foreground" Value="{DynamicResource DangerText}" />
         </Style>
-        <!-- Rail icons and the line under a title are muted; on the selected page's accent pill they take its text colour -->
+        <!-- Rail icons and the line under a title are muted; on the selected page (a tint with the accent bar)
+             the icon takes the text colour, and the line under the title a stronger grey that reads on the tint -->
         <Style Selector="Path.railicon">
             <Setter Property="Margin" Value="0,0,10,0" />
             <Setter Property="Stroke" Value="{DynamicResource SubtleText}" />
         </Style>
         <Style Selector="Button.rail.selected Path.railicon">
-            <Setter Property="Stroke" Value="{DynamicResource AccentForeground}" />
+            <Setter Property="Stroke" Value="{DynamicResource SukiText}" />
         </Style>
         <Style Selector="TextBlock.railsub">
             <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
         </Style>
         <Style Selector="Button.rail.selected TextBlock.railsub">
-            <Setter Property="Foreground" Value="{DynamicResource AccentForeground}" />
-            <Setter Property="Opacity" Value="0.85" />
+            <Setter Property="Foreground" Value="{DynamicResource SukiLowText}" />
         </Style>
         <!-- A page with a line of small text under its name (Optimize) sits on a card of its own -->
-        <Style Selector="Button.rail.featured:not(.selected) /template/ Border">
+        <Style Selector="Button.rail.featured:not(.selected) /template/ Border#RootBorder">
             <Setter Property="Background" Value="{DynamicResource RowAlt}" />
             <Setter Property="BorderBrush" Value="{DynamicResource PrimaryTint}" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
-        <Style Selector="Button.rail.featured:not(.selected):pointerover /template/ Border">
+        <Style Selector="Button.rail.featured:not(.selected):pointerover /template/ Border#RootBorder">
             <Setter Property="Background" Value="{DynamicResource PrimaryTint}" />
         </Style>
         <Style Selector="Border.railpane">

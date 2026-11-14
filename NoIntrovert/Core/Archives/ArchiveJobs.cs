@@ -117,7 +117,7 @@ public static class ArchiveJobs
         }
 
         var stats = new OperationStats(elapsed, inBytes, outBytes);
-        var summary = $"{done} archive(s)" + (skipped > 0 ? $", {skipped} skipped" : "") + (failed > 0 ? $", {failed} failed" : "");
+        var summary = Words.Count(done, "archive") + (skipped > 0 ? $", {skipped} skipped" : "") + (failed > 0 ? $", {failed} failed" : "");
         var status = failed > 0 ? JobStatus.Failed : skipped > 0 ? JobStatus.Warning : JobStatus.Succeeded;
         return new JobOutcome(status, summary, stats);
     }
@@ -274,7 +274,7 @@ public static class ArchiveJobs
             if (moved == 0)
                 return JobOutcome.Skipped("Archive is empty");
             if (renamed > 0)
-                c.Log.Info($"  {renamed} item(s) were already in {Path.GetFileName(destination)}, so the new ones got \" (2)\" names (turn on Overwrite to replace them).");
+                c.Log.Info($"  {Words.Count(renamed, "item")} {(renamed == 1 ? "was" : "were")} already in {Path.GetFileName(destination)}, so the new ones got \" (2)\" names (turn on Overwrite to replace them).");
 
             if (s.Output.ReplacesOriginals)
             {
@@ -282,9 +282,9 @@ public static class ArchiveJobs
                 FileRemover.Remove([archive], s.Output.UseRecycleBin, c.Log);
             }
 
-            c.Log.Success($"{Path.GetFileName(archive)}: extracted {moved} item(s) in {sw.Elapsed:mm\\:ss\\.f}");
+            c.Log.Success($"{Path.GetFileName(archive)}: extracted {Words.Count(moved, "item")} in {sw.Elapsed:mm\\:ss\\.f}");
             var where = s.Archives.ExtractToOwnFolder ? Path.GetFileName(destination) + Path.DirectorySeparatorChar : "output folder";
-            return new JobOutcome(JobStatus.Succeeded, $"{moved} item(s) → {where}", stats);
+            return new JobOutcome(JobStatus.Succeeded, $"{Words.Count(moved, "item")} → {where}", stats);
         }
         finally
         {
