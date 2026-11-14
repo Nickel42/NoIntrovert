@@ -220,16 +220,22 @@ public sealed partial class OutputSettingsViewModel(AppSettings settings, IDialo
 
     /// <summary>
     /// Asks the user to confirm Replace the originals the first time it's
-    /// chosen, as the run bar does (set by the Settings view). Without it,
-    /// Replace can't be chosen until it has been confirmed once.
+    /// made the default (set by the Settings view). Without it, Replace can't
+    /// be the default until it has been confirmed once. Runs that replace
+    /// originals still ask as they start (<see cref="BatchTabViewModel"/>).
     /// </summary>
     public Func<Task<bool>>? ConfirmReplace { get; set; }
 
     /// <summary>
+    /// "Don't ask again until NoIntrovert restarts", ticked in the question a
+    /// run with Replace the originals asks as it starts. Never saved.
+    /// </summary>
+    public bool SkipReplaceQuestion { get; set; }
+
+    /// <summary>
     /// Makes <paramref name="choice"/> the default Save to, after the one-time
-    /// confirmation for Replace (shared with the run bar through
-    /// <see cref="ReplaceConfirmed"/>). When that's refused, the dropdown goes
-    /// back to the previous choice.
+    /// confirmation for Replace (<see cref="ReplaceConfirmed"/>). When that's
+    /// refused, the dropdown goes back to the previous choice.
     /// </summary>
     public async Task ChooseSaveToAsync(SaveTo choice)
     {

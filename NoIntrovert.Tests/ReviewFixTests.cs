@@ -16,31 +16,91 @@ internal static class ReviewFixTests
 {
     public static void Run(Action<string, Func<string?>> test, Func<string, string> dir, ILog log)
     {
-        test("Save to: a run whose Replace the originals wasn't confirmed asks first, and doesn't start when refused", () =>
+        test("Save to: with Replace the originals the run button says how many originals go, and a refused run doesn't start", () =>
             WithSettingsFolder(dir("review-replace-run"), () =>
             {
-                var settings = new AppSettings { Output = { SaveTo = SaveTo.ReplaceOriginals, ReplaceConfirmed = false } };
+                var settings = new AppSettings { Output = { SaveTo = SaveTo.ReplaceOriginals, ReplaceConfirmed = false, UseRecycleBin = false } };
                 var vm = new SettingsViewModel(settings, new NoDialogs());
                 var convert = new ConvertViewModel(vm, new LogViewModel(new NoDialogs(), settings), new NoDialogs(), new JobQueue(() => 1));
-                var file = Path.Combine(dir("review-replace-run-files"), "Game.cue");
-                File.WriteAllText(file, "");
-                var row = new JobItemViewModel(file);
-                convert.Items.Add(row);
+                var files = dir("review-replace-run-files");
+                JobItemViewModel Row(string name, TargetChoice? target)
+                {
+                    var file = Path.Combine(files, name);
+                    File.WriteAllText(file, "");
+                    var row = new JobItemViewModel(file) { Target = target };
+                    convert.Items.Add(row);
+                    return row;
+                }
+                var first = Row("A.cue", TargetChoice.Chd);
+                if (!convert.IsReplacing) return "Replace the originals as the default isn't shown as replacing";
+                if (convert.RunLabel != "Convert and replace 1 original") return $"one row: the button says '{convert.RunLabel}'";
+                Row("B.cue", TargetChoice.Leave); // left as is: its original stays
+                Row("C.cue", TargetChoice.Chd);
+                if (convert.RunLabel != "Convert and replace 2 originals") return $"two rows to convert and one left: the button says '{convert.RunLabel}'";
+                if (convert.ReplaceNote != "Originals are deleted after each new file verifies.") return $"with the Recycle Bin off the line says '{convert.ReplaceNote}'";
+                vm.Output.UseRecycleBin = true;
+                if (FileRemover.CanUseBin && convert.ReplaceNote != $"Originals go to the {FileRemover.BinName} after each new file verifies.")
+                    return $"with the Recycle Bin on the line says '{convert.ReplaceNote}'";
 
-                var asked = 0;
-                convert.ConfirmReplace = () => { asked++; return Task.FromResult(false); };
+                var asked = new List<int>();
+                convert.ConfirmReplace = n => { asked.Add(n); return Task.FromResult(new ReplaceAnswer(false)); };
                 convert.StartCommand.ExecuteAsync(null).GetAwaiter().GetResult();
-                if (asked != 1) return $"asked {asked} times before the run";
-                if (convert.IsRunning || row.Status != JobStatus.Queued) return "the run started although Replace was refused";
-                if (vm.Output.ReplaceConfirmed) return "a refusal was saved as confirmed";
+                if (asked.Count != 1 || asked[0] != 2) return $"asked {asked.Count} times ({string.Join(",", asked)}) before the run";
+                if (convert.IsRunning || first.Status != JobStatus.Queued || first.StatusText != "Ready") return "the run started although Replace was refused";
+                if (vm.Output.ReplaceConfirmed || vm.Output.SkipReplaceQuestion) return "a refusal was remembered";
 
-                // Confirmed: it's remembered and not asked again (the row is Leave as is, so nothing runs).
-                convert.ConfirmReplace = () => { asked++; return Task.FromResult(true); };
-                convert.StartCommand.ExecuteAsync(null).GetAwaiter().GetResult();
-                if (asked != 2 || !vm.Output.ReplaceConfirmed) return "confirming wasn't remembered";
-                convert.StartCommand.ExecuteAsync(null).GetAwaiter().GetResult();
-                return asked == 2 ? null : "asked again after confirming";
+                // Choosing Next to the originals in the run bar: the button is Convert again, and Settings' default is unchanged.
+                convert.ChooseSaveToAsync(SaveTo.NextToOriginals).GetAwaiter().GetResult();
+                if (convert.IsReplacing || convert.RunLabel != "Convert") return $"after Next to the originals the button says '{convert.RunLabel}'";
+                return settings.Output.SaveTo == SaveTo.ReplaceOriginals ? null : "the run bar's choice changed Settings' default";
             }));
+
+        test("Save to: Replace the originals asks at every run start until \"Don't ask again\", only for this session, and the run bar's choice isn't saved", () =>
+            WithSettingsFolder(dir("review-replace-every-run"), () =>
+            {
+                var settings = new AppSettings();
+                var vm = new SettingsViewModel(settings, new NoDialogs());
+                var page = new GatedPage(vm, new LogViewModel(new NoDialogs(), settings));
+                page.Items.Add(new JobItemViewModel(Path.Combine(dir("review-replace-every-run-files"), "A.iso")));
+                var asked = 0;
+                var answer = new ReplaceAnswer(true);
+                page.ConfirmReplace = _ => { asked++; return Task.FromResult(answer); };
+
+                // Picking Replace in the run bar asks nothing yet; the run start does.
+                page.ChooseSaveToAsync(SaveTo.ReplaceOriginals).GetAwaiter().GetResult();
+                if (asked != 0) return "picking Replace in the run bar asked";
+                if (settings.Output.SaveTo != SaveTo.NextToOriginals) return "the run bar's Replace became Settings' default";
+                if (page.RunLabel != "Gate and replace 1 original") return $"the button says '{page.RunLabel}'";
+                page.StartCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+                page.StartCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+                if (asked != 2 || page.Reached != 2) return $"two runs asked {asked} times and started {page.Reached} times";
+                answer = new ReplaceAnswer(true, DontAskAgain: true);
+                page.StartCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+                page.StartCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+                if (asked != 3 || page.Reached != 4) return $"after Don't ask again: asked {asked} times, started {page.Reached} times";
+                if (settings.Output.ReplaceConfirmed) return "Don't ask again was saved in the settings";
+
+                // A new session (new view models over the same saved settings) starts from Settings' default and asks again.
+                var next = new GatedPage(new SettingsViewModel(settings, new NoDialogs()), new LogViewModel(new NoDialogs(), settings));
+                if (next.IsReplacing) return "a new session started on the last session's run bar choice";
+                next.Items.Add(new JobItemViewModel(Path.Combine(dir("review-replace-every-run-files"), "A.iso")));
+                next.ConfirmReplace = _ => { asked++; return Task.FromResult(new ReplaceAnswer(false)); };
+                next.ChooseSaveToAsync(SaveTo.ReplaceOriginals).GetAwaiter().GetResult();
+                next.StartCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+                return asked == 4 && next.Reached == 0 ? null : "a new session didn't ask, or started after a no";
+            }));
+
+        test("Rows: an added row reads Ready with no progress bar until a run puts it in the queue", () =>
+        {
+            var row = new JobItemViewModel(Path.Combine(dir("review-ready"), "A.iso"));
+            if (row.StatusText != "Ready" || row.IsQueued || row.ShowsProgress) return $"a new row reads '{row.StatusText}'";
+            row.Reset(); // what a run does to each row it hands to the queue
+            if (row.StatusText != "Queued" || !row.IsQueued || row.ShowsProgress) return $"a submitted row reads '{row.StatusText}'";
+            row.Status = JobStatus.Running;
+            if (!row.ShowsProgress) return "a running row hides its progress bar";
+            var moved = row.MovedTo(new JobItemViewModel(Path.Combine(dir("review-ready"), "B.iso")));
+            return moved.IsSubmitted ? null : "a moved row forgot it was submitted";
+        });
 
         test("Save to: two jobs running at once never pick the same output name", () =>
         {
@@ -142,6 +202,26 @@ internal static class ReviewFixTests
             presets.EmulatorDataChanged();
             return changed == 1 ? null : "the Convert rows weren't told to rebuild their lists";
         });
+    }
+
+    /// <summary>A page with Save to whose runs stop just after the Replace question, counting how often they got that far.</summary>
+    private sealed class GatedPage(SettingsViewModel settings, LogViewModel log)
+        : BatchTabViewModel(settings, log, new NoDialogs(), new JobQueue(() => 1))
+    {
+        public int Reached { get; private set; }
+        public override string Title => "Gate";
+        public override string StartLabel => "Gate";
+        public override string EmptyHint => "";
+        public override bool ShowsSaveTo => true;
+        protected override string FilterName => "Any";
+        protected override IReadOnlyList<FormatInfo>? InputFormats => null;
+        protected override JobOutcome Work(JobContext context, JobItemViewModel item) => new(JobStatus.Succeeded, "ok");
+
+        protected override bool BeforeStart(IReadOnlyList<JobItemViewModel> pending)
+        {
+            Reached++;
+            return false;
+        }
     }
 
     private static string? WithSettingsFolder(string folder, Func<string?> body)

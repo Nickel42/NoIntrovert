@@ -21,6 +21,7 @@
             <Setter Property="TextElement.Foreground" Value="{DynamicResource SystemAccentColor}" />
         </Style>
     </UserControl.Styles>
+    <StackPanel Spacing="4" VerticalAlignment="Center">
     <WrapPanel Orientation="Horizontal" ItemSpacing="16" LineSpacing="4" VerticalAlignment="Center">
         <RadioButton Content="Next to the originals" IsChecked="{Binding SaveNextToOriginals}" VerticalAlignment="Center" />
         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -42,11 +43,15 @@
                       AutomationProperties.Name="Folder layout" ToolTip.Tip="{x:Static vm:OutputSettingsViewModel.FolderLayoutTip}" />
         </StackPanel>
         <RadioButton IsChecked="{Binding SaveReplacingOriginals}" VerticalAlignment="Center"
-                     ToolTip.Tip="Each original is removed only after its new file verifies. If verification fails, the original stays and the row shows why.">
+                     ToolTip.Tip="Each original is removed only after its new file verifies. If verification fails, the original stays and the row shows why. Each run asks before it starts.">
             <StackPanel Orientation="Horizontal" Spacing="6">
                 <TextBlock Text="Replace the originals" VerticalAlignment="Center" />
                 <TextBlock Text="⚠" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" AutomationProperties.Name="Warning: originals are removed" />
             </StackPanel>
         </RadioButton>
     </WrapPanel>
+    <!-- While Replace the originals is chosen: what happens to each original, in the warning colour -->
+    <TextBlock Text="{Binding ReplaceNote}" IsVisible="{Binding IsReplacing}" Foreground="{DynamicResource WarningText}"
+               FontSize="12" TextWrapping="Wrap" />
+    </StackPanel>
 </UserControl>

@@ -50,6 +50,12 @@
             <Setter Property="Margin" Value="0,10,0,0" />
         </Style>
         <Style Selector="v|JobListPanel.narrow TextBlock.savetolabel"><Setter Property="IsVisible" Value="False" /></Style>
+        <!-- The run button keeps the primary button's size when it turns red for Replace the originals -->
+        <Style Selector="Button.runbutton"><Setter Property="Padding" Value="22,8" /></Style>
+        <Style Selector="Button.runbutton.danger:disabled">
+            <Setter Property="Background" Value="{DynamicResource DangerTint}" />
+            <Setter Property="Opacity" Value="0.6" />
+        </Style>
 
         <!-- The toolbar's summary (or scan status) sits at its right; when the list is narrow it moves
              under the buttons, so they get the whole width and wrap onto fewer lines. -->
@@ -204,7 +210,9 @@
                                     <TextBlock Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" Margin="0,0,6,0" />
                                 </DockPanel>
                                 <StackPanel Grid.Column="6" VerticalAlignment="Center" Classes="col-progress">
-                                    <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Height="6" MinWidth="0" Margin="0,0,10,0" />
+                                    <!-- No empty track on rows that are only ready or waiting -->
+                                    <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Height="6" MinWidth="0" Margin="0,0,10,0"
+                                                 IsVisible="{Binding ShowsProgress}" />
                                     <TextBlock Text="{Binding Stage}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="7" Text="{Binding ElapsedText}" VerticalAlignment="Center" Classes="col-time" />
@@ -260,7 +268,9 @@
                                     <Binding Path="IsIdle" />
                                 </MultiBinding>
                             </c:GlowBorder.IsActive>
-                            <Button Classes="primary" Content="{Binding StartLabel}" Command="{Binding StartCommand}" ToolTip.Tip="Start (Ctrl+Enter)" />
+                            <!-- Red, and says how many originals go, while Save to is Replace the originals -->
+                            <Button Classes="runbutton" Classes.primary="{Binding !IsReplacing}" Classes.danger="{Binding IsReplacing}"
+                                    Content="{Binding RunLabel}" Command="{Binding StartCommand}" ToolTip.Tip="Start (Ctrl+Enter)" />
                         </c:GlowBorder>
                     </StackPanel>
                     <!-- Optimize and Organize: Save to is where the games go and how they're laid out (shared by both pages) -->

@@ -23,8 +23,9 @@ Issue [#33](https://github.com/Nickel42/NoIntrovert/issues/33). Code: `NoIntrove
   becomes.
 - **P8. Presets never remove files.** Where results go is the run bar's **Save to**: next to the originals,
   a folder, or *Replace the originals ⚠*. Only that last choice removes originals, and only after each new
-  file verifies (or its archive tests OK); it's confirmed once, the first time it's chosen, in the run bar or
-  in Settings › Output. There are no *Replace the originals* presets and no "remove originals" setting under
+  file verifies (or its archive tests OK). Each run that replaces originals asks first, with how many go
+  ("Don't ask again" lasts until NoIntrovert restarts); making it the default in Settings › Output asks once
+  more there. The run bar's choice is never saved, so a new session starts from that default. There are no *Replace the originals* presets and no "remove originals" setting under
   Custom. With **Overwrite existing files** off (Settings › Output), a name that's already taken gets " (2)".
   See [ui-redesign](ui-redesign.md#4-save-to-in-the-run-bar-revised-3-nov-2026).
 - **P9. Clean Up stays safe.** Clean Up converts with the presets' compression, but always verifies or tests

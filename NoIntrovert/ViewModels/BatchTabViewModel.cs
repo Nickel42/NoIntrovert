@@ -19,6 +19,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     private readonly DispatcherTimer _progressTimer;
     private readonly Coalesced _summary;
     private readonly Coalesced _visible;
+    private readonly Coalesced _runLabel;
     private CancellationTokenSource? _scanCts;
 
     /// <summary>The folders added to this page, which Save to › Folder's "same folders" layout keeps the subfolders below.</summary>
@@ -32,6 +33,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         Queue = queue;
         _summary = new Coalesced(RefreshSummary);
         _visible = new Coalesced(RefreshVisible);
+        _runLabel = new Coalesced(RefreshRunLabel);
         Items.CollectionChanged += (_, _) =>
         {
             _summary.Request();
@@ -60,17 +62,50 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     private void OpenKeys() => OpenKeysRequested?.Invoke();
 
     /// <summary>
-    /// Asks the user to confirm Replace the originals the first time it's
-    /// chosen (set by the run bar's view). Without it, Replace can't be chosen
-    /// until it has been confirmed once.
+    /// Asks the user, as a run with Replace the originals starts, whether to
+    /// replace this many originals (set by the run bar's view). Without it, a
+    /// run that would replace originals doesn't start.
     /// </summary>
-    public Func<Task<bool>>? ConfirmReplace { get; set; }
+    public Func<int, Task<ReplaceAnswer>>? ConfirmReplace { get; set; }
 
     /// <summary>Whether this page writes new files, so its run bar shows Save to (Convert does; Verify and Tests don't).</summary>
     public virtual bool ShowsSaveTo => false;
 
-    /// <summary>This page's Save to choice: the Settings default until it's changed in the run bar.</summary>
+    /// <summary>
+    /// This page's Save to choice: the Settings default until it's changed in
+    /// the run bar. The run bar's choice lasts until NoIntrovert closes; it's
+    /// never saved, so each session starts from Settings › Output.
+    /// </summary>
     public SaveTo RunSaveTo => _runSaveTo ?? Settings.Output.SaveTo;
+
+    /// <summary>The next run replaces originals: the run button turns red and says how many.</summary>
+    public bool IsReplacing => ShowsSaveTo && RunSaveTo == SaveTo.ReplaceOriginals;
+
+    /// <summary>How many rows the next run would replace an original for (rows not done yet that make a new file).</summary>
+    public int ReplaceCount => IsReplacing ? Items.Count(WouldReplace) : 0;
+
+    /// <summary>Whether a run would make a new file for <paramref name="row"/> and so remove its original; Convert leaves out Leave as is.</summary>
+    protected virtual bool WouldReplace(JobItemViewModel row) => row.Status != JobStatus.Succeeded;
+
+    /// <summary>The run button: "Convert", or "Convert and replace 29 originals" while Replace the originals is chosen.</summary>
+    public string RunLabel => ReplaceCount is var n and > 0 ? $"{StartLabel} and replace {(n == 1 ? "1 original" : $"{n:N0} originals")}" : StartLabel;
+
+    /// <summary>The line under Save to while Replace the originals is chosen: what happens to each original.</summary>
+    public string ReplaceNote => Settings.Output.UseRecycleBin && FileRemover.CanUseBin
+        ? $"Originals go to the {FileRemover.BinName} after each new file verifies."
+        : "Originals are deleted after each new file verifies.";
+
+    /// <summary><see cref="RefreshRunLabel"/> once things settle (a preset change can retarget every row at once).</summary>
+    protected void RequestRunLabel() => _runLabel.Request();
+
+    /// <summary>Raises what the run button and the Replace line show; called when rows, their targets or Save to change.</summary>
+    protected void RefreshRunLabel()
+    {
+        OnPropertyChanged(nameof(IsReplacing));
+        OnPropertyChanged(nameof(ReplaceCount));
+        OnPropertyChanged(nameof(RunLabel));
+        OnPropertyChanged(nameof(ReplaceNote));
+    }
 
     // The three radio buttons. A button that's unchecked writes false, which changes nothing.
     public bool SaveNextToOriginals { get => RunSaveTo == SaveTo.NextToOriginals; set { if (value) _ = ChooseSaveToAsync(SaveTo.NextToOriginals); } }
@@ -82,8 +117,9 @@ public abstract partial class BatchTabViewModel : ViewModelBase
 
     /// <summary>
     /// Makes <paramref name="choice"/> this page's Save to, after what it needs:
-    /// a folder for Folder, and the one-time confirmation for Replace. When
-    /// that's refused, the run bar goes back to the previous choice.
+    /// a folder for Folder (when that's refused, the run bar goes back to the
+    /// previous choice). Replace the originals is asked about when a run starts,
+    /// not here, so the question comes with the number of originals.
     /// </summary>
     public async Task ChooseSaveToAsync(SaveTo choice)
     {
@@ -91,7 +127,6 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         var ok = choice switch
         {
             SaveTo.Folder => !string.IsNullOrWhiteSpace(Settings.Output.Folder) || await PickSaveFolderAsync(),
-            SaveTo.ReplaceOriginals => Settings.Output.ReplaceConfirmed || await ConfirmReplaceOnceAsync(),
             _ => true,
         };
         if (ok) _runSaveTo = choice == Settings.Output.SaveTo ? null : choice;
@@ -100,10 +135,17 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         if (!ok) Dispatcher.UIThread.Post(RefreshSaveTo);
     }
 
-    private async Task<bool> ConfirmReplaceOnceAsync()
+    /// <summary>
+    /// Asks before a run that replaces <paramref name="count"/> originals,
+    /// unless "Don't ask again" was ticked since NoIntrovert started.
+    /// </summary>
+    private async Task<bool> ConfirmReplaceRunAsync(int count)
     {
-        if (ConfirmReplace is null || !await ConfirmReplace()) return false;
-        Settings.Output.ReplaceConfirmed = true;
+        if (Settings.Output.SkipReplaceQuestion) return true;
+        if (ConfirmReplace is null) return false;
+        var answer = await ConfirmReplace(count);
+        if (!answer.Confirmed) return false;
+        if (answer.DontAskAgain) Settings.Output.SkipReplaceQuestion = true;
         return true;
     }
 
@@ -129,6 +171,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         OnPropertyChanged(nameof(SaveInFolder));
         OnPropertyChanged(nameof(SaveReplacingOriginals));
         OnPropertyChanged(nameof(SaveFolderText));
+        RefreshRunLabel();
     }
 
     /// <summary>The run log's description of a Save to choice.</summary>
@@ -587,8 +630,8 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             Log.Warn(Items.Count == 0 ? $"{Title}: add some files first." : $"{Title}: everything in the list is already done. Clear it or add more files.");
             return;
         }
-        // Replace the originals can arrive as the default without having been confirmed (a migrated settings file): ask now.
-        if (ShowsSaveTo && RunSaveTo == SaveTo.ReplaceOriginals && !Settings.Output.ReplaceConfirmed && !await ConfirmReplaceOnceAsync())
+        // Replace the originals asks at every start, with how many originals go (until "Don't ask again" this session).
+        if (IsReplacing && pending.Count(WouldReplace) is var replacing and > 0 && !await ConfirmReplaceRunAsync(replacing))
         {
             Log.Warn($"{Title}: not started. Replace the originals wasn't confirmed; choose where to save in the run bar.");
             return;
@@ -617,6 +660,8 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             RefreshProgress();
             IsRunning = false;
             _group = null;
+            // A row the run never got to is off the queue again: it reads Ready.
+            foreach (var item in pending.Where(i => i.Status == JobStatus.Queued)) item.IsSubmitted = false;
         }
 
         var took = DateTime.Now - started;
@@ -677,7 +722,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     private async Task Cancel()
     {
         if (_group is not { } group) return;
-        var left = Items.Count(i => i.Status is JobStatus.Queued or JobStatus.Running);
+        var left = Items.Count(i => i.IsQueued || i.Status == JobStatus.Running);
         if ((left > CancelAsksAbove || DateTime.Now - _started > TimeSpan.FromMinutes(1))
             && !await Dialogs.ConfirmAsync($"Stop {left} remaining {(left == 1 ? "item" : "items")}?",
                 "Finished files are kept. The ones in progress are deleted, and their originals stay as they were.",
@@ -702,9 +747,13 @@ public abstract partial class BatchTabViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(HasItems));
         StartCommand.NotifyCanExecuteChanged();
+        RefreshRunLabel();
         var done = Items.Count(i => i.Status is JobStatus.Succeeded or JobStatus.Warning);
         var failed = Items.Count(i => i.Status == JobStatus.Failed);
         var selected = SelectedCount > 0 ? $"{SelectedCount} selected · " : "";
         Summary = Items.Count == 0 ? "" : $"{selected}{Items.Count} {(Items.Count == 1 ? "item" : "items")} · {done} done · {failed} failed";
     }
 }
+
+/// <summary>The answer to "Replace 29 originals?": go ahead, and whether to stop asking until NoIntrovert restarts.</summary>
+public readonly record struct ReplaceAnswer(bool Confirmed, bool DontAskAgain = false);
