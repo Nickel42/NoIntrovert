@@ -91,6 +91,35 @@ internal static class Ps3Tests
             return File.Exists(Path.Combine(outDir, "Decrypted (USA)", "PS3_DISC.SFB")) ? null : "the decrypted ISO's folder is missing PS3_DISC.SFB";
         });
 
+        test("PS3: a JB folder plans to become a decrypted ISO, made and checked; with Replace the folder goes", () =>
+        {
+            var jbDir = dir("ps3-jb-iso");
+            var game = Path.Combine(jbDir, "Folder Game (USA).ps3");
+            Ps3Converter.ToJbFolder(P("Decrypted (USA).iso"), game, null);
+            var set = FormatRegistry.Default.Identify(game)!;
+            var o = ConvertTargets.For(set, new AppSettings());
+            if (o.Plan.Text != "Convert → decrypted ISO" || o.Default != TargetChoice.Ps3Iso) return $"{o.Plan.Text} ({o.Default})";
+            if (!o.Choices.SequenceEqual([TargetChoice.Ps3Iso, TargetChoice.Leave])) return string.Join(", ", o.Choices);
+            var s = new AppSettings();
+            s.TargetFormats.Overrides.Add(new TargetOverride("playstation-3", null, "folder"));
+            var keep = ConvertTargets.For(set, s);
+            if (keep.Plan.Status != TargetStatus.Optimal || !keep.Choices.Contains(TargetChoice.Ps3Iso)) return $"folder override: {keep.Plan.Text}";
+
+            var plan = ConvertPlanner.Plan([new PlanInput(game, TargetKind.Ps3Iso, 1)], new AppSettings(), log);
+            var r = runJob(plan.Jobs[0].Work, st => { st.Output.SaveTo = SaveTo.ReplaceOriginals; st.Output.UseRecycleBin = false; });
+            if (r.Status != JobStatus.Succeeded) return $"{r.Status}: {r.Summary}";
+            var made = Path.Combine(jbDir, "Folder Game (USA).iso");
+            if (!File.Exists(made)) return string.Join(", ", Directory.EnumerateFileSystemEntries(jbDir).Select(Path.GetFileName));
+            if (Directory.Exists(game)) return "the JB folder wasn't removed";
+            if (Ps3Jobs.StateOf(made) != EncryptionState.NoEncryptedRegions) return $"state {Ps3Jobs.StateOf(made)}";
+            var back = Path.Combine(jbDir, "Back");
+            Ps3Converter.ToJbFolder(made, back, null);
+            var eboot = File.ReadAllBytes(Path.Combine(back, "PS3_GAME", "USRDIR", "EBOOT.BIN"));
+            var original = Path.Combine(dir("ps3-jb-iso-ref"), "Ref");
+            Ps3Converter.ToJbFolder(P("Decrypted (USA).iso"), original, null);
+            return eboot.AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(original, "PS3_GAME", "USRDIR", "EBOOT.BIN"))) ? null : "EBOOT.BIN changed on the way";
+        });
+
         test("PS3: without a .dkey the job fails and points to Settings › Keys; the keys folder is searched", () =>
         {
             var outDir = dir("ps3-nokey");

@@ -271,7 +271,8 @@ of your own before relying on it.
 A Redump PS3 `.iso` is encrypted; it becomes a decrypted ISO, the same size
 and layout, which RPCS3 loads as it is. Choose "JB folder" in Settings ›
 Target formats to have the disc's files (`PS3_DISC.SFB`, `PS3_GAME/`…) in a
-folder instead; a decrypted ISO can become a JB folder too. Each disc needs
+folder instead; a decrypted ISO can become a JB folder too, and a JB folder
+becomes a decrypted ISO (no key needed, each file read back to check it). Each disc needs
 its own key, the `.dkey` file Redump publishes: keep it beside the image with
 the same name, or put them all in the folder set in Settings › Keys. A wrong
 key is caught before anything is written, every result is re-read and
