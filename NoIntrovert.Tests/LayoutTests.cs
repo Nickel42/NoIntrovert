@@ -395,25 +395,37 @@ static class LayoutTests
             }
         }));
 
-        // SukiUI's animated GlassCard looks up a "RootPanel" part as its template applies, and threw mid-layout during runs.
-        test("Layout: SukiUI's GlassCard (on its own and inside a ComboBox) isn't animated, so it never looks up RootPanel", () => Dispatch(() =>
+        // SukiUI's progress bar template holds a GlassCard that looks up a "RootPanel" part during layout; a bar
+        // drawn with it threw inside the window's layout pass during runs, and the lists stopped drawing.
+        test("Layout: no progress bar, with a known amount or not, uses SukiUI's template (with its GlassCard)", () => Dispatch(() =>
         {
             var host = f.Window.GetVisualDescendants().OfType<Panel>().First();
-            var card = new SukiUI.Controls.GlassCard { Content = "card" };
-            var combo = new ComboBox { ItemsSource = new[] { "one", "two" } };
-            host.Children.Add(card);
-            host.Children.Add(combo);
+            var bars = new[]
+            {
+                new ProgressBar { Value = 40, Width = 100 },
+                new ProgressBar { IsIndeterminate = true, Width = 60 },
+                new ProgressBar { Value = 10, Width = 100 },
+            };
+            foreach (var bar in bars) host.Children.Add(bar);
             try
             {
                 f.Layout();
-                var cards = combo.GetVisualDescendants().OfType<SukiUI.Controls.GlassCard>().Prepend(card).ToList();
-                return cards.FirstOrDefault(c => c.IsAnimated) is { } animated
-                    ? $"a GlassCard{(animated == card ? "" : " in the ComboBox")} is still animated" : null;
+                bars[2].IsIndeterminate = true; // switching mode keeps the template
+                f.Layout();
+                foreach (var bar in bars)
+                {
+                    if (bar.GetVisualDescendants().OfType<SukiUI.Controls.GlassCard>().Any())
+                        return $"a{(bar.IsIndeterminate ? "n indeterminate" : "")} bar has SukiUI's GlassCard";
+                    var shown = bar.GetVisualDescendants().OfType<Border>().Where(b => b.IsEffectivelyVisible && b.Name is "PART_Indicator" or "Slider").Select(b => b.Name).ToList();
+                    var want = bar.IsIndeterminate ? "Slider" : "PART_Indicator";
+                    if (shown.Count != 1 || shown[0] != want) return $"a{(bar.IsIndeterminate ? "n indeterminate" : "")} bar shows [{string.Join(", ", shown)}], not {want}";
+                }
+                var slider = bars[1].GetVisualDescendants().OfType<Border>().First(b => b.Name == "Slider");
+                return slider.Bounds.Width is > 0 and < 60 ? null : $"the indeterminate bar's segment is {slider.Bounds.Width} wide";
             }
             finally
             {
-                host.Children.Remove(card);
-                host.Children.Remove(combo);
+                foreach (var bar in bars) host.Children.Remove(bar);
                 f.Layout();
             }
         }));
