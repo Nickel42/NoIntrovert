@@ -104,6 +104,7 @@ public static class Ps3Jobs
         using var beside = hashSource && jb
             ? BackgroundHash.Start(source, token => FileHashes.Compute([source], null, token), c.Token)
             : null;
+        c.Log.Info($"Converting {Path.GetFileName(source)} → {Path.GetFileName(output)}{(jb ? " (JB folder)" : "")}");
         var progress = ProgressFor(c, "Decrypting");
         var options = new Ps3Options
         {
@@ -187,6 +188,7 @@ public static class Ps3Jobs
         var folderName = Path.GetFileName(Path.TrimEndingDirectorySeparator(source));
         var name = folderName.EndsWith(".ps3", StringComparison.OrdinalIgnoreCase) ? folderName[..^4] : folderName;
         var output = OutputPaths.Available(Path.Combine(folder, name + ".iso"), s.Output.Overwrite, isFolder: false);
+        c.Log.Info($"Converting {folderName} → {Path.GetFileName(output)}");
         Ps3Result result;
         try
         {
