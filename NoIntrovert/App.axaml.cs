@@ -41,6 +41,7 @@ public partial class App : Application
     {
         if (_glassCardsHandled) return;
         _glassCardsHandled = true;
+        GlassCardReport.WatchTemplating();
         static void Still(SukiUI.Controls.GlassCard card)
         {
             if (card.IsAnimated) card.IsAnimated = false;

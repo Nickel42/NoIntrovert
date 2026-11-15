@@ -433,6 +433,9 @@ static class LayoutTests
             if (!report.Contains("GlassCards;")) return "no window line";
             if (!report.Contains("#1 ")) return "no cards listed";
             if (!(report.Contains("IsAnimated=") && report.Contains(" from ") && report.Contains("in: "))) return "a card's details are missing";
+            var moment = report[report.IndexOf("Card being templated last:", StringComparison.Ordinal)..report.IndexOf("Tracked GlassCards:", StringComparison.Ordinal)];
+            Console.WriteLine(moment);
+            if (!moment.Contains("first part")) return "the card being templated last isn't described";
             var others = report[report.IndexOf("Tracked GlassCards:", StringComparison.Ordinal)..];
             Console.WriteLine(string.Join(Environment.NewLine, others.Split('\n').Take(6)));
             return others.Contains("root=none (detached)") && others.Contains("history: ") && others.Contains("Template set") ? null : "the card outside the window isn't listed with its history";
