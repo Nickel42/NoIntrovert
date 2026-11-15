@@ -2,7 +2,7 @@
 """Refresh the emulator snapshot behind the side panel's "Works with" list.
 
 Downloads two public, MIT-licensed sources and reduces them to one compact
-JSON file, NoIntrovert/Core/Emulators/Data/emulators.json:
+JSON file, NoIntrovert.Core/Emulators/Data/emulators.json:
 
 * libretro-core-info (github.com/libretro/libretro-core-info, master): one
   *.info file per RetroArch core. Kept per core: id, name, the NoIntrovert
@@ -15,7 +15,7 @@ JSON file, NoIntrovert/Core/Emulators/Data/emulators.json:
   standalone emulators, in ES-DE's order.
 
 System ids are NoIntrovert's (the "id" keys of
-NoIntrovert/Core/Formats/TargetFormats.json). libretro `database` names map
+NoIntrovert.Core/Formats/TargetFormats.json). libretro `database` names map
 through that file's "dats" plus the table below; ES-DE names through its
 "esde" keys.
 
@@ -41,8 +41,11 @@ import zipfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-TARGET_FORMATS = REPO / "NoIntrovert" / "Core" / "Formats" / "TargetFormats.json"
-DEFAULT_OUT = REPO / "NoIntrovert" / "Core" / "Emulators" / "Data" / "emulators.json"
+TARGET_FORMATS = REPO / "NoIntrovert.Core" / "Formats" / "TargetFormats.json"
+DEFAULT_OUT = REPO / "NoIntrovert.Core" / "Emulators" / "Data" / "emulators.json"
+# Releases from before the Core split download emulator data from this folder on main ("Check now"),
+# so it keeps a copy of both files.
+LEGACY_DATA = REPO / "NoIntrovert" / "Core" / "Emulators" / "Data"
 
 LIBRETRO_REPO = "libretro/libretro-core-info"
 ESDE_PROJECT = "es-de/emulationstation-de"
@@ -317,6 +320,10 @@ def main() -> None:
     text = "\n".join(lines) + "\n"
     json.loads(text)  # the hand-made layout must still be valid JSON
     args.out.write_text(text, encoding="utf-8", newline="\n")
+    if args.out == DEFAULT_OUT and LEGACY_DATA.is_dir():
+        for name in ("emulators.json", "emulator-facts.json"):
+            (LEGACY_DATA / name).write_bytes((DEFAULT_OUT.parent / name).read_bytes())
+        print(f"Copied emulators.json and emulator-facts.json to {LEGACY_DATA.relative_to(REPO)} for older releases")
     print(f"Wrote {args.out.relative_to(REPO) if args.out.is_relative_to(REPO) else args.out}: "
           f"{len(cores)} cores, {len(standalone)} standalone emulators, {len(systems)} systems")
     print(f"libretro-core-info {lr_source['commit'][:10]} ({lr_source['date']}), ES-DE {es_source['commit'] or '?'} ({es_source['date'] or '?'})")

@@ -1015,6 +1015,22 @@ Test("Remove originals after a verified conversion", () =>
 
 SaveToTests.Run(Test, Dir, (work, configure) => RunJob(work, configure), synthCue, synthBin);
 
+Test("Emulator data: the copy older releases download (NoIntrovert/Core/…) matches NoIntrovert.Core's", () =>
+{
+    var repo = new DirectoryInfo(AppContext.BaseDirectory);
+    while (repo is not null && !File.Exists(Path.Combine(repo.FullName, "NoIntrovert.slnx"))) repo = repo.Parent;
+    if (repo is null) return null; // not run from a checkout
+    foreach (var name in new[] { "emulators.json", "emulator-facts.json" })
+    {
+        string Text(params string[] parts) => File.ReadAllText(Path.Combine([repo.FullName, .. parts, name])).Replace("\r\n", "\n");
+        var legacy = Path.Combine(repo.FullName, "NoIntrovert", "Core", "Emulators", "Data", name);
+        if (!File.Exists(legacy)) return $"{name} is missing from NoIntrovert/Core/Emulators/Data (older releases download it from there)";
+        if (Text("NoIntrovert.Core", "Emulators", "Data") != Text("NoIntrovert", "Core", "Emulators", "Data"))
+            return $"{name} differs between NoIntrovert.Core and NoIntrovert/Core; run scripts/refresh-emulator-data.py or copy it";
+    }
+    return null;
+});
+
 Test("Cancel while a new CHD is being verified: it isn't kept (noi's Ctrl-C, the app's Cancel)", () =>
 {
     var folder = Dir("cancel-verify");

@@ -1,6 +1,6 @@
 # Presets: from parameters to presets
 
-Issue [#33](https://github.com/Nickel42/NoIntrovert/issues/33). Code: `NoIntrovert/Core/Presets/ActionPresets.cs`,
+Issue [#33](https://github.com/Nickel42/NoIntrovert/issues/33). Code: `NoIntrovert.Core/Presets/ActionPresets.cs`,
 `ViewModels/PresetsViewModel.cs`, `Views/PresetPicker.axaml`.
 
 ## Rules

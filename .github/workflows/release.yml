@@ -118,9 +118,9 @@ jobs:
               -p:DebugType=none -p:Version=$env:VERSION `
               -o $out
             if (-not (Test-Path "$out/NoIntrovert.exe")) { throw "publish for $rid produced no NoIntrovert.exe" }
-            # noi, the command line, beside the app. Its native libraries stay next to it (shared with the app's).
+            # noi, the command line, beside the app, with chdkit inside it as the app has (7-Zip and lib-wii-gamecube-kit sit beside both).
             dotnet publish app/NoIntrovert.Cli/noi.csproj -c Release -r $rid --self-contained `
-              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false `
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
               -p:DebugType=none -p:Version=$env:VERSION `
               -o $out
             if (-not (Test-Path "$out/noi.exe")) { throw "publish for $rid produced no noi.exe" }
@@ -145,7 +145,7 @@ jobs:
             Copy-Item app/native/lib-3ds-kit/LICENSE "$out/LICENSE-lib-3ds-kit.txt"
             Copy-Item app/native/lib-nx-kit/LICENSE "$out/LICENSE-lib-nx-kit.txt"
             Copy-Item app/native/lib-xiso-kit/LICENSE "$out/LICENSE-lib-xiso-kit.txt"
-            Copy-Item app/NoIntrovert/Core/Emulators/Data/THIRD_PARTY_NOTICES.txt "$out/THIRD_PARTY_NOTICES-emulator-data.txt"
+            Copy-Item app/NoIntrovert.Core/Emulators/Data/THIRD_PARTY_NOTICES.txt "$out/THIRD_PARTY_NOTICES-emulator-data.txt"
             Copy-Item app/native/lib-7z-zip-kit/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
             Copy-Item app/native/lib-7z-zip-kit/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
             Compress-Archive -Path "$out/*" -DestinationPath "dist/NoIntrovert-$env:VERSION-$rid.zip" -Force
@@ -210,7 +210,7 @@ jobs:
           cp app/native/lib-3ds-kit/LICENSE LICENSE-lib-3ds-kit.txt
           cp app/native/lib-nx-kit/LICENSE LICENSE-lib-nx-kit.txt
           cp app/native/lib-xiso-kit/LICENSE LICENSE-lib-xiso-kit.txt
-          cp app/NoIntrovert/Core/Emulators/Data/THIRD_PARTY_NOTICES.txt THIRD_PARTY_NOTICES-emulator-data.txt
+          cp app/NoIntrovert.Core/Emulators/Data/THIRD_PARTY_NOTICES.txt THIRD_PARTY_NOTICES-emulator-data.txt
           cp app/native/lib-7z-zip-kit/_deps/7zip-src/DOC/License.txt LICENSE-7-Zip.txt
           cp app/native/lib-7z-zip-kit/_deps/bit7z-src/LICENSE LICENSE-bit7z.txt
           for rid in osx-arm64 osx-x64; do
@@ -377,7 +377,7 @@ jobs:
           cp app/native/lib-3ds-kit/LICENSE "$out/LICENSE-lib-3ds-kit.txt"
           cp app/native/lib-nx-kit/LICENSE "$out/LICENSE-lib-nx-kit.txt"
           cp app/native/lib-xiso-kit/LICENSE "$out/LICENSE-lib-xiso-kit.txt"
-          cp app/NoIntrovert/Core/Emulators/Data/THIRD_PARTY_NOTICES.txt "$out/THIRD_PARTY_NOTICES-emulator-data.txt"
+          cp app/NoIntrovert.Core/Emulators/Data/THIRD_PARTY_NOTICES.txt "$out/THIRD_PARTY_NOTICES-emulator-data.txt"
           cp app/native/lib-7z-zip-kit/_deps/7zip-src/DOC/License.txt "$out/LICENSE-7-Zip.txt"
           cp app/native/lib-7z-zip-kit/_deps/bit7z-src/LICENSE "$out/LICENSE-bit7z.txt"
           # App icon in the freedesktop hicolor layout, plus a menu entry and its installer.

@@ -9,7 +9,7 @@ I read the NoIntrovert source but did not change it.
 
 | Fact | Where |
 |---|---|
-| Disc systems and their targets live in a data file (`TargetFormats.json`). Each entry already has an `esde` key holding the ES-DE system id (for example `psx`, `ps2`, `gc`). | `NoIntrovert/Core/Formats/TargetFormats.json` |
+| Disc systems and their targets live in a data file (`TargetFormats.json`). Each entry already has an `esde` key holding the ES-DE system id (for example `psx`, `ps2`, `gc`). | `NoIntrovert.Core/Formats/TargetFormats.json` |
 | Formats the app can **produce**: CHD (chdman `createcd` / `createdvd`), RVZ, WUA, 7z/zip, CHD → cue/bin, gdi or iso, and CSO (PSP, PS2) and ZSO (PS2) from an ISO. `pbp` (PS1, PSP) is listed as an alternative with `"producible": false`. The app can **read** PBP, CSO/ZSO and ISZ, but can't write PBP or ISZ. | `TargetFormats.json`; `Core/Formats/PbpExtractor.cs`, `CsoDecoder.cs`, `CsoEncoder.cs` |
 | The bundled chdman is built from MAME tag `mame0289`. Its default codecs are `cdlz, cdzl, cdfl` for CD and `lzma, zlib, huff, flac` for DVD/raw. **Zstandard is never chosen by default.** The CHD presets leave compression empty (`Compression = ""` means chdman's default), so every CHD the app makes today is a non-Zstandard CHD. | `native/lib-chd-kit/NOTES.md`; `native/lib-chd-kit/src/chdman_core.cpp` lines 71–74; `Core/Presets/ActionPresets.cs` `Chd()` |
 | Settings that the existing presets pin down: `Chd.Compression`, `Chd.HunkSize`, `Chd.IsoMode`, `Chd.VerifyAfterCreate`, `Output.RemoveOriginals`; RVZ: `Nintendo.Compression` (Zstd), `CompressionLevel` (1/5/19), `BlockSize` (128 KiB), `Scrub` (false); extract: `Chd.ExtractFormat`, `Chd.SplitBin`. | `Core/Presets/ActionPresets.cs` |
