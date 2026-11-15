@@ -422,6 +422,17 @@ static class LayoutTests
             }
         }));
 
+        test("Layout: the GlassCard report (written to the log when RootPanel can't be found) lists the window's cards and what set IsAnimated", () => Dispatch(() =>
+        {
+            f.Show("convert");
+            f.Layout();
+            var report = GlassCardReport.Describe([f.Window]);
+            Console.WriteLine(string.Join(Environment.NewLine, report.Split('\n').Take(9)));
+            if (!report.Contains("GlassCards;")) return "no window line";
+            if (!report.Contains("#1 ")) return "no cards listed";
+            return report.Contains("IsAnimated=") && report.Contains(" from ") && report.Contains("in: ") ? null : "a card's details are missing";
+        }));
+
         // SukiUI's progress bar template holds a GlassCard that looks up a "RootPanel" part during layout; a bar
         // drawn with it threw inside the window's layout pass during runs, and the lists stopped drawing.
         test("Layout: no progress bar, with a known amount or not, uses SukiUI's template (with its GlassCard)", () => Dispatch(() =>

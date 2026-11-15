@@ -79,9 +79,18 @@ public partial class App : Application
     /// </summary>
     private static void CatchUnhandled(ILog log)
     {
+        var glassCardsReported = false;
         Avalonia.Threading.Dispatcher.UIThread.UnhandledException += (_, e) =>
         {
             ReportUnhandled(log, e.Exception, fatal: false);
+            // SukiUI's "Could not find control 'RootPanel'": what the GlassCards look like, once a session, so the card
+            // that threw can be found (file only: it's long).
+            if (!glassCardsReported && GlassCardReport.IsRootPanelError(e.Exception) && log is LogViewModel file)
+            {
+                glassCardsReported = true;
+                try { file.WriteToFileOnly(LogLevel.Debug, "GlassCards when it happened:" + Environment.NewLine + GlassCardReport.Describe()); }
+                catch (Exception ex) { file.WriteToFileOnly(LogLevel.Debug, $"Couldn't describe the GlassCards: {ex}"); }
+            }
             e.Handled = true;
         };
         TaskScheduler.UnobservedTaskException += (_, e) =>
