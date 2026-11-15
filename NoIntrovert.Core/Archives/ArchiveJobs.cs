@@ -106,7 +106,7 @@ public static class ArchiveJobs
             var weight = 1.0 / entries.Count;
             var index = i;
             var sub = new SubReport(c.Report, index * weight, weight, $"{i + 1}/{entries.Count}: ");
-            var o = CompressOne(new JobContext(c.Chdman, c.Settings, c.Log, sub, c.Token, c.RvzSource), [entries[i]], names[i], OutputFolder(entries[i]));
+            var o = CompressOne(new JobContext(c.ChdmanSource, c.Settings, c.Log, sub, c.Token, c.RvzSource), [entries[i]], names[i], OutputFolder(entries[i]));
             switch (o.Status)
             {
                 case JobStatus.Succeeded or JobStatus.Warning: done++; break;

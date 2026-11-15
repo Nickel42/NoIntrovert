@@ -80,7 +80,7 @@ public static class VitaJobs
         zip.Archives.TestAfter = s.Archives.TestAfter || s.Output.ReplacesOriginals;
         if (zip.Output.ReplacesOriginals) zip.Output.SaveTo = SaveTo.NextToOriginals;
         var sub = new ArchiveJobs.SubReport(c.Report, 0.5, 0.5, "");
-        var outcome = ArchiveJobs.CompressOne(new JobContext(c.Chdman, zip, c.Log, sub, c.Token, c.RvzSource), [unpacked.OutputPath], name, outputFolder);
+        var outcome = ArchiveJobs.CompressOne(new JobContext(c.ChdmanSource, zip, c.Log, sub, c.Token, c.RvzSource), [unpacked.OutputPath], name, outputFolder);
         if (outcome.Status is not (JobStatus.Succeeded or JobStatus.Warning)) return outcome;
 
         if (pkg.Kind == PkgContentKind.VitaApp) WriteLauncher(c, outputFolder, name, titleId);

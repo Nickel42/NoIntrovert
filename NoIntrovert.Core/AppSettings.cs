@@ -109,6 +109,33 @@ public sealed class AppSettings
     /// A copy that's edited but never written to disk, e.g. one row's Custom
     /// values behind the Preset settings controls. Not saved, and not copied by <see cref="Clone"/>.
     /// </summary>
+    /// <summary>
+    /// The settings in <paramref name="path"/> (the app's own settings file by default) as they are, without
+    /// migrating or saving anything: for the command line, which reads the app's settings but doesn't write them.
+    /// </summary>
+    public static AppSettings Peek(string? path = null)
+    {
+        path ??= SettingsPath;
+        try
+        {
+            if (!File.Exists(path)) return new AppSettings();
+            var json = File.ReadAllText(path);
+            if (JsonNode.Parse(json) is JsonObject root && !root.ContainsKey(nameof(SchemaVersion)))
+                return FromV1(JsonSerializer.Deserialize<SettingsV1>(json, JsonOptions) ?? new SettingsV1());
+            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        {
+            return new AppSettings();
+        }
+    }
+
+    /// <summary>The app's settings file.</summary>
+    public static string FilePath => SettingsPath;
+
+    /// <summary>Settings from JSON in the settings file's layout (noi settings set rewrites a value this way).</summary>
+    public static AppSettings FromJson(string json) => JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+
     [JsonIgnore] public bool IsScratch { get; init; }
 
     public void Save()
@@ -182,12 +209,12 @@ public sealed class GeneralSettings
     public AppTheme Theme { get; set; } = AppTheme.System;
 
     /// <summary>The theme used when the app is dark, by id (Core/Themes/ThemeLibrary): a built-in one, or "user:" and a file in the themes folder.</summary>
-    public string DarkTheme { get; set; } = Themes.ThemeLibrary.DefaultDarkId;
+    public string DarkTheme { get; set; } = ThemeIds.DefaultDark;
 
     /// <summary>The theme used when the app is light, by id, as <see cref="DarkTheme"/>.</summary>
-    public string LightTheme { get; set; } = Themes.ThemeLibrary.DefaultLightId;
+    public string LightTheme { get; set; } = ThemeIds.DefaultLight;
 
-    /// <summary>How bright light themes are shown, in percent (<see cref="Themes.ThemeDefinition.Dimmed"/>): 100 as made, down to 70.</summary>
+    /// <summary>How bright light themes are shown, in percent (ThemeDefinition.Dimmed in the app): 100 as made, down to 70.</summary>
     public int LightBrightness { get; set; } = 100;
 
     /// <summary>The page the app opens on, by page id; empty = Optimize once the library has folders, otherwise Convert.</summary>
@@ -587,4 +614,11 @@ internal sealed class SettingsV1
     public bool LogProgress { get; set; }
     public double WindowWidth { get; set; } = 1180;
     public double WindowHeight { get; set; } = 820;
+}
+
+/// <summary>The built-in themes' ids that settings start on; the themes themselves are the app's (Core/Themes/ThemeLibrary in NoIntrovert).</summary>
+public static class ThemeIds
+{
+    public const string DefaultDark = "nointrovert-dark";
+    public const string DefaultLight = "nointrovert-light";
 }

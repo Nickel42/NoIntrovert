@@ -40,101 +40,17 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <!-- Also used directly (IszDecoder's BZip2Stream); lib-7z-zip-kit brings the same version. -->
-    <PackageReference Include="SharpCompress" Version="0.50.9" />
-    <PackageReference Include="System.IO.Hashing" Version="10.0.15" />
-    <PackageReference Include="K4os.Compression.LZ4" Version="1.3.8" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(LibChdKitRoot)/bindings/csharp/LibChdKit/LibChdKit.csproj" />
-    <ProjectReference Include="$(LibWiiGameCubeKitRoot)/bindings/csharp/LibWiiGameCubeKit/LibWiiGameCubeKit.csproj" />
-    <ProjectReference Include="$(Lib7zZipKitRoot)src/lib-7z-zip-kit/lib-7z-zip-kit.csproj" />
-    <ProjectReference Include="$(LibWiiUKitRoot)src/lib-wii-u-kit/lib-wii-u-kit.csproj" />
-    <ProjectReference Include="$(LibThreeDsKitRoot)src/lib-3ds-kit/lib-3ds-kit.csproj" />
-    <ProjectReference Include="$(LibNxKitRoot)src/lib-nx-kit/lib-nx-kit.csproj" />
-    <ProjectReference Include="$(LibXisoKitRoot)src/lib-xiso-kit/lib-xiso-kit.csproj" />
-    <ProjectReference Include="$(LibPs3KitRoot)src/lib-ps3-kit/lib-ps3-kit.csproj" />
-    <ProjectReference Include="$(LibPsVitaKitRoot)src/lib-psvita-kit/lib-psvita-kit.csproj" />
+    <!-- Everything the app does to files, shared with the command line (noi). -->
+    <ProjectReference Include="../NoIntrovert.Core/NoIntrovert.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="NoIntrovert.Tests" />
   </ItemGroup>
 
-  <!-- The target-format registry (one entry per system in docs/target-formats.md). -->
-  <ItemGroup>
-    <EmbeddedResource Include="Core/Formats/TargetFormats.json" LogicalName="NoIntrovert.TargetFormats.json" />
-    <!-- ES-DE's system folders as of its latest release (Core/Esde, docs/requirements/cleanup-wizard.md). -->
-    <EmbeddedResource Include="Core/Esde/es_systems.json" LogicalName="NoIntrovert.es_systems.json" />
-    <!-- The File section's hand-checked system facts and format paragraphs (Core/Systems, docs/requirements/ui-redesign.md). -->
-    <EmbeddedResource Include="Core/Systems/SystemFacts.json" LogicalName="NoIntrovert.SystemFacts.json" />
-    <EmbeddedResource Include="Core/Systems/SystemFormats.json" LogicalName="NoIntrovert.SystemFormats.json" />
-    <!-- Emulator data for "Works with" (Core/Emulators; scripts/refresh-emulator-data.py writes emulators.json). -->
-    <EmbeddedResource Include="Core/Emulators/Data/emulators.json" LogicalName="NoIntrovert.Emulators.emulators.json" />
-    <EmbeddedResource Include="Core/Emulators/Data/emulator-facts.json" LogicalName="NoIntrovert.Emulators.emulator-facts.json" />
-    <!--
-      The MIT notices of libretro-core-info and ES-DE, which emulators.json is made from: next to the
-      executable in a build. A publish leaves it out (macOS allows only Mach-O files in Contents/MacOS);
-      release.yml copies it next to the other notices in every download.
-    -->
-    <None Include="Core/Emulators/Data/THIRD_PARTY_NOTICES.txt" Link="THIRD_PARTY_NOTICES-emulator-data.txt"
-          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
-  </ItemGroup>
-
-  <Import Project="$(LibChdKitRoot)/bindings/csharp/ChdmanNativeCopy.targets" />
-
-  <!--
-    lib-7z-zip-kit's native engine (7-Zip's library + sevenzipkit), copied next to
-    the executable even in a single-file publish (see Directory.Build.props).
-  -->
-  <Import Project="$(Lib7zZipKitRoot)build/lib-7z-zip-kit.Native.targets"
-          Condition="Exists('$(Lib7zZipKitRoot)build/lib-7z-zip-kit.Native.targets')" />
-  <Target Name="RequireLib7zZipKitSubmodule" BeforeTargets="PrepareForBuild"
-          Condition="!Exists('$(Lib7zZipKitRoot)src/lib-7z-zip-kit/lib-7z-zip-kit.csproj')">
-    <Error Text="lib-7z-zip-kit isn't checked out in $(Lib7zZipKitRoot). Run: git submodule update --init" />
-  </Target>
-
-  <!--
-    lib-wii-gamecube-kit's native library, beside the executable like the
-    archive engine: its targets file copies it (and warns when it's missing,
-    or fails a publish for a platform).
-  -->
-  <Import Project="$(LibWiiGameCubeKitRoot)/bindings/csharp/LibWiiGameCubeKit/build/lib-wii-gamecube-kit.Native.targets"
-          Condition="Exists('$(LibWiiGameCubeKitRoot)/bindings/csharp/LibWiiGameCubeKit/build/lib-wii-gamecube-kit.Native.targets')" />
-  <Target Name="RequireLibWiiGameCubeKitSubmodule" BeforeTargets="Build"
-          Condition="!Exists('$(LibWiiGameCubeKitRoot)/bindings/csharp/LibWiiGameCubeKit/LibWiiGameCubeKit.csproj')">
-    <Error Text="lib-wii-gamecube-kit isn't checked out in $(LibWiiGameCubeKitRoot). Run: git submodule update --init" />
-  </Target>
-
-  <!--
-    lib-chd-kit's ChdmanNativeCopy.targets copies chdkit.dll / libchdkit.dylib;
-    the Linux build, libchdkit.so, is copied here.
-  -->
-  <ItemGroup>
-    <None Include="$(ChdmanLibDir)/libchdkit.so" Condition="Exists('$(ChdmanLibDir)/libchdkit.so')" Link="libchdkit.so"
-          CopyToOutputDirectory="PreserveNewest" Visible="false" />
-  </ItemGroup>
-
-  <Target Name="RequireArchiveNativeForPublish" BeforeTargets="PrepareForPublish"
-          Condition="'$(RuntimeIdentifier)' != '' And !(Exists('$(SevenZipKitLibDir)/sevenzipkit.dll') And Exists('$(SevenZipKitLibDir)/7z.dll')) And !(Exists('$(SevenZipKitLibDir)/libsevenzipkit.dylib') And Exists('$(SevenZipKitLibDir)/7z.so')) And !(Exists('$(SevenZipKitLibDir)/libsevenzipkit.so') And Exists('$(SevenZipKitLibDir)/7z.so'))">
-    <Error Text="Can't publish for $(RuntimeIdentifier): lib-7z-zip-kit's native engine (7-Zip's library + sevenzipkit) is missing from $(SevenZipKitLibDir)." />
-  </Target>
-
-  <!-- A plain build may run without lib-chd-kit (with a warning); a publish for a platform must include it. -->
-  <Target Name="WarnMissingChdmanNative" BeforeTargets="Build"
-          Condition="!Exists('$(ChdmanLibDir)/chdkit.dll') And !Exists('$(ChdmanLibDir)/libchdkit.dylib') And !Exists('$(ChdmanLibDir)/libchdkit.so')">
-    <Warning Text="No lib-chd-kit native library in $(ChdmanLibDir); the app builds but can't run CHD operations. Build lib-chd-kit for $(ChdmanNativeDir) first." />
-  </Target>
-  <Target Name="RequireChdmanNativeForPublish" BeforeTargets="PrepareForPublish"
-          Condition="'$(RuntimeIdentifier)' != '' And !Exists('$(ChdmanLibDir)/chdkit.dll') And !Exists('$(ChdmanLibDir)/libchdkit.dylib') And !Exists('$(ChdmanLibDir)/libchdkit.so')">
-    <Error Text="Can't publish for $(RuntimeIdentifier): no lib-chd-kit native library in $(ChdmanLibDir)." />
-  </Target>
-
-  <!-- SkiaSharp and HarfBuzz ship ~100 MB of native .pdb files; release downloads don't need them. -->
-  <Target Name="DropPackageSymbolsFromPublish" AfterTargets="ComputeResolvedFilesToPublishList" Condition="'$(Configuration)' == 'Release'">
-    <ItemGroup>
-      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb' Or '%(Extension)' == '.xml'" />
-    </ItemGroup>
-  </Target>
+  <!-- chdkit, 7-Zip's engine and lib-wii-gamecube-kit beside the executable, as for noi. -->
+  <Import Project="../build/NativeLibraries.targets" />
 </Project>

@@ -24,10 +24,21 @@ public sealed record JobOutcome(JobStatus Status, string Summary, OperationStats
 /// lib-wii-gamecube-kit context, made the first time a job needs it), the settings
 /// snapshot and the log.
 /// </summary>
-public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJobReport report, CancellationToken token,
+public sealed class JobContext(Lazy<Chdman> chdman, AppSettings settings, ILog log, IJobReport report, CancellationToken token,
     Lazy<WiiGameCubeKit>? rvz = null)
 {
-    public Chdman Chdman { get; } = chdman;
+    public JobContext(Chdman chdman, AppSettings settings, ILog log, IJobReport report, CancellationToken token, Lazy<WiiGameCubeKit>? rvz = null)
+        : this(new Lazy<Chdman>(chdman), settings, log, report, token, rvz)
+    {
+    }
+
+    /// <summary>
+    /// The worker's lib-chd-kit context, made the first time a job uses it: a job that never touches a CHD runs
+    /// even when lib-chd-kit's native library is missing.
+    /// </summary>
+    public Chdman Chdman => ChdmanSource.Value;
+
+    internal Lazy<Chdman> ChdmanSource { get; } = chdman;
 
     /// <summary>The worker's lib-wii-gamecube-kit context, shared by its jobs (one runs at a time).</summary>
     internal Lazy<WiiGameCubeKit> RvzSource { get; } = rvz ?? new Lazy<WiiGameCubeKit>(() => new WiiGameCubeKit(settings.Performance.EffectiveThreadsPerJob));
@@ -64,7 +75,7 @@ public sealed class JobContext(Chdman chdman, AppSettings settings, ILog log, IJ
     private readonly IJobReport _whole = report;
 
     /// <summary>The same worker, report and cancellation with different settings (one row's own target, say).</summary>
-    public JobContext WithSettings(AppSettings other) => new(Chdman, other, Log, Report, Token, RvzSource);
+    public JobContext WithSettings(AppSettings other) => new(ChdmanSource, other, Log, Report, Token, RvzSource);
 
     private sealed class BandReport(IJobReport whole, double start, double span) : IJobReport
     {
@@ -230,6 +241,8 @@ public static class OutputPaths
     {
         ChdmanException ce => $"{ce.Message} ({ce.Status})",
         WiiGameCubeKitException de => $"{de.Message} ({de.Status})",
+        DllNotFoundException when ex.Message.Contains("chdkit") =>
+            "lib-chd-kit (chdkit) isn't next to the program, so CHD files can't be made or read. Reinstall NoIntrovert, or check whether your antivirus quarantined it.",
         DllNotFoundException when ex.Message.Contains("lib-wii-gamecube-kit") =>
             "lib-wii-gamecube-kit isn't next to the app, so GameCube/Wii images can't be handled. Build native/lib-wii-gamecube-kit (a git submodule) with its scripts/.",
         _ => ex.Message,

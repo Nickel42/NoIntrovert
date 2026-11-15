@@ -112,7 +112,12 @@ public sealed class HashCache
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
         _entries = new ConcurrentDictionary<string, Entry>(loaded ?? [], StringComparer.OrdinalIgnoreCase);
-        _file = new ThrottledJsonFile(path, () => JsonSerializer.Serialize(_entries, JsonOptions));
+        _file = new ThrottledJsonFile(path, () => JsonSerializer.Serialize(_entries, JsonOptions), json =>
+        {
+            // Another process saved since: keep what it found that this one doesn't know yet.
+            if (JsonSerializer.Deserialize<Dictionary<string, Entry>>(json, JsonOptions) is { } disk)
+                foreach (var (key, entry) in disk) _entries.TryAdd(key, entry);
+        });
     }
 
     /// <summary>The cache under the current settings folder.</summary>
@@ -174,4 +179,10 @@ public sealed class HashCache
 
     /// <summary>Writes the cache now if it changed. While hashing it's written at most every two seconds; a job group flushes it at the end.</summary>
     public void Flush() => _file.Flush();
+
+    /// <summary>Forgets <paramref name="path"/>'s hashes, so it's hashed again (noi verify --rehash).</summary>
+    public void Forget(string path)
+    {
+        if (_entries.TryRemove(path, out _)) _file.Changed();
+    }
 }

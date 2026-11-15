@@ -118,6 +118,20 @@ jobs:
               -p:DebugType=none -p:Version=$env:VERSION `
               -o $out
             if (-not (Test-Path "$out/NoIntrovert.exe")) { throw "publish for $rid produced no NoIntrovert.exe" }
+            # noi, the command line, beside the app. Its native libraries stay next to it (shared with the app's).
+            dotnet publish app/NoIntrovert.Cli/noi.csproj -c Release -r $rid --self-contained `
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false `
+              -p:DebugType=none -p:Version=$env:VERSION `
+              -o $out
+            if (-not (Test-Path "$out/noi.exe")) { throw "publish for $rid produced no noi.exe" }
+            if ($rid -eq 'win-x64') {
+              $v = & "$out/noi.exe" --version
+              if ($LASTEXITCODE -ne 0) { throw "noi --version failed" }
+              $v
+              if ($v -match 'not found') { throw "noi can't find its native libraries" }
+              & "$out/noi.exe" /? | Out-Null
+              if ($LASTEXITCODE -ne 0) { throw "noi /? failed" }
+            }
             foreach ($lib in '7z.dll', 'sevenzipkit.dll', 'lib-wii-gamecube-kit.dll') {
               if (-not (Test-Path "$out/$lib")) { throw "publish for $rid is missing $lib" }
             }
@@ -205,6 +219,11 @@ jobs:
             dotnet publish app/NoIntrovert/NoIntrovert.csproj -c Release -r "$rid" --self-contained \
               -p:UseAppHost=true -p:PublishSingleFile=true -p:DebugType=none -p:Version="$VERSION" \
               -o "publish/$rid"
+            # noi, the command line, in the same folder: it ends up in NoIntrovert.app/Contents/MacOS beside the app.
+            dotnet publish app/NoIntrovert.Cli/noi.csproj -c Release -r "$rid" --self-contained \
+              -p:PublishSingleFile=true -p:DebugType=none -p:Version="$VERSION" \
+              -o "publish/$rid"
+            test -f "publish/$rid/noi" || { echo "noi missing from $rid publish"; exit 1; }
             for lib in libchdkit.dylib 7z.so libsevenzipkit.dylib lib-wii-gamecube-kit.dylib; do
               test -f "publish/$rid/$lib" || { echo "$lib missing from $rid publish"; exit 1; }
             done
@@ -218,9 +237,18 @@ jobs:
       - name: Check the Apple silicon zip unpacks to a validly signed app
         run: |
           unzip -q "dist/NoIntrovert-$VERSION-osx-arm64.zip" -d smoke
-          # The app has no command-line mode; checking the bundle's binaries is the most CI can do without a display.
+          # The app itself needs a display; checking the bundle's binaries is the most CI can do for it.
           file smoke/NoIntrovert.app/Contents/MacOS/*
           codesign --verify --deep --strict --verbose=2 smoke/NoIntrovert.app
+          # noi, the command line, runs from inside the bundle with the app's libraries.
+          noi=smoke/NoIntrovert.app/Contents/MacOS/noi
+          codesign --verify --strict "$noi"
+          "$noi" --version
+          if "$noi" --version | grep -q "not found"; then echo "noi can't find its native libraries"; exit 1; fi
+          "$noi" /? | grep -q "MAIN COMMANDS"
+          mkdir -p cli-smoke && head -c 40000 /dev/urandom > "cli-smoke/Smoke (USA).nes"
+          "$noi" convert cli-smoke --to 7z -q --offline
+          test -f "cli-smoke/Smoke (USA).7z"
           # The app icon: Finder and the Dock read CFBundleIconFile from Contents/Resources.
           plutil -lint smoke/NoIntrovert.app/Contents/Info.plist
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' smoke/NoIntrovert.app/Contents/Info.plist)" = "NoIntrovert"
@@ -325,10 +353,20 @@ jobs:
           dotnet publish app/NoIntrovert/NoIntrovert.csproj -c Release -r "$rid" --self-contained \
             -p:PublishSingleFile=true -p:DebugType=none -p:Version="$VERSION" \
             -o "$out"
-          for f in NoIntrovert libchdkit.so 7z.so libsevenzipkit.so lib-wii-gamecube-kit.so; do
+          # noi, the command line, beside the app, sharing its .so files.
+          dotnet publish app/NoIntrovert.Cli/noi.csproj -c Release -r "$rid" --self-contained \
+            -p:PublishSingleFile=true -p:DebugType=none -p:Version="$VERSION" \
+            -o "$out"
+          for f in NoIntrovert noi libchdkit.so 7z.so libsevenzipkit.so lib-wii-gamecube-kit.so; do
             test -f "$out/$f" || { echo "$f missing from the $rid publish"; exit 1; }
           done
           test -x "$out/NoIntrovert"
+          test -x "$out/noi"
+          "$out/noi" --version
+          if "$out/noi" --version | grep -q "not found"; then echo "noi can't find its native libraries"; exit 1; fi
+          mkdir -p cli-smoke && head -c 40000 /dev/urandom > "cli-smoke/Smoke (USA).nes"
+          "$out/noi" convert cli-smoke --to 7z -q --offline
+          test -f "cli-smoke/Smoke (USA).7z"
           cp app/README.md app/LICENSE app/packaging/THIRD_PARTY_ARCHIVES.md app/native/lib-chd-kit/THIRD_PARTY_NOTICES.md "$out/"
           cp app/native/lib-chd-kit/LICENSE "$out/LICENSE-lib-chd-kit.txt"
           cp app/native/lib-wii-gamecube-kit/LICENSE "$out/LICENSE-lib-wii-gamecube-kit.txt"
@@ -432,6 +470,8 @@ jobs:
           macOS: unzip and move NoIntrovert.app to Applications. The app isn't notarised, so the first time, right-click it and choose Open (or run \`xattr -dr com.apple.quarantine /Applications/NoIntrovert.app\`).
 
           Linux: extract the tar.gz and run NoIntrovert from the folder it makes (\`tar -xzf NoIntrovert-$VERSION-linux-x64.tar.gz && ./NoIntrovert-$VERSION-linux-x64/NoIntrovert\`). Keep the .so files next to it. It needs X11 or XWayland and the usual desktop libraries (ICU, fontconfig, libICE, libSM).
+
+          Command line: every download has noi beside the app (noi.exe on Windows; NoIntrovert.app/Contents/MacOS/noi on macOS; noi in the Linux folder). Run \`noi /?\` or \`noi --help\` to start.
           EOF
           gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.tar.gz --repo "$GITHUB_REPOSITORY" \
             --title "NoIntrovert $VERSION" --notes-file notes.md

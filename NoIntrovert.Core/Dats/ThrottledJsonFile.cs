@@ -18,6 +18,8 @@ public sealed class ThrottledJsonFile
     private static readonly ConcurrentQueue<ThrottledJsonFile> All = new();
     private readonly string _path;
     private readonly Func<string> _serialize;
+    private readonly Action<string>? _merge;
+    private DateTime _diskStamp;
     private readonly object _stateLock = new();
     private readonly object _writeLock = new();
     private readonly Timer _timer;
@@ -33,12 +35,25 @@ public sealed class ThrottledJsonFile
 
     /// <param name="path">The file to write.</param>
     /// <param name="serialize">The store's whole contents as JSON; called on whichever thread writes.</param>
-    public ThrottledJsonFile(string path, Func<string> serialize)
+    /// <param name="merge">
+    /// Called, under a lock other processes respect, with the file as it is on disk when another process (the app
+    /// and noi run side by side) wrote it since this one last did: the caller adds what it doesn't have yet, so a
+    /// save never drops the other's entries.
+    /// </param>
+    public ThrottledJsonFile(string path, Func<string> serialize, Action<string>? merge = null)
     {
         _path = path;
         _serialize = serialize;
+        _merge = merge;
+        _diskStamp = Stamp(path);
         _timer = new Timer(_ => Flush());
         All.Enqueue(this);
+    }
+
+    private static DateTime Stamp(string path)
+    {
+        try { return File.Exists(path) ? File.GetLastWriteTimeUtc(path) : default; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return default; }
     }
 
     /// <summary>True while a change hasn't been written yet.</summary>
@@ -79,9 +94,16 @@ public sealed class ThrottledJsonFile
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-                var temp = _path + ".tmp";
+                using var gate = FileGate.Acquire(_path + ".lock", TimeSpan.FromSeconds(10));
+                if (_merge is not null && Stamp(_path) is var onDisk && onDisk != default && onDisk != _diskStamp)
+                {
+                    try { _merge(File.ReadAllText(_path)); }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException) { }
+                }
+                var temp = $"{_path}.{Environment.ProcessId}.tmp";
                 File.WriteAllText(temp, _serialize());
                 File.Move(temp, _path, overwrite: true);
+                _diskStamp = Stamp(_path);
                 Interlocked.Increment(ref _writes);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
@@ -93,4 +115,31 @@ public sealed class ThrottledJsonFile
     {
         foreach (var file in All) file.Flush();
     }
+}
+
+/// <summary>
+/// A lock on a file that every NoIntrovert process respects (the app and noi), held while a shared file is
+/// read and rewritten. Waits up to the timeout, then goes ahead without it rather than lose the save.
+/// </summary>
+public sealed class FileGate : IDisposable
+{
+    private readonly FileStream? _stream;
+
+    private FileGate(FileStream? stream) => _stream = stream;
+
+    public static FileGate Acquire(string lockPath, TimeSpan timeout)
+    {
+        var until = DateTime.UtcNow + timeout;
+        while (true)
+        {
+            try
+            {
+                return new FileGate(new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose));
+            }
+            catch (IOException) when (DateTime.UtcNow < until) { Thread.Sleep(25); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return new FileGate(null); }
+        }
+    }
+
+    public void Dispose() => _stream?.Dispose();
 }

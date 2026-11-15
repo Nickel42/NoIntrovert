@@ -59,6 +59,33 @@ progress, a red "2 failed" badge (click it to see just the failed rows) and the 
 and **Log**. It opens on the Log tab by itself when a run has errors (Settings › Log). Each session's log is also
 written to a file (see "Build and run").
 
+## Command line
+
+Every download has **`noi`**, the command line, beside the app (`noi.exe` on Windows,
+`NoIntrovert.app/Contents/MacOS/noi` on macOS, `noi` in the Linux folder). It does everything the app
+does, on the same code, and shares its caches, game databases and Organize runs:
+
+```
+noi optimize D:\Roms                       Verify, convert, rename and file into roms/<system>/
+noi convert D:\Roms -o E:\Library          Each file to its system's best format (CHD, RVZ, 7z, NSZ…)
+noi verify D:\Roms --only damaged          Check for damage and look games up in No-Intro / Redump
+noi organize D:\Roms -n --plan-out p.json  Show (and save) the plan; change nothing
+noi runs undo last                         Undo the last Organize or Optimize run
+```
+
+`noi /?` (or `-h`, `--help`, `noi help <command>`) explains every command with examples. Presets come
+first (`-p smallest`, `-p ps2=zso-opl`, `--to chd`); the Custom values are under `--help-all`. On a terminal
+it shows live progress bars; piped or in CI it prints a line per file; `-q` prints only problems and a
+summary, `-s` prints nothing (check the exit code), and `--json` / `--ndjson` are for scripts and front
+ends. Windows-style options work too (`/q`, `/o:folder`). It starts from the recommended values rather than
+the app's saved settings (`--use-settings` to use those), never removes an original unless `--replace`, and
+asks before running an Organize plan (`--yes` to skip; a script without `--yes` gets the plan only). Exit
+codes: 0 done, 1 some files failed, 2 wrong options, 3 damaged files found, 4 missing keys or databases,
+5 a saved plan no longer matches, 130 cancelled. The full reference is
+[docs/requirements/cli.md](docs/requirements/cli.md).
+
+On macOS, to type `noi` anywhere: `sudo ln -s /Applications/NoIntrovert.app/Contents/MacOS/noi /usr/local/bin/noi`.
+
 ## Input formats
 
 Read by lib-chd-kit directly: cue/bin (any number of bins), gdi, toc, nrg, iso, hard disk img.
@@ -330,7 +357,11 @@ Needs the .NET 10 SDK and the native libraries built:
 
 ```
 dotnet run --project NoIntrovert
+dotnet run --project NoIntrovert.Cli -- --help
 ```
+
+The file-handling code is the `NoIntrovert.Core` library; the app (`NoIntrovert`) and the command line
+(`NoIntrovert.Cli`, `noi`) both run on it.
 
 To make a release build by hand:
 

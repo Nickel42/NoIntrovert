@@ -94,38 +94,10 @@ public partial class ConvertViewModel : BatchTabViewModel
     /// </summary>
     protected override IEnumerable<string> ItemsForFolder(string folder)
     {
-        var scan = FormatRegistry.Default.Scan(folder, Settings.Output.ScanSubfolders);
-        var settings = Settings.Snapshot();
-        // A .wua only matters next to another source to merge into it (an update or DLC folder).
-        var otherWiiU = scan.Any(s => KnownFormats.WiiUBuildable.Contains(s.Format) && s.Format != KnownFormats.Wua);
-        bool Natural(FileSet s) =>
-            (!IsFinished(s) || (s.Format == KnownFormats.Wua && otherWiiU))
-            && !KnownFormats.Cartridges.Contains(s.Format)
-            && (!KnownFormats.Archives.Contains(s.Format) || s.Inside is null || s.Holds(KnownFormats.DiscInputs) || s.Holds(KnownFormats.WiiUBuildable));
-        var found = scan.Where(s => TargetResolver.Resolve(s, settings).Status switch
-            {
-                TargetStatus.Convert => true,
-                TargetStatus.UnknownSystem => Natural(s),
-                _ => s.Format == KnownFormats.Wua && otherWiiU,
-            })
-            .ToList();
-        if (found.Count == 0)
-        {
-            var whole = ScanSet.Normalize(folder);
-            _scanned[whole] = new FileSet(whole, [whole], ConvertTargets.PackedFolder);
-            return [whole];
-        }
+        var found = Core.Pipelines.ConvertInputs.InFolder(folder, Settings.Output.ScanSubfolders, Settings.Snapshot());
         foreach (var s in found) _scanned[s.Primary] = s;
-        return found.Select(s => s.Primary);
+        return found.Select(s => s.Primary).ToList();
     }
-
-    /// <summary>
-    /// Already in its final form (a CHD, an RVZ, a .wua): a folder scan leaves
-    /// these out, since their only conversion is back. Dropped on their own
-    /// they're listed, ready to extract.
-    /// </summary>
-    private static bool IsFinished(FileSet s) =>
-        s.Format == KnownFormats.Chd || s.Format == KnownFormats.Wua || Path.GetExtension(s.Primary).Equals(".rvz", StringComparison.OrdinalIgnoreCase);
 
     protected override JobItemViewModel CreateItem(string path)
     {

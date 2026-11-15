@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NoIntrovert\NoIntrovert.csproj" />
+    <!-- noi, the command line: CliTests parses with it and runs it (noi.dll) in a process of its own. -->
+    <ProjectReference Include="..\NoIntrovert.Cli\noi.csproj" />
     <!-- The layout tests open the real window without a screen (LayoutTests.cs) -->
     <PackageReference Include="Avalonia.Headless" Version="12.1.6" />
     <PackageReference Include="Avalonia.Skia" Version="12.1.6" />

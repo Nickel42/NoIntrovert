@@ -1014,6 +1014,21 @@ Test("Remove originals after a verified conversion", () =>
 });
 
 SaveToTests.Run(Test, Dir, (work, configure) => RunJob(work, configure), synthCue, synthBin);
+
+Test("Cancel while a new CHD is being verified: it isn't kept (noi's Ctrl-C, the app's Cancel)", () =>
+{
+    var folder = Dir("cancel-verify");
+    File.Copy(synthBin, Path.Combine(folder, "synth.bin"));
+    File.Copy(synthCue, Path.Combine(folder, "synth.cue"));
+    using var cts = new CancellationTokenSource();
+    ChdJobs.BeforeVerifyForTests = _ => cts.Cancel();
+    JobOutcome o;
+    try { o = RunJob(c => ChdJobs.Convert(c, Path.Combine(folder, "synth.cue")), token: cts.Token); }
+    finally { ChdJobs.BeforeVerifyForTests = null; }
+    if (o.Status != JobStatus.Cancelled) return $"expected Cancelled, got {o.Status}: {o.Summary}";
+    if (File.Exists(Path.Combine(folder, "synth.chd"))) return "the unverified CHD was kept";
+    return File.Exists(Path.Combine(folder, "synth.cue")) ? null : "the original went";
+});
 FolderLayoutTests.Run(Test, Dir, (work, configure) => RunJob(work, configure), synthCue, synthBin);
 
 if (OperatingSystem.IsLinux())
@@ -4236,6 +4251,7 @@ Test("Round trip test job (cue/bin)", () =>
 });
 
 ShellTests.Run(Test, scratch);
+CliTests.Run(Test, scratch);
 FileFactsTests.Run(Test, scratch);
 ConvertDesignTests.Run(Test);
 
