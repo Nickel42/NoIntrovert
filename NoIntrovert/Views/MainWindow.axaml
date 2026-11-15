@@ -223,7 +223,7 @@
         <!-- The logo at the top of the rail, over Optimize -->
         <Style Selector="Image.logo">
             <Setter Property="Width" Value="150" />
-            <Setter Property="Margin" Value="0,4,0,12" />
+            <Setter Property="Margin" Value="0,4,0,36" />
         </Style>
         <Style Selector="Grid.shell.compact Image.logo">
             <Setter Property="Width" Value="46" />
@@ -283,6 +283,14 @@
             <Setter Property="Opacity" Value="0.35" />
             <Setter Property="Margin" Value="6,18,6,10" />
             <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <!-- Room around Optimize in the wide rail: 36 px above it (the logo's margin) and 66 px below it to the
+             Utilities divider (this 44, the button's 4 and the divider's 18), so it doesn't look crowded -->
+        <Style Selector="StackPanel.railgroup.first">
+            <Setter Property="Margin" Value="0,0,0,44" />
+        </Style>
+        <Style Selector="Grid.shell.compact StackPanel.railgroup.first">
+            <Setter Property="Margin" Value="0" />
         </Style>
         <Style Selector="TextBlock.railheader.empty">
             <Setter Property="IsVisible" Value="False" />
