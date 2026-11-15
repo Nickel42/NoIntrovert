@@ -246,8 +246,8 @@ public static class TargetResolver
     /// <summary>
     /// A PS3 disc that isn't in an archive. A Redump image (.iso, encrypted) becomes a decrypted ISO, the target,
     /// which RPCS3 loads, or a JB folder (the disc's files); both need the disc's .dkey. A decrypted ISO is
-    /// optimal, or becomes a JB folder without a key. A JB folder is optimal when that's your target; it can't be
-    /// made back into an ISO, so it's left as it is otherwise.
+    /// optimal, or becomes a JB folder without a key. A JB folder is optimal when that's your target, and is made
+    /// into a decrypted ISO otherwise (no key needed: its files are decrypted already).
     /// </summary>
     private static TargetPlan PlayStation3(SystemInfo system, FileSet set, string ext, AppSettings settings)
     {
@@ -258,8 +258,8 @@ public static class TargetResolver
 
         if (set.Format == KnownFormats.Ps3Folder)
             return folder
-                ? Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal")
-                : Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, "Left as is (a JB folder can't be made into an ISO yet)");
+                ? Plan(id, TargetStatus.Optimal, TargetChoice.Leave, "Optimal", [TargetChoice.Ps3Iso])
+                : Plan(id, TargetStatus.Convert, TargetChoice.Ps3Iso, "Convert → decrypted ISO");
         if (ext != ".iso" || !File.Exists(set.Primary)) return Plan(id, TargetStatus.LeftAsIs, TargetChoice.Leave, $"Left as is ({(ext.Length > 0 ? ext : "not a disc image")})");
 
         var state = NoIntrovert.Core.Ps3.Ps3Jobs.StateOf(set.Primary);

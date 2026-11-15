@@ -63,6 +63,8 @@ public static class Ps3Jobs
         var s = c.Settings;
         var folder = outputFolder ?? OutputPaths.FolderFor(s, source);
         var jb = kind == TargetKind.Ps3Folder;
+        if (Directory.Exists(source))
+            return jb ? JobOutcome.Skipped("already a JB folder") : FolderToIso(c, source, folder);
         var name = Path.GetFileNameWithoutExtension(source);
 
         EncryptionState state;
@@ -102,18 +104,7 @@ public static class Ps3Jobs
         using var beside = hashSource && jb
             ? BackgroundHash.Start(source, token => FileHashes.Compute([source], null, token), c.Token)
             : null;
-        var progress = new InlineProgress<OperationProgress>(p =>
-        {
-            c.Report.SetStage(p.Stage switch
-            {
-                OperationStage.CheckingKey => "Checking the disc key",
-                OperationStage.Writing => "Decrypting",
-                OperationStage.Extracting => "Extracting",
-                OperationStage.Verifying => "Verifying",
-                _ => p.Stage.ToString(),
-            });
-            if (p.Fraction is { } f) c.Report.SetProgress(f);
-        });
+        var progress = ProgressFor(c, "Decrypting");
         var options = new Ps3Options
         {
             Verify = true,
@@ -170,6 +161,52 @@ public static class Ps3Jobs
         var title = result.TitleId is null ? "" : $" [{result.TitleId}]";
         c.Log.Success($"{Path.GetFileName(source)} → {shown}{title}");
         return new JobOutcome(JobStatus.Succeeded, Path.GetFileName(made));
+    }
+
+    /// <summary>The library's stages as the job's own, and its progress.</summary>
+    private static InlineProgress<OperationProgress> ProgressFor(JobContext c, string writing) => new(p =>
+    {
+        c.Report.SetStage(p.Stage switch
+        {
+            OperationStage.CheckingKey => "Checking the disc key",
+            OperationStage.Writing => writing,
+            OperationStage.Extracting => "Extracting",
+            OperationStage.Verifying => "Verifying",
+            _ => p.Stage.ToString(),
+        });
+        if (p.Fraction is { } f) c.Report.SetProgress(f);
+    });
+
+    /// <summary>
+    /// A JB folder made into a decrypted ISO beside it (or in the output folder), named after it without ".ps3".
+    /// No key is needed: its files are decrypted already. The ISO is checked file by file before the folder goes.
+    /// </summary>
+    private static JobOutcome FolderToIso(JobContext c, string source, string folder)
+    {
+        var s = c.Settings;
+        var folderName = Path.GetFileName(Path.TrimEndingDirectorySeparator(source));
+        var name = folderName.EndsWith(".ps3", StringComparison.OrdinalIgnoreCase) ? folderName[..^4] : folderName;
+        var output = OutputPaths.Available(Path.Combine(folder, name + ".iso"), s.Output.Overwrite, isFolder: false);
+        Ps3Result result;
+        try
+        {
+            result = Ps3Converter.FolderToIso(source, output, new Ps3Options { Verify = true, Overwrite = s.Output.Overwrite },
+                ProgressFor(c, "Making the ISO"), c.Token);
+        }
+        catch (Ps3Exception ex) { return JobOutcome.Failed(ex.Message); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return JobOutcome.Failed(ex.Message);
+        }
+        if (s.Output.ReplacesOriginals && Directory.Exists(source))
+        {
+            c.Report.SetStage("Removing the original");
+            FileRemover.Remove([source], s.Output.UseRecycleBin, c.Log);
+        }
+        var made = Path.GetFileName(result.Output);
+        var title = result.TitleId is null ? "" : $" [{result.TitleId}]";
+        c.Log.Success($"{folderName} → {made} ({result.FilesWritten} files){title}");
+        return new JobOutcome(JobStatus.Succeeded, made);
     }
 
     /// <summary>
