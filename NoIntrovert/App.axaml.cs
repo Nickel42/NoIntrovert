@@ -24,6 +24,29 @@ public partial class App : Application
         // System follows the OS, which can switch while the app runs: the primary shade follows it.
         ActualThemeVariantChanged += (_, _) => ApplyColorTheme();
         ApplyColorTheme();
+        KeepGlassCardsStill();
+    }
+
+    private static bool _glassCardsHandled;
+
+    /// <summary>
+    /// SukiUI's GlassCard, when animated, looks up a "RootPanel" part as its template is applied and throws when it
+    /// isn't there. That happened inside the window's layout pass during long runs ("Could not find control
+    /// 'RootPanel'"), after which the queue, the log and the file list stopped drawing and scrolling. Unanimated, it
+    /// returns before the lookup. A style can't turn it off where the card's parent template sets IsAnimated (that
+    /// outranks a style), so it's set here as the card's own value, which outranks both, whenever a card gets a
+    /// template or anything turns its animation back on.
+    /// </summary>
+    internal static void KeepGlassCardsStill()
+    {
+        if (_glassCardsHandled) return;
+        _glassCardsHandled = true;
+        static void Still(SukiUI.Controls.GlassCard card)
+        {
+            if (card.IsAnimated) card.IsAnimated = false;
+        }
+        Avalonia.Controls.Primitives.TemplatedControl.TemplateProperty.Changed.AddClassHandler<SukiUI.Controls.GlassCard>((card, _) => Still(card));
+        SukiUI.Controls.GlassCard.IsAnimatedProperty.Changed.AddClassHandler<SukiUI.Controls.GlassCard>((card, _) => Still(card));
     }
 
     public override void OnFrameworkInitializationCompleted()

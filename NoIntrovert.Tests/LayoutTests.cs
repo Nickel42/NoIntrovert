@@ -395,6 +395,33 @@ static class LayoutTests
             }
         }));
 
+        // The real failure: a GlassCard animated by its parent's template (which outranks a style), whose own template has
+        // no RootPanel, threw inside the window's layout pass. It must lay out quietly, unanimated.
+        test("Layout: a GlassCard animated by a parent template, with no RootPanel in its template, lays out without throwing", () => Dispatch(() =>
+        {
+            var host = f.Window.GetVisualDescendants().OfType<Panel>().First();
+            var card = new SukiUI.Controls.GlassCard { Template = new Avalonia.Controls.Templates.FuncControlTemplate<SukiUI.Controls.GlassCard>((_, _) => new Border()) };
+            card.SetValue(SukiUI.Controls.GlassCard.IsAnimatedProperty, true, Avalonia.Data.BindingPriority.Template);
+            var later = new SukiUI.Controls.GlassCard();
+            host.Children.Add(card);
+            host.Children.Add(later);
+            try
+            {
+                f.Layout();
+                later.SetValue(SukiUI.Controls.GlassCard.IsAnimatedProperty, true, Avalonia.Data.BindingPriority.Template);
+                later.Template = new Avalonia.Controls.Templates.FuncControlTemplate<SukiUI.Controls.GlassCard>((_, _) => new Border());
+                f.Layout();
+                return card.IsAnimated || later.IsAnimated ? "a GlassCard is still animated" : null;
+            }
+            catch (Exception ex) { return $"layout threw: {ex.Message}"; }
+            finally
+            {
+                host.Children.Remove(card);
+                host.Children.Remove(later);
+                f.Layout();
+            }
+        }));
+
         // SukiUI's progress bar template holds a GlassCard that looks up a "RootPanel" part during layout; a bar
         // drawn with it threw inside the window's layout pass during runs, and the lists stopped drawing.
         test("Layout: no progress bar, with a known amount or not, uses SukiUI's template (with its GlassCard)", () => Dispatch(() =>
