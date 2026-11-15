@@ -1,5 +1,5 @@
 # Checks once a week whether the ES-DE system list built into the app
-# (NoIntrovert/Core/Esde/es_systems.json) is from ES-DE's latest release,
+# (NoIntrovert.Core/Esde/es_systems.json) is from ES-DE's latest release,
 # and opens an issue when it isn't (docs/requirements/cleanup-wizard.md, FR-6a).
 # The app updates its own copy at run time; this keeps the shipped snapshot current.
 
@@ -28,8 +28,8 @@ jobs:
           latest=$(curl -fsS "$api/releases?per_page=1" | jq -r '.[0].tag_name')
           path="resources/systems/unix/es_systems.xml"
           commit=$(curl -fsS "$api/repository/commits?path=${path//\//%2F}&ref_name=$latest&per_page=1" | jq -r '.[0].id')
-          bundled=$(jq -r '.ref' NoIntrovert/Core/Esde/es_systems.json)
-          bundled_commit=$(jq -r '.commit' NoIntrovert/Core/Esde/es_systems.json)
+          bundled=$(jq -r '.ref' NoIntrovert.Core/Esde/es_systems.json)
+          bundled_commit=$(jq -r '.commit' NoIntrovert.Core/Esde/es_systems.json)
           echo "latest=$latest" >> "$GITHUB_OUTPUT"
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
           echo "bundled=$bundled" >> "$GITHUB_OUTPUT"
@@ -51,7 +51,7 @@ jobs:
             exit 0
           fi
           gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$(cat <<EOF
-          The ES-DE system list built into the app (\`NoIntrovert/Core/Esde/es_systems.json\`) is from **$BUNDLED**; ES-DE's latest release is **$LATEST**, where \`resources/systems/unix/es_systems.xml\` last changed in commit \`$COMMIT\`.
+          The ES-DE system list built into the app (\`NoIntrovert.Core/Esde/es_systems.json\`) is from **$BUNDLED**; ES-DE's latest release is **$LATEST**, where \`resources/systems/unix/es_systems.xml\` last changed in commit \`$COMMIT\`.
 
           Regenerate the snapshot from https://gitlab.com/es-de/emulationstation-de/-/raw/$LATEST/resources/systems/unix/es_systems.xml (name, full name, extensions in lower case), set \`ref\` and \`commit\`, and check the registry's \`esde\` names (the self-test *the bundled snapshot … has every folder the registry maps to*).
 

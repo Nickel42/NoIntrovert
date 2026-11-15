@@ -119,7 +119,7 @@ public sealed class EmulatorCatalog
     public const string FactsFile = "emulator-facts.json";
 
     /// <summary>Where <see cref="CheckNowAsync"/> gets newer copies: the files in the app's repository, refreshed by scripts/refresh-emulator-data.py.</summary>
-    public const string UpdateUrl = "https://raw.githubusercontent.com/Nickel42/NoIntrovert/main/NoIntrovert/Core/Emulators/Data/";
+    public const string UpdateUrl = "https://raw.githubusercontent.com/Nickel42/NoIntrovert/main/NoIntrovert.Core/Emulators/Data/";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

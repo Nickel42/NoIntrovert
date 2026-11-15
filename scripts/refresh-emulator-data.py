@@ -2,7 +2,7 @@
 """Refresh the emulator snapshot behind the side panel's "Works with" list.
 
 Downloads two public, MIT-licensed sources and reduces them to one compact
-JSON file, NoIntrovert/Core/Emulators/Data/emulators.json:
+JSON file, NoIntrovert.Core/Emulators/Data/emulators.json:
 
 * libretro-core-info (github.com/libretro/libretro-core-info, master): one
   *.info file per RetroArch core. Kept per core: id, name, the NoIntrovert
@@ -15,7 +15,7 @@ JSON file, NoIntrovert/Core/Emulators/Data/emulators.json:
   standalone emulators, in ES-DE's order.
 
 System ids are NoIntrovert's (the "id" keys of
-NoIntrovert/Core/Formats/TargetFormats.json). libretro `database` names map
+NoIntrovert.Core/Formats/TargetFormats.json). libretro `database` names map
 through that file's "dats" plus the table below; ES-DE names through its
 "esde" keys.
 
@@ -41,8 +41,8 @@ import zipfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-TARGET_FORMATS = REPO / "NoIntrovert" / "Core" / "Formats" / "TargetFormats.json"
-DEFAULT_OUT = REPO / "NoIntrovert" / "Core" / "Emulators" / "Data" / "emulators.json"
+TARGET_FORMATS = REPO / "NoIntrovert.Core" / "Formats" / "TargetFormats.json"
+DEFAULT_OUT = REPO / "NoIntrovert.Core" / "Emulators" / "Data" / "emulators.json"
 
 LIBRETRO_REPO = "libretro/libretro-core-info"
 ESDE_PROJECT = "es-de/emulationstation-de"

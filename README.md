@@ -213,7 +213,7 @@ lib-wii-u-kit, a managed .NET library in its own repository
 ([Nickel42/lib-wii-u-kit](https://github.com/Nickel42/lib-wii-u-kit)),
 checked out as a git submodule in `native/lib-wii-u-kit`; NoIntrovert adds
 its settings and Save to on top
-(`NoIntrovert/Core/WiiU/WuaJobs.cs`). It is checked in CI against Exzap's reference
+(`NoIntrovert.Core/WiiU/WuaJobs.cs`). It is checked in CI against Exzap's reference
 `zarchive` tool in both directions. The encrypted-format tests use synthetic
 images with made-up keys, so try a real dump of your own before relying on
 it.
@@ -414,6 +414,6 @@ is BSD-3-Clause, lib-7z-zip-kit, lib-wii-u-kit, lib-3ds-kit, lib-nx-kit and lib-
 `packaging/THIRD_PARTY_ARCHIVES.md` and lib-chd-kit's `THIRD_PARTY_NOTICES.md`.
 The bundled emulator data is derived from libretro-core-info and ES-DE, both MIT;
 their notices are in `THIRD_PARTY_NOTICES-emulator-data.txt` in every download
-(`NoIntrovert/Core/Emulators/Data/THIRD_PARTY_NOTICES.txt` in the source).
+(`NoIntrovert.Core/Emulators/Data/THIRD_PARTY_NOTICES.txt` in the source).
 RAR archives aren't supported, because 7-Zip's RAR decoder is under the unRAR
 license restriction, which the GPL doesn't allow.
