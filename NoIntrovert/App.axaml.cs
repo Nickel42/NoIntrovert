@@ -31,21 +31,27 @@ public partial class App : Application
 
     /// <summary>
     /// SukiUI's GlassCard, when animated, looks up a "RootPanel" part as its template is applied and throws when it
-    /// isn't there. That happened inside the window's layout pass during long runs ("Could not find control
-    /// 'RootPanel'"), after which the queue, the log and the file list stopped drawing and scrolling. Unanimated, it
-    /// returns before the lookup. A style can't turn it off where the card's parent template sets IsAnimated (that
-    /// outranks a style), so it's set here as the card's own value, which outranks both, whenever a card gets a
-    /// template or anything turns its animation back on.
+    /// isn't there. Unanimated, it returns before the lookup. It threw inside the window's layout pass during long
+    /// runs ("Could not find control 'RootPanel'"), after which the queue, the log and the file list stopped drawing
+    /// and scrolling: a progress bar that had just left the window (a row of a list being swapped out) was laid out
+    /// once more. Out of the window it has no styles, so it fell back to SukiUI's own template, whose GlassCard, also
+    /// unstyled, was on its defaults: animated, with a plain template that has no RootPanel. No change notification
+    /// comes for a default, so the card is made still as its template parts are created, which is just before its
+    /// OnApplyTemplate looks; and whenever it gets a template or anything turns its animation back on.
     /// </summary>
     internal static void KeepGlassCardsStill()
     {
         if (_glassCardsHandled) return;
         _glassCardsHandled = true;
-        GlassCardReport.WatchTemplating();
+        GlassCardReport.WatchTemplating(); // first, so the report sees the card as it was
         static void Still(SukiUI.Controls.GlassCard card)
         {
             if (card.IsAnimated) card.IsAnimated = false;
         }
+        StyledElement.TemplatedParentProperty.Changed.AddClassHandler<StyledElement>((_, e) =>
+        {
+            if (e.NewValue is SukiUI.Controls.GlassCard card) Still(card);
+        });
         Avalonia.Controls.Primitives.TemplatedControl.TemplateProperty.Changed.AddClassHandler<SukiUI.Controls.GlassCard>((card, e) =>
         {
             GlassCardReport.Track(card, $"Template set ({e.Priority})");
