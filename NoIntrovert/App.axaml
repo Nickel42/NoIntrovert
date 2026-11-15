@@ -189,34 +189,57 @@
         <Style Selector="CheckBox, RadioButton">
             <Setter Property="FontSize" Value="14" />
         </Style>
-        <!-- SukiUI's GlassCard (inside its ComboBox and other templates), when animated, looks up a "RootPanel" part as
-             its template is applied and throws when that part isn't there. On Avalonia 12 that happened mid-layout during
-             long runs ("Could not find control 'RootPanel'"), leaving the queue and status bar no longer redrawing.
-             Unanimated, it never looks the part up. -->
-        <Style Selector="suki|GlassCard">
-            <Setter Property="IsAnimated" Value="False" />
-        </Style>
+        <!--
+          Every progress bar uses this template, never SukiUI's. Its template holds a GlassCard that looks up a
+          "RootPanel" part as it's laid out; during long runs a bar briefly drawn with it threw inside the window's
+          layout pass ("Could not find control 'RootPanel'"), after which the queue, the log and the file list stopped
+          drawing and scrolling. SukiUI's bar also drew only the fill, so on a card a run at 20% looked like a short
+          stub: a bar with a known amount gets a visible track the fill grows along.
+        -->
         <Style Selector="ProgressBar">
             <Setter Property="MinHeight" Value="6" />
             <Setter Property="CornerRadius" Value="3" />
-        </Style>
-        <!-- SukiUI's bar draws only the fill, so on a card a run at 20% looked like a short stub.
-             A bar with a known amount gets a visible track the fill grows along. -->
-        <Style Selector="ProgressBar:indeterminate">
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-        </Style>
-        <Style Selector="ProgressBar:not(:indeterminate)">
             <Setter Property="Background" Value="{DynamicResource PanelBorder}" />
             <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}"
                             Height="{TemplateBinding Height}" MinHeight="{TemplateBinding MinHeight}" ClipToBounds="True">
-                        <Border Name="PART_Indicator" Background="{TemplateBinding Foreground}"
-                                CornerRadius="{TemplateBinding CornerRadius}" HorizontalAlignment="Left" />
+                        <Panel>
+                            <Border Name="PART_Indicator" Background="{TemplateBinding Foreground}"
+                                    CornerRadius="{TemplateBinding CornerRadius}" HorizontalAlignment="Left" />
+                            <!-- Indeterminate: a short segment sliding along the track (ProgressBar sizes and places it). -->
+                            <Border Name="Slider" Background="{TemplateBinding Foreground}" CornerRadius="{TemplateBinding CornerRadius}"
+                                    HorizontalAlignment="Left" IsVisible="False"
+                                    Width="{Binding $parent[ProgressBar].TemplateSettings.ContainerWidth}">
+                                <Border.RenderTransform>
+                                    <TranslateTransform />
+                                </Border.RenderTransform>
+                            </Border>
+                        </Panel>
                     </Border>
                 </ControlTemplate>
             </Setter>
+        </Style>
+        <!-- Indeterminate bars had no track before; they keep that look. -->
+        <Style Selector="ProgressBar:indeterminate">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ProgressBar:indeterminate /template/ Border#PART_Indicator">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="ProgressBar:indeterminate /template/ Border#Slider">
+            <Setter Property="IsVisible" Value="True" />
+            <Style.Animations>
+                <Animation Duration="0:0:1.6" IterationCount="Infinite" Easing="SineEaseInOut">
+                    <KeyFrame KeyTime="0:0:0">
+                        <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.ContainerAnimationStartPosition}" />
+                    </KeyFrame>
+                    <KeyFrame KeyTime="0:0:1.6">
+                        <Setter Property="TranslateTransform.X" Value="{Binding $parent[ProgressBar].TemplateSettings.ContainerAnimationEndPosition}" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
         </Style>
         <Style Selector="ToolTip">
             <Setter Property="FontSize" Value="13" />
