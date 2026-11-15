@@ -39,7 +39,18 @@ internal static class OptimizeTests
             if (removed?.Single() != a || !w.IsRemoved(a) || w.Paths.Contains(a)) return "Remove didn't take the file off";
             w.Add([a]);
             if (w.IsRemoved(a)) return "adding a removed file again left it removed";
-            var b = Path.Combine(folder, "B.chd");
+            // Removing a folder's rows and choosing Add folder again brings them back (it once added nothing).
+            IReadOnlyList<string>? restored = null;
+            w.Restored += r => restored = r;
+            w.Remove([a]);
+            w.Add([folder]);
+            if (w.IsRemoved(a)) return "adding its folder again left a removed file removed";
+            if (restored?.SingleOrDefault() != folder) return "adding the folder again didn't tell the other pages to look through it";
+            restored = null;
+            w.Add([folder]);
+            if (restored is not null) return "adding a folder with nothing removed in it raised Restored";
+            w.Add([a]); // back on the list for the Move below
+            var b =Path.Combine(folder, "B.chd");
             w.Move(new Dictionary<string, string> { [a] = b });
             if (moved is null || !w.Paths.Contains(b) || w.Paths.Contains(a)) return "Move didn't follow the file";
             w.Clear();
@@ -114,21 +125,23 @@ internal static class OptimizeTests
                 return step.SkipFile is null ? null : "RomM got ES-DE's noload.txt";
             }));
 
-        test("Optimize: a file not yet checked says what's likely, Verify first; a checked one says its exact steps", () =>
+        test("Optimize: a file not yet checked says where it's likely to go, Verify first; a checked one says exactly where", () =>
             WithSettingsFolder(dir("optimize-text-settings"), () =>
             {
                 var folder = dir("optimize-text");
                 var cue = WriteDisc(folder, "Some Game (USA)");
                 var settings = new AppSettings();
                 var item = LibraryScanner.Describe([cue], [folder], settings).Items.Single();
-                var text = OptimizeViewModel.Predicted(item, settings, null);
-                if (text != "Verify → Convert → .chd → Name from the database → Move → roms/psx/") return $"\"{text}\"";
+                string Say(RowChanges c) => $"\"{c}\" ({c.Kind})";
+                var guess = OptimizeViewModel.Predicted(item, settings, null);
+                if (guess.Target != "roms/psx/….chd, name after Verify" || guess.Kind != ChangesKind.Guess
+                    || !guess.Steps.SequenceEqual(["Verify", "Convert", "Rename", "Move"])) return Say(guess);
                 settings.Library.Layout = LibraryLayout.InPlace;
-                text = OptimizeViewModel.Predicted(item, settings, null);
-                if (text != "Verify → Convert → .chd → Name from the database") return $"keeping the layout: \"{text}\"";
+                guess = OptimizeViewModel.Predicted(item, settings, null);
+                if (guess.Target != "….chd, name after Verify" || !guess.Steps.SequenceEqual(["Verify", "Convert", "Rename"])) return $"keeping the layout: {Say(guess)}";
                 settings.Library.Layout = LibraryLayout.Flat;
-                text = OptimizeViewModel.Predicted(item, settings, null);
-                if (text != "Verify → Convert → .chd → Name from the database") return $"no subfolders, for a file already at the top: \"{text}\"";
+                guess = OptimizeViewModel.Predicted(item, settings, null);
+                if (guess.Steps.Contains("Move")) return $"no subfolders, for a file already at the top: {Say(guess)}";
                 var step = new CleanupStep
                 {
                     Kind = CleanupKind.Convert, GameKey = "g", Game = "Some Game", Root = folder, Sources = [cue],
@@ -136,8 +149,37 @@ internal static class OptimizeTests
                 };
                 var exact = PlanTabViewModel.StepsText(item, [step]);
                 if (exact != "Convert → roms/psx/Some Game (USA).chd") return $"\"{exact}\"";
+                // CHANGES leads with where the file ends up, then the steps: a conversion that moves is Convert · Move.
+                var changes = PlanTabViewModel.ChangesOf(item, [step]);
+                if (changes.Target != "roms/psx/Some Game (USA).chd" || changes.Kind != ChangesKind.Planned || !changes.Steps.SequenceEqual(["Convert", "Move"]))
+                    return $"converted and moved: {Say(changes)}";
+                step.Target = Path.Combine(folder, "roms", "psx", "Some Game (Europe).chd");
+                changes = PlanTabViewModel.ChangesOf(item, [step]);
+                if (!changes.Steps.SequenceEqual(["Convert", "Rename", "Move"])) return $"converted, renamed and moved: {Say(changes)}";
+                var move = new CleanupStep
+                {
+                    Kind = CleanupKind.Move, GameKey = "g", Game = "Some Game", Root = folder, Sources = [cue],
+                    Target = Path.Combine(folder, "roms", "psx", "Some Game (USA).cue"), Reason = "",
+                };
+                changes = PlanTabViewModel.ChangesOf(item, [move]);
+                if (changes.Target != "roms/psx/Some Game (USA).cue" || !changes.Steps.SequenceEqual(["Move"])) return $"moved: {Say(changes)}";
+                var left = new CleanupStep { Kind = CleanupKind.Untouched, GameKey = "g", Game = "Some Game", Root = folder, Sources = [cue], Reason = "Not verified yet" };
+                changes = PlanTabViewModel.ChangesOf(item, [left]);
+                if (changes.Target != "Left alone: not verified yet" || changes.Kind != ChangesKind.LeftAlone || changes.Steps.Count > 0) return $"left alone: {Say(changes)}";
+                var clash = new CleanupStep
+                {
+                    Kind = CleanupKind.Clash, GameKey = "g", Game = "Some Game", Root = folder, Sources = [cue],
+                    Target = step.Target, Reason = "Some Game (Europe).chd already exists: nothing is overwritten",
+                };
+                changes = PlanTabViewModel.ChangesOf(item, [clash]);
+                if (changes.Target != "Clash: Some Game (Europe).chd already exists" || changes.Kind != ChangesKind.Clash) return $"a clash: {Say(changes)}";
+                var dup = new CleanupStep { Kind = CleanupKind.RemoveDuplicate, GameKey = "g", Game = "Some Game", Root = folder, Sources = [cue], Reason = "A copy of x.chd" };
+                changes = PlanTabViewModel.ChangesOf(item, [dup]);
+                if (changes.Target != "To the trash (duplicate)" || changes.Kind != ChangesKind.Trash) return $"a duplicate: {Say(changes)}";
+                if (PlanTabViewModel.ChangesOf(item, []).Kind != ChangesKind.Unchanged) return "a file already in place isn't shown as unchanged";
                 step.Enabled = false;
-                return PlanTabViewModel.StepsText(item, [step]).StartsWith("Off") ? null : "a step whose box is off reads as if it runs";
+                if (PlanTabViewModel.ChangesOf(item, [step]).Kind != ChangesKind.Off) return "a step whose box is off reads as if it runs";
+                return PlanTabViewModel.StepsText(item, [step]).StartsWith("Off") ? null : "a skipped row's result reads as if its step ran";
             }));
 
         test("Optimize and Organize: rows follow their files, moved or converted, and a removed duplicate leaves the other pages", () =>
@@ -229,7 +271,8 @@ internal static class OptimizeTests
                 if (!f.Pump(() => f.Vm.Verify.Items.Any(i => PathNames.Same(i.Path, cue)))) return "Verify didn't show the disc added on Optimize";
                 f.Show("optimize");
                 var row = tab.Items.First(i => PathNames.Same(i.Path, cue));
-                if (!f.Pump(() => tab.PlanMade.IsCompleted && !tab.IsPlanning && row.Changes.StartsWith("Verify → Convert → .chd"))) return $"its changes: \"{row.Changes}\"";
+                if (!f.Pump(() => tab.PlanMade.IsCompleted && !tab.IsPlanning && row.ChangesSteps.Take(2).SequenceEqual(["Verify", "Convert"]) && row.ChangesTarget.Contains(".chd")))
+                    return $"its changes: \"{row.ChangesTarget}\" ({row.ChangesStepsText})";
                 // Only this row runs: the others are marked done so Start skips them.
                 var others = tab.Items.Where(i => i != row && i.Status != JobStatus.Succeeded).ToList();
                 foreach (var other in others) other.Status = JobStatus.Succeeded;

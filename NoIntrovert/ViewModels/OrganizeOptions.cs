@@ -120,6 +120,16 @@ public sealed partial class OrganizeOptions : ObservableObject
 
     partial void OnCopyUnmatchedChanged(bool value) => Changed?.Invoke();
 
+    /// <summary>FR-8: copy the files named like a game with another extension (its saves and states) beside it, under its new name.</summary>
+    [ObservableProperty] public partial bool CopyCompanions { get; set; } = true;
+
+    partial void OnCopyCompanionsChanged(bool value) => Changed?.Invoke();
+
+    /// <summary>FR-8: copy every other file in the folders too, into the matching system folder (off unless chosen).</summary>
+    [ObservableProperty] public partial bool CopyOtherFiles { get; set; }
+
+    partial void OnCopyOtherFilesChanged(bool value) => Changed?.Invoke();
+
     /// <summary>The new library's folder (remembered in Settings).</summary>
     public string NewLibraryFolder => _settings.Library.NewLibraryFolder;
 

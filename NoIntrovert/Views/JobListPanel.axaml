@@ -6,7 +6,8 @@
              xmlns:presets="using:NoIntrovert.Core.Presets"
              x:Class="NoIntrovert.Views.JobListPanel"
              x:DataType="vm:BatchTabViewModel"
-             v:Responsive.Below="medium:1100,compact:900,narrow:700">
+             v:Responsive.Below="medium:1100,compact:900,narrow:700"
+             Classes.dense="{Binding Settings.General.IsCompactRows}">
 
     <UserControl.Styles>
         <!-- Column widths, shared by the headings and the rows; the file name takes what's left.
@@ -36,7 +37,25 @@
         <!-- A failed row's reason -->
         <Style Selector="TextBlock.failed"><Setter Property="Foreground" Value="{DynamicResource DangerText}" /></Style>
 
-        <!-- Run bar: progress and status at the left, then Save to, then Cancel and Convert.
+        <!-- Row density (Settings › Appearance; docs/requirements/ui-redesign.md, "Row density"). Comfortable is
+             the template as written: two lines per row. Compact ("dense" on the panel; "compact" is taken by the
+             width classes above) makes every row one line: the second lines (folder, preset note, stage, speed)
+             go, and their text is in the row's tooltips. -->
+        <Style Selector="v|JobListPanel.dense :is(Control).secondline"><Setter Property="IsVisible" Value="False" /></Style>
+        <!-- The muted note after the preset's name, only in Compact (and only when it says something the name doesn't) -->
+        <Style Selector="TextBlock.presetsuffix"><Setter Property="IsVisible" Value="False" /></Style>
+        <Style Selector="v|JobListPanel.dense TextBlock.presetsuffix"><Setter Property="IsVisible" Value="True" /></Style>
+        <!-- CHANGES: the destination, with the steps as chips under it in Comfortable; one line in Compact (the
+             chips are in the tooltip, with the details) -->
+        <!-- Set up keys: under the result in Comfortable, beside it in Compact -->
+        <Style Selector="HyperlinkButton.keyslink"><Setter Property="DockPanel.Dock" Value="Bottom" /></Style>
+        <Style Selector="v|JobListPanel.dense HyperlinkButton.keyslink">
+            <Setter Property="DockPanel.Dock" Value="Right" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Run bar: the run's status at the left, then Save to, then Cancel and Convert.
              When the list is narrow, the status moves under the rest. -->
         <Style Selector="StackPanel.runstatus">
             <Setter Property="Width" Value="320" />
@@ -57,15 +76,79 @@
             <Setter Property="Opacity" Value="0.6" />
         </Style>
 
-        <!-- The toolbar's summary (or scan status) sits at its right; when the list is narrow it moves
-             under the buttons, so they get the whole width and wrap onto fewer lines. -->
-        <Style Selector="StackPanel.toolstatus"><Setter Property="Grid.Column" Value="1" /></Style>
+        <!-- Toolbar: Add ▾ is one control, its two halves joined -->
+        <Style Selector="Button.addmain">
+            <Setter Property="CornerRadius" Value="8,0,0,8" />
+        </Style>
+        <Style Selector="Button.addarrow">
+            <Setter Property="CornerRadius" Value="0,8,8,0" />
+            <Setter Property="Padding" Value="9,6" />
+            <Setter Property="Margin" Value="-1,0,0,0" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="Button.more">
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+        </Style>
+        <!-- The summary (or scan status) sits before the filter, at the right; the filter narrows with the list,
+             and when the list is narrow the summary moves under it, so the toolbar stays one line. -->
+        <Style Selector="StackPanel.toolstatus">
+            <Setter Property="Grid.Column" Value="1" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="TextBox.filter"><Setter Property="Width" Value="240" /></Style>
+        <Style Selector="v|JobListPanel.medium TextBox.filter"><Setter Property="Width" Value="210" /></Style>
+        <Style Selector="v|JobListPanel.compact TextBox.filter"><Setter Property="Width" Value="180" /></Style>
+        <Style Selector="v|JobListPanel.narrow TextBox.filter"><Setter Property="Width" Value="150" /></Style>
         <Style Selector="v|JobListPanel.narrow StackPanel.toolstatus">
             <Setter Property="Grid.Column" Value="0" />
-            <Setter Property="Grid.ColumnSpan" Value="2" />
+            <Setter Property="Grid.ColumnSpan" Value="3" />
             <Setter Property="Grid.Row" Value="1" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
             <Setter Property="Margin" Value="0,6,0,0" />
+        </Style>
+
+        <!-- CHANGES: the outcome first. A path is trimmed at its start, so the file name stays in view; nothing
+             happening is muted; a clash is in the warning colour, with its glyph. -->
+        <Style Selector="TextBlock.changestarget">
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style Selector="TextBlock.changestarget.path"><Setter Property="TextTrimming" Value="LeadingCharacterEllipsis" /></Style>
+        <Style Selector="TextBlock.changestarget.muted"><Setter Property="Foreground" Value="{DynamicResource SubtleText}" /></Style>
+        <Style Selector="TextBlock.changestarget.warning"><Setter Property="Foreground" Value="{DynamicResource WarningText}" /></Style>
+        <!-- A step as a chip: Verify · Convert · Rename · Move -->
+        <Style Selector="Border.stepchip">
+            <Setter Property="Background" Value="{DynamicResource TagGeneration}" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="Margin" Value="0,0,3,0" />
+        </Style>
+        <Style Selector="Border.stepchip TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TagText}" />
+            <Setter Property="FontSize" Value="10" />
+        </Style>
+
+        <!-- The empty list: a dashed drop zone that lights up while files are dragged over the window -->
+        <Style Selector="Rectangle.dropframe">
+            <Setter Property="Stroke" Value="{DynamicResource ControlBorder}" />
+            <Setter Property="Fill" Value="Transparent" />
+        </Style>
+        <Style Selector="Panel.dropzone.dragover Rectangle.dropframe">
+            <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Fill" Value="{DynamicResource SelectionFill}" />
+        </Style>
+        <Style Selector="Panel.dropzone.dragover Path.dropicon">
+            <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+        </Style>
+        <Style Selector="Button.helplink">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="4,2" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SettingsLink}" />
+        </Style>
+        <Style Selector="Button.helplink:pointerover /template/ Border">
+            <Setter Property="Background" Value="Transparent" />
         </Style>
     </UserControl.Styles>
 
@@ -74,36 +157,52 @@
     <Border Classes="card" Padding="0">
         <Grid RowDefinitions="Auto,Auto,*,Auto">
 
-            <!-- Toolbar -->
-            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10" Margin="12,10,12,8">
-                <WrapPanel Orientation="Horizontal" ItemSpacing="6" LineSpacing="6" VerticalAlignment="Center">
-                    <Button Classes="tool" Content="Add files…" Command="{Binding AddFilesCommand}" IsEnabled="{Binding IsIdle}"
-                            ToolTip.Tip="Add files to the list (Ctrl+O)." />
-                    <Button Classes="tool" Content="Add folder…" Command="{Binding AddFolderCommand}" IsEnabled="{Binding IsIdle}" />
-                    <!-- Convert only -->
-                    <Button Classes="tool" Content="Add folder as one archive…" Command="{ReflectionBinding PackFolderCommand}" IsVisible="{Binding ShowsTargets}"
-                            IsEnabled="{Binding IsIdle}"
-                            ToolTip.Tip="Add a folder as one row, to pack whole into 7z or zip without looking inside it." />
-                    <Button Classes="tool" Content="Remove" Command="{Binding RemoveSelectedCommand}" IsEnabled="{Binding IsIdle}"
+            <!-- Toolbar: Add ▾ (Add files…, with Add folder… and, on Convert, Add folder as one archive… in its menu),
+                 Remove and ⋯ (Clear finished, Clear all) at the left; the summary and the filter at the right, on one line.
+                 When the list is narrow the filter shrinks and the summary moves under it. -->
+            <Grid x:Name="Toolbar" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10" Margin="12,10,12,8">
+                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <!-- A split button: the main part adds files, the arrow opens the other ways to add -->
+                    <StackPanel Orientation="Horizontal" Spacing="0">
+                        <Button x:Name="AddButton" Classes="tool addmain" Content="Add" Command="{Binding AddFilesCommand}" IsEnabled="{Binding IsIdle}"
+                                AutomationProperties.Name="Add files"
+                                ToolTip.Tip="Add files to the list (Ctrl+O). The arrow beside it adds a folder." />
+                        <Button x:Name="AddMenuButton" Classes="tool addarrow" IsEnabled="{Binding IsIdle}"
+                                AutomationProperties.Name="More ways to add"
+                                ToolTip.Tip="{Binding AddMenuTip}">
+                            <Path Width="10" Height="6" VerticalAlignment="Center" Data="M1,1 L5,5 L9,1" Stroke="{Binding $parent[Button].Foreground}"
+                                  StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round" />
+                            <Button.Flyout>
+                                <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                                    <MenuItem x:Name="AddFilesItem" Header="Add files…" Command="{Binding AddFilesCommand}" InputGesture="Ctrl+O" />
+                                    <MenuItem x:Name="AddFolderItem" Header="Add folder…" Command="{Binding AddFolderCommand}" />
+                                    <!-- Convert only -->
+                                    <MenuItem x:Name="PackFolderItem" Header="Add folder as one archive…" Command="{ReflectionBinding PackFolderCommand}"
+                                              IsVisible="{Binding ShowsTargets}"
+                                              ToolTip.Tip="Add a folder as one row, to pack whole into 7z or zip without looking inside it." />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+                    </StackPanel>
+                    <Button x:Name="RemoveButton" Classes="tool" Content="Remove" Command="{Binding RemoveSelectedCommand}" IsEnabled="{Binding IsIdle}" Margin="6,0,0,0"
                             ToolTip.Tip="Remove the selected rows from the list (Delete). Files are not touched." />
-                    <Button Classes="tool" Content="Clear finished" Command="{Binding ClearFinishedCommand}" IsEnabled="{Binding IsIdle}" />
-                    <Button Classes="tool" Content="Clear all" Command="{Binding ClearAllCommand}" IsEnabled="{Binding IsIdle}"
-                            ToolTip.Tip="Empty the list. Files are not touched. You're asked first if any row failed or the list is long." />
-                    <!-- The filter stays usable during a run: that's when you look for what failed. -->
-                    <TextBox x:Name="FilterBox" Text="{Binding Filter, Delay=250}" PlaceholderText="Filter rows…" Width="240" VerticalAlignment="Center" Margin="4,0,0,0"
-                             AutomationProperties.Name="Filter rows"
-                             ToolTip.Tip="Shows only rows whose name, folder, target or status contains every word (Ctrl+F; Escape clears it). Ctrl+A then selects just those. A run still converts every row, shown or not.">
-                        <TextBox.InnerLeftContent>
-                            <!-- Search icon -->
-                            <Path Width="16" Height="16" Margin="10,0,2,0" VerticalAlignment="Center" Stretch="None"
-                                  Data="M6.5,1.5 A5,5 0 1 1 6.49,1.5 Z M10.2,10.2 L14.5,14.5"
-                                  Stroke="{DynamicResource SubtleText}" StrokeThickness="1.6" StrokeLineCap="Round" />
-                        </TextBox.InnerLeftContent>
-                    </TextBox>
-                </WrapPanel>
+                    <Button x:Name="MoreButton" Classes="tool more" IsEnabled="{Binding IsIdle}"
+                            AutomationProperties.Name="More list actions" ToolTip.Tip="Clear finished, Clear all">
+                        <TextBlock Text="⋯" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Margin="0,-3,0,0" />
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                                <MenuItem x:Name="ClearFinishedItem" Header="Clear finished" Command="{Binding ClearFinishedCommand}"
+                                          ToolTip.Tip="Take the rows that are done or skipped off the list. Files are not touched." />
+                                <MenuItem x:Name="ClearAllItem" Header="Clear all" Command="{Binding ClearAllCommand}"
+                                          ToolTip.Tip="Empty the list. Files are not touched. You're asked first if any row failed or the list is long." />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+                </StackPanel>
                 <StackPanel Classes="toolstatus" VerticalAlignment="Center" IsVisible="{Binding !IsScanning}">
-                    <TextBlock Text="{Binding Summary}" Classes="hint" TextWrapping="NoWrap" HorizontalAlignment="Right" />
-                    <TextBlock Text="{Binding FilterNote}" Classes="hint" FontSize="11" TextWrapping="NoWrap" HorizontalAlignment="Right"
+                    <TextBlock Text="{Binding Summary}" Classes="hint" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" HorizontalAlignment="Right"
+                               ToolTip.Tip="{Binding Summary}" />
+                    <TextBlock Text="{Binding FilterNote}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" HorizontalAlignment="Right"
                                IsVisible="{Binding FilterNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 </StackPanel>
                 <StackPanel Classes="toolstatus" Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsScanning}" VerticalAlignment="Center">
@@ -111,10 +210,21 @@
                     <TextBlock Text="{Binding ScanStatus}" Classes="hint" VerticalAlignment="Center" MaxWidth="180" TextTrimming="CharacterEllipsis" />
                     <Button Classes="tool" Content="Stop" Command="{Binding CancelScanCommand}" ToolTip.Tip="Stop looking through the folder (Escape)." />
                 </StackPanel>
+                <!-- The filter stays usable during a run: that's when you look for what failed. -->
+                <TextBox x:Name="FilterBox" Grid.Column="2" Classes="filter" Text="{Binding Filter, Delay=250}" PlaceholderText="Filter rows…" VerticalAlignment="Center"
+                         AutomationProperties.Name="Filter rows"
+                         ToolTip.Tip="Shows only rows whose name, folder, target or status contains every word (Ctrl+F; Escape clears it). Ctrl+A then selects just those. A run still converts every row, shown or not.">
+                    <TextBox.InnerLeftContent>
+                        <!-- Search icon -->
+                        <Path Width="16" Height="16" Margin="10,0,2,0" VerticalAlignment="Center" Stretch="None"
+                              Data="M6.5,1.5 A5,5 0 1 1 6.49,1.5 Z M10.2,10.2 L14.5,14.5"
+                              Stroke="{DynamicResource SubtleText}" StrokeThickness="1.6" StrokeLineCap="Round" />
+                    </TextBox.InnerLeftContent>
+                </TextBox>
             </Grid>
 
             <!-- Column headings -->
-            <Grid Grid.Row="1" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="22,0,22,4">
+            <Grid Grid.Row="1" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="22,0,22,4" IsVisible="{Binding HasItems}">
                 <!-- Select all: – when only some rows are selected -->
                 <CheckBox x:Name="SelectAll" IsChecked="{Binding AllSelected, Mode=OneWay}" MinWidth="0" Padding="0"
                           VerticalAlignment="Center" ToolTip.Tip="Select every row shown, or none" AutomationProperties.Name="Select all rows" />
@@ -122,7 +232,7 @@
                 <TextBlock Grid.Column="2" Text="TYPE" Classes="colhead col-type" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="3" Text="PRESET" Classes="colhead" Width="210" Margin="0,0,8,0" IsVisible="{Binding ShowsTargets}" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="3" Text="CHANGES" Classes="colhead col-changes" Margin="0,0,8,0" IsVisible="{Binding ShowsChanges}" VerticalAlignment="Center"
-                           ToolTip.Tip="What a run does to each file, step by step, in the order the steps run. Point at a row's changes for the details." />
+                           ToolTip.Tip="Where each file ends up, and the steps a run takes to get it there. Point at a row's changes for the details." />
                 <TextBlock Grid.Column="4" Text="SIZE" Classes="colhead col-size" TextAlignment="Right" Padding="0,0,10,0" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="5" Text="STATUS" Classes="colhead col-status" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="6" Text="PROGRESS" Classes="colhead col-progress" VerticalAlignment="Center" />
@@ -159,7 +269,82 @@
                             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             <Setter Property="Background" Value="{DynamicResource FocusedRowFill}" />
                         </Style>
+                        <!-- Compact: one line, about 32 px with the frame -->
+                        <Style Selector="v|JobListPanel.dense Border.rowframe">
+                            <Setter Property="Padding" Value="10,1" />
+                            <Setter Property="MinHeight" Value="32" />
+                        </Style>
+
+                        <!-- The row's Preset dropdown. Comfortable: today's bordered dropdown, the note under it. -->
+                        <Style Selector="ComboBox.rowpreset">
+                            <Setter Property="DockPanel.Dock" Value="Top" />
+                            <Setter Property="HorizontalAlignment" Value="Stretch" />
+                        </Style>
+                        <!-- Compact: flat, reading as the preset's name; a chevron shows on the row's hover or focus,
+                             and the full dropdown look while it's open or has keyboard focus. -->
+                        <Style Selector="v|JobListPanel.dense ComboBox.rowpreset">
+                            <Setter Property="DockPanel.Dock" Value="Left" />
+                            <Setter Property="HorizontalAlignment" Value="Left" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="MinHeight" Value="0" />
+                            <Setter Property="MinWidth" Value="100" />
+                            <Setter Property="Height" Value="26" />
+                            <Setter Property="Template">
+                                <ControlTemplate>
+                                    <Panel>
+                                        <Border Name="frame" Background="Transparent" BorderBrush="Transparent" BorderThickness="1"
+                                                CornerRadius="6" Padding="6,0,4,0">
+                                            <DockPanel>
+                                                <Path Name="chevron" DockPanel.Dock="Right" Width="10" Height="6" Margin="6,1,0,0" VerticalAlignment="Center"
+                                                      Data="M1,1 L5,5 L9,1" Stroke="{DynamicResource SubtleText}" StrokeThickness="1.5"
+                                                      StrokeLineCap="Round" StrokeJoin="Round" Opacity="0" />
+                                                <ContentControl Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                                Foreground="{DynamicResource SukiText}" VerticalAlignment="Center" />
+                                            </DockPanel>
+                                        </Border>
+                                        <Popup Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen, Mode=TwoWay}" PlacementTarget="frame"
+                                               MaxHeight="{TemplateBinding MaxDropDownHeight}" IsLightDismissEnabled="True" InheritsTransform="True"
+                                               WindowManagerAddShadowHint="False">
+                                            <Border Background="{DynamicResource PanelRaised}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"
+                                                    CornerRadius="8" Padding="4" BoxShadow="0 4 16 0 #40000000" Margin="0,2,0,8">
+                                                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                                    <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+                                                </ScrollViewer>
+                                            </Border>
+                                        </Popup>
+                                    </Panel>
+                                </ControlTemplate>
+                            </Setter>
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense ComboBox.rowpreset:pointerover /template/ Border#frame">
+                            <Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}" />
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense ComboBox.rowpreset:dropdownopen /template/ Border#frame">
+                            <Setter Property="Background" Value="{DynamicResource PanelBackground}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}" />
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense ComboBox.rowpreset:focus-visible /template/ Border#frame">
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense ListBoxItem:pointerover ComboBox.rowpreset /template/ Path#chevron">
+                            <Setter Property="Opacity" Value="1" />
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense Border.rowframe.focused ComboBox.rowpreset /template/ Path#chevron">
+                            <Setter Property="Opacity" Value="1" />
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense ComboBox.rowpreset:focus /template/ Path#chevron">
+                            <Setter Property="Opacity" Value="1" />
+                        </Style>
+                        <Style Selector="v|JobListPanel.dense ComboBox.rowpreset:dropdownopen /template/ Path#chevron">
+                            <Setter Property="Opacity" Value="1" />
+                        </Style>
                     </ListBox.Styles>
+                    <!-- Rows are made only for what's in view: the list must stay fast at 5,000 files -->
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:JobItemViewModel">
                             <Panel>
@@ -169,15 +354,23 @@
                                           Focusable="False" AutomationProperties.Name="{Binding Name, StringFormat='Select {0}'}" />
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
                                     <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding Folder}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="LeadingCharacterEllipsis" />
+                                    <!-- The folder: Comfortable only (the row's tooltip has the whole path) -->
+                                    <TextBlock Text="{Binding Folder}" Classes="hint secondline" FontSize="11" TextWrapping="NoWrap" TextTrimming="LeadingCharacterEllipsis" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="2" Text="{Binding TypeText}" VerticalAlignment="Center" Classes="hint col-type" TextTrimming="CharacterEllipsis" />
-                                <StackPanel Grid.Column="3" Width="210" Margin="0,0,8,0" VerticalAlignment="Center"
-                                            IsVisible="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).ShowsTargets}">
-                                    <ComboBox ItemsSource="{Binding PresetOptions}" SelectedItem="{Binding PresetChoice}" IsVisible="{Binding HasPresets}"
-                                              HorizontalAlignment="Stretch" MaxDropDownHeight="520"
+                                <DockPanel Grid.Column="3" Width="210" Margin="0,0,8,0" VerticalAlignment="Center"
+                                           IsVisible="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).ShowsTargets}">
+                                    <!-- Not the recommended (★) preset: an accent dot, so the odd one out shows in a long list -->
+                                    <!-- (its slot is kept on every row, so the names line up) -->
+                                    <Panel DockPanel.Dock="Left" Width="11" VerticalAlignment="Center">
+                                        <Ellipse Classes="notrecommended" Width="7" Height="7" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                 Fill="{DynamicResource AccentBrush}" IsVisible="{Binding IsNotRecommended}"
+                                                 ToolTip.Tip="{Binding PresetTip}" />
+                                    </Panel>
+                                    <ComboBox Classes="rowpreset" ItemsSource="{Binding PresetOptions}" SelectedItem="{Binding PresetChoice}" IsVisible="{Binding HasPresets}"
+                                              MaxDropDownHeight="520"
                                               AutomationProperties.Name="{Binding Name, StringFormat='Preset for {0}'}"
-                                              ToolTip.Tip="This file's preset: its format and settings.">
+                                              ToolTip.Tip="{Binding PresetTip}">
                                         <ComboBox.Styles>
                                             <Style Selector="ComboBoxItem" x:DataType="presets:PresetListItem">
                                                 <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
@@ -194,39 +387,81 @@
                                             </DataTemplate>
                                         </ComboBox.SelectionBoxItemTemplate>
                                     </ComboBox>
-                                    <TextBlock Text="{Binding Target}" IsVisible="{Binding !HasPresets}" Classes="hint" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                    <!-- "Convert → .chd", or "Optimal" when left as is -->
-                                    <TextBlock Text="{Binding PresetNote}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                    <TextBlock Text="{Binding Target}" IsVisible="{Binding !HasPresets}" Classes="hint" DockPanel.Dock="Top" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <!-- Comfortable: "Convert → .chd", or "Optimal" when left as is, under the dropdown -->
+                                    <TextBlock Text="{Binding PresetNote}" Classes="hint secondline" DockPanel.Dock="Top" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                                                Margin="2,3,0,0" ToolTip.Tip="{Binding FormatDetails}" />
+                                    <!-- Compact: after the name, only what the name doesn't say ("Optimal", "→ .rvz" for Custom) -->
+                                    <TextBlock Text="{Binding PresetSuffix}" Classes="hint presetsuffix" FontSize="12" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center" Margin="4,0,0,0" ToolTip.Tip="{Binding PresetTip}" />
+                                </DockPanel>
+                                <!-- Optimize and Organize: where the file ends up ("roms/psx/Crash (USA).chd"), then its steps as chips -->
+                                <StackPanel Grid.Column="3" Classes="col-changes changes" Margin="0,0,8,0" VerticalAlignment="Center"
+                                            IsVisible="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).ShowsChanges}">
+                                    <ToolTip.Tip>
+                                        <StackPanel Spacing="6" MaxWidth="460">
+                                            <TextBlock Text="{Binding ChangesTarget}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <ItemsControl ItemsSource="{Binding ChangesSteps}" IsVisible="{Binding HasChangesSteps}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="x:String">
+                                                        <Border Classes="stepchip"><TextBlock Text="{Binding}" /></Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <TextBlock Text="{Binding ChangesDetails}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </ToolTip.Tip>
+                                    <DockPanel>
+                                        <!-- A clash (or a plan that can't be made): the warning glyph -->
+                                        <Path DockPanel.Dock="Left" Classes="clashglyph" Width="12" Height="11" Margin="0,0,5,0" VerticalAlignment="Center" Stretch="Uniform"
+                                              Data="M6,0.5 L11.5,10.5 L0.5,10.5 Z M6,4 L6,7 M6,8.6 L6,8.8" Stroke="{DynamicResource StatusWarn}" StrokeThickness="1.3"
+                                              StrokeLineCap="Round" StrokeJoin="Round" IsVisible="{Binding IsChangesWarning}" />
+                                        <TextBlock Classes="changestarget" Classes.path="{Binding IsChangesPath}" Classes.muted="{Binding IsChangesMuted}"
+                                                   Classes.warning="{Binding IsChangesWarning}" Text="{Binding ChangesTarget}" VerticalAlignment="Center"
+                                                   AutomationProperties.HelpText="{Binding ChangesStepsText}" />
+                                    </DockPanel>
+                                    <!-- Comfortable: the steps as chips under it -->
+                                    <Panel Classes="secondline">
+                                        <ItemsControl Classes="stepchips" ItemsSource="{Binding ChangesSteps}" Margin="0,3,0,0" IsVisible="{Binding HasChangesSteps}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="x:String">
+                                                    <Border Classes="stepchip"><TextBlock Text="{Binding}" /></Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Panel>
                                 </StackPanel>
-                                <!-- Optimize and Organize: "Verify → Convert → roms/psx/Crash (USA).chd" -->
-                                <TextBlock Grid.Column="3" Classes="col-changes" Margin="0,0,8,0" VerticalAlignment="Center"
-                                           IsVisible="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).ShowsChanges}"
-                                           Text="{Binding Changes}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
-                                           ToolTip.Tip="{Binding ChangesDetails}" />
                                 <TextBlock Grid.Column="4" Text="{Binding SizeText}" VerticalAlignment="Center" TextAlignment="Right" Padding="0,0,10,0" Classes="col-size" />
                                 <DockPanel Grid.Column="5" VerticalAlignment="Center" Classes="col-status">
                                     <Ellipse Width="8" Height="8" Margin="0,0,6,0" Fill="{Binding Status, Converter={x:Static v:Palette.StatusBrush}}" />
                                     <TextBlock Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" Margin="0,0,6,0" />
                                 </DockPanel>
-                                <StackPanel Grid.Column="6" VerticalAlignment="Center" Classes="col-progress">
+                                <StackPanel Grid.Column="6" VerticalAlignment="Center" Classes="col-progress" ToolTip.Tip="{Binding StageTip}">
                                     <!-- No empty track on rows that are only ready or waiting -->
                                     <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Height="6" MinWidth="0" Margin="0,0,10,0"
                                                  IsVisible="{Binding ShowsProgress}" />
-                                    <TextBlock Text="{Binding Stage}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                    <!-- The stage: Comfortable only (Compact has it in the tooltip) -->
+                                    <TextBlock Text="{Binding Stage}" Classes="hint secondline" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="7" Text="{Binding ElapsedText}" VerticalAlignment="Center" Classes="col-time" />
-                                <StackPanel Grid.Column="8" VerticalAlignment="Center" Classes="col-result">
-                                    <!-- "Game.chd · 58%", or a failure's reason in red; the speed below -->
-                                    <TextBlock Text="{Binding Result}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Details}"
-                                               Classes.failed="{Binding IsFailed}" />
-                                    <TextBlock Text="{Binding SpeedText}" Classes="hint" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                <!-- "Game.chd · 58%", or a failure's reason in red; Comfortable has the speed and the keys link under it,
+                                     Compact the link beside it and the speed in the tooltip -->
+                                <DockPanel Grid.Column="8" VerticalAlignment="Center" Classes="col-result">
                                     <!-- Failed for missing keys: a link to Settings › Keys -->
-                                    <HyperlinkButton Content="Set up keys" IsVisible="{Binding NeedsKeys}" Padding="0" MinHeight="0" FontSize="11"
+                                    <HyperlinkButton Classes="keyslink" Content="Set up keys" IsVisible="{Binding NeedsKeys}" Padding="0" MinHeight="0" FontSize="11"
                                                      Command="{Binding $parent[ListBox].((vm:BatchTabViewModel)DataContext).OpenKeysCommand}"
                                                      ToolTip.Tip="Open Settings › Keys"
                                                      AutomationProperties.Name="{Binding Name, StringFormat='Set up keys for {0}'}" />
-                                </StackPanel>
+                                    <TextBlock Text="{Binding SpeedText}" Classes="hint secondline" DockPanel.Dock="Bottom" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Result}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ResultTip}"
+                                               VerticalAlignment="Center" Classes.failed="{Binding IsFailed}" />
+                                </DockPanel>
                             </Grid>
                             </Border>
                             <Border Width="4" HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" CornerRadius="4,0,0,4" IsVisible="{Binding IsFocusedRow}" />
@@ -238,23 +473,51 @@
                     <TextBlock Text="No rows match the filter." Classes="hint" FontSize="13" HorizontalAlignment="Center" />
                     <Button Classes="tool" Content="Clear the filter" Command="{Binding ClearFilterCommand}" HorizontalAlignment="Center" />
                 </StackPanel>
-                <TextBlock Text="{Binding EmptyHint}" IsVisible="{Binding !HasItems}" Classes="hint" FontSize="13"
-                           TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30" />
+                <!-- The empty list: a dashed drop zone filling the list, with the ways to add and what can be added.
+                     It lights up while files are dragged over the window (IsDragOver, set in JobListPanel.axaml.cs). -->
+                <Panel x:Name="DropZone" Classes="dropzone" Classes.dragover="{Binding IsDragOver}" IsVisible="{Binding !HasItems}" Margin="12,0,12,12">
+                    <Rectangle Classes="dropframe" RadiusX="10" RadiusY="10" StrokeThickness="1.5" StrokeDashArray="5,4" />
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Margin="24,20" MaxWidth="560">
+                            <!-- The NoIntrovert illustration (it left the rail in R3), above the drop icon -->
+                            <ContentControl x:Name="DropArt" HorizontalAlignment="Center">
+                                <Image Source="/Assets/nointrovert-logo.png" Width="120" Stretch="Uniform"
+                                       RenderOptions.BitmapInterpolationMode="HighQuality" AutomationProperties.AccessibilityView="Raw" />
+                            </ContentControl>
+                            <!-- A tray with an arrow into it -->
+                            <Path Classes="dropicon" Width="40" Height="36" HorizontalAlignment="Center" Stretch="Uniform"
+                                  Data="M20,2 L20,22 M12,14 L20,22 L28,14 M4,20 L4,32 L36,32 L36,20"
+                                  Stroke="{DynamicResource SubtleText}" StrokeThickness="2.2" StrokeLineCap="Round" StrokeJoin="Round" />
+                            <TextBlock x:Name="DropHintText" Text="{Binding DropHint}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                       TextAlignment="Center" TextWrapping="Wrap" />
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                <Button x:Name="DropAddFiles" Classes="tool" Content="Add files…" Command="{Binding AddFilesCommand}" IsEnabled="{Binding IsIdle}"
+                                        ToolTip.Tip="Add files to the list (Ctrl+O)." />
+                                <Button x:Name="DropAddFolder" Classes="tool" Content="Add folder…" Command="{Binding AddFolderCommand}" IsEnabled="{Binding IsIdle}" />
+                            </StackPanel>
+                            <Button x:Name="AddHelpLink" Classes="helplink" Content="What can I add?" Command="{Binding ToggleAddHelpCommand}" HorizontalAlignment="Center"
+                                    ToolTip.Tip="What this page takes, and what it does with it" />
+                            <TextBlock x:Name="AddHelpText" Text="{Binding EmptyHint}" IsVisible="{Binding ShowsAddHelp}" Classes="hint" FontSize="12"
+                                       TextAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Panel>
             </Panel>
 
             <!-- Run bar -->
             <Border Grid.Row="3" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" Padding="12,10">
                 <DockPanel>
-                    <!-- The run's progress and status: "Working on 7 items…" -->
-                    <StackPanel Classes="runstatus" VerticalAlignment="Center" Spacing="6">
+                    <!-- The run's status, on one line: "Working on 7 items…", then "Finished in 0:12:04 · 40 done, 2 failed".
+                         Progress is on the status bar and each row; the full text is in the tooltip. -->
+                    <StackPanel Classes="runstatus" VerticalAlignment="Center">
                         <StackPanel.IsVisible>
                             <MultiBinding Converter="{x:Static BoolConverters.Or}">
                                 <Binding Path="IsRunning" />
                                 <Binding Path="RunStatus" Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
                             </MultiBinding>
                         </StackPanel.IsVisible>
-                        <ProgressBar Value="{Binding OverallProgress}" Height="8" MinWidth="0" IsVisible="{Binding IsRunning}" />
-                        <TextBlock Text="{Binding RunStatus}" Classes="hint" TextWrapping="Wrap" />
+                        <TextBlock x:Name="RunStatusText" Text="{Binding RunStatus}" Classes="hint" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding RunStatus}" />
                     </StackPanel>
                     <!-- Cancel and Convert, at the right -->
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="16,0,0,0">

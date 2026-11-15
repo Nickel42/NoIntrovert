@@ -20,6 +20,8 @@ public static class OrganizeCommand
     public static readonly Option<string?> PlanIn = new("--plan") { Description = "Run exactly this saved plan; refused if a file in it changed", HelpName = "file" };
     public static readonly Option<string?> NewLibrary = new("--new-library") { Description = "Build a new library in this folder; the files where they are don't change", HelpName = "folder" };
     public static readonly Option<bool> NoCopyUnmatched = new("--no-copy-unmatched") { Description = "With --new-library: leave out games that aren't matched" };
+    public static readonly Option<bool> NoCopySaves = new("--no-copy-saves") { Description = "With --new-library: don't copy each game's saves and states along with it" };
+    public static readonly Option<bool> CopyOtherFiles = new("--copy-other-files") { Description = "With --new-library: also copy every other file in the folders" };
     public static readonly Option<bool> NoConvert = new("--no-convert") { Description = "Don't convert" };
     public static readonly Option<bool> NoRename = new("--no-rename") { Description = "Don't rename" };
     public static readonly Option<bool> NoMove = new("--no-move") { Description = "Don't move into the layout's folders" };
@@ -29,7 +31,7 @@ public static class OrganizeCommand
 
     static OrganizeCommand() => Layout.AcceptOnlyFromAmong("esde", "es-de", "romm", "keep", "same", "flat");
 
-    internal static Option[] PlanOptions => [NewLibrary, NoCopyUnmatched, Layout, NoConvert, NoRename, NoMove, NoDedupe];
+    internal static Option[] PlanOptions => [NewLibrary, NoCopyUnmatched, NoCopySaves, CopyOtherFiles, Layout, NoConvert, NoRename, NoMove, NoDedupe];
 
     public static Command Command()
     {
@@ -112,7 +114,11 @@ public static class OrganizeCommand
         if (r.GetValue(NoDedupe)) off.Add(CleanupKind.RemoveDuplicate);
         var lib = r.GetValue(NewLibrary) is { } l ? Path.GetFullPath(l) : null;
         if (lib is not null) s.Settings.Library.NewLibraryFolder = lib;
-        return new OrganizeRequest { NewLibrary = lib, CopyUnmatched = !r.GetValue(NoCopyUnmatched), ConvertUnmatched = convertUnmatched, Off = off };
+        return new OrganizeRequest
+        {
+            NewLibrary = lib, CopyUnmatched = !r.GetValue(NoCopyUnmatched), ConvertUnmatched = convertUnmatched, Off = off,
+            CopyCompanions = !r.GetValue(NoCopySaves), CopyOtherFiles = r.GetValue(CopyOtherFiles),
+        };
     }
 
     internal static OrganizePlan MakePlan(Session s, InputList inputs, OrganizeRequest request)

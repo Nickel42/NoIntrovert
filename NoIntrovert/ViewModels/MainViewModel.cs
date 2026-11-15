@@ -14,6 +14,7 @@ public partial class MainViewModel : ViewModelBase
         Log = new LogViewModel(dialogs, settings);
         var queue = new JobQueue(() => (int)Settings.Performance.ParallelJobs);
         Queue = new QueueViewModel(queue);
+        Activity = new ActivityViewModel(settings, Log);
         Convert = new ConvertViewModel(Settings, Log, dialogs, queue);
         Verify = new VerifyViewModel(Settings, Log, dialogs, queue);
         Tests = new TestsViewModel(Settings, Log, dialogs, queue);
@@ -44,15 +45,16 @@ public partial class MainViewModel : ViewModelBase
         Pages =
         [
             new("optimize", "Optimize", "M4 5h4v14H4zM10 5h4v14h-4zM16 6l3.5-1 3 13.5-3.5 1z", Optimize, Optimize.AddAsync,
-                subtitle: "Verify, convert, organize"),
-            new("convert", "Convert", "M4 8h13l-3-3M20 16H7l3 3", Convert, Convert.AddAsync),
-            new("verify", "Verify", "M5 12l4 4L19 6", Verify, Verify.AddAsync),
-            new("cleanup", "Organize", "M4 6a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 10h16", Cleanup, Cleanup.AddAsync),
-            new("tests", "Library tests", "M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3", Tests, Tests.AddAsync),
+                subtitle: "Verify, convert, organize", group: "Library"),
+            new("convert", "Convert", "M4 8h13l-3-3M20 16H7l3 3", Convert, Convert.AddAsync, group: "Files"),
+            new("verify", "Verify", "M5 12l4 4L19 6", Verify, Verify.AddAsync, group: "Files"),
+            new("cleanup", "Organize", "M4 6a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 10h16", Cleanup, Cleanup.AddAsync, group: "Files"),
+            new("tests", "Library tests", "M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3", Tests, Tests.AddAsync, group: "Tools"),
             new("settings", "Settings", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4", Settings,
                 section: RailSection.Bottom),
         ];
         MainPages = Pages.Where(p => p.Section == RailSection.Main).ToList();
+        RailGroups = RailGroupViewModel.For(MainPages);
         BottomPages = Pages.Where(p => p.Section == RailSection.Bottom).ToList();
         StartPages = StartPagesFor(Pages);
         Settings.General.StartPages = StartPages;
@@ -221,8 +223,34 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    /// <summary>The shared job queue, shown in the status bar and the queue drawer.</summary>
+    /// <summary>The shared job queue, shown in the status bar and Activity's Queue tab.</summary>
     public QueueViewModel Queue { get; }
+
+    /// <summary>The Activity drawer above the status bar: the queue and the log.</summary>
+    public ActivityViewModel Activity { get; }
+
+    /// <summary>Raised after <see cref="ShowFailed"/> filtered a page, so the window can put focus in its filter box (Escape then clears it).</summary>
+    public event Action<BatchTabViewModel>? FailedShown;
+
+    /// <summary>
+    /// The status bar's "2 failed" badge: filters the page showing to its failed rows.
+    /// When that page has none (the failures are another page's), it shows the first
+    /// page that has some, filtered the same way. False when no page has a failed row.
+    /// </summary>
+    public bool ShowFailed()
+    {
+        var current = SelectedPage.Content as BatchTabViewModel;
+        var tab = current is { HasFailedRows: true } ? current
+            : Pages.Where(p => p.IsVisible).Select(p => p.Content).OfType<BatchTabViewModel>().FirstOrDefault(t => t.HasFailedRows);
+        if (tab is null) return false;
+        if (tab != current) SelectedPage = Pages.First(p => p.Content == tab);
+        tab.ShowFailedOnly();
+        FailedShown?.Invoke(tab);
+        return true;
+    }
+
+    [RelayCommand]
+    private void ShowFailedRows() => ShowFailed();
 
     /// <summary>The files and folders loaded, shared by Optimize, Convert, Verify and Organize.</summary>
     public FileWorkspace Workspace { get; } = new();
@@ -243,6 +271,12 @@ public partial class MainViewModel : ViewModelBase
 
     /// <summary>The rail's pages: Optimize, Convert, Verify, Organize, and Library tests in Power-user mode.</summary>
     public IReadOnlyList<PageViewModel> MainPages { get; }
+
+    /// <summary>
+    /// <see cref="MainPages"/> in the rail's labelled groups: Library (Optimize, the whole-collection job),
+    /// Files (Convert, Verify, Organize) and Tools (Library tests, Power-user mode only).
+    /// </summary>
+    public IReadOnlyList<RailGroupViewModel> RailGroups { get; }
 
     /// <summary>The pages below the rail's divider (Settings).</summary>
     public IReadOnlyList<PageViewModel> BottomPages { get; }

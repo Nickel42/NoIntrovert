@@ -16,7 +16,7 @@ public interface IProgressIndicator
 /// <summary>
 /// The shared queue as the shell shows it: one status line and progress bar
 /// for everything in the queue (counted by item, see <see cref="OverallFraction"/>),
-/// plus the job list in the queue drawer. Refreshed from the UI thread when
+/// plus the job list in Activity's Queue tab. Refreshed from the UI thread when
 /// the queue changes, and a few times a second only while jobs are queued or
 /// running: an idle queue costs nothing.
 /// </summary>
@@ -56,12 +56,29 @@ public partial class QueueViewModel : ViewModelBase
 
     public BulkObservableCollection<QueueRowViewModel> Rows { get; } = [];
 
-    [ObservableProperty] public partial bool IsOpen { get; set; }
     [ObservableProperty] public partial bool IsBusy { get; set; }
     [ObservableProperty] public partial double OverallPercent { get; set; }
+
+    /// <summary>The status bar's summary: "1 running · 4 queued · 3 done · 7 min left · 52 MB/s", or "Queue empty".</summary>
     [ObservableProperty] public partial string StatusText { get; set; } = "Queue empty";
-    [ObservableProperty] public partial string ToggleText { get; set; } = "Show queue";
+
+    /// <summary><see cref="StatusText"/> without the time left and speed, for a narrow window (the tooltip has them).</summary>
+    [ObservableProperty] public partial string ShortStatusText { get; set; } = "Queue empty";
     [ObservableProperty] public partial bool HasRows { get; set; }
+
+    /// <summary>Jobs running or waiting: the count on the status bar's Activity button.</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasActive))] public partial int ActiveCount { get; set; }
+
+    public bool HasActive => ActiveCount > 0;
+
+    /// <summary>Finished jobs that failed and are still in the queue (Clear finished drops them).</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasFailures), nameof(FailedText))] public partial int FailedCount { get; set; }
+
+    /// <summary>Whether the status bar shows its failure badge.</summary>
+    public bool HasFailures => FailedCount > 0;
+
+    /// <summary>The status bar's failure badge: "2 failed".</summary>
+    public string FailedText => $"{FailedCount:N0} failed";
 
     /// <summary>Whether the status bar shows the progress bar and percentage: not when the queue is empty.</summary>
     [ObservableProperty] public partial bool ShowsProgress { get; set; }
@@ -88,11 +105,6 @@ public partial class QueueViewModel : ViewModelBase
         }
         return count == 0 ? null : done / count;
     }
-
-    partial void OnIsOpenChanged(bool value) => UpdateToggleText();
-
-    [RelayCommand]
-    private void Toggle() => IsOpen = !IsOpen;
 
     [RelayCommand]
     private void CancelAll() => Queue.CancelAll();
@@ -138,6 +150,8 @@ public partial class QueueViewModel : ViewModelBase
         OverallPercent = 100 * (overall ?? 0);
         ShowsProgress = overall is not null;
         IsBusy = running + queued > 0;
+        ActiveCount = running + queued;
+        FailedCount = failed;
 
         // Throughput: bytes done per second, smoothed over several seconds, from running jobs only.
         var now = DateTime.UtcNow;
@@ -163,6 +177,7 @@ public partial class QueueViewModel : ViewModelBase
         {
             var parts = new List<string> { $"{running} running", $"{queued} queued" };
             if (finished.Count > 0) parts.Add($"{finished.Count} done");
+            ShortStatusText = string.Join(" · ", parts);
             // Only once the rate has settled: a few seconds in, with something moving.
             if ((now - _busySince).TotalSeconds >= 5 && _bytesPerSecond > 0)
             {
@@ -173,19 +188,16 @@ public partial class QueueViewModel : ViewModelBase
         }
         else
         {
-            StatusText = finished.Count == 0 ? "Queue empty"
-                : $"Idle · {finished.Count} done" + (failed > 0 ? $", {failed} failed" : "");
+            // The failures are on the status bar's badge beside this.
+            StatusText = finished.Count == 0 ? "Queue empty" : $"Idle · {finished.Count} done";
+            ShortStatusText = StatusText;
         }
-        UpdateToggleText();
         Indicator?.Show(IsBusy ? overall ?? 0 : null, failed > 0);
 
         // Progress moves on its own only while something is queued or running; the queue's Changed starts it again.
         if (IsBusy && !_timer.IsEnabled) _timer.Start();
         else if (!IsBusy && _timer.IsEnabled) _timer.Stop();
     }
-
-    private void UpdateToggleText() =>
-        ToggleText = IsOpen ? "Hide queue" : Rows.Count > 0 ? $"Show queue ({Rows.Count})" : "Show queue";
 
     internal static string Eta(TimeSpan left) => left.TotalSeconds switch
     {
@@ -195,7 +207,7 @@ public partial class QueueViewModel : ViewModelBase
     };
 }
 
-/// <summary>One job in the queue drawer.</summary>
+/// <summary>One job in Activity's Queue tab.</summary>
 public partial class QueueRowViewModel(QueuedJob job, JobQueue queue) : ViewModelBase
 {
     public string Name => job.Name;

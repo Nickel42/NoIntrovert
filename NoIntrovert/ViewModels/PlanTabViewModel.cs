@@ -109,7 +109,7 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
         var paths = rows.Select(r => r.Path).ToList();
         var roots = Workspace?.Folders ?? [];
         var settings = PlanSettings = Settings.Snapshot();
-        var options = (Options.BuildNewLibrary, Options.NewLibraryFolder, Options.CopyUnmatched);
+        var options = (Options.BuildNewLibrary, Options.NewLibraryFolder, Options.CopyUnmatched, Options.CopyCompanions, Options.CopyOtherFiles);
         var convertUnmatched = ConvertUnmatched;
         IsPlanning = true;
         try
@@ -123,7 +123,7 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
                 var problem = options.BuildNewLibrary ? OrganizeOptions.NewLibraryProblem(options.NewLibraryFolder, folders) : null;
                 var plan = problem is null
                     ? CleanupPlanner.Plan(index.Games(), settings, MatchStore.Default, options.BuildNewLibrary ? options.NewLibraryFolder : null,
-                        options.CopyUnmatched, convertUnmatched)
+                        options.CopyUnmatched, convertUnmatched, options.CopyCompanions, options.CopyOtherFiles)
                     : null;
                 return (index, plan, problem, matched);
             });
@@ -161,12 +161,25 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
             ofMember[item.Path] = item.Path;
         }
         var steps = new Dictionary<string, List<CleanupStep>>(PathNames.Comparer);
+        // Saves and states copied along with a game show in its row's tooltip, not as steps of its own.
+        var extras = new Dictionary<string, List<CleanupStep>>(PathNames.Comparer);
         foreach (var step in plan?.Steps ?? [])
+        {
+            if (step.Owner is { } owner)
+            {
+                foreach (var row in owner.Sources.Select(s => ofMember.GetValueOrDefault(s)).OfType<string>().Distinct(PathNames.Comparer))
+                {
+                    if (!extras.TryGetValue(row, out var list)) extras[row] = list = [];
+                    list.Add(step);
+                }
+                continue;
+            }
             foreach (var row in step.Sources.Select(s => ofMember.GetValueOrDefault(s)).OfType<string>().Distinct(PathNames.Comparer))
             {
                 if (!steps.TryGetValue(row, out var list)) steps[row] = list = [];
                 list.Add(step);
             }
+        }
         ItemsByRow = items;
         StepsByRow = steps.ToDictionary(p => p.Key, p => (IReadOnlyList<CleanupStep>)p.Value, PathNames.Comparer);
         UncheckedPaths = plan is null ? [] : rows.Where(r => items.ContainsKey(r.Path) && !Checked.Contains(r.Path)).Select(r => r.Path).ToList();
@@ -176,24 +189,30 @@ public abstract partial class PlanTabViewModel : BatchTabViewModel
             if (row.IsRunning) continue;
             var mine = StepsByRow.GetValueOrDefault(row.Path) ?? [];
             var item = items.GetValueOrDefault(row.Path);
-            row.Changes = problem ?? ChangesFor(item, mine);
-            row.ChangesDetails = problem ?? DetailsFor(item, mine);
+            if (problem is not null) row.SetChanges(new RowChanges(problem, ChangesKind.Problem, []), problem);
+            else row.SetChanges(ChangesFor(item, mine), WithExtras(DetailsFor(item, mine), extras.GetValueOrDefault(row.Path)));
         }
         PlanSummary = problem ?? (plan is null ? "" : Summarize(plan));
         PlanShown(plan);
     }
 
+    /// <summary>A row's tooltip, with the saves and states copied along with it.</summary>
+    private static string WithExtras(string details, List<CleanupStep>? extras) =>
+        extras?.Where(s => s.Runs).Select(s => Path.GetFileName(s.Target!)).ToList() is { Count: > 0 } names
+            ? $"{details}\nAlso copies: {string.Join(", ", names)}"
+            : details;
+
     /// <summary>Called with each plan shown (Organize's per-kind boxes follow it).</summary>
     protected virtual void PlanShown(CleanupPlan? plan) { }
 
-    /// <summary>A row's CHANGES text: its steps, in order.</summary>
-    protected virtual string ChangesFor(LibraryItem? item, IReadOnlyList<CleanupStep> steps) => StepsText(item, steps);
+    /// <summary>A row's CHANGES: where the file ends up, and the steps that take it there.</summary>
+    protected virtual RowChanges ChangesFor(LibraryItem? item, IReadOnlyList<CleanupStep> steps) => ChangesOf(item, steps);
 
     /// <summary>A row's CHANGES tooltip: one step a line, each with why.</summary>
     protected virtual string DetailsFor(LibraryItem? item, IReadOnlyList<CleanupStep> steps) =>
         steps.Count == 0 ? StepsText(item, steps) : string.Join("\n", steps.Select(s => $"{Describe(s)}\n    {s.Reason}"));
 
-    /// <summary>The steps as one line: "Convert → roms/psx/Crash (USA).chd", or why nothing happens.</summary>
+    /// <summary>The steps as one line: "Convert → roms/psx/Crash (USA).chd", or why nothing happens (a skipped row's result).</summary>
     public static string StepsText(LibraryItem? item, IReadOnlyList<CleanupStep> steps)
     {
         if (item is null) return "Not a file the plan can use";

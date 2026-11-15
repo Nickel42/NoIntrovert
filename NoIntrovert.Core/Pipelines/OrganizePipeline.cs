@@ -16,6 +16,12 @@ public sealed record OrganizeRequest
     /// <summary>FR-8: with a new library, also copy games that aren't matched.</summary>
     public bool CopyUnmatched { get; init; } = true;
 
+    /// <summary>FR-8: with a new library, copy a game's saves and states (same name, other extension) beside it.</summary>
+    public bool CopyCompanions { get; init; } = true;
+
+    /// <summary>FR-8: with a new library, also copy every other file in the folders into the matching system folder.</summary>
+    public bool CopyOtherFiles { get; init; }
+
     /// <summary>Optimize: a file the databases don't know is still converted, under its own name.</summary>
     public bool ConvertUnmatched { get; init; }
 
@@ -41,7 +47,8 @@ public static class OrganizePipeline
         var roots = index.Items.Select(i => i.Root).Distinct(PathNames.Comparer).ToList();
         var problem = request.NewLibrary is { } lib ? NewLibraryProblem(lib, roots) : null;
         if (problem is not null) return new OrganizePlan(null, index, notChecked, problem);
-        var plan = CleanupPlanner.Plan(index.Games(), settings, MatchStore.Default, request.NewLibrary, request.CopyUnmatched, request.ConvertUnmatched);
+        var plan = CleanupPlanner.Plan(index.Games(), settings, MatchStore.Default, request.NewLibrary, request.CopyUnmatched, request.ConvertUnmatched,
+            request.CopyCompanions, request.CopyOtherFiles);
         foreach (var step in plan.Steps.Where(s => request.Off.Contains(s.Kind) || (s.Kind == CleanupKind.Copy && request.Off.Contains(CleanupKind.Move))))
             step.Enabled = false;
         return new OrganizePlan(plan, index, notChecked, null);

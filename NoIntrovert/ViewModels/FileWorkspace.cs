@@ -30,20 +30,32 @@ public sealed class FileWorkspace
     /// <summary>Raised with old → new paths after Optimize or Organize moved, renamed or converted files.</summary>
     public event Action<IReadOnlyDictionary<string, string>>? Moved;
 
-    /// <summary>Adds files and folders; a file removed earlier and added again comes back.</summary>
+    /// <summary>
+    /// Adds files and folders; a file removed earlier and added again comes back, and so do the
+    /// removed files inside a folder added again (choosing the folder asks for everything in it).
+    /// </summary>
     public void Add(IEnumerable<string> paths)
     {
         var added = false;
+        var restored = new List<string>();
         foreach (var raw in paths)
         {
             var path = Path.TrimEndingDirectorySeparator(raw);
             _removed.Remove(path);
+            if (Directory.Exists(path) && _removed.RemoveWhere(r => PathNames.IsInside(r, path)) > 0) restored.Add(path);
             if (_paths.Contains(path, PathNames.Comparer)) continue;
             _paths.Add(path);
             added = true;
         }
+        if (restored.Count > 0) Restored?.Invoke(restored);
         if (added) Added?.Invoke();
     }
+
+    /// <summary>
+    /// Raised with the folders added again whose removed files came back: pages that already
+    /// looked through them do so again when they're opened, to show those files.
+    /// </summary>
+    public event Action<IReadOnlyList<string>>? Restored;
 
     /// <summary>Whether a row's path was removed from the list (a folder that holds it doesn't bring it back).</summary>
     public bool IsRemoved(string path) => _removed.Contains(Path.TrimEndingDirectorySeparator(path));

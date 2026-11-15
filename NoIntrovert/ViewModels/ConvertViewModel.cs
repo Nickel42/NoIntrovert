@@ -74,8 +74,9 @@ public partial class ConvertViewModel : BatchTabViewModel
     protected override bool FollowsSelectedFile => false;
     public override bool ShowsSaveTo => true;
 
+    public override string DropHint => "Drop games, folders or archives here";
     public override string EmptyHint =>
-        "Drop disc images, GameCube/Wii and Wii U games, or archives here — or any files and folders to pack into 7z or zip.\n" +
+        "Disc images, GameCube/Wii and Wii U games, or archives — or any files and folders to pack into 7z or zip.\n" +
         "Folders bring in what isn't in its system's target format yet; drop a CHD or RVZ on its own to extract it.\n" +
         "Each row's PRESET says what it becomes and how; change it per row, or in the panel for the focused row.";
 

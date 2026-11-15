@@ -56,18 +56,27 @@ public partial class SettingsViewModel : ViewModelBase
     public ArchiveSettingsViewModel Archives { get; }
     public KeySettingsViewModel Keys { get; }
 
-    /// <summary>Set by <see cref="ShowKeys"/> until the page has brought its Keys card into view.</summary>
-    public bool ShowKeysPending { get; internal set; }
+    /// <summary>The Keys card's name in the Settings page's section list (and in "Settings › Keys").</summary>
+    public const string KeysSection = "Keys";
 
-    /// <summary>Raised by <see cref="ShowKeys"/>, for a Settings page that's already showing.</summary>
-    public event EventHandler? ShowKeysRequested;
+    /// <summary>The section (a card's name in the page's section list) the page is to bring into view, until it has.</summary>
+    public string? PendingSection { get; internal set; }
+
+    /// <summary>Set by <see cref="ShowKeys"/> until the page has brought its Keys card into view.</summary>
+    public bool ShowKeysPending => PendingSection == KeysSection;
+
+    /// <summary>Raised by <see cref="ShowSection"/>, for a Settings page that's already showing.</summary>
+    public event EventHandler? ShowSectionRequested;
+
+    /// <summary>Asks the Settings page to scroll a card to the top and focus it (its name in the section list, such as "Log").</summary>
+    public void ShowSection(string section)
+    {
+        PendingSection = section;
+        ShowSectionRequested?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>Asks the Settings page to bring its Keys card into view (the link on rows that failed for missing keys).</summary>
-    public void ShowKeys()
-    {
-        ShowKeysPending = true;
-        ShowKeysRequested?.Invoke(this, EventArgs.Empty);
-    }
+    public void ShowKeys() => ShowSection(KeysSection);
 
     public DiagnosticsSettingsViewModel Diagnostics { get; }
     public LibrarySettingsViewModel Library { get; }
@@ -154,6 +163,18 @@ public sealed class GeneralSettingsViewModel(AppSettings settings, IDialogs dial
     {
         if (!Set(theme, (s, v) => s.General.Theme = v, nameof(SelectedTheme))) return;
         foreach (var name in new[] { nameof(Theme), nameof(IsSystemTheme), nameof(IsDarkTheme), nameof(IsLightTheme) }) OnPropertyChanged(name);
+    }
+
+    // Row density: a segmented control like Theme. The job lists follow IsCompactRows at once.
+    public ListDensity ListDensity => S.General.ListDensity;
+    public bool IsCompactRows { get => ListDensity == ListDensity.Compact; set { if (value) ChooseDensity(ListDensity.Compact); } }
+    public bool IsComfortableRows { get => ListDensity == ListDensity.Comfortable; set { if (value) ChooseDensity(ListDensity.Comfortable); } }
+
+    private void ChooseDensity(ListDensity density)
+    {
+        if (!Set(density, (s, v) => s.General.ListDensity = v, nameof(ListDensity))) return;
+        OnPropertyChanged(nameof(IsCompactRows));
+        OnPropertyChanged(nameof(IsComfortableRows));
     }
 
     private IReadOnlyList<StartPageOption> _startPages = [new("", "Automatic")];

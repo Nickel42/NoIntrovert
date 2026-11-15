@@ -188,7 +188,7 @@ internal static class OptUxTests
             finally { f.ResetCustom(); }
         }));
 
-        test("Convert: 'Add folder as one archive…' fits the toolbar at every size", () => dispatch(() =>
+        test("Convert: 'Add folder as one archive…' is in the Add ▾ menu, and the toolbar fits at every size", () => dispatch(() =>
         {
             f.Show("convert");
             foreach (var (width, height) in LayoutTests.Sizes)
@@ -196,8 +196,8 @@ internal static class OptUxTests
                 f.Resize(width, height);
                 f.Layout();
                 if (f.Find<Button>(b => b.Content as string == "Pack a folder…" && b.IsEffectivelyVisible) is not null) return "the old 'Pack a folder…' label is still shown";
-                var button = f.Find<Button>(b => b.Content as string == "Add folder as one archive…" && b.IsEffectivelyVisible);
-                if (button is null) return $"{width}×{height}: no 'Add folder as one archive…' button";
+                // It's in the toolbar's Add ▾ menu (UX review R4), which fits on one line.
+                if (!JobListTests.AddMenu(f).Contains("Add folder as one archive…")) return $"{width}×{height}: no 'Add folder as one archive…' in the Add ▾ menu";
                 if (width == 900 && screenshots is not null) f.Save(Path.Combine(screenshots, "optux-add-folder-archive-900.png"));
                 // Check finds a cut-off label or a button pushed out of its card.
                 var problems = LayoutTests.Check(f.Window);
@@ -209,8 +209,9 @@ internal static class OptUxTests
         test("Log: Show only errors sits next to Show debug, which is off while it's on", () => dispatch(() =>
         {
             var log = f.Vm.Log;
-            var expanded = log.IsExpanded;
-            log.IsExpanded = true;
+            var activity = f.Vm.Activity;
+            var (open, tab) = (activity.IsOpen, activity.Tab);
+            activity.Open(NoIntrovert.Core.ActivityTab.Log);
             try
             {
                 foreach (var (width, height) in new[] { (900, 600), (1366, 768) })
@@ -234,7 +235,7 @@ internal static class OptUxTests
                 }
                 return null;
             }
-            finally { log.ShowOnlyErrors = false; log.IsExpanded = expanded; f.Layout(); }
+            finally { log.ShowOnlyErrors = false; activity.Tab = tab; activity.IsOpen = open; f.Layout(); }
         }));
     }
 

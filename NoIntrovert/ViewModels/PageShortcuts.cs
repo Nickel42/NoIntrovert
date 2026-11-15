@@ -49,6 +49,8 @@ public static class PageShortcuts
             ($"{mod}3", "Verify"),
             ($"{mod}4", "Organize"),
             ($"{mod},", "Settings"),
+            ($"{mod}J", "Show or hide Activity: the queue and the log"),
+            ($"{mod}I", "Show or hide the selected file's details (small windows)"),
             ($"{mod}O", "Add files to the list"),
             ($"{mod}F", "Filter the rows"),
             ("Escape", "Clear the filter, or stop looking through a folder"),
@@ -59,6 +61,10 @@ public static class PageShortcuts
             (macOS ? "F1 or ⌘/" : "F1 or Ctrl+/", "This list"),
         ];
     }
+
+    /// <summary>Whether <paramref name="key"/> shows or hides the Activity drawer: Ctrl+J (⌘J), which no text box uses.</summary>
+    public static bool TogglesActivity(Key key, KeyModifiers modifiers) =>
+        key == Key.J && modifiers is KeyModifiers.Control or KeyModifiers.Meta;
 
     /// <summary>Whether <paramref name="key"/> opens the Keyboard shortcuts sheet: F1, or Ctrl+/ (⌘/).</summary>
     public static bool OpensSheet(Key key, KeyModifiers modifiers) =>

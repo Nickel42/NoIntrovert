@@ -23,11 +23,14 @@ A shareable version of section 1 with diagrams and screenshots is in Google Docs
 
 ## Current structure
 
-One window. A navigation rail on the left: the NoIntrovert logo at the top, then one list of pages (Optimize,
-Convert, Verify, Organize; the selected one is a pill in the theme's accent colour), and Settings at the bottom
-below a divider. Under every page, a log collapsed to
-one bar (error and warning counts, Show log), a queue drawer (hidden until opened; it keeps the 20 newest
-finished batches, plus any with a failure, until Clear finished) and a status bar with overall queue progress. The redesign is specified in [ui-redesign](requirements/ui-redesign.md).
+One window; the title bar carries the app icon and name. A navigation rail on the left with the pages in labelled
+groups: **LIBRARY** (Optimize), **FILES** (Convert, Verify, Organize) and, in Power-user mode, **TOOLS** (Library
+tests); Settings at the bottom below a divider. The selected page is a tint with an accent bar at its left. Below
+1100 px the rail shows only icons, with thin dividers between the groups instead of their headers. At the bottom, a status bar that sums up every run: the queue (running, queued, done, time
+left, speed), its overall progress, "2 failed" (filters the page to its failed rows), the log's error and warning
+counts (open the log), and **Activity** (Ctrl+J). Activity is a drawer above the status bar, closed until opened,
+with two tabs: **Queue** (every job from every page; it keeps the 20 newest finished batches, plus any with a
+failure, until Clear finished) and **Log**. The redesign is specified in [ui-redesign](requirements/ui-redesign.md).
 
 The four pages share the files loaded: what's added on one (Add files…, Add folder…, a drop, or Settings ›
 Library's folders) shows on the others when they're opened, each keeping the inputs it can use; Remove and
@@ -75,11 +78,12 @@ Clear all act on every page, and a row follows its file when Optimize or Organiz
       Organize and the plan is made again) and **Use Optimize instead** · past runs (Undo, Empty trash) ·
       what the chosen layout does · safety note
   - **Library tests** (Power-user mode only): round trip and chdman comparison, results table, CSV export
-- **Settings** (one page of cards, saved as they change): General (theme, Start on) · Output (Save to's
-  default, Folder layout, Overwrite existing files, working folder) · Performance · Log · Default presets · Library (folders,
-  emulator data with Check now) · About. Under **Advanced**: Power user · How each action is done ·
-  Default targets · Files and folders · Keys · Game databases (and ES-DE systems) · Target formats (by
-  system, by file type, rule options) · Expert · Diagnostics (Power-user)
+- **Settings** (one page of cards, saved as they change; a section list at the left, a Jump to… drop-down in a
+  narrow window): General (Start on) · Appearance (theme, dark and light themes, brightness, row density; More
+  themes… to find, import and export themes) · Output (Save to's default, Folder layout, Overwrite existing files,
+  working folder) · Performance · Log · Default presets · Library (folders, emulator data with Check now) · Keys ·
+  **Advanced** (Power user · Archives · Files and folders · Game databases (and ES-DE systems) · Target formats (by
+  system, by file type, rule options, Expert) · Diagnostics (Power-user)) · About
 
 The CHD info page is gone. Originals are removed only by Save to › Replace the originals, never by a preset.
 
@@ -345,6 +349,7 @@ options above as the history of why.
 **Outcome so far (UI redesign, Nov 2026).** The rail took a mix of A and C: a **Library** section with one
 page, **Optimize**, named for the whole-collection job, and a **Files** section of verbs (Convert, Verify,
 Organize). CHD info was removed rather than moved to Tools, and Library tests stays in the rail only in
-Power-user mode. *Organize* was chosen over *Repair* and *Tidy up*; *Verify* dropped *& match*. Where files
+Power-user mode, under its own **Tools** label (it's a developer bench, not a file job). The section labels are
+shown in the rail (since 14 Nov 2026), so it's clear why Optimize stands apart. *Organize* was chosen over *Repair* and *Tidy up*; *Verify* dropped *& match*. Where files
 go moved out of the side panel into the run bar's Save to, which is also the only control that removes
 originals. The pipeline (C's steps 2–4) is not built.

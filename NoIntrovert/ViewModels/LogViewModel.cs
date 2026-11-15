@@ -11,8 +11,8 @@ namespace NoIntrovert.ViewModels;
 /// <summary>
 /// The shared log pane. Any thread can write; entries are batched onto the
 /// UI thread a few times a second and also appended to this session's log
-/// file in <see cref="AppSettings.LogDirectory"/>. It starts collapsed to one
-/// bar (the counts and Show log) unless the user left it expanded.
+/// file in <see cref="AppSettings.LogDirectory"/>. It shows in the Activity
+/// drawer's Log tab; the status bar shows its counts (see <see cref="ChipText"/>).
 /// </summary>
 public partial class LogViewModel : ViewModelBase, ILog
 {
@@ -22,8 +22,6 @@ public partial class LogViewModel : ViewModelBase, ILog
     private readonly List<LogEntry> _all = [];
     private readonly SessionLogFile? _file;
     private readonly IDialogs _dialogs;
-    private readonly AppSettings _settings;
-    private bool _autoExpanding;
 
     public BulkObservableCollection<LogEntry> Entries { get; } = [];
 
@@ -34,21 +32,28 @@ public partial class LogViewModel : ViewModelBase, ILog
     /// makes no difference while it's on; the counts still count every line.
     /// </summary>
     [ObservableProperty] public partial bool ShowOnlyErrors { get; set; }
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasErrors), nameof(CountsText))] public partial int ErrorCount { get; set; }
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(CountsText))] public partial int WarningCount { get; set; }
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasErrors), nameof(HasProblems), nameof(CountsText), nameof(ChipText))] public partial int ErrorCount { get; set; }
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasProblems), nameof(CountsText), nameof(ChipText))] public partial int WarningCount { get; set; }
 
-    /// <summary>The bar's counts: "1 error · 0 warnings".</summary>
+    /// <summary>The Log tab's counts: "1 error · 0 warnings".</summary>
     public string CountsText => DescribeCounts(ErrorCount, WarningCount);
 
     internal static string DescribeCounts(int errors, int warnings) => $"{Words.Count(errors, "error")} · {Words.Count(warnings, "warning")}";
 
-    /// <summary>The full log (Show log) rather than just its bar; remembered in <see cref="GeneralSettings.LogExpanded"/>.</summary>
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(ToggleText))] public partial bool IsExpanded { get; set; }
+    /// <summary>The status bar's chip: only the counts there are, "1 error · 3 warnings" or "2 warnings"; "" with none.</summary>
+    public string ChipText => DescribeProblems(ErrorCount, WarningCount);
 
-    /// <summary>Turns the bar's counts red, so problems are noticed while the log is collapsed.</summary>
+    internal static string DescribeProblems(int errors, int warnings) => string.Join(" · ",
+        new[] { errors > 0 ? Words.Count(errors, "error") : null, warnings > 0 ? Words.Count(warnings, "warning") : null }.OfType<string>());
+
+    /// <summary>Turns the status bar's chip red, so an error is noticed while Activity is closed.</summary>
     public bool HasErrors => ErrorCount > 0;
 
-    public string ToggleText => IsExpanded ? "Hide log" : "Show log";
+    /// <summary>Whether the status bar shows the chip: an error or a warning was logged.</summary>
+    public bool HasProblems => ErrorCount + WarningCount > 0;
+
+    /// <summary>Raised on the UI thread when lines with at least one error arrive (Settings › Log may open Activity).</summary>
+    public event Action? ErrorsLogged;
 
     /// <summary>This session's log file; empty when it couldn't be created.</summary>
     public string LogFilePath => _file?.Path ?? "";
@@ -58,9 +63,7 @@ public partial class LogViewModel : ViewModelBase, ILog
     public LogViewModel(IDialogs dialogs, AppSettings settings)
     {
         _dialogs = dialogs;
-        _settings = settings;
         ShowDebug = settings.General.VerboseLog;
-        IsExpanded = settings.General.LogExpanded;
         // Old logs are deleted in the background, so a slow or full log folder doesn't hold up the window.
         var keepDays = settings.General.KeepLogsDays;
         var legacy = SessionLogFile.LegacyDirectory;
@@ -106,21 +109,8 @@ public partial class LogViewModel : ViewModelBase, ILog
         else if (batch.Count >= MaxVisible) Entries.ReplaceAll(batch.Skip(batch.Count - MaxVisible));
         else Entries.ReplaceAll(Entries.Skip(Entries.Count + batch.Count - MaxVisible).Concat(batch).ToList());
         if (_all.Count > MaxVisible * 4) _all.RemoveRange(0, _all.Count - MaxVisible * 4);
-        if (errors && !IsExpanded && _settings.General.OpenLogOnErrors)
-        {
-            // Opened for the user, not chosen by them: the saved choice stays as it was.
-            _autoExpanding = true;
-            IsExpanded = true;
-            _autoExpanding = false;
-        }
+        if (errors) ErrorsLogged?.Invoke();
         if (added) EntriesAdded?.Invoke();
-    }
-
-    partial void OnIsExpandedChanged(bool value)
-    {
-        if (_autoExpanding || _settings.General.LogExpanded == value) return;
-        _settings.General.LogExpanded = value;
-        _settings.Save();
     }
 
     /// <summary>Whether a line is shown (and copied and saved) with the current Show debug and Show only errors.</summary>
@@ -135,9 +125,6 @@ public partial class LogViewModel : ViewModelBase, ILog
         Entries.ReplaceAll(_all.Where(Shows).TakeLast(MaxVisible));
         EntriesAdded?.Invoke();
     }
-
-    [RelayCommand]
-    private void ToggleExpanded() => IsExpanded = !IsExpanded;
 
     [RelayCommand]
     private void Clear()

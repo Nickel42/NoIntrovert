@@ -5,16 +5,21 @@
              x:Class="NoIntrovert.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
     <!--
-        One scrolling page with no Save button: every change is saved as it's
-        made (Penpot "Page 4 · Settings"). Two columns of cards, one when the
-        window is narrow (see the code-behind). Each row has the setting's name
-        and a one-line description at the left and its control at the right;
-        when a card is narrow ("compact"), the wide controls go under the text.
-        Keys is a main card, since the errors for missing keys send people to
-        Settings › Keys. Then the Advanced cards, collapsed and quieter: the
-        presets' details, targets, databases and diagnostics. Text boxes save
-        when they lose focus or Enter is pressed (the code-behind), not on
-        every key.
+        One scrolling column of cards with no Save button: every change is saved
+        as it's made (Penpot "Page 4 · Settings"). At the left, a list of the
+        cards (like Windows Settings): choosing one scrolls it into view, and the
+        card at the top of the page is the one highlighted as you scroll. Below
+        a 1000 px window it becomes a "Jump to…" drop-down above the cards (see
+        the code-behind, which also lists the sections). Each row has the
+        setting's name and a one-line description at the left and its control
+        at the right; when a card is narrow ("compact"), the wide controls go
+        under the text. General is the true general settings; Appearance has the
+        themes, brightness and row density, with importing and exporting themes
+        behind More themes…. Keys is a main card, since the errors for missing
+        keys send people to Settings › Keys. Then the Advanced cards, collapsed
+        and quieter: archives, files, databases, targets and diagnostics; and
+        About last. Text boxes save when they lose focus or Enter is pressed
+        (the code-behind), not on every key.
     -->
 
     <!-- A theme in the Dark theme / Light theme lists: a tile of its background with its primary and accent, and its name -->
@@ -39,10 +44,34 @@
                 <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             </Grid>
         </DataTemplate>
+        <!-- A row of the section list and the Jump to… drop-down -->
+        <DataTemplate DataType="v:SettingsSection">
+            <TextBlock Text="{Binding Title}" Classes="sectionname" Classes.sub="{Binding IsSub}" />
+        </DataTemplate>
     </UserControl.DataTemplates>
 
     <UserControl.Styles>
-        <!-- The theme editor: a quiet panel inside the General card -->
+        <!-- The section list: the cards' names, Advanced's own cards indented under it -->
+        <Style Selector="ListBox.sections">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="ListBox.sections ListBoxItem">
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="TextBlock.sectionname">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style Selector="TextBlock.sectionname.sub">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Margin" Value="14,0,0,0" />
+            <Setter Property="Foreground" Value="{DynamicResource SubtleText}" />
+        </Style>
+
+        <!-- The theme editor: a quiet panel inside the Appearance card -->
         <Style Selector="Border.themeeditor">
             <Setter Property="Background" Value="{DynamicResource SettingsFieldBackground}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SettingsFieldBorder}" />
@@ -223,469 +252,482 @@
         </Style>
     </UserControl.Styles>
 
-    <ScrollViewer Margin="0,10,0,0">
-        <StackPanel Margin="0,0,12,0">
-            <StackPanel Margin="0,0,0,16" Spacing="2">
-                <TextBlock Text="Settings" FontSize="22" FontWeight="Bold" />
-                <TextBlock Text="Changes are saved as you make them." FontSize="13" Foreground="{DynamicResource SubtleText}" />
-            </StackPanel>
+    <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="Auto,*" Margin="0,10,0,0">
+        <StackPanel Grid.ColumnSpan="2" Margin="0,0,0,14" Spacing="2">
+            <TextBlock Text="Settings" FontSize="22" FontWeight="Bold" />
+            <TextBlock Text="Changes are saved as you make them." FontSize="13" Foreground="{DynamicResource SubtleText}" />
+        </StackPanel>
 
-            <Grid x:Name="MainColumns" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="14">
-                <StackPanel Grid.Column="0">
+        <!-- A narrow window: the section list is a drop-down above the cards -->
+        <ComboBox x:Name="JumpList" Grid.Row="1" Grid.ColumnSpan="2" Width="240" HorizontalAlignment="Left" Margin="0,0,0,10"
+                  PlaceholderText="Jump to…" AutomationProperties.Name="Jump to a section" MaxDropDownHeight="480" IsVisible="False"
+                  ToolTip.Tip="Scrolls to a card of the settings." />
 
-                    <!-- General -->
-                    <Border Classes="card main">
-                        <StackPanel>
-                            <TextBlock Text="GENERAL" Classes="section" />
-                            <Grid Classes="row" ColumnDefinitions="*,Auto">
-                                <TextBlock Text="Theme" Classes="name" VerticalAlignment="Center" />
-                                <Border Classes="segmented control">
-                                    <StackPanel Orientation="Horizontal" Spacing="2">
-                                        <RadioButton Classes="segment" Content="System" IsChecked="{Binding General.IsSystemTheme}"
-                                                     ToolTip.Tip="Follow Windows' light or dark setting" />
-                                        <RadioButton Classes="segment" Content="Dark" IsChecked="{Binding General.IsDarkTheme}" />
-                                        <RadioButton Classes="segment" Content="Light" IsChecked="{Binding General.IsLightTheme}" />
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-                            <!-- Which dark and which light theme: NoIntrovert's, custom or imported, and the classic themes (Core/Themes) -->
-                            <TextBox Text="{Binding General.ColorThemes.Search}" AutomationProperties.Name="Search themes" PlaceholderText="{Binding General.ColorThemes.SearchHint}"
-                                     IsVisible="{Binding !General.ColorThemes.IsEditing}"
-                                     ToolTip.Tip="Narrows both lists to themes whose name or author has these words (gruvbox, nord, solarized…)." />
-                            <!-- The picker is 270 px when there's room, narrower (not the label) when there isn't -->
-                            <Grid Classes="row" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="4*" MinWidth="180" MaxWidth="270" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Dark theme" Classes="name" />
-                                    <Button Classes="link" Content="Customize…" HorizontalAlignment="Left" Command="{Binding General.ColorThemes.CustomizeCommand}"
-                                            CommandParameter="Dark" ToolTip.Tip="Choose your own colours, starting from this theme, and save them as a theme you name." />
-                                </StackPanel>
-                                <ComboBox x:Name="DarkThemePicker" Grid.Column="2" Classes="control themes" AutomationProperties.Name="Dark theme" HorizontalAlignment="Stretch" MaxDropDownHeight="420" ItemsSource="{Binding General.ColorThemes.DarkThemes}"
-                                          SelectedItem="{Binding General.ColorThemes.SelectedDark}" IsEnabled="{Binding !General.ColorThemes.IsEditing}" />
-                            </Grid>
-                            <!-- The picker is 270 px when there's room, narrower (not the label) when there isn't -->
-                            <Grid Classes="row" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="4*" MinWidth="180" MaxWidth="270" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Light theme" Classes="name" />
-                                    <Button Classes="link" Content="Customize…" HorizontalAlignment="Left" Command="{Binding General.ColorThemes.CustomizeCommand}"
-                                            CommandParameter="Light" ToolTip.Tip="Choose your own colours, starting from this theme, and save them as a theme you name." />
-                                </StackPanel>
-                                <ComboBox x:Name="LightThemePicker" Grid.Column="2" Classes="control themes" AutomationProperties.Name="Light theme" HorizontalAlignment="Stretch" MaxDropDownHeight="420" ItemsSource="{Binding General.ColorThemes.LightThemes}"
-                                          SelectedItem="{Binding General.ColorThemes.SelectedLight}" IsEnabled="{Binding !General.ColorThemes.IsEditing}" />
-                            </Grid>
-                            <!-- Light brightness: every light theme a little dimmer, for a whole-white screen that's too bright -->
-                            <Grid Classes="row" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="4*" MinWidth="180" MaxWidth="270" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Light brightness" Classes="name" />
-                                    <TextBlock Text="Dims every light theme." Classes="desc" />
-                                </StackPanel>
-                                <Grid Grid.Column="2" ColumnDefinitions="*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
-                                    <Slider x:Name="LightBrightnessSlider" AutomationProperties.Name="Light brightness" Minimum="70" Maximum="100"
-                                            SmallChange="1" LargeChange="5" TickFrequency="5" IsSnapToTickEnabled="True"
-                                            Value="{Binding General.ColorThemes.LightBrightness}" VerticalAlignment="Center"
-                                            ToolTip.Tip="100% shows light themes as they were made; lower softens their whites to a grey that's easier on the eyes." />
-                                    <TextBlock Grid.Column="1" Text="{Binding General.ColorThemes.LightBrightnessText}" MinWidth="36"
-                                               TextAlignment="Right" VerticalAlignment="Center" />
-                                </Grid>
-                            </Grid>
+        <!-- The section list: one row per card, the one at the top of the page highlighted -->
+        <ListBox x:Name="SectionList" Grid.Row="2" Classes="sections" Width="180" Margin="0,0,16,12"
+                 AutomationProperties.Name="Settings sections" SelectionMode="Single" />
 
-                            <!-- The theme editor: a colour per role, previewed in the whole app as it changes -->
-                            <Border Classes="themeeditor" IsVisible="{Binding General.ColorThemes.IsEditing}">
-                                <StackPanel Spacing="10" DataContext="{Binding General.ColorThemes.Editor}" x:DataType="vm:ThemeEditorViewModel">
-                                    <TextBlock Text="{Binding Title}" Classes="name" />
-                                    <TextBlock Text="{Binding BasedOn}" Classes="desc" TextWrapping="Wrap" />
-                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                                        <TextBlock Text="Name" VerticalAlignment="Center" />
-                                        <TextBox Grid.Column="1" Text="{Binding Name}" PlaceholderText="My theme" />
-                                    </Grid>
-                                    <ItemsControl ItemsSource="{Binding Rows}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="vm:ThemeColorRow">
-                                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,2">
-                                                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                                    <ColorPicker Grid.Column="1" Color="{Binding Color}" IsAlphaEnabled="False" IsAlphaVisible="False"
-                                                                 ToolTip.Tip="{Binding Label}" />
-                                                    <TextBox Grid.Column="2" Width="96" MinHeight="30" FontSize="13" Text="{Binding Hex}"
-                                                             FontFamily="Consolas, Menlo, monospace" />
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                    <WrapPanel Orientation="Horizontal">
-                                        <Button Classes="primary" Content="Save theme" Command="{Binding SaveCommand}" Margin="0,0,8,6" />
-                                        <Button Content="Cancel" Command="{Binding CancelCommand}" Margin="0,0,8,6" />
-                                        <Button Classes="link" Content="Reset colours" Command="{Binding ResetCommand}" Margin="0,0,8,6" VerticalAlignment="Center" />
-                                        <Button Classes="link" Content="Delete theme" Command="{Binding DeleteCommand}" IsVisible="{Binding EditsOwn}"
-                                                VerticalAlignment="Center" Margin="0,0,0,6" />
-                                    </WrapPanel>
+        <ScrollViewer x:Name="PageScroll" Grid.Row="2" Grid.Column="1">
+            <StackPanel x:Name="Cards" Margin="0,0,12,0" MaxWidth="880" HorizontalAlignment="Left">
+
+                <!-- General -->
+                <Border x:Name="GeneralCard" Classes="card main">
+                    <StackPanel>
+                        <TextBlock Text="GENERAL" Classes="section" />
+                        <Grid Classes="row" ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Start on" Classes="name" />
+                                <TextBlock Text="The page NoIntrovert opens to." Classes="desc" />
+                            </StackPanel>
+                            <ComboBox Classes="control" Width="220" AutomationProperties.Name="Start on" ItemsSource="{Binding General.StartPages}"
+                                      SelectedItem="{Binding General.SelectedStartPage}"
+                                      ToolTip.Tip="Automatic: Optimize when the library folders are loaded at start, otherwise Convert." />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Appearance: which theme shows, the dark and light themes, brightness, row density; more themes behind an expander -->
+                <Border x:Name="AppearanceCard" Classes="card main">
+                    <StackPanel>
+                        <TextBlock Text="APPEARANCE" Classes="section" />
+                        <Grid Classes="row" ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Theme" Classes="name" VerticalAlignment="Center" />
+                            <Border Classes="segmented control">
+                                <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <RadioButton Classes="segment" Content="System" IsChecked="{Binding General.IsSystemTheme}"
+                                                 ToolTip.Tip="Follow Windows' light or dark setting" />
+                                    <RadioButton Classes="segment" Content="Dark" IsChecked="{Binding General.IsDarkTheme}" />
+                                    <RadioButton Classes="segment" Content="Light" IsChecked="{Binding General.IsLightTheme}" />
                                 </StackPanel>
                             </Border>
+                        </Grid>
+                        <!-- Which dark and which light theme: NoIntrovert's, custom or imported, and the classic themes (Core/Themes) -->
+                        <!-- The picker is 270 px when there's room, narrower (not the label) when there isn't -->
+                        <Grid Classes="row" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="4*" MinWidth="180" MaxWidth="270" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Dark theme" Classes="name" />
+                                <Button Classes="link" Content="Customize…" HorizontalAlignment="Left" Command="{Binding General.ColorThemes.CustomizeCommand}"
+                                        CommandParameter="Dark" ToolTip.Tip="Choose your own colours, starting from this theme, and save them as a theme you name." />
+                            </StackPanel>
+                            <ComboBox x:Name="DarkThemePicker" Grid.Column="2" Classes="control themes" AutomationProperties.Name="Dark theme" HorizontalAlignment="Stretch" MaxDropDownHeight="420" ItemsSource="{Binding General.ColorThemes.DarkThemes}"
+                                      SelectedItem="{Binding General.ColorThemes.SelectedDark}" IsEnabled="{Binding !General.ColorThemes.IsEditing}" />
+                        </Grid>
+                        <!-- The picker is 270 px when there's room, narrower (not the label) when there isn't -->
+                        <Grid Classes="row" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="4*" MinWidth="180" MaxWidth="270" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Light theme" Classes="name" />
+                                <Button Classes="link" Content="Customize…" HorizontalAlignment="Left" Command="{Binding General.ColorThemes.CustomizeCommand}"
+                                        CommandParameter="Light" ToolTip.Tip="Choose your own colours, starting from this theme, and save them as a theme you name." />
+                            </StackPanel>
+                            <ComboBox x:Name="LightThemePicker" Grid.Column="2" Classes="control themes" AutomationProperties.Name="Light theme" HorizontalAlignment="Stretch" MaxDropDownHeight="420" ItemsSource="{Binding General.ColorThemes.LightThemes}"
+                                      SelectedItem="{Binding General.ColorThemes.SelectedLight}" IsEnabled="{Binding !General.ColorThemes.IsEditing}" />
+                        </Grid>
+                        <!-- Light brightness: every light theme a little dimmer, for a whole-white screen that's too bright -->
+                        <Grid Classes="row" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="4*" MinWidth="180" MaxWidth="270" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Light brightness" Classes="name" />
+                                <TextBlock Text="Dims every light theme." Classes="desc" />
+                            </StackPanel>
+                            <Grid Grid.Column="2" ColumnDefinitions="*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
+                                <Slider x:Name="LightBrightnessSlider" AutomationProperties.Name="Light brightness" Minimum="70" Maximum="100"
+                                        SmallChange="1" LargeChange="5" TickFrequency="5" IsSnapToTickEnabled="True"
+                                        Value="{Binding General.ColorThemes.LightBrightness}" VerticalAlignment="Center"
+                                        ToolTip.Tip="100% shows light themes as they were made; lower softens their whites to a grey that's easier on the eyes." />
+                                <TextBlock Grid.Column="1" Text="{Binding General.ColorThemes.LightBrightnessText}" MinWidth="36"
+                                           TextAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                        </Grid>
 
-                            <!-- More themes: files, the web, the folder they're kept in -->
-                            <StackPanel Spacing="6" IsVisible="{Binding !General.ColorThemes.IsEditing}">
-                                <TextBlock Text="More themes" Classes="name" />
-                                <TextBlock Classes="desc" TextWrapping="Wrap"
-                                           Text="Import an Avalonia theme (.axaml) or any Base16 or Base24 colour scheme (.yaml). Paste a scheme's web address to download it." />
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                    <TextBox Text="{Binding General.ColorThemes.ImportUrl}" AutomationProperties.Name="Theme web address" PlaceholderText="https://…/gruvbox-dark.yaml" />
-                                    <Button Grid.Column="1" Classes="tool" Content="Import from web" Command="{Binding General.ColorThemes.ImportFromUrlCommand}" />
+                        <!-- The theme editor: a colour per role, previewed in the whole app as it changes -->
+                        <Border Classes="themeeditor" IsVisible="{Binding General.ColorThemes.IsEditing}">
+                            <StackPanel Spacing="10" DataContext="{Binding General.ColorThemes.Editor}" x:DataType="vm:ThemeEditorViewModel">
+                                <TextBlock Text="{Binding Title}" Classes="name" />
+                                <TextBlock Text="{Binding BasedOn}" Classes="desc" TextWrapping="Wrap" />
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                    <TextBlock Text="Name" VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1" Text="{Binding Name}" PlaceholderText="My theme" />
                                 </Grid>
+                                <ItemsControl ItemsSource="{Binding Rows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ThemeColorRow">
+                                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,2">
+                                                <TextBlock Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <ColorPicker Grid.Column="1" Color="{Binding Color}" IsAlphaEnabled="False" IsAlphaVisible="False"
+                                                             ToolTip.Tip="{Binding Label}" />
+                                                <TextBox Grid.Column="2" Width="96" MinHeight="30" FontSize="13" Text="{Binding Hex}"
+                                                         FontFamily="Consolas, Menlo, monospace" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                                 <WrapPanel Orientation="Horizontal">
-                                    <Button Classes="link" Content="Import file…" Command="{Binding General.ColorThemes.ImportCommand}" Margin="0,0,14,0" />
-                                    <Button Classes="link" Content="Export dark…" Command="{Binding General.ColorThemes.ExportCommand}" CommandParameter="Dark" Margin="0,0,14,0"
-                                            ToolTip.Tip="Save the dark theme as an .axaml file to share it, or use it in another Avalonia app." />
-                                    <Button Classes="link" Content="Export light…" Command="{Binding General.ColorThemes.ExportCommand}" CommandParameter="Light" Margin="0,0,14,0"
-                                            ToolTip.Tip="Save the light theme as an .axaml file to share it, or use it in another Avalonia app." />
-                                    <Button Classes="link" Content="Open themes folder" Command="{Binding General.ColorThemes.OpenFolderCommand}" Margin="0,0,14,0" />
-                                    <Button Classes="link" Content="Reload" Command="{Binding General.ColorThemes.RefreshCommand}" Margin="0,0,14,0"
-                                            ToolTip.Tip="Read the themes folder again, after adding or changing a file there yourself." />
+                                    <Button Classes="primary" Content="Save theme" Command="{Binding SaveCommand}" Margin="0,0,8,6" />
+                                    <Button Content="Cancel" Command="{Binding CancelCommand}" Margin="0,0,8,6" />
+                                    <Button Classes="link" Content="Reset colours" Command="{Binding ResetCommand}" Margin="0,0,8,6" VerticalAlignment="Center" />
+                                    <Button Classes="link" Content="Delete theme" Command="{Binding DeleteCommand}" IsVisible="{Binding EditsOwn}"
+                                            VerticalAlignment="Center" Margin="0,0,0,6" />
                                 </WrapPanel>
                             </StackPanel>
-                            <TextBlock Text="{Binding General.ColorThemes.Status}" Classes="desc" TextWrapping="Wrap"
-                                       IsVisible="{Binding General.ColorThemes.Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                            <Grid Classes="row" ColumnDefinitions="*,Auto">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Start on" Classes="name" />
-                                    <TextBlock Text="The page NoIntrovert opens to." Classes="desc" />
-                                </StackPanel>
-                                <ComboBox Classes="control" Width="220" AutomationProperties.Name="Start on" ItemsSource="{Binding General.StartPages}"
-                                          SelectedItem="{Binding General.SelectedStartPage}"
-                                          ToolTip.Tip="Automatic: Optimize when the library folders are loaded at start, otherwise Convert." />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+                        </Border>
 
-                    <!-- Output -->
-                    <Border Classes="card main">
-                        <StackPanel>
-                            <TextBlock Text="OUTPUT" Classes="section" />
-                            <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Save to" Classes="name" />
-                                    <TextBlock Text="The starting choice for each run. You can still change it in the run bar." Classes="desc" />
+                        <!-- Row density: how many rows the job lists show at once -->
+                        <Grid Classes="row" ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Row density" Classes="name" />
+                                <TextBlock Text="How tall the job list's rows are." Classes="desc" />
+                            </StackPanel>
+                            <Border x:Name="RowDensityControl" Classes="segmented control">
+                                <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <RadioButton Classes="segment" Content="Compact" IsChecked="{Binding General.IsCompactRows}" GroupName="ListDensity"
+                                                 ToolTip.Tip="One line per row, so more files fit. The folder, notes and speed are in each row's tooltips." />
+                                    <RadioButton Classes="segment" Content="Comfortable" IsChecked="{Binding General.IsComfortableRows}" GroupName="ListDensity"
+                                                 ToolTip.Tip="Two lines per row: the folder under the name, the note under the preset, the speed under the result." />
                                 </StackPanel>
-                                <StackPanel Classes="control" Spacing="8" MaxWidth="300">
-                                    <RadioButton Classes="choice" Content="Next to the originals" IsChecked="{Binding Output.SavesNextToOriginals}" />
-                                    <Grid ColumnDefinitions="Auto,*,Auto">
-                                        <RadioButton Classes="choice" IsChecked="{Binding Output.SavesToFolder}" Content="Folder:" AutomationProperties.Name="Save to a folder" />
-                                        <TextBlock Grid.Column="1" Text="{Binding Output.SaveFolderText}" FontSize="13" Margin="5,0,6,0"
-                                                   Foreground="{DynamicResource SubtleText}" VerticalAlignment="Center"
-                                                   TextWrapping="NoWrap" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding Output.SaveFolderText}" />
-                                        <Button Grid.Column="2" Classes="link" Content="Change…" Command="{Binding Output.BrowseFolderCommand}" AutomationProperties.Name="Change the save to folder" />
+                            </Border>
+                        </Grid>
+
+                        <!-- More themes…: finding one in the lists, files, the web, the folder they're kept in -->
+                        <Expander x:Name="MoreThemes" Header="More themes…" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                  IsVisible="{Binding !General.ColorThemes.IsEditing}">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Find a theme" Classes="name" />
+                            <TextBlock Classes="desc" Text="Narrows the Dark theme and Light theme lists to themes whose name or author has these words." />
+                            <TextBox Text="{Binding General.ColorThemes.Search}" AutomationProperties.Name="Search themes" PlaceholderText="{Binding General.ColorThemes.SearchHint}"
+                                     ToolTip.Tip="gruvbox, nord, solarized…" Margin="0,0,0,8" />
+                            <TextBlock Text="Import and export" Classes="name" />
+                            <TextBlock Classes="desc" TextWrapping="Wrap"
+                                       Text="Import an Avalonia theme (.axaml) or any Base16 or Base24 colour scheme (.yaml). Paste a scheme's web address to download it." />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <TextBox Text="{Binding General.ColorThemes.ImportUrl}" AutomationProperties.Name="Theme web address" PlaceholderText="https://…/gruvbox-dark.yaml" />
+                                <Button Grid.Column="1" Classes="tool" Content="Import from web" Command="{Binding General.ColorThemes.ImportFromUrlCommand}" />
+                            </Grid>
+                            <WrapPanel Orientation="Horizontal">
+                                <Button Classes="link" Content="Import file…" Command="{Binding General.ColorThemes.ImportCommand}" Margin="0,0,14,0" />
+                                <Button Classes="link" Content="Export dark…" Command="{Binding General.ColorThemes.ExportCommand}" CommandParameter="Dark" Margin="0,0,14,0"
+                                        ToolTip.Tip="Save the dark theme as an .axaml file to share it, or use it in another Avalonia app." />
+                                <Button Classes="link" Content="Export light…" Command="{Binding General.ColorThemes.ExportCommand}" CommandParameter="Light" Margin="0,0,14,0"
+                                        ToolTip.Tip="Save the light theme as an .axaml file to share it, or use it in another Avalonia app." />
+                                <Button Classes="link" Content="Open themes folder" Command="{Binding General.ColorThemes.OpenFolderCommand}" Margin="0,0,14,0" />
+                                <Button Classes="link" Content="Reload" Command="{Binding General.ColorThemes.RefreshCommand}" Margin="0,0,14,0"
+                                        ToolTip.Tip="Read the themes folder again, after adding or changing a file there yourself." />
+                            </WrapPanel>
+                        </StackPanel>
+                        </Expander>
+                        <TextBlock Text="{Binding General.ColorThemes.Status}" Classes="desc" TextWrapping="Wrap"
+                                   IsVisible="{Binding General.ColorThemes.Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Output -->
+                <Border x:Name="OutputCard" Classes="card main">
+                    <StackPanel>
+                        <TextBlock Text="OUTPUT" Classes="section" />
+                        <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Save to" Classes="name" />
+                                <TextBlock Text="The starting choice for each run. You can still change it in the run bar." Classes="desc" />
+                            </StackPanel>
+                            <StackPanel Classes="control" Spacing="8" MaxWidth="300">
+                                <RadioButton Classes="choice" Content="Next to the originals" IsChecked="{Binding Output.SavesNextToOriginals}" />
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <RadioButton Classes="choice" IsChecked="{Binding Output.SavesToFolder}" Content="Folder:" AutomationProperties.Name="Save to a folder" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Output.SaveFolderText}" FontSize="13" Margin="5,0,6,0"
+                                               Foreground="{DynamicResource SubtleText}" VerticalAlignment="Center"
+                                               TextWrapping="NoWrap" TextTrimming="LeadingCharacterEllipsis" ToolTip.Tip="{Binding Output.SaveFolderText}" />
+                                    <Button Grid.Column="2" Classes="link" Content="Change…" Command="{Binding Output.BrowseFolderCommand}" AutomationProperties.Name="Change the save to folder" />
+                                </Grid>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <RadioButton Classes="choice" Content="Replace the originals" IsChecked="{Binding Output.ReplacesOriginals}" />
+                                    <TextBlock Text="⚠" Foreground="{DynamicResource SettingsWarning}" FontSize="13" VerticalAlignment="Center"
+                                               AutomationProperties.Name="Warning: each original is removed once its new file checks out."
+                                               ToolTip.Tip="Each original is removed once its new file checks out." />
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Classes="desc" IsVisible="{Binding Output.ReplacesOriginals}" Margin="0,-6,0,0"
+                                   Text="⚠ Each original is removed once its new file checks out." />
+                        <Grid Classes="row" ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Folder layout" Classes="name" />
+                                <TextBlock Text="How Save to › Folder arranges the files it saves." Classes="desc" />
+                            </StackPanel>
+                            <ComboBox Classes="control" Width="260" ItemsSource="{x:Static vm:OutputSettingsViewModel.FolderLayouts}" SelectedItem="{Binding Output.SelectedFolderLayout}"
+                                      AutomationProperties.Name="Folder layout" ToolTip.Tip="{x:Static vm:OutputSettingsViewModel.FolderLayoutTip}" />
+                        </Grid>
+                        <Grid Classes="row" ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Overwrite existing files" Classes="name" />
+                                <TextBlock Text="When off, a new file whose name is taken gets a number added, e.g. “(2)”." Classes="desc" />
+                            </StackPanel>
+                            <CheckBox Classes="onoff control" IsChecked="{Binding Output.Overwrite}" AutomationProperties.Name="Overwrite existing files"
+                                      Content="{Binding Output.Overwrite, Converter={x:Static v:SettingsView.OnOff}}" />
+                        </Grid>
+                        <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Working folder" Classes="name" />
+                                <TextBlock Text="Where files are unpacked while converting. Needs free space about the size of the biggest disc." Classes="desc" />
+                            </StackPanel>
+                            <StackPanel Classes="control" Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBox x:Name="TempFolderBox" Classes="commit" Width="300" AutomationProperties.Name="Working folder"
+                                             Text="{Binding Performance.TempFolder, UpdateSourceTrigger=LostFocus}"
+                                             PlaceholderText="{x:Static vm:PerformanceSettingsViewModel.DefaultTempFolderText}"
+                                             ToolTip.Tip="{Binding Performance.TempFolderHint}" />
+                                    <Button Classes="outline" Content="Change…" Command="{Binding Performance.BrowseTempFolderCommand}"
+                                            AutomationProperties.Name="Change the working folder" />
+                                </StackPanel>
+                                <TextBlock x:Name="TempFolderNote" Classes="desc" Classes.warning="{Binding Performance.HasTempFolderProblem}"
+                                           Text="{Binding Performance.TempFolderNote}" MaxWidth="380" HorizontalAlignment="Left"
+                                           IsVisible="{Binding Performance.TempFolderNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Performance -->
+                <Border x:Name="PerformanceCard" Classes="card main">
+                    <StackPanel>
+                        <TextBlock Text="PERFORMANCE" Classes="section" />
+                        <Grid Classes="row" ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Jobs at once" Classes="name" />
+                                <TextBlock Text="How many files convert at the same time. 1 is best for hard drives; 2–4 for SSDs." Classes="desc" />
+                            </StackPanel>
+                            <Border Classes="stepper control">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="−" Command="{Binding Performance.DecreaseJobsCommand}" ToolTip.Tip="Fewer jobs at once" AutomationProperties.Name="Fewer jobs at once" />
+                                    <TextBlock Text="{Binding Performance.ParallelJobs, StringFormat={}{0:0}}" Width="40" TextAlignment="Center"
+                                               VerticalAlignment="Center" FontSize="14" FontWeight="Bold" />
+                                    <Button Content="+" Command="{Binding Performance.IncreaseJobsCommand}" ToolTip.Tip="More jobs at once" AutomationProperties.Name="More jobs at once" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                        <Grid Classes="row" ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Check each file after converting" Classes="name" />
+                                <TextBlock Text="Reads the new file back and compares it. Slower, but required before originals are replaced." Classes="desc" />
+                            </StackPanel>
+                            <CheckBox Classes="onoff control" IsChecked="{Binding Chd.VerifyAfterCreate}" AutomationProperties.Name="Check each file after converting"
+                                      Content="{Binding Chd.VerifyAfterCreate, Converter={x:Static v:SettingsView.OnOff}}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Log -->
+                <Border x:Name="LogCard" Classes="card main">
+                    <StackPanel>
+                        <TextBlock Text="LOG" Classes="section" />
+                        <Grid Classes="row" ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Open the log when a run has errors" Classes="name" TextWrapping="Wrap" />
+                                <TextBlock Text="Opens Activity, above the status bar, on its Log tab (Ctrl+J shows or hides it)." Classes="desc" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <CheckBox Classes="onoff control" IsChecked="{Binding Log.OpenLogOnErrors}" AutomationProperties.Name="Open the log when a run has errors"
+                                      Content="{Binding Log.OpenLogOnErrors, Converter={x:Static v:SettingsView.OnOff}}" />
+                        </Grid>
+                        <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Text="Keep logs for" Classes="name" VerticalAlignment="Center" />
+                            <StackPanel Classes="control" Orientation="Horizontal" Spacing="8">
+                                <ComboBox Width="140" AutomationProperties.Name="Keep logs for" ItemsSource="{Binding Log.KeepLogsChoices}" SelectedItem="{Binding Log.SelectedKeepLogs}"
+                                          VerticalAlignment="Center" ToolTip.Tip="Older saved logs are deleted when the app starts." />
+                                <Button Classes="outline" Content="Open log folder" Command="{Binding Log.OpenLogFolderCommand}" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Classes="desc warning" Text="{Binding Log.Status}" Margin="0,-6,0,0"
+                                   IsVisible="{Binding Log.Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Default presets: the preset each system's rows start on, then the saved presets -->
+                <Border x:Name="PresetsCard" Classes="card main" DataContext="{Binding DefaultPresets}" x:DataType="vm:DefaultPresetsViewModel">
+                    <StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="DEFAULT PRESETS" Classes="section" />
+                            <TextBlock Classes="desc" Text="The preset new files start with, per system. Each file can still use a different one." />
+                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding VisibleSystems}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="14" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SystemDefaultViewModel">
+                                    <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                        <TextBlock Text="{Binding Name}" Classes="name" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                   ToolTip.Tip="{Binding Name}" />
+                                        <ComboBox Classes="control" Width="240" ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}"
+                                                  AutomationProperties.Name="{Binding Name, StringFormat='Default preset for {0}'}" />
                                     </Grid>
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <RadioButton Classes="choice" Content="Replace the originals" IsChecked="{Binding Output.ReplacesOriginals}" />
-                                        <TextBlock Text="⚠" Foreground="{DynamicResource SettingsWarning}" FontSize="13" VerticalAlignment="Center"
-                                                   AutomationProperties.Name="Warning: each original is removed once its new file checks out."
-                                                   ToolTip.Tip="Each original is removed once its new file checks out." />
-                                    </StackPanel>
-                                </StackPanel>
-                            </Grid>
-                            <TextBlock Classes="desc" IsVisible="{Binding Output.ReplacesOriginals}" Margin="0,-6,0,0"
-                                       Text="⚠ Each original is removed once its new file checks out." />
-                            <Grid Classes="row" ColumnDefinitions="*,Auto">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Folder layout" Classes="name" />
-                                    <TextBlock Text="How Save to › Folder arranges the files it saves." Classes="desc" />
-                                </StackPanel>
-                                <ComboBox Classes="control" Width="260" ItemsSource="{x:Static vm:OutputSettingsViewModel.FolderLayouts}" SelectedItem="{Binding Output.SelectedFolderLayout}"
-                                          AutomationProperties.Name="Folder layout" ToolTip.Tip="{x:Static vm:OutputSettingsViewModel.FolderLayoutTip}" />
-                            </Grid>
-                            <Grid Classes="row" ColumnDefinitions="*,Auto">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Overwrite existing files" Classes="name" />
-                                    <TextBlock Text="When off, a new file whose name is taken gets a number added, e.g. “(2)”." Classes="desc" />
-                                </StackPanel>
-                                <CheckBox Classes="onoff control" IsChecked="{Binding Output.Overwrite}" AutomationProperties.Name="Overwrite existing files"
-                                          Content="{Binding Output.Overwrite, Converter={x:Static v:SettingsView.OnOff}}" />
-                            </Grid>
-                            <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Working folder" Classes="name" />
-                                    <TextBlock Text="Where files are unpacked while converting. Needs free space about the size of the biggest disc." Classes="desc" />
-                                </StackPanel>
-                                <StackPanel Classes="control" Spacing="4">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBox x:Name="TempFolderBox" Classes="commit" Width="300" AutomationProperties.Name="Working folder"
-                                                 Text="{Binding Performance.TempFolder, UpdateSourceTrigger=LostFocus}"
-                                                 PlaceholderText="{x:Static vm:PerformanceSettingsViewModel.DefaultTempFolderText}"
-                                                 ToolTip.Tip="{Binding Performance.TempFolderHint}" />
-                                        <Button Classes="outline" Content="Change…" Command="{Binding Performance.BrowseTempFolderCommand}"
-                                                AutomationProperties.Name="Change the working folder" />
-                                    </StackPanel>
-                                    <TextBlock x:Name="TempFolderNote" Classes="desc" Classes.warning="{Binding Performance.HasTempFolderProblem}"
-                                               Text="{Binding Performance.TempFolderNote}" MaxWidth="380" HorizontalAlignment="Left"
-                                               IsVisible="{Binding Performance.TempFolderNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                                </StackPanel>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Classes="link" Content="{Binding MoreSystemsText}" Command="{Binding ToggleAllSystemsCommand}"
+                                IsVisible="{Binding HasMoreSystems}" HorizontalAlignment="Left" Margin="-2,-4,0,0" />
+                        <Grid Classes="row" ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Saved presets" Classes="name" />
+                                <TextBlock Classes="desc" Text="{Binding SavedSummary}" />
+                            </StackPanel>
+                            <Button Classes="outline control" Content="Manage…" Command="{Binding ManageCommand}" IsEnabled="{Binding HasSaved}" />
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding Saved}" IsVisible="{Binding IsManaging}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SavedPresetItemViewModel">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" Margin="0,0,0,6">
+                                        <TextBox Classes="commit" Text="{Binding Name, UpdateSourceTrigger=LostFocus}" ToolTip.Tip="Rename the preset"
+                                                 AutomationProperties.Name="Preset name" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Detail}" Classes="hint" VerticalAlignment="Center" />
+                                        <Button Grid.Column="2" Classes="link" Content="Delete" Command="{Binding DeleteCommand}"
+                                                AutomationProperties.Name="{Binding Name, StringFormat='Delete {0}'}" />
+                                        <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Classes="desc warning" Text="{Binding RenameProblem}"
+                                                   IsVisible="{Binding HasRenameProblem}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
 
-                    <!-- Performance -->
-                    <Border Classes="card main">
+                <!-- Library -->
+                <Border x:Name="LibraryCard" Classes="card main">
+                    <StackPanel>
+                        <TextBlock Text="LIBRARY" Classes="section" />
+                        <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Library folders" Classes="name" />
+                                <TextBlock Text="Loaded into the file list on Optimize, Convert, Verify and Organize." Classes="desc" />
+                            </StackPanel>
+                            <StackPanel Classes="control" Width="302" Spacing="6">
+                                <ItemsControl ItemsSource="{Binding Library.Folders}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Spacing="6" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="x:String">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <Border Classes="path">
+                                                    <TextBlock Text="{Binding}" ToolTip.Tip="{Binding}" />
+                                                </Border>
+                                                <Button Grid.Column="1" Classes="link" Content="Remove" ToolTip.Tip="Stop scanning this folder (no files are touched)."
+                                                        AutomationProperties.Name="{Binding StringFormat='Remove {0} from the library'}"
+                                                        Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).Library.RemoveFolderFromListCommand}"
+                                                        CommandParameter="{Binding}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Classes="desc" Text="No folders yet." IsVisible="{Binding !Library.HasFolders}" />
+                                <Button Classes="outline" Content="Add folder…" Command="{Binding Library.AddFolderCommand}" HorizontalAlignment="Right" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid Classes="row" ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Emulator data" Classes="name" />
+                                <TextBlock Classes="desc" Text="{Binding Library.EmulatorDataDescription}" />
+                            </StackPanel>
+                            <Button Classes="outline control" Content="Check now" Command="{Binding Library.CheckEmulatorDataCommand}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Keys: the user's own, for encrypted Wii U, 3DS and Switch files. Missing-key errors send people here (Settings › Keys). -->
+                <Border x:Name="KeysCard" Classes="card main" DataContext="{Binding Keys}" x:DataType="vm:KeySettingsViewModel">
+                    <StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="KEYS" Classes="section" />
+                            <TextBlock Classes="desc" Text="Encrypted games need your own keys, dumped from your own console. NoIntrovert doesn't include any." />
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Wii U" Classes="name" />
+                            <TextBlock Classes="desc" Text="Your keys.txt, the one Cemu uses." />
+                            <TextBlock Classes="desc" Text="{Binding WiiUKeysSummary}" />
+                            <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Button Classes="outline" Content="Choose keys.txt…" Command="{Binding BrowseWiiUKeysCommand}" Margin="0,0,8,6" />
+                                <Button Classes="outline" Content="Find automatically" Command="{Binding FindWiiUKeysAutomaticallyCommand}" Margin="0,0,8,6"
+                                        AutomationProperties.Name="Find Wii U keys automatically" />
+                                <Button Classes="outline" Content="Refresh" Command="{Binding RefreshWiiUKeysCommand}" Margin="0,0,8,6"
+                                        AutomationProperties.Name="Refresh Wii U keys" />
+                            </WrapPanel>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="3DS" Classes="name" />
+                            <TextBlock Classes="desc" Text="Your boot9.bin and aes_keys.txt, the ones Azahar uses. NoIntrovert looks in Azahar's and Citra's folders." />
+                            <TextBlock Classes="desc" Text="{Binding ThreeDsKeysSummary}" />
+                            <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Button Classes="outline" Content="Choose a folder…" Command="{Binding BrowseThreeDsKeysCommand}" Margin="0,0,8,6"
+                                        AutomationProperties.Name="Choose the 3DS keys folder" />
+                                <Button Classes="outline" Content="Find automatically" Command="{Binding FindThreeDsKeysAutomaticallyCommand}" Margin="0,0,8,6"
+                                        AutomationProperties.Name="Find 3DS keys automatically" />
+                                <Button Classes="outline" Content="Refresh" Command="{Binding RefreshThreeDsKeysCommand}" Margin="0,0,8,6"
+                                        AutomationProperties.Name="Refresh 3DS keys" />
+                            </WrapPanel>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Switch" Classes="name" />
+                            <TextBlock Classes="desc" Text="Your prod.keys, dumped with Lockpick_RCM. NoIntrovert looks where Ryujinx and the yuzu-family emulators keep it." />
+                            <TextBlock Classes="desc" Text="{Binding SwitchKeysSummary}" />
+                            <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Button Classes="outline" Content="Choose prod.keys…" Command="{Binding BrowseSwitchKeysCommand}" Margin="0,0,8,6" />
+                                <Button Classes="outline" Content="Find automatically" Command="{Binding FindSwitchKeysAutomaticallyCommand}" Margin="0,0,8,6"
+                                        AutomationProperties.Name="Find Switch keys automatically" />
+                                <Button Classes="outline" Content="Refresh" Command="{Binding RefreshSwitchKeysCommand}" Margin="0,0,8,6"
+                                        AutomationProperties.Name="Refresh Switch keys" />
+                            </WrapPanel>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="PS3" Classes="name" />
+                            <TextBlock Classes="desc" Text="Each disc's key, the .dkey file Redump publishes. Keep it beside the image with the same name, or put them all in one folder." />
+                            <TextBlock Classes="desc" Text="{Binding Ps3KeysSummary}" />
+                            <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Button Classes="outline" Content="Choose a folder…" Command="{Binding BrowsePs3KeysCommand}" Margin="0,0,8,6"
+                                        AutomationProperties.Name="Choose the PS3 keys folder" />
+                                <Button Classes="outline" Content="Beside the images only" Command="{Binding ClearPs3KeysCommand}" Margin="0,0,8,6"
+                                        AutomationProperties.Name="Look for PS3 keys beside the images only" />
+                                <Button Classes="outline" Content="Refresh" Command="{Binding RefreshPs3KeysCommand}" Margin="0,0,8,6"
+                                        AutomationProperties.Name="Refresh PS3 keys" />
+                            </WrapPanel>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="PS Vita" Classes="name" />
+                            <TextBlock Classes="desc" Text="The package keys are built in. Games and DLC also need their zRIF license: a .zrif file next to each .pkg, or a list of zRIFs (such as NoPayStation's TSV) chosen here." />
+                            <TextBlock Classes="desc" Text="{Binding VitaZrifSummary}" />
+                            <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Button Classes="outline" Content="Choose a zRIF list…" Command="{Binding BrowseVitaZrifCommand}" Margin="0,0,8,6" />
+                                <Button Classes="outline" Content="Clear" Command="{Binding ClearVitaZrifCommand}" Margin="0,0,8,6"
+                                        AutomationProperties.Name="Clear the zRIF list" />
+                                <Button Classes="outline" Content="Refresh" Command="{Binding RefreshVitaZrifCommand}" Margin="0,0,8,6"
+                                        AutomationProperties.Name="Refresh the zRIF list" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Advanced: everything else, collapsed (the section list opens it to show one of its cards) -->
+                <Expander x:Name="AdvancedSection" Header="Advanced" Margin="0,4,0,14" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <StackPanel Spacing="8">
+                        <TextBlock Classes="hint" Text="Fine-tuning most people never need." />
                         <StackPanel>
-                            <TextBlock Text="PERFORMANCE" Classes="section" />
-                            <Grid Classes="row" ColumnDefinitions="*,Auto">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Jobs at once" Classes="name" />
-                                    <TextBlock Text="How many files convert at the same time. 1 is best for hard drives; 2–4 for SSDs." Classes="desc" />
-                                </StackPanel>
-                                <Border Classes="stepper control">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button Content="−" Command="{Binding Performance.DecreaseJobsCommand}" ToolTip.Tip="Fewer jobs at once" AutomationProperties.Name="Fewer jobs at once" />
-                                        <TextBlock Text="{Binding Performance.ParallelJobs, StringFormat={}{0:0}}" Width="40" TextAlignment="Center"
-                                                   VerticalAlignment="Center" FontSize="14" FontWeight="Bold" />
-                                        <Button Content="+" Command="{Binding Performance.IncreaseJobsCommand}" ToolTip.Tip="More jobs at once" AutomationProperties.Name="More jobs at once" />
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-                            <Grid Classes="row" ColumnDefinitions="*,Auto">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Check each file after converting" Classes="name" />
-                                    <TextBlock Text="Reads the new file back and compares it. Slower, but required before originals are replaced." Classes="desc" />
-                                </StackPanel>
-                                <CheckBox Classes="onoff control" IsChecked="{Binding Chd.VerifyAfterCreate}" AutomationProperties.Name="Check each file after converting"
-                                          Content="{Binding Chd.VerifyAfterCreate, Converter={x:Static v:SettingsView.OnOff}}" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Log -->
-                    <Border Classes="card main">
-                        <StackPanel>
-                            <TextBlock Text="LOG" Classes="section" />
-                            <Grid Classes="row" ColumnDefinitions="*,Auto">
-                                <TextBlock Text="Open the log when a run has errors" Classes="name" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                <CheckBox Classes="onoff control" IsChecked="{Binding Log.OpenLogOnErrors}" AutomationProperties.Name="Open the log when a run has errors"
-                                          Content="{Binding Log.OpenLogOnErrors, Converter={x:Static v:SettingsView.OnOff}}" />
-                            </Grid>
-                            <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                                <TextBlock Text="Keep logs for" Classes="name" VerticalAlignment="Center" />
-                                <StackPanel Classes="control" Orientation="Horizontal" Spacing="8">
-                                    <ComboBox Width="140" AutomationProperties.Name="Keep logs for" ItemsSource="{Binding Log.KeepLogsChoices}" SelectedItem="{Binding Log.SelectedKeepLogs}"
-                                              VerticalAlignment="Center" ToolTip.Tip="Older saved logs are deleted when the app starts." />
-                                    <Button Classes="outline" Content="Open log folder" Command="{Binding Log.OpenLogFolderCommand}" />
-                                </StackPanel>
-                            </Grid>
-                            <TextBlock Classes="desc warning" Text="{Binding Log.Status}" Margin="0,-6,0,0"
-                                       IsVisible="{Binding Log.Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-
-                <StackPanel Grid.Column="1">
-
-                    <!-- Default presets: the preset each system's rows start on, then the saved presets -->
-                    <Border Classes="card main" DataContext="{Binding DefaultPresets}" x:DataType="vm:DefaultPresetsViewModel">
-                        <StackPanel>
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="DEFAULT PRESETS" Classes="section" />
-                                <TextBlock Classes="desc" Text="The preset new files start with, per system. Each file can still use a different one." />
-                            </StackPanel>
-                            <ItemsControl ItemsSource="{Binding VisibleSystems}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Spacing="14" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:SystemDefaultViewModel">
-                                        <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                                            <TextBlock Text="{Binding Name}" Classes="name" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                                       ToolTip.Tip="{Binding Name}" />
-                                            <ComboBox Classes="control" Width="240" ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}"
-                                                      AutomationProperties.Name="{Binding Name, StringFormat='Default preset for {0}'}" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <Button Classes="link" Content="{Binding MoreSystemsText}" Command="{Binding ToggleAllSystemsCommand}"
-                                    IsVisible="{Binding HasMoreSystems}" HorizontalAlignment="Left" Margin="-2,-4,0,0" />
-                            <Grid Classes="row" ColumnDefinitions="*,Auto">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Saved presets" Classes="name" />
-                                    <TextBlock Classes="desc" Text="{Binding SavedSummary}" />
-                                </StackPanel>
-                                <Button Classes="outline control" Content="Manage…" Command="{Binding ManageCommand}" IsEnabled="{Binding HasSaved}" />
-                            </Grid>
-                            <ItemsControl ItemsSource="{Binding Saved}" IsVisible="{Binding IsManaging}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:SavedPresetItemViewModel">
-                                        <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" Margin="0,0,0,6">
-                                            <TextBox Classes="commit" Text="{Binding Name, UpdateSourceTrigger=LostFocus}" ToolTip.Tip="Rename the preset"
-                                                     AutomationProperties.Name="Preset name" />
-                                            <TextBlock Grid.Column="1" Text="{Binding Detail}" Classes="hint" VerticalAlignment="Center" />
-                                            <Button Grid.Column="2" Classes="link" Content="Delete" Command="{Binding DeleteCommand}"
-                                                    AutomationProperties.Name="{Binding Name, StringFormat='Delete {0}'}" />
-                                            <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Classes="desc warning" Text="{Binding RenameProblem}"
-                                                       IsVisible="{Binding HasRenameProblem}" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Library -->
-                    <Border Classes="card main">
-                        <StackPanel>
-                            <TextBlock Text="LIBRARY" Classes="section" />
-                            <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Library folders" Classes="name" />
-                                    <TextBlock Text="Loaded into the file list on Optimize, Convert, Verify and Organize." Classes="desc" />
-                                </StackPanel>
-                                <StackPanel Classes="control" Width="302" Spacing="6">
-                                    <ItemsControl ItemsSource="{Binding Library.Folders}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <StackPanel Spacing="6" />
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="x:String">
-                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                    <Border Classes="path">
-                                                        <TextBlock Text="{Binding}" ToolTip.Tip="{Binding}" />
-                                                    </Border>
-                                                    <Button Grid.Column="1" Classes="link" Content="Remove" ToolTip.Tip="Stop scanning this folder (no files are touched)."
-                                                            AutomationProperties.Name="{Binding StringFormat='Remove {0} from the library'}"
-                                                            Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).Library.RemoveFolderFromListCommand}"
-                                                            CommandParameter="{Binding}" />
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                    <TextBlock Classes="desc" Text="No folders yet." IsVisible="{Binding !Library.HasFolders}" />
-                                    <Button Classes="outline" Content="Add folder…" Command="{Binding Library.AddFolderCommand}" HorizontalAlignment="Right" />
-                                </StackPanel>
-                            </Grid>
-                            <Grid Classes="row" ColumnDefinitions="*,Auto">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Emulator data" Classes="name" />
-                                    <TextBlock Classes="desc" Text="{Binding Library.EmulatorDataDescription}" />
-                                </StackPanel>
-                                <Button Classes="outline control" Content="Check now" Command="{Binding Library.CheckEmulatorDataCommand}" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Keys: the user's own, for encrypted Wii U, 3DS and Switch files. Missing-key errors send people here (Settings › Keys). -->
-                    <Border x:Name="KeysCard" Classes="card main" DataContext="{Binding Keys}" x:DataType="vm:KeySettingsViewModel">
-                        <StackPanel>
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="KEYS" Classes="section" />
-                                <TextBlock Classes="desc" Text="Encrypted games need your own keys, dumped from your own console. NoIntrovert doesn't include any." />
-                            </StackPanel>
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Wii U" Classes="name" />
-                                <TextBlock Classes="desc" Text="Your keys.txt, the one Cemu uses." />
-                                <TextBlock Classes="desc" Text="{Binding WiiUKeysSummary}" />
-                                <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <Button Classes="outline" Content="Choose keys.txt…" Command="{Binding BrowseWiiUKeysCommand}" Margin="0,0,8,6" />
-                                    <Button Classes="outline" Content="Find automatically" Command="{Binding FindWiiUKeysAutomaticallyCommand}" Margin="0,0,8,6"
-                                            AutomationProperties.Name="Find Wii U keys automatically" />
-                                    <Button Classes="outline" Content="Refresh" Command="{Binding RefreshWiiUKeysCommand}" Margin="0,0,8,6"
-                                            AutomationProperties.Name="Refresh Wii U keys" />
-                                </WrapPanel>
-                            </StackPanel>
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="3DS" Classes="name" />
-                                <TextBlock Classes="desc" Text="Your boot9.bin and aes_keys.txt, the ones Azahar uses. NoIntrovert looks in Azahar's and Citra's folders." />
-                                <TextBlock Classes="desc" Text="{Binding ThreeDsKeysSummary}" />
-                                <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <Button Classes="outline" Content="Choose a folder…" Command="{Binding BrowseThreeDsKeysCommand}" Margin="0,0,8,6"
-                                            AutomationProperties.Name="Choose the 3DS keys folder" />
-                                    <Button Classes="outline" Content="Find automatically" Command="{Binding FindThreeDsKeysAutomaticallyCommand}" Margin="0,0,8,6"
-                                            AutomationProperties.Name="Find 3DS keys automatically" />
-                                    <Button Classes="outline" Content="Refresh" Command="{Binding RefreshThreeDsKeysCommand}" Margin="0,0,8,6"
-                                            AutomationProperties.Name="Refresh 3DS keys" />
-                                </WrapPanel>
-                            </StackPanel>
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Switch" Classes="name" />
-                                <TextBlock Classes="desc" Text="Your prod.keys, dumped with Lockpick_RCM. NoIntrovert looks where Ryujinx and the yuzu-family emulators keep it." />
-                                <TextBlock Classes="desc" Text="{Binding SwitchKeysSummary}" />
-                                <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <Button Classes="outline" Content="Choose prod.keys…" Command="{Binding BrowseSwitchKeysCommand}" Margin="0,0,8,6" />
-                                    <Button Classes="outline" Content="Find automatically" Command="{Binding FindSwitchKeysAutomaticallyCommand}" Margin="0,0,8,6"
-                                            AutomationProperties.Name="Find Switch keys automatically" />
-                                    <Button Classes="outline" Content="Refresh" Command="{Binding RefreshSwitchKeysCommand}" Margin="0,0,8,6"
-                                            AutomationProperties.Name="Refresh Switch keys" />
-                                </WrapPanel>
-                            </StackPanel>
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="PS3" Classes="name" />
-                                <TextBlock Classes="desc" Text="Each disc's key, the .dkey file Redump publishes. Keep it beside the image with the same name, or put them all in one folder." />
-                                <TextBlock Classes="desc" Text="{Binding Ps3KeysSummary}" />
-                                <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <Button Classes="outline" Content="Choose a folder…" Command="{Binding BrowsePs3KeysCommand}" Margin="0,0,8,6"
-                                            AutomationProperties.Name="Choose the PS3 keys folder" />
-                                    <Button Classes="outline" Content="Beside the images only" Command="{Binding ClearPs3KeysCommand}" Margin="0,0,8,6"
-                                            AutomationProperties.Name="Look for PS3 keys beside the images only" />
-                                    <Button Classes="outline" Content="Refresh" Command="{Binding RefreshPs3KeysCommand}" Margin="0,0,8,6"
-                                            AutomationProperties.Name="Refresh PS3 keys" />
-                                </WrapPanel>
-                            </StackPanel>
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="PS Vita" Classes="name" />
-                                <TextBlock Classes="desc" Text="The package keys are built in. Games and DLC also need their zRIF license: a .zrif file next to each .pkg, or a list of zRIFs (such as NoPayStation's TSV) chosen here." />
-                                <TextBlock Classes="desc" Text="{Binding VitaZrifSummary}" />
-                                <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <Button Classes="outline" Content="Choose a zRIF list…" Command="{Binding BrowseVitaZrifCommand}" Margin="0,0,8,6" />
-                                    <Button Classes="outline" Content="Clear" Command="{Binding ClearVitaZrifCommand}" Margin="0,0,8,6"
-                                            AutomationProperties.Name="Clear the zRIF list" />
-                                    <Button Classes="outline" Content="Refresh" Command="{Binding RefreshVitaZrifCommand}" Margin="0,0,8,6"
-                                            AutomationProperties.Name="Refresh the zRIF list" />
-                                </WrapPanel>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- About -->
-                    <Border Classes="card main">
-                        <StackPanel>
-                            <TextBlock Text="ABOUT" Classes="section" />
-                            <Grid Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding About.Version}" Classes="name" />
-                                    <TextBlock Classes="desc" Text="{Binding About.ToolVersions}" />
-                                </StackPanel>
-                                <StackPanel Classes="control" Orientation="Horizontal" Spacing="8">
-                                    <Button Classes="outline" Content="Check for updates" Command="{Binding About.CheckForUpdatesCommand}"
-                                            ToolTip.Tip="Opens the releases page in your browser" />
-                                    <Button Classes="outline" Content="Licenses" Command="{Binding About.OpenLicensesCommand}"
-                                            ToolTip.Tip="NoIntrovert's licence and the bundled libraries' licences and notices" />
-                                </StackPanel>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </Grid>
-
-            <!-- Advanced: everything else, collapsed -->
-            <Expander Header="Advanced" Margin="0,4,0,12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                <StackPanel Spacing="8">
-                    <TextBlock Classes="hint" Text="Fine-tuning most people never need." />
-                    <Grid x:Name="AdvancedColumns" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12">
-                        <StackPanel Grid.Column="0">
 
                             <!-- Power-user mode -->
-                            <Border Classes="card quiet">
+                            <Border x:Name="PowerUserCard" Classes="card quiet">
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="POWER USER" Classes="section" Margin="0,0,0,4" />
                                     <CheckBox Content="Power-user mode" IsChecked="{Binding General.PowerUserMode}" />
@@ -695,7 +737,7 @@
                             </Border>
 
                             <!-- Archives: what a new archive becomes -->
-                            <Border Classes="card quiet">
+                            <Border x:Name="ArchivesCard" Classes="card quiet">
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="ARCHIVES" Classes="section" Margin="0,0,0,4" />
                                     <TextBlock Text="New archives are" />
@@ -706,7 +748,7 @@
                             </Border>
 
                             <!-- Files and the library's scans -->
-                            <Border Classes="card quiet">
+                            <Border x:Name="FilesCard" Classes="card quiet">
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="FILES AND FOLDERS" Classes="section" Margin="0,0,0,4" />
                                     <CheckBox Content="Include subfolders when adding a folder" IsChecked="{Binding Output.ScanSubfolders}" />
@@ -719,12 +761,9 @@
                                               HorizontalAlignment="Stretch" />
                                 </StackPanel>
                             </Border>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="1">
 
                             <!-- Game databases (M6) and ES-DE's system list -->
-                            <Border Classes="card quiet" DataContext="{Binding Dats}" x:DataType="vm:DatSettingsViewModel">
+                            <Border x:Name="DatabasesCard" Classes="card quiet" DataContext="{Binding Dats}" x:DataType="vm:DatSettingsViewModel">
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="GAME DATABASES" Classes="section" Margin="0,0,0,4" />
                                     <TextBlock Classes="hint"
@@ -749,7 +788,7 @@
                             </Border>
 
                             <!-- Target formats (docs/target-formats.md) -->
-                            <Border Classes="card quiet" DataContext="{Binding TargetFormats}" x:DataType="vm:TargetFormatSettingsViewModel">
+                            <Border x:Name="TargetFormatsCard" Classes="card quiet" DataContext="{Binding TargetFormats}" x:DataType="vm:TargetFormatSettingsViewModel">
                                 <StackPanel Spacing="6">
                                     <TextBlock Text="TARGET FORMATS" Classes="section" Margin="0,0,0,4" />
                                     <TextBlock Classes="hint"
@@ -846,7 +885,7 @@
                             </Border>
 
                             <!-- Diagnostics: Power-user mode only -->
-                            <Border Classes="card quiet" IsVisible="{Binding General.PowerUserMode}">
+                            <Border x:Name="DiagnosticsCard" Classes="card quiet" IsVisible="{Binding General.PowerUserMode}">
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="DIAGNOSTICS" Classes="section" Margin="0,0,0,4" />
                                     <CheckBox Content="Log lib-chd-kit's messages" IsChecked="{Binding General.VerboseLog}"
@@ -872,9 +911,32 @@
                                 </StackPanel>
                             </Border>
                         </StackPanel>
-                    </Grid>
-                </StackPanel>
-            </Expander>
-        </StackPanel>
-    </ScrollViewer>
+                    </StackPanel>
+                </Expander>
+
+                <!-- About: the illustration, the version and the bundled tools -->
+                <Border x:Name="AboutCard" Classes="card main">
+                    <StackPanel>
+                        <TextBlock Text="ABOUT" Classes="section" />
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18">
+                        <Image x:Name="AboutLogo" Source="/Assets/nointrovert-logo.png" Width="120" Height="120" Stretch="Uniform"
+                               VerticalAlignment="Center" AutomationProperties.Name="NoIntrovert" />
+                        <Grid Grid.Column="1" Classes="row wide" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" VerticalAlignment="Center">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding About.Version}" Classes="name" />
+                                <TextBlock Classes="desc" Text="{Binding About.ToolVersions}" />
+                            </StackPanel>
+                            <StackPanel Classes="control" Orientation="Horizontal" Spacing="8">
+                                <Button Classes="outline" Content="Check for updates" Command="{Binding About.CheckForUpdatesCommand}"
+                                        ToolTip.Tip="Opens the releases page in your browser" />
+                                <Button Classes="outline" Content="Licenses" Command="{Binding About.OpenLicensesCommand}"
+                                        ToolTip.Tip="NoIntrovert's licence and the bundled libraries' licences and notices" />
+                            </StackPanel>
+                        </Grid>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

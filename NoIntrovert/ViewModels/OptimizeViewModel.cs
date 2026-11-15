@@ -23,8 +23,9 @@ public sealed partial class OptimizeViewModel(SettingsViewModel settings, LogVie
     public override string Title => "Optimize";
     public override string StartLabel => "Optimize";
     protected override string DoneVerb => "Optimized";
+    public override string DropHint => "Drop games, folders or archives here";
     public override string EmptyHint =>
-        "Drop games here, or a folder of them: ROMs, archives, disc images, CHDs, GameCube/Wii discs.\n" +
+        "Games, or a folder of them: ROMs, archives, disc images, CHDs, GameCube/Wii discs.\n" +
         "One click verifies each file against the No-Intro and Redump databases, converts it to its best format, " +
         "names it as the database does and moves it into its system's folder, in that order.";
     protected override string FilterName => "Games";
@@ -62,12 +63,13 @@ public sealed partial class OptimizeViewModel(SettingsViewModel settings, LogVie
         return outcome.Status == JobStatus.Skipped ? outcome with { Status = verify.Status, Summary = said } : outcome with { Summary = said };
     }
 
-    /// <summary>"Verify → Convert → roms/psx/Crash (USA).chd", or, before a file is checked, what's likely.</summary>
-    protected override string ChangesFor(LibraryItem? item, IReadOnlyList<CleanupStep> steps)
+    /// <summary>"roms/psx/Crash (USA).chd" with Verify · Convert · Rename · Move, or, before a file is checked, what's likely.</summary>
+    protected override RowChanges ChangesFor(LibraryItem? item, IReadOnlyList<CleanupStep> steps)
     {
-        if (item is null) return "Not a file Optimize can use";
+        if (item is null) return new("Not a file Optimize can use", ChangesKind.LeftAlone, []);
         if (!Checked.Contains(item.Path)) return Predicted(item, PlanSettings, Options.BuildNewLibrary ? Options.NewLibraryFolder : null);
-        return "Verify → " + StepsText(item, steps);
+        var changes = ChangesOf(item, steps);
+        return changes with { Steps = ["Verify", .. changes.Steps] };
     }
 
     protected override string DetailsFor(LibraryItem? item, IReadOnlyList<CleanupStep> steps)
@@ -81,30 +83,41 @@ public sealed partial class OptimizeViewModel(SettingsViewModel settings, LogVie
 
     /// <summary>
     /// What happens to a file that hasn't been checked yet: verified, then (if it's matched) converted,
-    /// named from the database and moved into its system's folder. The exact names come after Verify.
+    /// named from the database and moved into its system's folder. The folder is known now; the name only
+    /// after Verify, so the outcome says so ("roms/psx/….chd, name after Verify").
     /// </summary>
-    internal static string Predicted(LibraryItem item, AppSettings settings, string? newLibrary)
+    internal static RowChanges Predicted(LibraryItem item, AppSettings settings, string? newLibrary)
     {
-        var parts = new List<string> { "Verify" };
+        var steps = new List<string> { "Verify" };
         var system = TargetFormats.ById(item.System);
         var ext = item.FormatStatus == TargetStatus.Convert ? ExtensionOf(item.Target) : null;
-        if (ext is not null) parts.Add($"Convert → {ext}");
+        if (ext is not null) steps.Add("Convert");
+        var trimmed = Path.TrimEndingDirectorySeparator(item.Path);
+        var here = Path.GetDirectoryName(trimmed) ?? item.Root;
+        var prefix = newLibrary is not null ? "New library: " : "";
         if (system is null || system.Follows("R5"))
         {
-            if (ext is null) parts.Add(system is null ? "Left alone: unknown system" : "Left alone: arcade romset");
-            return string.Join(" → ", parts);
+            if (ext is null) return new(system is null ? "Left alone: unknown system" : "Left alone: arcade romset", ChangesKind.LeftAlone, steps);
+            // Not one the databases can name: converted where it is, under its own name.
+            if (newLibrary is not null) steps.Add("Copy");
+            var folder = CleanupPlanner.Mirror(item, here, newLibrary);
+            return new(prefix + In(newLibrary ?? item.Root, folder, Path.GetFileNameWithoutExtension(trimmed) + ext), ChangesKind.Planned, steps);
         }
-        parts.Add("Name from the database");
+        steps.Add("Rename");
+        var to = CleanupPlanner.Mirror(item, here, newLibrary);
         if (CleanupPlanner.CanArrange(system, settings))
         {
-            var folder = CleanupPlanner.FolderFor(item, system, settings, newLibrary);
-            var relative = Path.GetRelativePath(newLibrary ?? item.Root, folder).Replace('\\', '/');
-            if (!PathNames.Same(folder, Path.GetDirectoryName(item.Path) ?? ""))
-                parts.Add(newLibrary is not null ? $"Copy → {(relative == "." ? newLibrary : $"{relative}/ in the new library")}"
-                    : relative == "." ? "Move → the top of its folder" : $"Move → {relative}/");
+            to = CleanupPlanner.FolderFor(item, system, settings, newLibrary);
+            if (newLibrary is null && !PathNames.Same(to, here)) steps.Add("Move");
         }
-        else if (newLibrary is not null) parts.Add($"Copy → {newLibrary}");
-        return string.Join(" → ", parts);
+        if (newLibrary is not null) steps.Add("Copy");
+        return new($"{prefix}{In(newLibrary ?? item.Root, to, "…" + ext)}, name after Verify", ChangesKind.Guess, steps);
+
+        static string In(string root, string folder, string name)
+        {
+            var relative = Path.GetRelativePath(root, folder).Replace('\\', '/');
+            return relative == "." || relative.StartsWith("..") || Path.IsPathRooted(relative) ? name : $"{relative}/{name}";
+        }
     }
 
     private static string? ExtensionOf(TargetKind target) => target switch

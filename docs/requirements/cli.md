@@ -249,6 +249,8 @@ with a hint (`--verify-first`, or use `noi optimize`).
 | `--plan <file>` | Run exactly this saved plan; refused if a file in it changed since |
 | `--new-library <folder>` | Build a new library there; the files in place don't change at all |
 | `--no-copy-unmatched` | With `--new-library`: leave out games that aren't matched |
+| `--no-copy-saves` | With `--new-library`: don't copy each game's saves and states (same name, other extension) along with it |
+| `--copy-other-files` | With `--new-library`: also copy every other file in the folders into the matching system folder |
 | `--layout esde\|romm\|keep\|flat` | As §5.1 (`keep` here: convert and rename in place) |
 | `--no-convert`, `--no-rename`, `--no-move`, `--no-dedupe` | Turn off a whole kind of step |
 | `--verify-first` | Verify the files that haven't been, then plan |

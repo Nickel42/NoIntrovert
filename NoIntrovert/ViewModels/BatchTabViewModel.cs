@@ -213,7 +213,23 @@ public abstract partial class BatchTabViewModel : ViewModelBase
 
     public abstract string Title { get; }
     public abstract string StartLabel { get; }
+    /// <summary>What an empty list takes, in full: shown under the drop zone's "What can I add?".</summary>
     public abstract string EmptyHint { get; }
+
+    /// <summary>The empty list's drop zone, in one line.</summary>
+    public virtual string DropHint => "Drop files or folders here";
+
+    /// <summary>Files are being dragged over the window: the empty list's drop zone lights up (the job list sets it).</summary>
+    [ObservableProperty] public partial bool IsDragOver { get; set; }
+
+    /// <summary>The drop zone's "What can I add?" is open, showing <see cref="EmptyHint"/>.</summary>
+    [ObservableProperty] public partial bool ShowsAddHelp { get; set; }
+
+    [RelayCommand]
+    private void ToggleAddHelp() => ShowsAddHelp = !ShowsAddHelp;
+
+    /// <summary>The toolbar's Add ▾ arrow: what its menu adds besides files.</summary>
+    public string AddMenuTip => ShowsTargets ? "Add a folder, or a folder as one archive" : "Add a folder";
     protected abstract string FilterName { get; }
 
     /// <summary>
@@ -318,7 +334,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             OnPropertyChanged(nameof(NoMatches));
             return;
         }
-        bool Match(JobItemViewModel i) => words.All(w =>
+        bool Match(JobItemViewModel i) => words.All(w => string.Equals(w, FailedFilter, StringComparison.OrdinalIgnoreCase) ? i.IsFailed :
             i.Name.Contains(w, StringComparison.OrdinalIgnoreCase) || i.Folder.Contains(w, StringComparison.OrdinalIgnoreCase) ||
             (i.Target?.Label.Contains(w, StringComparison.OrdinalIgnoreCase) ?? false) ||
             i.PresetLabel.Contains(w, StringComparison.OrdinalIgnoreCase) ||
@@ -331,6 +347,19 @@ public abstract partial class BatchTabViewModel : ViewModelBase
 
     [RelayCommand]
     private void ClearFilter() => Filter = "";
+
+    /// <summary>
+    /// The filter word that keeps only failed rows (the status bar's "2 failed" badge types it).
+    /// A word of its own rather than "failed", which would also keep any row whose file, folder
+    /// or preset has "failed" in its name; this one matches the row's status, nothing else.
+    /// </summary>
+    public const string FailedFilter = "is:failed";
+
+    /// <summary>Whether any row on this page failed.</summary>
+    public bool HasFailedRows => Items.Any(i => i.IsFailed);
+
+    /// <summary>Filters the list to its failed rows (the status bar's failure badge); the filter box shows it and Escape clears it.</summary>
+    public void ShowFailedOnly() => Filter = FailedFilter;
     [ObservableProperty] public partial System.Collections.IList? SelectedItems { get; set; }
 
     // ---- Selection and focus: the checkboxes select, the panel follows the focused row ----
@@ -414,8 +443,10 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         var list = paths.Select(p => System.IO.Path.TrimEndingDirectorySeparator(p)).ToList();
         if (Workspace is { } workspace)
         {
-            foreach (var p in list) _taken.Add(p);
+            // Added first: a folder added again drops out of every page's taken paths (Restored),
+            // and this page takes it back here, since it looks through it now.
             workspace.Add(list);
+            foreach (var p in list) _taken.Add(p);
         }
         return AddPathsAsync(list);
     }
@@ -439,6 +470,8 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             Items.RemoveWhere(i => gone.Contains(i.Path));
             _taken.ExceptWith(gone);
         };
+        // A folder added again with removed files in it: look through it again when this page is opened.
+        workspace.Restored += folders => _taken.ExceptWith(folders);
         workspace.Cleared += () =>
         {
             _taken.Clear();

@@ -49,6 +49,52 @@ internal static class ConvertDesignTests
             return changes is [.., "Convert → .chd", "Left as is"] ? null : "notes: " + string.Join(" | ", changes);
         });
 
+        test("Row density: a compact row's preset suffix says only what the preset's name doesn't", () =>
+        {
+            var chd = FormatPresets.StandardFor(TargetKind.Chd);
+            var saved = FormatPresets.ToPreset(new SavedPreset { Id = "x", Name = "My PS1", Values = chd.Values.Copy() });
+            var results = new (string Got, string Want)[]
+            {
+                (JobItemViewModel.SuffixFor(chd, null, "playstation", TargetKind.Chd, "Convert → .chd"), ""),
+                (JobItemViewModel.SuffixFor(FormatPresets.Leave, null, "playstation", TargetKind.Leave, "Optimal"), "Optimal"),
+                // Leave as is chosen by hand: the name says it all.
+                (JobItemViewModel.SuffixFor(FormatPresets.Leave, null, "playstation", TargetKind.Chd, "Convert → .chd"), ""),
+                (JobItemViewModel.SuffixFor(FormatPresets.Custom, new PresetValues { Target = TargetKind.Rvz }, "gamecube", TargetKind.Rvz, "Convert → .rvz"), "→ .rvz"),
+                (JobItemViewModel.SuffixFor(saved, null, "playstation", TargetKind.Chd, "Convert → .chd"), "→ .chd"),
+                (JobItemViewModel.SuffixFor(null, null, null, TargetKind.Leave, "Optimal"), ""),
+            };
+            var wrong = results.Where(r => r.Got != r.Want).Select(r => $"'{r.Got}' (want '{r.Want}')").ToList();
+            return wrong.Count == 0 ? null : string.Join("; ", wrong);
+        });
+
+        test("Row density: a row not on its system's recommended (★) preset is marked, and its tooltip says so", () =>
+        {
+            var row = new JobItemViewModel(Path.Combine(Path.GetTempPath(), "no-such-dir", "Game.iso"))
+            {
+                SystemId = "gamecube", PlannedTarget = TargetKind.Rvz, FormatStatus = "Convert → .rvz",
+                Targets = [new TargetChoice(TargetKind.Rvz, "RVZ"), new TargetChoice(TargetKind.Iso, "ISO"), TargetChoice.Leave],
+            };
+            var options = FormatPresets.ListFor("gamecube", row.Targets.Select(t => t.Kind).ToList(), new PresetSettings());
+            row.PresetOptions = options;
+            row.PresetChoice = row.OptionFor("rvz-balanced");
+            if (row.IsNotRecommended) return "the recommended preset is marked";
+            if (row.PresetTip.Contains("Not the recommended")) return "the recommended preset's tooltip says it isn't";
+            var raised = false;
+            row.PropertyChanged += (_, e) => raised |= e.PropertyName == nameof(JobItemViewModel.IsNotRecommended);
+            row.PresetChoice = row.OptionFor("rvz-smallest");
+            if (!row.IsNotRecommended || !raised) return "RVZ · Smallest isn't marked";
+            if (!row.PresetTip.Contains("Not the recommended preset")) return $"the tooltip: \"{row.PresetTip}\"";
+            // A file the rules leave: Leave as is is what's recommended.
+            var left = new JobItemViewModel(Path.Combine(Path.GetTempPath(), "no-such-dir", "Game.rvz"))
+            {
+                SystemId = "gamecube", PlannedTarget = TargetKind.Leave, FormatStatus = "Optimal",
+                Targets = [TargetChoice.Leave],
+            };
+            left.PresetOptions = FormatPresets.ListFor("gamecube", [TargetKind.Leave], new PresetSettings());
+            left.PresetChoice = left.OptionFor(FormatPreset.LeaveId);
+            return left.IsNotRecommended ? "an optimal file left as is is marked" : left.PresetSuffix == "Optimal" ? null : $"suffix \"{left.PresetSuffix}\"";
+        });
+
         test("Convert design: Result shows the new file's size next to the original", () =>
         {
             var stats = new OperationStats(TimeSpan.FromSeconds(10), 1000, 410);

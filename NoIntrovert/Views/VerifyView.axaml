@@ -7,10 +7,13 @@
              v:Responsive.Below="narrow:1000">
     <UserControl.Styles>
     </UserControl.Styles>
-    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,10,0,0">
+    <!-- The list, and the side panel: a column, or below 880 px an overlay from the Details tab (SidePanelHost) -->
+    <v:SidePanelHost Margin="0,10,0,0">
+        <v:SidePanelHost.Main>
         <v:JobListPanel />
-
-        <ScrollViewer Grid.Column="1" Classes="sidepanel" HorizontalScrollBarVisibility="Disabled">
+        </v:SidePanelHost.Main>
+        <v:SidePanelHost.Panel>
+        <ScrollViewer Classes="sidepanel" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="12">
             <Border Classes="card">
                 <v:SelectedFilePanel DataContext="{Binding SelectedFile}" />
@@ -31,5 +34,6 @@
             </Border>
             </StackPanel>
         </ScrollViewer>
-    </Grid>
+        </v:SidePanelHost.Panel>
+    </v:SidePanelHost>
 </UserControl>

@@ -56,7 +56,11 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
     public bool NeedsKeys => IsFailed && (KeysLink.PointsToKeys(Result) || KeysLink.PointsToKeys(Details));
 
     partial void OnResultChanged(string value) => OnPropertyChanged(nameof(NeedsKeys));
-    partial void OnDetailsChanged(string value) => OnPropertyChanged(nameof(NeedsKeys));
+    partial void OnDetailsChanged(string value)
+    {
+        OnPropertyChanged(nameof(NeedsKeys));
+        OnPropertyChanged(nameof(ResultTip));
+    }
 
     public string StatusText => Status switch
     {
@@ -157,6 +161,7 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
             OnPropertyChanged(nameof(Preset));
             OnPropertyChanged(nameof(IsCustom));
             OnPropertyChanged(nameof(PresetLabel));
+            OnPropertyChanged(nameof(IsNotRecommended));
             SyncTarget();
         }
     }
@@ -201,7 +206,71 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
         Target = Targets.FirstOrDefault(t => t.Kind == kind) ?? Core.Formats.TargetChoice.Leave;
         OnPropertyChanged(nameof(Values));
         OnPropertyChanged(nameof(PresetNote));
+        OnPropertyChanged(nameof(PresetSuffix));
+        OnPropertyChanged(nameof(PresetTip));
     }
+
+    // ---- How the Preset cell reads in a dense list (docs/requirements/ui-redesign.md, "Row density") ----
+
+    /// <summary>
+    /// The entry this row would be on if nobody had chosen: Leave as is when the
+    /// rules leave the file, else the system's recommended (★) preset. Null when
+    /// there's nothing to recommend (an unknown system, or ★ isn't usable for this file).
+    /// </summary>
+    public FormatPreset? RecommendedPreset =>
+        PlannedTarget == Core.Formats.TargetKind.Leave
+            ? OptionFor(FormatPreset.LeaveId)?.Preset
+            : FormatPresets.Recommended(SystemId) is { } star ? OptionFor(star.Id)?.Preset : null;
+
+    /// <summary>The row's preset isn't the recommended one: the list marks it with an accent dot, to be spotted in a long list.</summary>
+    public bool IsNotRecommended => Preset is not null && RecommendedPreset is { } r && r.Id != Preset.Id;
+
+    /// <summary>
+    /// The muted text after the preset's name in a dense row, only when it says
+    /// something the name doesn't (<see cref="SuffixFor"/>); the full note is in the tooltip.
+    /// </summary>
+    public string PresetSuffix => SuffixFor(Preset, CustomValues, SystemId, PlannedTarget, FormatStatus);
+
+    /// <summary>
+    /// <see cref="PresetSuffix"/>'s rule. A file left as is because the rules
+    /// leave it says why ("Optimal", "Left as is (your setting)"); a preset whose
+    /// name doesn't say the extension it makes (Custom, a saved preset named
+    /// "My PS1") says it ("→ .rvz"). "CHD · Standard" making a .chd, or Leave
+    /// as is chosen by hand, says nothing more.
+    /// </summary>
+    public static string SuffixFor(FormatPreset? preset, PresetValues? customValues, string? systemId,
+        Core.Formats.TargetKind planned, string formatStatus)
+    {
+        if (preset is null) return "";
+        if (preset.IsLeave) return planned == Core.Formats.TargetKind.Leave ? formatStatus : "";
+        var ext = (preset.IsCustom ? customValues?.OutputExtension(systemId) : preset.OutputExtension(systemId))?.TrimStart('.');
+        if (string.IsNullOrEmpty(ext) || preset.Label.Contains(ext, StringComparison.OrdinalIgnoreCase)) return "";
+        return $"→ .{ext}";
+    }
+
+    /// <summary>The Preset dropdown's tooltip: what the row becomes, the system, and whether the preset is the recommended one.</summary>
+    public string PresetTip
+    {
+        get
+        {
+            var lines = new List<string>();
+            var note = PresetNote;
+            lines.Add(FormatDetails.Length > 0 && note.Length > 0 ? $"{note} · {FormatDetails}" : note.Length > 0 ? note : FormatDetails);
+            if (IsNotRecommended) lines.Add($"Not the recommended preset ({RecommendedPreset!.Label}).");
+            lines.Add("This file's preset: its format and settings.");
+            return string.Join("\n", lines.Where(l => l.Length > 0));
+        }
+    }
+
+    /// <summary>The Result cell's tooltip: the details, and the speed (a dense row has no line for it).</summary>
+    public string? ResultTip => string.Join("\n", new[] { Details, SpeedText.Length > 0 ? $"Speed: {SpeedText}" : "" }.Where(s => s.Length > 0)) is { Length: > 0 } tip ? tip : null;
+
+    partial void OnSpeedTextChanged(string value) => OnPropertyChanged(nameof(ResultTip));
+
+    partial void OnStageChanged(string value) => OnPropertyChanged(nameof(StageTip));
+
+    /// <summary>The progress cell's tooltip: the stage the job is at (a dense row has no line for it).</summary>
+    public string? StageTip => Stage.Length > 0 ? Stage : null;
 
     /// <summary>
     /// The line under the row's Preset dropdown: "Convert → .chd" for the
@@ -243,11 +312,60 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
 
     // ---- Optimize and Organize: what the run does to this file ----
 
-    /// <summary>The steps planned for this file, in the order they run ("Verify → Convert → .chd → Move into roms/psx/"); empty elsewhere.</summary>
-    [ObservableProperty] public partial string Changes { get; set; } = "";
+    /// <summary>
+    /// The CHANGES column leads with the outcome: where the file ends up, relative to its library folder
+    /// ("roms/gc/Baldur's Gate - Dark Alliance (USA).rvz"), or why nothing happens ("Left alone: not verified yet",
+    /// "Clash: … already exists", "To the trash (duplicate)"). Empty on the other pages.
+    /// </summary>
+    [ObservableProperty] public partial string ChangesTarget { get; set; } = "";
+
+    /// <summary>What kind of outcome <see cref="ChangesTarget"/> is: it sets the cell's style (a path, muted, a clash).</summary>
+    [ObservableProperty] public partial ChangesKind ChangesKind { get; set; }
+
+    /// <summary>The steps that get it there, in run order ("Verify", "Convert", "Rename", "Move"): the cell's chips.</summary>
+    [ObservableProperty] public partial IReadOnlyList<string> ChangesSteps { get; set; } = [];
 
     /// <summary>The planned steps one per line, with where each file ends up and why (the column's tooltip).</summary>
     [ObservableProperty] public partial string ChangesDetails { get; set; } = "";
+
+    /// <summary>The steps as one line, "Verify · Convert · Move" (the cell's accessible help text).</summary>
+    public string ChangesStepsText => string.Join(" · ", ChangesSteps);
+
+    public bool HasChangesSteps => ChangesSteps.Count > 0;
+
+    /// <summary>
+    /// The outcome is a path: trimmed at its start, so the file name stays in view. (A guess, "roms/nes/….7z, name after
+    /// Verify", has no name yet: it's trimmed at its end, so the folder stays in view.)
+    /// </summary>
+    public bool IsChangesPath => ChangesKind is ChangesKind.Planned;
+
+    /// <summary>Nothing happens to the file (left alone, already in place, its box unticked): drawn muted.</summary>
+    public bool IsChangesMuted => ChangesKind is ChangesKind.LeftAlone or ChangesKind.Unchanged or ChangesKind.Off;
+
+    /// <summary>A clash, or a plan that can't be made: the warning colour and glyph.</summary>
+    public bool IsChangesWarning => ChangesKind is ChangesKind.Clash or ChangesKind.Problem;
+
+    /// <summary>Shows <paramref name="changes"/> in the CHANGES column, with <paramref name="details"/> in its tooltip.</summary>
+    public void SetChanges(RowChanges changes, string details)
+    {
+        ChangesTarget = changes.Target;
+        ChangesKind = changes.Kind;
+        ChangesSteps = changes.Steps;
+        ChangesDetails = details;
+    }
+
+    partial void OnChangesKindChanged(ChangesKind value)
+    {
+        OnPropertyChanged(nameof(IsChangesPath));
+        OnPropertyChanged(nameof(IsChangesMuted));
+        OnPropertyChanged(nameof(IsChangesWarning));
+    }
+
+    partial void OnChangesStepsChanged(IReadOnlyList<string> value)
+    {
+        OnPropertyChanged(nameof(ChangesStepsText));
+        OnPropertyChanged(nameof(HasChangesSteps));
+    }
 
     /// <summary>
     /// The row for this file's new path (<paramref name="moved"/>, made for it by its page) after Optimize or
@@ -262,7 +380,9 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
         moved.Details = Details;
         moved.ElapsedText = ElapsedText;
         moved.SpeedText = SpeedText;
-        moved.Changes = Changes;
+        moved.ChangesTarget = ChangesTarget;
+        moved.ChangesKind = ChangesKind;
+        moved.ChangesSteps = ChangesSteps;
         moved.ChangesDetails = ChangesDetails;
         return moved;
     }

@@ -51,10 +51,12 @@ With **Folder**, **Layout** (beside it, and in Settings › Output) arranges wha
   Library folder). A file added on its own goes in the folder itself.
 - **No subfolders**: everything in the folder itself.
 
-### The log
+### Progress, the queue and the log
 
-The log sits under the job list, collapsed to one bar with the error and warning counts (red when there's an
-error) and **Show log**. It opens by itself when a run has errors (Settings › Log). Each session's log is also
+The status bar at the bottom sums up every run: what's running and waiting, the time left and speed, the overall
+progress, a red "2 failed" badge (click it to see just the failed rows) and the log's error and warning counts.
+**Activity** at its right (or Ctrl+J) opens a drawer above it with two tabs: **Queue**, every job from every page,
+and **Log**. It opens on the Log tab by itself when a run has errors (Settings › Log). Each session's log is also
 written to a file (see "Build and run").
 
 ## Command line
