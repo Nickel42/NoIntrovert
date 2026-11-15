@@ -395,6 +395,33 @@ static class LayoutTests
             }
         }));
 
+        // The real failure, as the log caught it: a progress bar that had just left the window was laid out once more.
+        // Out of the window it has no styles, so it fell back to SukiUI's template, whose GlassCard (unstyled too) was
+        // on its defaults: animated, with a plain template that has no RootPanel.
+        test("Layout: a GlassCard on its defaults, and a progress bar laid out after leaving the window, don't throw", () => Dispatch(() =>
+        {
+            try
+            {
+                var bare = new SukiUI.Controls.GlassCard { Content = "x" };
+                bare.Measure(new Size(200, 50));
+                if (bare.IsAnimated) return "a GlassCard on its defaults is still animated after being laid out";
+
+                var host = f.Window.GetVisualDescendants().OfType<Panel>().First();
+                var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,100") };
+                var bar = new ProgressBar { Value = 40 };
+                Grid.SetColumn(bar, 1);
+                grid.Children.Add(bar);
+                host.Children.Add(grid);
+                f.Layout();
+                host.Children.Remove(grid);
+                bar.Value = 60;
+                grid.InvalidateMeasure();
+                grid.Measure(new Size(300, 20));
+                return null;
+            }
+            catch (Exception ex) { return $"layout threw: {ex.Message}"; }
+        }));
+
         // The real failure: a GlassCard animated by its parent's template (which outranks a style), whose own template has
         // no RootPanel, threw inside the window's layout pass. It must lay out quietly, unanimated.
         test("Layout: a GlassCard animated by a parent template, with no RootPanel in its template, lays out without throwing", () => Dispatch(() =>
