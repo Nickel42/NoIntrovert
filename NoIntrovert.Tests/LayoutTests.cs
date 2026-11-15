@@ -395,6 +395,29 @@ static class LayoutTests
             }
         }));
 
+        // SukiUI's animated GlassCard looks up a "RootPanel" part as its template applies, and threw mid-layout during runs.
+        test("Layout: SukiUI's GlassCard (on its own and inside a ComboBox) isn't animated, so it never looks up RootPanel", () => Dispatch(() =>
+        {
+            var host = f.Window.GetVisualDescendants().OfType<Panel>().First();
+            var card = new SukiUI.Controls.GlassCard { Content = "card" };
+            var combo = new ComboBox { ItemsSource = new[] { "one", "two" } };
+            host.Children.Add(card);
+            host.Children.Add(combo);
+            try
+            {
+                f.Layout();
+                var cards = combo.GetVisualDescendants().OfType<SukiUI.Controls.GlassCard>().Prepend(card).ToList();
+                return cards.FirstOrDefault(c => c.IsAnimated) is { } animated
+                    ? $"a GlassCard{(animated == card ? "" : " in the ComboBox")} is still animated" : null;
+            }
+            finally
+            {
+                host.Children.Remove(card);
+                host.Children.Remove(combo);
+                f.Layout();
+            }
+        }));
+
         test("Layout: Settings shows Keys without opening Advanced; Enter saves a working folder; the status bar's log chip counts in words", () => Dispatch(() =>
         {
             f.Show("settings");

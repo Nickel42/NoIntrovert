@@ -87,6 +87,9 @@ public partial class LogViewModel : ViewModelBase, ILog
         _file?.Write(entry);
     }
 
+    /// <summary>Writes a line to this session's log file only, whatever its level (an error's details, say); the pane doesn't show it.</summary>
+    public void WriteToFileOnly(LogLevel level, string message) => _file?.Write(new LogEntry(DateTime.Now, level, message), always: true);
+
     /// <summary>
     /// Moves what was written since the last tick into the list: one change for the batch
     /// (or, past <see cref="MaxVisible"/>, one replace keeping the newest lines), not one per line.
@@ -244,9 +247,10 @@ internal sealed class SessionLogFile : IDisposable
         }
     }
 
-    public void Write(LogEntry entry)
+    /// <param name="always">Writes the line even at a level the file leaves out (<see cref="Keeps"/>).</param>
+    public void Write(LogEntry entry, bool always = false)
     {
-        if (!Keeps(entry.Level)) return;
+        if (!always && !Keeps(entry.Level)) return;
         try
         {
             lock (_writer)
