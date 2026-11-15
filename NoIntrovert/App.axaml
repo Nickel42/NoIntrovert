@@ -189,6 +189,13 @@
         <Style Selector="CheckBox, RadioButton">
             <Setter Property="FontSize" Value="14" />
         </Style>
+        <!-- SukiUI's GlassCard (inside its ComboBox and other templates), when animated, looks up a "RootPanel" part as
+             its template is applied and throws when that part isn't there. On Avalonia 12 that happened mid-layout during
+             long runs ("Could not find control 'RootPanel'"), leaving the queue and status bar no longer redrawing.
+             Unanimated, it never looks the part up. -->
+        <Style Selector="suki|GlassCard">
+            <Setter Property="IsAnimated" Value="False" />
+        </Style>
         <Style Selector="ProgressBar">
             <Setter Property="MinHeight" Value="6" />
             <Setter Property="CornerRadius" Value="3" />

@@ -73,7 +73,11 @@ public partial class App : Application
         };
     }
 
-    /// <summary>Logs an error nothing else caught: a short message for the user, and the details as a debug line (in full when the app must close).</summary>
+    /// <summary>
+    /// Logs an error nothing else caught: a short message for the user, and the details as a debug line (in full when
+    /// the app must close). The session log file leaves debug lines out, so the details are written there too: without
+    /// them an error seen only afterwards can't be traced.
+    /// </summary>
     internal static void ReportUnhandled(ILog log, Exception ex, bool fatal)
     {
         try
@@ -84,6 +88,7 @@ public partial class App : Application
             {
                 log.Error($"Something went wrong ({ex.Message.TrimEnd('.')}). NoIntrovert kept running; if anything looks wrong, restart it.");
                 log.Debug(ex.ToString());
+                (log as LogViewModel)?.WriteToFileOnly(LogLevel.Debug, ex.ToString());
             }
         }
         catch (Exception) { } // the log itself failed: nothing more can be done
