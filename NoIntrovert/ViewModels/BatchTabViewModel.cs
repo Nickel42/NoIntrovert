@@ -443,8 +443,10 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         var list = paths.Select(p => System.IO.Path.TrimEndingDirectorySeparator(p)).ToList();
         if (Workspace is { } workspace)
         {
-            foreach (var p in list) _taken.Add(p);
+            // Added first: a folder added again drops out of every page's taken paths (Restored),
+            // and this page takes it back here, since it looks through it now.
             workspace.Add(list);
+            foreach (var p in list) _taken.Add(p);
         }
         return AddPathsAsync(list);
     }
@@ -468,6 +470,8 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             Items.RemoveWhere(i => gone.Contains(i.Path));
             _taken.ExceptWith(gone);
         };
+        // A folder added again with removed files in it: look through it again when this page is opened.
+        workspace.Restored += folders => _taken.ExceptWith(folders);
         workspace.Cleared += () =>
         {
             _taken.Clear();

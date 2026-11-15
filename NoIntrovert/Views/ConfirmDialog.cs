@@ -20,10 +20,7 @@ public sealed class ConfirmDialog : Window
     {
         Title = title;
         Width = 440;
-        SizeToContent = SizeToContent.Height;
-        CanResize = false;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Background = Application.Current?.FindResource("PanelBackground") as IBrush ?? Brushes.Black;
+        UseThemeLook(this);
         IsDestructive = destructive;
 
         YesButton = new Button { Content = yes, IsDefault = !destructive };
@@ -41,7 +38,7 @@ public sealed class ConfirmDialog : Window
             Children =
             {
                 new TextBlock { Text = title, FontSize = 16, FontWeight = FontWeight.SemiBold },
-                new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
+                Message(message),
             },
         };
         if (option is not null)
@@ -57,6 +54,32 @@ public sealed class ConfirmDialog : Window
             Children = { NoButton, YesButton },
         });
         Content = body;
+    }
+
+    /// <summary>
+    /// A dialog's window as the app's own: the theme's panel colour and text (followed live, so a theme
+    /// change or a dark theme never leaves black text on a black window), sized to its content, and
+    /// without minimize, maximize or a taskbar button of its own.
+    /// </summary>
+    internal static void UseThemeLook(Window window)
+    {
+        window.SizeToContent = SizeToContent.Height;
+        window.CanResize = false;
+        window.CanMinimize = false;
+        window.CanMaximize = false;
+        window.ShowInTaskbar = false;
+        window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        window.Bind(BackgroundProperty, window.GetResourceObservable("PanelBackground"));
+        // SukiText is a Color (as SukiUI's own keys are), so it's made a brush here.
+        window.Bind(ForegroundProperty, window.GetResourceObservable("SukiText", o => o is Color c ? new SolidColorBrush(c) : o));
+    }
+
+    /// <summary>The explanation under the question, a step quieter than it.</summary>
+    private static TextBlock Message(string message)
+    {
+        var text = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, LineHeight = 20 };
+        text.Bind(TextBlock.ForegroundProperty, text.GetResourceObservable("SubtleText"));
+        return text;
     }
 
     public bool IsDestructive { get; }

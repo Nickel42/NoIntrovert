@@ -3334,6 +3334,66 @@ if (SevenZipEngine.IsAvailable(out _))
         return files.Count == 0 ? null : $"still there: {string.Join(", ", files)}";
     });
 
+    // FR-8's extra files: saves and states named like a game go along with it, and (when chosen) every other file too.
+    var extrasLib = Dir("m7x/Games");
+    var extrasNew = Dir("m7x-new/Library");
+    string X(string rel) => Path.Combine([extrasLib, .. rel.Split('/')]);
+    Directory.CreateDirectory(X("NES/media"));
+    File.WriteAllBytes(X("NES/Mario.nes"), mario);
+    File.WriteAllText(X("NES/Mario.srm"), "save");
+    File.WriteAllText(X("NES/Mario.state.auto"), "state");
+    File.WriteAllText(X("NES/Mario (Hack).srm"), "not Mario's");
+    File.WriteAllText(X("NES/manual.pdf"), "manual");
+    File.WriteAllText(X("NES/media/box.png"), "box");
+    File.WriteAllText(X("readme.txt"), "readme");
+    string RelX(string? path) => path is null ? "" : Path.GetRelativePath(extrasNew, path).Replace('\\', '/');
+    NoIntrovert.Core.Cleanup.CleanupPlan PlanX(bool companions, bool others)
+    {
+        var s = new AppSettings { Library = { Layout = LibraryLayout.EsDe } };
+        return NoIntrovert.Core.Cleanup.CleanupPlanner.Plan(ScanAndVerify(s, extrasLib), s, NoIntrovert.Core.Dats.MatchStore.Default, extrasNew,
+            copyCompanions: companions, copyOtherFiles: others);
+    }
+    Dictionary<string, string> Copies(NoIntrovert.Core.Cleanup.CleanupPlan plan) => plan.Steps
+        .Where(st => st.Kind == NoIntrovert.Core.Cleanup.CleanupKind.Copy && st.Sources.Count == 1)
+        .ToDictionary(st => Path.GetRelativePath(extrasLib, st.Sources[0]).Replace('\\', '/'), st => RelX(st.Target));
+    string DescribeX(NoIntrovert.Core.Cleanup.CleanupPlan plan) =>
+        string.Join("\n", plan.Steps.Select(st => $"{st.Kind} {st.Game}: {string.Join(",", st.Sources.Take(1))} → {RelX(st.Target)} ({st.Reason})"));
+
+    Test("Cleanup: a new library copies a game's saves and states beside it, under its new name (FR-8)", () =>
+    {
+        var plan = PlanX(companions: true, others: false);
+        var copies = Copies(plan);
+        if (copies.GetValueOrDefault("NES/Mario.srm") != "roms/nes/Super Mario Bros. (World).srm"
+            || copies.GetValueOrDefault("NES/Mario.state.auto") != "roms/nes/Super Mario Bros. (World).state.auto")
+            return DescribeX(plan);
+        if (copies.Keys.Any(k => k is "NES/Mario (Hack).srm" or "NES/manual.pdf" or "readme.txt")) return $"copied more than the saves\n{DescribeX(plan)}";
+        var save = plan.Steps.First(st => st.Sources[0].EndsWith("Mario.srm"));
+        if (save.Owner is not { } owner || owner.Game != save.Game) return "a save isn't tied to its game's step";
+        owner.Enabled = false;
+        if (save.Runs) return "a save runs while its game is off";
+        owner.Enabled = true;
+        return Copies(PlanX(companions: false, others: false)).ContainsKey("NES/Mario.srm") ? "copied saves with the box off" : null;
+    });
+
+    Test("Cleanup: a new library can copy every other file into its system folder, or as it is (FR-8)", () =>
+    {
+        var plan = PlanX(companions: true, others: true);
+        var copies = Copies(plan);
+        if (copies.GetValueOrDefault("NES/manual.pdf") != "roms/nes/manual.pdf" || copies.GetValueOrDefault("NES/media/box.png") != "roms/nes/media/box.png"
+            || copies.GetValueOrDefault("NES/Mario (Hack).srm") != "roms/nes/Mario (Hack).srm" || copies.GetValueOrDefault("readme.txt") != "readme.txt"
+            || copies.GetValueOrDefault("NES/Mario.srm") != "roms/nes/Super Mario Bros. (World).srm")
+            return DescribeX(plan);
+        if (copies.ContainsKey("NES/Mario.nes")) return $"the game was copied as an other file\n{DescribeX(plan)}";
+        var before = Directory.EnumerateFiles(extrasLib, "*", SearchOption.AllDirectories).Count();
+        RunPlan(plan);
+        var made = Directory.EnumerateFiles(extrasNew, "*", SearchOption.AllDirectories).Select(RelX).ToHashSet(PathNames.Comparer);
+        string[] expected = ["roms/nes/Super Mario Bros. (World).7z", "roms/nes/Super Mario Bros. (World).srm", "roms/nes/Super Mario Bros. (World).state.auto",
+            "roms/nes/manual.pdf", "roms/nes/media/box.png", "roms/nes/Mario (Hack).srm", "readme.txt"];
+        if (expected.FirstOrDefault(e => !made.Contains(e)) is { } missing) return $"missing {missing}: {string.Join(", ", made.Order())}";
+        if (File.ReadAllText(Path.Combine(extrasNew, "roms", "nes", "Super Mario Bros. (World).srm")) != "save") return "the save's copy differs";
+        return Directory.EnumerateFiles(extrasLib, "*", SearchOption.AllDirectories).Count() == before ? null : "the Library changed";
+    });
+
     Test("Cleanup: a new library can't be inside a folder in the list or hold one (FR-8)", () =>
     {
         var lib = Path.Combine(Path.GetTempPath(), "Lib");

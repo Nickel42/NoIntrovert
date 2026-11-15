@@ -13,10 +13,7 @@ public sealed class ShortcutsDialog : Window
     {
         Title = "Keyboard shortcuts";
         Width = 460;
-        SizeToContent = SizeToContent.Height;
-        CanResize = false;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Background = Application.Current?.FindResource("PanelBackground") as IBrush ?? Brushes.Black;
+        ConfirmDialog.UseThemeLook(this);
 
         var sheet = PageShortcuts.Sheet(OperatingSystem.IsMacOS());
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 18, RowSpacing = 8 };
