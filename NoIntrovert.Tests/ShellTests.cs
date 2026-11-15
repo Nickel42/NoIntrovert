@@ -9,6 +9,15 @@ internal static class ShellTests
 {
     public static void Run(Action<string, Func<string?>> test, string scratch)
     {
+        test("Queue time left: no estimate (and no overflow) when the rate has all but stopped", () =>
+        {
+            // A long step with no progress decays the smoothed rate towards zero without reaching it.
+            if (QueueViewModel.TimeLeft(5e9, 1e-300) is not null) return "a vanishing rate gave an estimate";
+            if (QueueViewModel.TimeLeft(5e9, 0) is not null) return "a zero rate gave an estimate";
+            if (QueueViewModel.TimeLeft(1e15, 2048) is not null) return "an estimate years away was shown";
+            if (QueueViewModel.TimeLeft(-10, 1e6) != TimeSpan.Zero) return "more done than planned should be no time left";
+            return QueueViewModel.TimeLeft(600e6, 1e6) == TimeSpan.FromSeconds(600) ? null : "600 MB at 1 MB/s should be 10 min";
+        });
         test("Queue progress counts items, not bytes, and leaves out skipped ones", () =>
         {
             if (QueueViewModel.OverallFraction([]) is not null) return "an empty queue should have no progress";

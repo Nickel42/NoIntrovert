@@ -181,7 +181,7 @@ public partial class QueueViewModel : ViewModelBase
             // Only once the rate has settled: a few seconds in, with something moving.
             if ((now - _busySince).TotalSeconds >= 5 && _bytesPerSecond > 0)
             {
-                parts.Add(Eta(TimeSpan.FromSeconds((total - done) / _bytesPerSecond)));
+                if (TimeLeft(total - done, _bytesPerSecond) is { } left) parts.Add(Eta(left));
                 parts.Add($"{_bytesPerSecond / MiB:F0} MB/s");
             }
             StatusText = string.Join(" · ", parts);
@@ -198,6 +198,20 @@ public partial class QueueViewModel : ViewModelBase
         if (IsBusy && !_timer.IsEnabled) _timer.Start();
         else if (!IsBusy && _timer.IsEnabled) _timer.Stop();
     }
+
+    /// <summary>
+    /// The time left at this rate, or null when there's no telling: the smoothed rate decays towards
+    /// (but never reaches) zero while a long step reports no progress, and dividing by it would
+    /// overflow a TimeSpan. Under 1 KB/s, or past <see cref="MaxTimeLeft"/>, no estimate is shown.
+    /// </summary>
+    internal static TimeSpan? TimeLeft(double bytesLeft, double bytesPerSecond)
+    {
+        if (bytesPerSecond < 1024 || !double.IsFinite(bytesLeft)) return null;
+        var seconds = Math.Max(0, bytesLeft) / bytesPerSecond;
+        return seconds <= MaxTimeLeft.TotalSeconds ? TimeSpan.FromSeconds(seconds) : null;
+    }
+
+    private static readonly TimeSpan MaxTimeLeft = TimeSpan.FromDays(7);
 
     internal static string Eta(TimeSpan left) => left.TotalSeconds switch
     {
