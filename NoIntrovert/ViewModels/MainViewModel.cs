@@ -45,10 +45,10 @@ public partial class MainViewModel : ViewModelBase
         Pages =
         [
             new("optimize", "Optimize", "M4 5h4v14H4zM10 5h4v14h-4zM16 6l3.5-1 3 13.5-3.5 1z", Optimize, Optimize.AddAsync,
-                subtitle: "Verify, convert, organize", group: "Library"),
-            new("convert", "Convert", "M4 8h13l-3-3M20 16H7l3 3", Convert, Convert.AddAsync, group: "Files"),
-            new("verify", "Verify", "M5 12l4 4L19 6", Verify, Verify.AddAsync, group: "Files"),
-            new("cleanup", "Organize", "M4 6a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 10h16", Cleanup, Cleanup.AddAsync, group: "Files"),
+                subtitle: "Verify, convert, organize", isMain: true),
+            new("convert", "Convert", "M4 8h13l-3-3M20 16H7l3 3", Convert, Convert.AddAsync, group: "Utilities"),
+            new("verify", "Verify", "M5 12l4 4L19 6", Verify, Verify.AddAsync, group: "Utilities"),
+            new("cleanup", "Organize", "M4 6a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 10h16", Cleanup, Cleanup.AddAsync, group: "Utilities"),
             new("tests", "Library tests", "M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3", Tests, Tests.AddAsync, group: "Tools"),
             new("settings", "Settings", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4", Settings,
                 section: RailSection.Bottom),
