@@ -20,6 +20,14 @@
             <CheckBox IsChecked="{Binding CopyUnmatched}">
                 <TextBlock TextWrapping="Wrap" Text="Also copy games that aren't matched, as they are" />
             </CheckBox>
+            <CheckBox IsChecked="{Binding CopyCompanions}"
+                      ToolTip.Tip="Files named like a game with another extension, such as Game.srm or Game.state1, are copied beside it and renamed with it.">
+                <TextBlock TextWrapping="Wrap" Text="Also copy files named like a game (saves, states)" />
+            </CheckBox>
+            <CheckBox IsChecked="{Binding CopyOtherFiles}"
+                      ToolTip.Tip="Every other file in the folders (manuals, pictures, anything else) is copied into the system folder its folder's games go to.">
+                <TextBlock TextWrapping="Wrap" Text="Also copy all other files into their system folder" />
+            </CheckBox>
         </StackPanel>
         <TextBlock Text="SAFETY" Classes="section" Margin="0,8,0,0" />
         <TextBlock Classes="hint" TextWrapping="Wrap" Text="{Binding SafetyText}" />

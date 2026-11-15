@@ -37,6 +37,28 @@ static class UxLayoutTests
             return Ask(destructive: true, expected: false) ?? Ask(destructive: false, expected: true);
         }));
 
+        test("Dialogs: a question uses the theme's panel and text colours, with no minimize or maximize", () => dispatch(() =>
+        {
+            var dialog = new ConfirmDialog("Stop 20 remaining items?", "Finished files are kept.", "Stop the run", "Keep running", destructive: true);
+            var answer = dialog.ShowDialog<bool>(f.Window);
+            try
+            {
+                if (!f.Pump(() => dialog.IsVisible)) return "the dialog didn't open";
+                var panel = dialog.FindResource(dialog.ActualThemeVariant, "PanelBackground");
+                var text = dialog.FindResource(dialog.ActualThemeVariant, "SukiText");
+                if (panel is null || !Equals(dialog.Background, panel)) return $"background is {dialog.Background}, not the theme's panel ({panel})";
+                if (text is not Avalonia.Media.Color tc || dialog.Foreground is not Avalonia.Media.ISolidColorBrush fg || fg.Color != tc) return $"text is {dialog.Foreground}, not the theme's text ({text})";
+                if (dialog.Background is Avalonia.Media.ISolidColorBrush b && dialog.Foreground is Avalonia.Media.ISolidColorBrush t && b.Color == t.Color)
+                    return "text and background are the same colour";
+                return dialog.CanMinimize || dialog.CanMaximize || dialog.ShowInTaskbar ? "a dialog can minimize, maximize or has a taskbar button" : null;
+            }
+            finally
+            {
+                dialog.Close(false);
+                f.Pump(() => answer.IsCompleted);
+            }
+        }));
+
         test("Dialogs: closing during a run talks about the user's files, not the library", () =>
             MainWindow.CloseMessage.Contains("lib-chd-kit") || !MainWindow.CloseMessage.Contains("kept") ? $"'{MainWindow.CloseMessage}'" : null);
 

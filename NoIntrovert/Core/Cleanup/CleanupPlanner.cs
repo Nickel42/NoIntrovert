@@ -63,7 +63,13 @@ public sealed class CleanupStep
     /// <summary>For an ES-DE multi-disc game: the noload.txt to write in its hidden/ folder, so ES-DE skips the discs.</summary>
     public string? SkipFile { get; init; }
 
-    public bool Runs => Enabled && Kind is not (CleanupKind.Clash or CleanupKind.Untouched);
+    /// <summary>
+    /// FR-8: for a file copied along with a game (a save or state named like it), the game's own step:
+    /// this one runs only when that one does.
+    /// </summary>
+    public CleanupStep? Owner { get; init; }
+
+    public bool Runs => Enabled && Kind is not (CleanupKind.Clash or CleanupKind.Untouched) && (Owner?.Runs ?? true);
 }
 
 /// <summary>The dry run: every step, in order, grouped by game.</summary>
@@ -89,21 +95,28 @@ public sealed class CleanupPlan(List<CleanupStep> steps)
 /// same way, and the Library itself is left as it is. A duplicate isn't copied;
 /// files that aren't matched are copied as they are, or left out.
 /// </summary>
-public static class CleanupPlanner
+public static partial class CleanupPlanner
 {
     /// <param name="newLibrary">FR-8: the folder to build a new library in; null tidies the Library in place.</param>
     /// <param name="copyUnmatched">FR-8: copy files that aren't matched (unknown, unchecked, damaged) as they are, rather than leave them out.</param>
+    /// <param name="copyCompanions">FR-8: copy the files named like a game but with another extension (saves, states) beside it.</param>
+    /// <param name="copyOtherFiles">FR-8: copy every other file in the folders into the matching system folder of the new library.</param>
     /// <param name="convertUnmatched">
     /// Optimize: a file that isn't matched (but isn't damaged) and isn't in its target format is still
     /// converted where it is, keeping its own name; in a new library it's converted into it.
     /// </param>
     public static CleanupPlan Plan(IReadOnlyList<Game> games, AppSettings settings, MatchStore matches, string? newLibrary = null, bool copyUnmatched = true,
-        bool convertUnmatched = false)
+        bool convertUnmatched = false, bool copyCompanions = false, bool copyOtherFiles = false)
     {
         if (newLibrary is not null) newLibrary = Path.TrimEndingDirectorySeparator(Path.GetFullPath(newLibrary));
         var steps = new List<CleanupStep>();
         foreach (var game in games) PlanGame(game, settings, matches, newLibrary, copyUnmatched, convertUnmatched, steps);
         MarkClashes(steps);
+        if (newLibrary is not null && (copyCompanions || copyOtherFiles))
+        {
+            PlanExtras(games, settings, newLibrary, copyCompanions, copyOtherFiles, steps);
+            MarkClashes(steps);
+        }
         return new CleanupPlan(steps);
     }
 
@@ -408,13 +421,13 @@ public static class CleanupPlanner
         {
             var s = steps[i];
             // A playlist is rewritten, not a clash (R7: updated, not duplicated).
-            if (s.Target is null || s.Kind is CleanupKind.Untouched or CleanupKind.RemoveDuplicate || s.Target.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase)) continue;
+            if (s.Target is null || s.Kind is CleanupKind.Untouched or CleanupKind.RemoveDuplicate or CleanupKind.Clash || s.Target.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase)) continue;
             var target = Path.GetFullPath(s.Target);
             var exists = (File.Exists(target) || Directory.Exists(target)) && !leaving.Contains(target);
             if (exists || !claimed.Add(target))
                 steps[i] = new CleanupStep
                 {
-                    Kind = CleanupKind.Clash, GameKey = s.GameKey, Game = s.Game, SystemId = s.SystemId, Sources = s.Sources, Target = s.Target, Root = s.Root, Destination = s.Destination,
+                    Kind = CleanupKind.Clash, GameKey = s.GameKey, Game = s.Game, SystemId = s.SystemId, Sources = s.Sources, Target = s.Target, Root = s.Root, Destination = s.Destination, Owner = s.Owner,
                     Reason = $"{Path.GetFileName(target)} {(exists ? "already exists" : "is another step's target too")}: nothing is overwritten",
                     Enabled = false,
                 };

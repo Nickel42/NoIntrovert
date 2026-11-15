@@ -93,6 +93,8 @@ Nothing happens until you've seen the whole plan, and everything the wizard did 
   - **The Library doesn't change at all:** nothing in it is moved, renamed, converted in place, trashed or removed, not even for a moment.
   - Duplicates (FR-7): only the copy that would stay is copied; the others are listed as left out.
   - Files that aren't matched (unknown system, not checked, an arcade romset) are copied as they are, in their system folder when they have one, or keep their path below the new folder. *Also copy games that aren't matched* (on by default) turns this off; damaged files are listed but unticked.
+  - *Also copy files named like a game (saves, states)* (on by default): a file beside a game with the game's name and another extension (`Game.srm`, `Game.state.auto`) is copied beside the game's copy, renamed with it, and only when the game is copied. Multi-disc games and folder games are left out.
+  - *Also copy all other files into their system folder* (off by default): every other file in the folders (not a game, not the app's own) is copied into the system folder its folder's games go to, keeping its path below that folder; a file with no games in or above its folder keeps its path below the new folder.
   - The new folder can't be inside a Library folder or hold one.
   - FR-5 still holds: nothing in the new folder is overwritten; a name that's taken there is a clash. Each copy is written under a temporary name and renamed when complete.
   - Undo removes what the run made in the new folder (to the Recycle Bin when that setting is on).
