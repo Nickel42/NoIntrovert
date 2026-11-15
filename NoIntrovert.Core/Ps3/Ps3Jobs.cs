@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using LibPs3Kit;
 using LibXisoKit.Identity;
 using NoIntrovert.Core.Dats;
@@ -95,7 +96,10 @@ public static class Ps3Jobs
         var recorded = OriginalHashes.Default.Get(source)?.Files; // read before the original may go
         var cached = keepHashes && recorded is null ? Xbox.XboxJobs.KnownWhole(source) : null;
         var hashSource = keepHashes && recorded is null && cached is null;
-        using var beside = hashSource
+        // A decrypted ISO reads the whole image anyway: it hands the bytes over and they're hashed on the way. A JB
+        // folder reads only the files, so the image is hashed beside it (or after it, on a hard drive).
+        using var inline = hashSource && !jb ? new SourceHasher() : null;
+        using var beside = hashSource && jb
             ? BackgroundHash.Start(source, token => FileHashes.Compute([source], null, token), c.Token)
             : null;
         var progress = new InlineProgress<OperationProgress>(p =>
@@ -110,7 +114,14 @@ public static class Ps3Jobs
             });
             if (p.Fraction is { } f) c.Report.SetProgress(f);
         });
-        var options = new Ps3Options { Verify = true, Overwrite = s.Output.Overwrite || swap };
+        var options = new Ps3Options
+        {
+            Verify = true,
+            Overwrite = s.Output.Overwrite || swap,
+            SourceBytes = inline is null ? null : inline.Append,
+            // Small files several at once, unless a hard drive is involved (its head would jump between them).
+            MaxParallelFiles = jb && !Drives.IsSpinning(source) && !Drives.IsSpinning(folder) ? 4 : 1,
+        };
         Ps3Result result;
         FileHashes? sourceHashes = null;
         try
@@ -118,7 +129,8 @@ public static class Ps3Jobs
             result = jb
                 ? Ps3Converter.ToJbFolder(source, output, key, options, progress, c.Token)
                 : Ps3Converter.ToDecryptedIso(source, output, key, options, progress, c.Token);
-            if (hashSource)
+            if (inline is not null) sourceHashes = inline.Finish();
+            else if (hashSource)
             {
                 c.Report.SetStage("Hashing the original");
                 sourceHashes = beside?.Result() ?? FileHashes.Compute([source], null, c.Token);
@@ -158,5 +170,49 @@ public static class Ps3Jobs
         var title = result.TitleId is null ? "" : $" [{result.TitleId}]";
         c.Log.Success($"{Path.GetFileName(source)} → {shown}{title}");
         return new JobOutcome(JobStatus.Succeeded, Path.GetFileName(made));
+    }
+
+    /// <summary>
+    /// The size, CRC32, MD5 and SHA-1 of the bytes a conversion hands over as it reads the source
+    /// (<see cref="Ps3Options.SourceBytes"/>): each chunk is copied and hashed on another thread while the next one is read.
+    /// </summary>
+    private sealed class SourceHasher : IDisposable
+    {
+        private readonly System.IO.Hashing.Crc32 _crc = new();
+        private readonly IncrementalHash _md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
+        private readonly IncrementalHash _sha1 = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+        private byte[] _free = [], _busy = [];
+        private Task _pending = Task.CompletedTask;
+        private long _size;
+
+        public void Append(ReadOnlySpan<byte> data)
+        {
+            if (_free.Length < data.Length) _free = new byte[data.Length];
+            data.CopyTo(_free);
+            _pending.GetAwaiter().GetResult(); // the hashes take the chunks in order
+            (_free, _busy) = (_busy, _free);
+            var chunk = _busy;
+            var n = data.Length;
+            _size += n;
+            _pending = Task.Run(() => Parallel.Invoke(
+                () => _crc.Append(chunk.AsSpan(0, n)),
+                () => _md5.AppendData(chunk, 0, n),
+                () => _sha1.AppendData(chunk, 0, n)));
+        }
+
+        public FileHashes Finish()
+        {
+            _pending.GetAwaiter().GetResult();
+            return new FileHashes(_size, _crc.GetCurrentHashAsUInt32().ToString("x8"),
+                System.Convert.ToHexStringLower(_md5.GetHashAndReset()), System.Convert.ToHexStringLower(_sha1.GetHashAndReset()));
+        }
+
+        public void Dispose()
+        {
+            try { _pending.Wait(); }
+            catch (AggregateException) { }
+            _md5.Dispose();
+            _sha1.Dispose();
+        }
     }
 }
