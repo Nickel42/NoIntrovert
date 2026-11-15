@@ -38,6 +38,54 @@ internal static class GlassCardReport
         if (history.Count > 8) history.RemoveAt(0);
     }
 
+    // The card whose template is being built right now (its parts get it as their templated parent before its
+    // OnApplyTemplate runs, so on the error this is the card that threw), and what it was like at that moment.
+    private static WeakReference<GlassCard>? _templating;
+    private static string _templatingState = "";
+    private static readonly List<string> AnimatedWhileTemplating = [];
+    private static bool _watching;
+
+    /// <summary>Starts noting each GlassCard as its template is built (see <see cref="DescribeMoment"/>).</summary>
+    public static void WatchTemplating()
+    {
+        if (_watching) return;
+        _watching = true;
+        StyledElement.TemplatedParentProperty.Changed.AddClassHandler<StyledElement>((part, e) =>
+        {
+            if (e.NewValue is not GlassCard card) return;
+            if (_templating is not null && _templating.TryGetTarget(out var last) && ReferenceEquals(last, card)) return;
+            _templating = new WeakReference<GlassCard>(card);
+            _templatingState = $"{DateTime.Now:HH:mm:ss.fff} first part {part.GetType().Name}{(string.IsNullOrEmpty(part.Name) ? "" : "#" + part.Name)}; " +
+                               $"IsAnimated={card.IsAnimated} from {Source(card, GlassCard.IsAnimatedProperty)}; Template from {Source(card, Avalonia.Controls.Primitives.TemplatedControl.TemplateProperty)}";
+            if (card.IsAnimated && AnimatedWhileTemplating.Count < 20)
+                AnimatedWhileTemplating.Add($"{_templatingState}; in {Owner(card)}");
+        });
+    }
+
+    private static string Owner(GlassCard card) =>
+        $"templated parent {Name(card.TemplatedParent as StyledElement)}, parent {Name(card.Parent)}, {string.Join(" < ", card.GetVisualAncestors().Take(8).Select(a => Name(a as StyledElement)))}";
+
+    /// <summary>The card whose template was being built last, as it was then and as it is now, and the first cards seen animated while templated.</summary>
+    public static string DescribeMoment()
+    {
+        var text = new StringBuilder();
+        if (_templating is not null && _templating.TryGetTarget(out var card))
+        {
+            text.AppendLine($"Card being templated last: {_templatingState}");
+            text.AppendLine($"    now: IsAnimated={card.IsAnimated} from {Source(card, GlassCard.IsAnimatedProperty)}; classes='{string.Join(",", card.Classes)}'; " +
+                            $"template={card.Template?.GetType().Name ?? "none"}; attached={TopLevel.GetTopLevel(card) is not null}");
+            text.AppendLine($"    parts: {string.Join(", ", card.GetVisualDescendants().OfType<Control>().Where(c => !string.IsNullOrEmpty(c.Name)).Select(c => c.Name).Take(12))}");
+            text.AppendLine($"    name scope has RootPanel: {(Avalonia.Controls.NameScope.GetNameScope(card.GetVisualChildren().FirstOrDefault() as StyledElement ?? card) is { } scope ? scope.Find("RootPanel") is not null : "no scope")}");
+            text.AppendLine($"    owner: {Owner(card)}");
+            text.AppendLine($"    logical: {string.Join(" < ", card.GetLogicalAncestors().Take(10).Select(a => Name(a as StyledElement)))}");
+            if (History.TryGetValue(card, out var history)) text.AppendLine($"    history: {string.Join(" | ", history)}");
+        }
+        else text.AppendLine("Card being templated last: none recorded");
+        text.AppendLine($"Cards seen animated while being templated ({AnimatedWhileTemplating.Count}{(AnimatedWhileTemplating.Count == 20 ? ", the first 20" : "")}):");
+        foreach (var line in AnimatedWhileTemplating) text.AppendLine("    " + line);
+        return text.ToString();
+    }
+
     /// <summary>
     /// The tracked cards shown in another top level (a popup: a tooltip or a drop-down, which the windows' trees don't
     /// reach) and every tracked card whose applied template has no RootPanel, wherever it is: the one that threw has
@@ -96,6 +144,7 @@ internal static class GlassCardReport
                 text.AppendLine($"    in: {string.Join(" < ", card.GetVisualAncestors().Take(14).Select(a => Name(a as StyledElement)))}");
             }
         }
+        text.Append(DescribeMoment());
         text.Append(DescribeOthers(windows));
         return text.ToString();
     }
