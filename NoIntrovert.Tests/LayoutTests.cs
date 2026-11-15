@@ -110,7 +110,7 @@ static class LayoutTests
             return null;
         }));
 
-        test("Rail: no logo; LIBRARY over Optimize and FILES over Convert, Verify, Organize; the icon-only rail has dividers instead", () => Dispatch(() =>
+        test("Rail: the logo, Optimize as a centered button with no icon, then a divider and UTILITIES over Convert, Verify, Organize", () => Dispatch(() =>
         {
             var general = f.Vm.Settings.General;
             var powerUser = general.PowerUserMode;
@@ -120,28 +120,34 @@ static class LayoutTests
                 f.Resize(1366, 768);
                 f.Show("convert");
                 f.Layout();
-                if (f.Find<Image>(i => i.IsEffectivelyVisible && i.GetVisualAncestors().OfType<Border>().Any(b => b.Classes.Contains("railpane"))) is not null)
-                    return "the rail still shows an image (the logo)";
+                if (f.Find<Image>(i => i.Classes.Contains("logo") && i.IsEffectivelyVisible && i.Bounds.Width > 100
+                        && i.GetVisualAncestors().OfType<Border>().Any(b => b.Classes.Contains("railpane"))) is null)
+                    return "the rail has no logo at its top";
                 var groups = f.Vm.RailGroups.Where(g => g.IsVisible).Select(g => $"{g.Header}:{string.Join("+", g.Pages.Where(p => p.IsVisible).Select(p => p.Title))}");
-                if (string.Join(",", groups) != "LIBRARY:Optimize,FILES:Convert+Verify+Organize") return "the rail's groups are " + string.Join(",", groups);
+                if (string.Join(",", groups) != ":Optimize,UTILITIES:Convert+Verify+Organize") return "the rail's groups are " + string.Join(",", groups);
                 List<string> Headers() => f.Window.GetVisualDescendants().OfType<TextBlock>()
                     .Where(t => t.Classes.Contains("railheader") && t.IsEffectivelyVisible && t.Bounds.Height > 0).Select(t => t.Text ?? "").ToList();
                 int Dividers() => f.Window.GetVisualDescendants().OfType<Border>().Count(b => b.Classes.Contains("raildivider") && b.IsEffectivelyVisible);
-                if (string.Join(",", Headers()) != "LIBRARY,FILES") return "the wide rail shows the headers " + string.Join(",", Headers());
-                if (Dividers() != 0) return "the wide rail shows group dividers";
-                // Optimize isn't on a card of its own: unselected, it's drawn as Convert is when unselected (f.Show("verify")).
-                Avalonia.Media.IBrush? Fill(string title) => f.Find<Button>(b => b.Classes.Contains("rail") && b.IsEffectivelyVisible
-                        && b.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == title))
-                    ?.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Name == "RootBorder")?.Background;
+                if (string.Join(",", Headers()) != "UTILITIES") return "the wide rail shows the headers " + string.Join(",", Headers());
+                if (Dividers() != 1) return $"the wide rail has {Dividers()} group dividers, not 1 (between Optimize and UTILITIES)";
+                // Optimize is a button: outlined in the accent, no icon, its title centered.
                 f.Show("verify");
                 f.Layout();
-                if (Fill("Optimize") is Avalonia.Media.ISolidColorBrush { Color.A: > 0 } card) return $"Optimize sits on a card ({card.Color})";
+                if (f.Find<Button>(b => b.Classes.Contains("rail") && b.Classes.Contains("main") && b.IsEffectivelyVisible) is not { } main
+                    || main.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault(t => t.Text == "Optimize") is not { } title)
+                    return "Optimize isn't the rail's main button";
+                if (main.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Name == "RootBorder") is not { BorderBrush: Avalonia.Media.ISolidColorBrush edge, BorderThickness.Left: > 0 }
+                    || edge.Color != Accent())
+                    return "Optimize isn't outlined in the accent";
+                if (main.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Any(p => p.IsEffectivelyVisible)) return "Optimize shows an icon";
+                var mid = title.TranslatePoint(new Point(title.Bounds.Width / 2, 0), main)!.Value.X;
+                if (Math.Abs(mid - main.Bounds.Width / 2) > 3) return $"Optimize's title is at {mid:F0}, not centered in {main.Bounds.Width:F0}";
                 if (f.Find<TextBlock>(t => t.Classes.Contains("railsub") && t.IsEffectivelyVisible) is not { Text: "Verify, convert, organize" })
                     return "Optimize lost the line under its title";
                 // Power-user mode adds TOOLS (Library tests).
                 general.PowerUserMode = true;
                 f.Layout();
-                if (string.Join(",", Headers()) != "LIBRARY,FILES,TOOLS") return "in Power-user mode the rail shows the headers " + string.Join(",", Headers());
+                if (string.Join(",", Headers()) != "UTILITIES,TOOLS") return "in Power-user mode the rail shows the headers " + string.Join(",", Headers());
                 if (screenshots is not null) f.Save(Path.Combine(screenshots, "rail-groups.png"));
                 // The icon-only rail: no headers, a divider between groups (not above the first).
                 f.Resize(1024, 700);
@@ -161,7 +167,7 @@ static class LayoutTests
         test("Rail: the selected page is a tint with an accent bar, its words read", () => Dispatch(() =>
         {
             f.Resize(1366, 768);
-            f.Show("optimize");
+            f.Show("convert");
             f.Layout();
             var titles = f.Vm.MainPages.Where(p => p.IsVisible).Select(p => p.Title).ToList();
             if (string.Join(",", titles) != "Optimize,Convert,Verify,Organize") return "the rail lists " + string.Join(",", titles);

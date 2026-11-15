@@ -23,9 +23,10 @@ A shareable version of section 1 with diagrams and screenshots is in Google Docs
 
 ## Current structure
 
-One window; the title bar carries the app icon and name. A navigation rail on the left with the pages in labelled
-groups: **LIBRARY** (Optimize), **FILES** (Convert, Verify, Organize) and, in Power-user mode, **TOOLS** (Library
-tests); Settings at the bottom below a divider. The selected page is a tint with an accent bar at its left. Below
+One window; the title bar carries the app icon and name. A navigation rail on the left: the logo, **Optimize** as a
+centered main button with no icon, then a divider and labelled groups: **UTILITIES** (Convert, Verify, Organize) and,
+in Power-user mode, **TOOLS** (Library tests); Settings at the bottom below a divider. The selected page is a tint
+with an accent bar at its left (Optimize fills with the tint instead). Below
 1100 px the rail shows only icons, with thin dividers between the groups instead of their headers. At the bottom, a status bar that sums up every run: the queue (running, queued, done, time
 left, speed), its overall progress, "2 failed" (filters the page to its failed rows), the log's error and warning
 counts (open the log), and **Activity** (Ctrl+J). Activity is a drawer above the status bar, closed until opened,

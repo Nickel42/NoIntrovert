@@ -19,27 +19,25 @@ The right-hand column should explain the **selected job row** and make **presets
 - When nothing is selected, the File section shows "Select a row to see what it is", and Preset shows the presets for the most common target in the list.
 - When rows from more than one system are selected, File shows "3 systems selected" with one line per system.
 
-## Navigation rail (revised 14 Nov 2026)
+## Navigation rail (revised 15 Nov 2026)
 
-The rail has **no logo**. The title bar right above it already shows the app icon and "NoIntrovert"; the 170 px
-illustration only repeated them and took a quarter of the rail's height. The full illustration
-(`/Assets/nointrovert-logo.png`, kept in the project) belongs in Settings › About and the empty job list. The version
-is in Settings › About.
+The rail starts with the **logo** (`/Assets/nointrovert-logo.png`, 150 px wide; 46 px in the icon-only rail), then
+**Optimize**, then the labelled groups, with Settings set apart at the bottom:
 
-The rail's pages are in labelled groups, each under a small, muted uppercase header (11 px bold, lined up with the
-buttons' icons), with Settings set apart at the bottom:
-
-- **LIBRARY**: one button, **Optimize**, with small text under it: "Verify, convert, organize". It runs all of those
-  steps over the whole library. It's drawn like every other item (no card of its own); the line under its title is
-  what explains it.
-- **FILES**: **Convert**, **Verify** (was "Verify & match") and **Organize** (was "Cleanup", with a folder icon).
-- **TOOLS**: **Library tests**, in Power-user mode only; the header is hidden with it.
+- **Optimize** is the app's main action and is drawn as a button of its own, with no header above it: no icon, its
+  title (16 px bold) and small text under it ("Verify, convert, organize") centered, outlined in the accent on the
+  field colour; while it's the page shown it fills with the tint and the outline thickens (no accent bar). The run
+  button keeps the one solid accent fill on screen. In the icon-only rail it shows its icon, as words don't fit.
+- A divider and extra space set the next group apart from Optimize.
+- **UTILITIES** (was "FILES"): **Convert**, **Verify** (was "Verify & match") and **Organize** (was "Cleanup", with a
+  folder icon), under a small, muted uppercase header (11 px bold, lined up with the buttons' icons).
+- **TOOLS**: **Library tests**, in Power-user mode only; the header and its divider are hidden with it.
 - **Settings** sits at the bottom of the rail, below a divider.
 - The **CHD info** page is removed.
 
-Every item is selected the same way: a tint with a 4 px accent bar at its left, the text in the normal colour. Each
-button's tooltip names it with its shortcut ("Convert (Ctrl+2)"). The groups come from the page list
-(`PageViewModel.Group`, `MainViewModel.RailGroups`), not from positions in the view.
+Every other item is selected the same way: a tint with a 4 px accent bar at its left, the text in the normal colour.
+Each button's tooltip names it with its shortcut ("Convert (Ctrl+2)"). The groups come from the page list
+(`PageViewModel.Group`, `PageViewModel.IsMain`, `MainViewModel.RailGroups`), not from positions in the view.
 
 Below 1100 px the rail shows only icons (64 px wide): the headers are hidden and a thin divider separates the groups
 (none above the first).

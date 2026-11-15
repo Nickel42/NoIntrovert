@@ -19,7 +19,7 @@ public enum RailSection
 /// </summary>
 public sealed partial class PageViewModel(string id, string title, string icon, ViewModelBase content,
     Func<IReadOnlyList<string>, Task>? accept = null, RailSection section = RailSection.Main, string subtitle = "",
-    string group = "") : ViewModelBase
+    string group = "", bool isMain = false) : ViewModelBase
 {
     /// <summary>Lower-case name used on the command line (--page convert).</summary>
     public string Id { get; } = id;
@@ -34,8 +34,11 @@ public sealed partial class PageViewModel(string id, string title, string icon, 
 
     public RailSection Section { get; } = section;
 
-    /// <summary>The rail group the page is listed under ("Library", "Files", "Tools"); empty for none.</summary>
+    /// <summary>The rail group the page is listed under ("Utilities", "Tools"); empty for a group with no header (Optimize).</summary>
     public string Group { get; } = group;
+
+    /// <summary>The app's main page (Optimize): drawn as a centered button with no icon at the top of the rail.</summary>
+    public bool IsMain { get; } = isMain;
 
     public ViewModelBase Content { get; } = content;
 
@@ -53,7 +56,7 @@ public sealed partial class PageViewModel(string id, string title, string icon, 
 }
 
 /// <summary>
-/// A labelled group of pages in the rail: a small uppercase header ("FILES") over its pages in the wide
+/// A labelled group of pages in the rail: a small uppercase header ("UTILITIES") over its pages in the wide
 /// rail, a thin divider in the icon-only rail. Hidden while none of its pages is (Tools outside Power-user mode).
 /// </summary>
 public sealed partial class RailGroupViewModel : ViewModelBase
@@ -68,11 +71,14 @@ public sealed partial class RailGroupViewModel : ViewModelBase
         IsVisible = pages.Any(p => p.IsVisible);
     }
 
-    /// <summary>The group's name ("Files"); the rail shows it in capitals.</summary>
+    /// <summary>The group's name ("Utilities"); the rail shows it in capitals. Empty for no header.</summary>
     public string Title { get; }
 
-    /// <summary>The header as the rail shows it: "FILES".</summary>
+    /// <summary>The header as the rail shows it: "UTILITIES".</summary>
     public string Header => Title.ToUpperInvariant();
+
+    /// <summary>False for the top group (Optimize alone), which has no header.</summary>
+    public bool HasHeader => Title.Length > 0;
 
     public IReadOnlyList<PageViewModel> Pages { get; }
 
