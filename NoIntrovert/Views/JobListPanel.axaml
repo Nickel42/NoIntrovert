@@ -3,6 +3,7 @@
              xmlns:vm="using:NoIntrovert.ViewModels"
              xmlns:v="using:NoIntrovert.Views"
              xmlns:c="using:NoIntrovert.Controls"
+             xmlns:core="using:NoIntrovert.Core"
              xmlns:presets="using:NoIntrovert.Core.Presets"
              x:Class="NoIntrovert.Views.JobListPanel"
              x:DataType="vm:BatchTabViewModel"
@@ -10,6 +11,25 @@
              Classes.dense="{Binding Settings.General.IsCompactRows}">
 
     <UserControl.Styles>
+        <!-- Column headings: plain text that sorts when clicked, not a boxed button -->
+        <Style Selector="Button.colsort">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Name="PART_ContentPresenter" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"
+                                      Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalContentAlignment="Center" />
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.colsort TextBlock.arrow"><Setter Property="FontSize" Value="9" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
+        <Style Selector="Button.colsort.sorted TextBlock.colhead"><Setter Property="Foreground" Value="{DynamicResource SukiText}" /></Style>
+        <Style Selector="Button.colsort:pointerover TextBlock.colhead"><Setter Property="Foreground" Value="{DynamicResource SukiText}" /></Style>
         <!-- Column widths, shared by the headings and the rows; the file name takes what's left.
              As the list narrows it drops Type, Time and Size, then Progress, then Result
              (the side panel and each row's tooltip still have them). -->
@@ -223,21 +243,92 @@
                 </TextBox>
             </Grid>
 
-            <!-- Column headings -->
+            <!-- Column headings: a click sorts by the column (▲ ascending, ▼ descending) -->
             <Grid Grid.Row="1" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="22,0,22,4" IsVisible="{Binding HasItems}">
                 <!-- Select all: – when only some rows are selected -->
                 <CheckBox x:Name="SelectAll" IsChecked="{Binding AllSelected, Mode=OneWay}" MinWidth="0" Padding="0"
                           VerticalAlignment="Center" ToolTip.Tip="Select every row shown, or none" AutomationProperties.Name="Select all rows" />
-                <TextBlock Grid.Column="1" Text="FILE" Classes="colhead" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="TYPE" Classes="colhead col-type" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="3" Text="PRESET" Classes="colhead" Width="210" Margin="0,0,8,0" IsVisible="{Binding ShowsTargets}" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="3" Text="CHANGES" Classes="colhead col-changes" Margin="0,0,8,0" IsVisible="{Binding ShowsChanges}" VerticalAlignment="Center"
-                           ToolTip.Tip="Where each file ends up, and the steps a run takes to get it there. Point at a row's changes for the details." />
-                <TextBlock Grid.Column="4" Text="SIZE" Classes="colhead col-size" TextAlignment="Right" Padding="0,0,10,0" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="5" Text="STATUS" Classes="colhead col-status" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="6" Text="PROGRESS" Classes="colhead col-progress" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="7" Text="TIME" Classes="colhead col-time" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="8" Text="RESULT" Classes="colhead col-result" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="colsort" HorizontalContentAlignment="Left"
+                        Classes.sorted="{Binding FileArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Command="{Binding SortByCommand}" CommandParameter="{x:Static core:FileListSortColumn.File}"
+                        ToolTip.Tip="Sort by file; click again to turn the order round" AutomationProperties.Name="Sort by file">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="FILE" Classes="colhead" />
+                        <TextBlock Text="{Binding FileArrow}" Classes="colhead arrow" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="2" Classes="colsort col-type" HorizontalContentAlignment="Left"
+                        Classes.sorted="{Binding TypeArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Command="{Binding SortByCommand}" CommandParameter="{x:Static core:FileListSortColumn.Type}"
+                        ToolTip.Tip="Sort by type; click again to turn the order round" AutomationProperties.Name="Sort by type">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="TYPE" Classes="colhead" />
+                        <TextBlock Text="{Binding TypeArrow}" Classes="colhead arrow" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="3" Classes="colsort" HorizontalContentAlignment="Left" Width="210" Margin="0,0,8,0" IsVisible="{Binding ShowsTargets}"
+                        Classes.sorted="{Binding PresetArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Command="{Binding SortByCommand}" CommandParameter="{x:Static core:FileListSortColumn.Preset}"
+                        ToolTip.Tip="Sort by preset; click again to turn the order round" AutomationProperties.Name="Sort by preset">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="PRESET" Classes="colhead" />
+                        <TextBlock Text="{Binding PresetArrow}" Classes="colhead arrow" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="3" Classes="colsort col-changes" HorizontalContentAlignment="Left" Margin="0,0,8,0" IsVisible="{Binding ShowsChanges}"
+                        Classes.sorted="{Binding ChangesArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Command="{Binding SortByCommand}" CommandParameter="{x:Static core:FileListSortColumn.Changes}"
+                        ToolTip.Tip="Where each file ends up, and the steps a run takes to get it there. Point at a row's changes for the details. Sort by changes; click again to turn the order round." AutomationProperties.Name="Sort by changes">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="CHANGES" Classes="colhead" />
+                        <TextBlock Text="{Binding ChangesArrow}" Classes="colhead arrow" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="4" Classes="colsort col-size" HorizontalContentAlignment="Right" Padding="0,0,10,0"
+                        Classes.sorted="{Binding SizeArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Command="{Binding SortByCommand}" CommandParameter="{x:Static core:FileListSortColumn.Size}"
+                        ToolTip.Tip="Sort by size; click again to turn the order round" AutomationProperties.Name="Sort by size">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="SIZE" Classes="colhead" />
+                        <TextBlock Text="{Binding SizeArrow}" Classes="colhead arrow" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="5" Classes="colsort col-status" HorizontalContentAlignment="Left"
+                        Classes.sorted="{Binding StatusArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Command="{Binding SortByCommand}" CommandParameter="{x:Static core:FileListSortColumn.Status}"
+                        ToolTip.Tip="Sort by status; click again to turn the order round" AutomationProperties.Name="Sort by status">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="STATUS" Classes="colhead" />
+                        <TextBlock Text="{Binding StatusArrow}" Classes="colhead arrow" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="6" Classes="colsort col-progress" HorizontalContentAlignment="Left"
+                        Classes.sorted="{Binding ProgressArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Command="{Binding SortByCommand}" CommandParameter="{x:Static core:FileListSortColumn.Progress}"
+                        ToolTip.Tip="Sort by progress; click again to turn the order round" AutomationProperties.Name="Sort by progress">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="PROGRESS" Classes="colhead" />
+                        <TextBlock Text="{Binding ProgressArrow}" Classes="colhead arrow" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="7" Classes="colsort col-time" HorizontalContentAlignment="Left"
+                        Classes.sorted="{Binding TimeArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Command="{Binding SortByCommand}" CommandParameter="{x:Static core:FileListSortColumn.Time}"
+                        ToolTip.Tip="Sort by time; click again to turn the order round" AutomationProperties.Name="Sort by time">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="TIME" Classes="colhead" />
+                        <TextBlock Text="{Binding TimeArrow}" Classes="colhead arrow" />
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="8" Classes="colsort col-result" HorizontalContentAlignment="Left"
+                        Classes.sorted="{Binding ResultArrow, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Command="{Binding SortByCommand}" CommandParameter="{x:Static core:FileListSortColumn.Result}"
+                        ToolTip.Tip="Sort by result; click again to turn the order round" AutomationProperties.Name="Sort by result">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="RESULT" Classes="colhead" />
+                        <TextBlock Text="{Binding ResultArrow}" Classes="colhead arrow" />
+                    </StackPanel>
+                </Button>
             </Grid>
 
             <!-- Items -->
