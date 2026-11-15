@@ -17,6 +17,57 @@ namespace NoIntrovert.Views;
 /// </summary>
 internal static class GlassCardReport
 {
+    // Every GlassCard seen getting a template, wherever it lives (popups such as tooltips and drop-downs are separate
+    // windows the main window's tree doesn't reach), with what happened to its template and IsAnimated.
+    private static readonly List<WeakReference<GlassCard>> Seen = [];
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<GlassCard, List<string>> History = new();
+
+    /// <summary>Remembers <paramref name="card"/> and a line of its history (the newest few are kept).</summary>
+    public static void Track(GlassCard card, string what)
+    {
+        var history = History.GetValue(card, c =>
+        {
+            lock (Seen)
+            {
+                Seen.RemoveAll(w => !w.TryGetTarget(out _));
+                Seen.Add(new WeakReference<GlassCard>(c));
+            }
+            return [];
+        });
+        history.Add($"{DateTime.Now:HH:mm:ss.fff} {what}");
+        if (history.Count > 8) history.RemoveAt(0);
+    }
+
+    /// <summary>
+    /// The tracked cards shown in another top level (a popup: a tooltip or a drop-down, which the windows' trees don't
+    /// reach) and every tracked card whose applied template has no RootPanel, wherever it is: the one that threw has
+    /// its template but not the part. Cards on pages and in rows not on screen (detached) are left out otherwise.
+    /// </summary>
+    public static string DescribeOthers(IEnumerable<Window> windows)
+    {
+        var inWindows = windows.SelectMany(w => w.GetVisualDescendants().OfType<GlassCard>()).ToHashSet();
+        List<GlassCard> cards;
+        lock (Seen) cards = Seen.Select(w => w.TryGetTarget(out var c) ? c : null).OfType<GlassCard>().ToList();
+        var text = new StringBuilder();
+        static bool MissingPart(GlassCard c) => c.GetVisualChildren().Any() && !c.GetVisualDescendants().OfType<Control>().Any(d => d.Name == "RootPanel");
+        var picked = cards.Where(c => (!inWindows.Contains(c) && TopLevel.GetTopLevel(c) is not null) || MissingPart(c)).ToList();
+        text.AppendLine($"Tracked GlassCards: {cards.Count}; in a popup or templated without RootPanel: {picked.Count}");
+        var number = 0;
+        foreach (var card in picked)
+        {
+            number++;
+            var root = TopLevel.GetTopLevel(card) as Visual ?? card.GetVisualAncestors().LastOrDefault();
+            text.AppendLine($"*{number} root={root?.GetType().Name ?? "none (detached)"} inWindow={inWindows.Contains(card)} templated={card.GetVisualChildren().Any()} " +
+                            $"RootPanel={card.GetVisualDescendants().OfType<Control>().Any(c => c.Name == "RootPanel")} IsAnimated={card.IsAnimated} from {Source(card, GlassCard.IsAnimatedProperty)} " +
+                            $"classes='{string.Join(",", card.Classes)}'");
+            text.AppendLine($"    template parts: {string.Join(", ", card.GetVisualDescendants().OfType<Control>().Where(c => !string.IsNullOrEmpty(c.Name)).Select(c => c.Name).Take(10))}");
+            text.AppendLine($"    templated parent: {Name(card.TemplatedParent as StyledElement)}; logical parent: {Name(card.GetLogicalParent() as StyledElement)}; logical root: {Name(card.GetLogicalAncestors().LastOrDefault() as StyledElement)}");
+            text.AppendLine($"    in: {string.Join(" < ", card.GetVisualAncestors().Take(16).Select(a => Name(a as StyledElement)))}");
+            if (History.TryGetValue(card, out var history)) text.AppendLine($"    history: {string.Join(" | ", history)}");
+        }
+        return text.ToString();
+    }
+
     /// <summary>Whether <paramref name="ex"/> is that error.</summary>
     public static bool IsRootPanelError(Exception ex) =>
         ex is KeyNotFoundException && ex.Message.Contains("RootPanel") && (ex.StackTrace?.Contains("GlassCard") ?? false);
@@ -45,6 +96,7 @@ internal static class GlassCardReport
                 text.AppendLine($"    in: {string.Join(" < ", card.GetVisualAncestors().Take(14).Select(a => Name(a as StyledElement)))}");
             }
         }
+        text.Append(DescribeOthers(windows));
         return text.ToString();
     }
 

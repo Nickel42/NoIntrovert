@@ -45,8 +45,16 @@ public partial class App : Application
         {
             if (card.IsAnimated) card.IsAnimated = false;
         }
-        Avalonia.Controls.Primitives.TemplatedControl.TemplateProperty.Changed.AddClassHandler<SukiUI.Controls.GlassCard>((card, _) => Still(card));
-        SukiUI.Controls.GlassCard.IsAnimatedProperty.Changed.AddClassHandler<SukiUI.Controls.GlassCard>((card, _) => Still(card));
+        Avalonia.Controls.Primitives.TemplatedControl.TemplateProperty.Changed.AddClassHandler<SukiUI.Controls.GlassCard>((card, e) =>
+        {
+            GlassCardReport.Track(card, $"Template set ({e.Priority})");
+            Still(card);
+        });
+        SukiUI.Controls.GlassCard.IsAnimatedProperty.Changed.AddClassHandler<SukiUI.Controls.GlassCard>((card, e) =>
+        {
+            GlassCardReport.Track(card, $"IsAnimated {e.NewValue} ({e.Priority})");
+            Still(card);
+        });
     }
 
     public override void OnFrameworkInitializationCompleted()

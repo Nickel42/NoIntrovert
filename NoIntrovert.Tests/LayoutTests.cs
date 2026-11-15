@@ -426,11 +426,16 @@ static class LayoutTests
         {
             f.Show("convert");
             f.Layout();
+            // A card outside the window (as one in a tooltip or a drop-down is) is listed too, with its history.
+            var outside = new SukiUI.Controls.GlassCard { Template = new Avalonia.Controls.Templates.FuncControlTemplate<SukiUI.Controls.GlassCard>((_, _) => new Border()) };
             var report = GlassCardReport.Describe([f.Window]);
-            Console.WriteLine(string.Join(Environment.NewLine, report.Split('\n').Take(9)));
+            GC.KeepAlive(outside);
             if (!report.Contains("GlassCards;")) return "no window line";
             if (!report.Contains("#1 ")) return "no cards listed";
-            return report.Contains("IsAnimated=") && report.Contains(" from ") && report.Contains("in: ") ? null : "a card's details are missing";
+            if (!(report.Contains("IsAnimated=") && report.Contains(" from ") && report.Contains("in: "))) return "a card's details are missing";
+            var others = report[report.IndexOf("Tracked GlassCards:", StringComparison.Ordinal)..];
+            Console.WriteLine(string.Join(Environment.NewLine, others.Split('\n').Take(6)));
+            return others.Contains("root=none (detached)") && others.Contains("history: ") && others.Contains("Template set") ? null : "the card outside the window isn't listed with its history";
         }));
 
         // SukiUI's progress bar template holds a GlassCard that looks up a "RootPanel" part during layout; a bar
