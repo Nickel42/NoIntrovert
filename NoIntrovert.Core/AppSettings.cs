@@ -247,6 +247,11 @@ public sealed class GeneralSettings
     /// <summary>How tall the job list's rows are: one line each (Compact), or two with the folder and notes (Comfortable).</summary>
     public ListDensity ListDensity { get; set; } = ListDensity.Compact;
 
+    /// <summary>The column the file lists are sorted by (a click on its heading; None = the order files were added), and which way.</summary>
+    public FileListSortColumn FileListSort { get; set; } = FileListSortColumn.None;
+
+    public bool FileListSortDescending { get; set; }
+
     /// <summary>
     /// A file from before the Activity drawer: an expanded log becomes Activity open on its
     /// Log tab, and LogExpanded is dropped. True when something changed (the file is saved).
@@ -269,6 +274,9 @@ public enum AppTheme { System, Dark, Light }
 
 /// <summary>The job list's row height (docs/requirements/ui-redesign.md, "Row density").</summary>
 public enum ListDensity { Compact, Comfortable }
+
+/// <summary>The file lists' columns, as their headings sort by them; None keeps the order the files were added in.</summary>
+public enum FileListSortColumn { None, File, Type, Preset, Changes, Size, Status, Progress, Time, Result }
 
 /// <summary>The Activity drawer's two tabs.</summary>
 public enum ActivityTab { Queue, Log }

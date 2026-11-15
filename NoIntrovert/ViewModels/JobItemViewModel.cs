@@ -11,6 +11,9 @@ public partial class JobItemViewModel : ViewModelBase, IJobReport
 {
     private readonly Stopwatch _sinceUpdate = Stopwatch.StartNew();
     private readonly Stopwatch _elapsed = new();
+
+    /// <summary>How long the row's work has taken so far (what TIME shows), for sorting by it.</summary>
+    public TimeSpan Elapsed => _elapsed.Elapsed;
     private double _latestProgress;
     private string _latestStage = "";
     private int _postPending;

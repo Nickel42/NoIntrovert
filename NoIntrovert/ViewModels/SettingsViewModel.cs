@@ -177,6 +177,19 @@ public sealed class GeneralSettingsViewModel(AppSettings settings, IDialogs dial
         OnPropertyChanged(nameof(IsComfortableRows));
     }
 
+    // File list sort: shared by every page's list, so they all follow a click on any of them.
+    public FileListSortColumn FileListSort => S.General.FileListSort;
+    public bool FileListSortDescending => S.General.FileListSortDescending;
+
+    /// <summary>Sorts the file lists by <paramref name="column"/>, A to Z (smallest first); the column already sorted by turns round.</summary>
+    public void SortFileListBy(FileListSortColumn column)
+    {
+        var descending = column != FileListSortColumn.None && S.General.FileListSort == column && !S.General.FileListSortDescending;
+        if (!Change(s => { s.General.FileListSort = column; s.General.FileListSortDescending = descending; })) return;
+        OnPropertyChanged(nameof(FileListSort));
+        OnPropertyChanged(nameof(FileListSortDescending));
+    }
+
     private IReadOnlyList<StartPageOption> _startPages = [new("", "Automatic")];
 
     /// <summary>

@@ -41,6 +41,10 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             if (FocusedItem is { } focused && !Items.Contains(focused)) FocusedItem = null;
         };
         settings.Output.PropertyChanged += (_, _) => RefreshSaveTo();
+        settings.General.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(GeneralSettingsViewModel.FileListSort) or nameof(GeneralSettingsViewModel.FileListSortDescending)) OnSortChanged();
+        };
         _progressTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(400), DispatcherPriority.Background, (_, _) => RefreshProgress());
     }
 
@@ -311,7 +315,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
 
     public BulkObservableCollection<JobItemViewModel> Items { get; } = [];
 
-    /// <summary>The rows the list shows: all of them, or those matching <see cref="Filter"/>. Runs always use <see cref="Items"/>.</summary>
+    /// <summary>The rows the list shows: all of them, or those matching <see cref="Filter"/>, in the heading's sort order. Runs always use <see cref="Items"/>.</summary>
     public BulkObservableCollection<JobItemViewModel> VisibleItems { get; } = [];
 
     /// <summary>Shows only rows whose name, folder, target or status contains this text (every word, any order).</summary>
@@ -329,7 +333,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
         var words = Filter.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (words.Length == 0)
         {
-            VisibleItems.ReplaceAll(Items);
+            VisibleItems.ReplaceAll(Sorted(Items));
             FilterNote = "";
             OnPropertyChanged(nameof(NoMatches));
             return;
@@ -339,7 +343,7 @@ public abstract partial class BatchTabViewModel : ViewModelBase
             (i.Target?.Label.Contains(w, StringComparison.OrdinalIgnoreCase) ?? false) ||
             i.PresetLabel.Contains(w, StringComparison.OrdinalIgnoreCase) ||
             i.StatusText.Contains(w, StringComparison.OrdinalIgnoreCase) || i.TypeText.Contains(w, StringComparison.OrdinalIgnoreCase));
-        VisibleItems.ReplaceAll(Items.Where(Match));
+        VisibleItems.ReplaceAll(Sorted(Items.Where(Match)));
         OnPropertyChanged(nameof(NoMatches));
         var hidden = Items.Count - VisibleItems.Count;
         FilterNote = hidden == 0 ? "" : $"{VisibleItems.Count:N0} of {Items.Count:N0} shown";

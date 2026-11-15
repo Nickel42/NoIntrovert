@@ -225,5 +225,59 @@ static class JobListTests
                 f.Layout();
             }
         }));
+
+        test("Headings: a click sorts the list by the column (▲), again turns it round (▼); every page follows, runs keep the added order", () => dispatch(() =>
+        {
+            var general = f.Vm.Settings.General;
+            var tab = f.Vm.Optimize;
+            f.Resize(1920, 1080); // wide enough for the SIZE column beside CHANGES and the side panel
+            f.Show("optimize");
+            tab.Replan();
+            if (!f.Pump(() => tab.Items.Count >= 3 && !tab.IsScanning)) return $"the list never filled ({tab.Items.Count} rows)";
+            f.Layout();
+            var added = tab.Items.ToList();
+            Button? Heading(string text) => f.Find<Button>(b => b.Classes.Contains("colsort") && b.IsEffectivelyVisible &&
+                b.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == text));
+            string? Click(string text)
+            {
+                if (Heading(text) is not { } heading) return $"no {text} heading to click";
+                if (heading.Command is not { } command || !command.CanExecute(heading.CommandParameter)) return $"the {text} heading doesn't sort";
+                command.Execute(heading.CommandParameter);
+                f.Layout();
+                return null;
+            }
+            string ArrowOf(string text) => Heading(text)?.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault(t => t.Classes.Contains("arrow"))?.Text ?? "";
+            var byName = StringComparer.OrdinalIgnoreCase;
+            try
+            {
+                if (Click("FILE") is { } e1) return e1;
+                if (ArrowOf("FILE") != "▲" || ArrowOf("SIZE") != "") return $"after one click FILE shows \"{ArrowOf("FILE")}\" and SIZE \"{ArrowOf("SIZE")}\"";
+                if (!tab.VisibleItems.Select(i => i.Name).SequenceEqual(tab.VisibleItems.Select(i => i.Name).Order(byName))) return "FILE ▲ isn't A to Z";
+                if (Click("FILE") is { } e2) return e2;
+                if (ArrowOf("FILE") != "▼") return $"after two clicks FILE shows \"{ArrowOf("FILE")}\"";
+                if (!tab.VisibleItems.Select(i => i.Name).SequenceEqual(tab.VisibleItems.Select(i => i.Name).OrderDescending(byName))) return "FILE ▼ isn't Z to A";
+                if (Click("SIZE") is { } e3) return e3;
+                if (ArrowOf("SIZE") != "▲" || ArrowOf("FILE") != "") return $"after clicking SIZE it shows \"{ArrowOf("SIZE")}\" and FILE \"{ArrowOf("FILE")}\"";
+                var sizes = tab.VisibleItems.Select(i => i.SizeBytes).ToList();
+                if (!sizes.SequenceEqual(sizes.Order())) return "SIZE ▲ isn't smallest first: " + string.Join(", ", sizes);
+                if (!tab.Items.SequenceEqual(added)) return "sorting reordered the rows a run works through";
+                if (general.FileListSort != Core.FileListSortColumn.Size || general.FileListSortDescending) return "the sort isn't remembered in the settings";
+                f.Show("convert");
+                f.Layout();
+                var convert = f.Vm.Convert.VisibleItems.Select(i => i.SizeBytes).ToList();
+                if (!convert.SequenceEqual(convert.Order())) return "Convert's list didn't follow the sort chosen on Optimize";
+                if (ArrowOf("SIZE") != "▲") return "Convert's SIZE heading doesn't show ▲";
+                var problems = LayoutTests.Check(f.Window);
+                if (screenshots is not null) f.Save(System.IO.Path.Combine(screenshots, "joblist-sorted-size.png"));
+                return problems.Count > 0 ? string.Join("\n        ", problems.Take(6)) : null;
+            }
+            finally
+            {
+                general.SortFileListBy(Core.FileListSortColumn.None);
+                f.Resize(1180, 820);
+                f.Show("convert");
+                f.Layout();
+            }
+        }));
     }
 }
