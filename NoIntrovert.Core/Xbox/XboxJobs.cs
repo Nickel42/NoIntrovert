@@ -27,6 +27,8 @@ public static class XboxJobs
         MediaPatch = false,
         Scrub = true,
         Verify = true,
+        // The check compares the read-back with what was written by a fast checksum: the SHA-1 it would give isn't kept.
+        FastVerify = true,
         WriteSidecar = false,
         HashSource = hashSource,
         Overwrite = s.Output.Overwrite,
@@ -69,7 +71,10 @@ public static class XboxJobs
         // Not known: hashed beside the conversion (while the image is in the OS cache) rather than by lib-xiso-kit
         // first; on a spinning drive lib-xiso-kit still reads it once before writing, as two reads at once would seek.
         var hashSource = keepHashes && redump && recorded is null && cached is null;
-        using var beside = hashSource
+        // A plain .iso is hashed by lib-xiso-kit in the same front-to-back pass that writes the new image.
+        var hashInPass = hashSource && Path.GetExtension(source).Equals(".iso", StringComparison.OrdinalIgnoreCase)
+                         && SplitParts.Resolve(source).Count == 1;
+        using var beside = hashSource && !hashInPass
             ? BackgroundHash.Start(source, token => FileHashes.Compute(SplitParts.Resolve(source), null, token), c.Token)
             : null;
         ShrinkResult result;

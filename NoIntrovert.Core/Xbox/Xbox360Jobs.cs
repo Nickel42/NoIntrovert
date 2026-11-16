@@ -27,13 +27,18 @@ public static class Xbox360Jobs
         try
         {
             using var volume = XdvdfsVolume.Open(source);
+            // The Redump image's hashes (R11), read beside the build while the file is in the OS cache, so they
+            // don't cost another full read afterwards (null on a spinning drive: hashed after the build, as before).
+            using var originalBeside = s.TargetFormats.RecordOriginalHashes && OriginalHashes.Default.Get(source) is null
+                ? BackgroundHash.Start(source, token => Hasher.HashFile(source, token), c.Token)
+                : null;
             var files = volume.EnumerateFiles().ToList();
             long total = files.Sum(f => (long)f.Size);
             var hashes = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
 
             c.Report.SetStage("Writing the .zar");
             long done = 0;
-            using (var writer = new ZArchiveWriter(temp))
+            using (var writer = new ZArchiveWriter(temp) { CompressionThreads = Math.Max(1, s.Performance.EffectiveThreadsPerJob) })
             {
                 foreach (var entry in volume.EnumerateEntries())
                 {
@@ -67,7 +72,7 @@ public static class Xbox360Jobs
             if (s.TargetFormats.RecordOriginalHashes)
             {
                 c.Report.SetStage("Hashing the original");
-                original = OriginalHashes.Default.Get(source)?.Files.ToList() ?? Hasher.HashFile(source, c.Token);
+                original = OriginalHashes.Default.Get(source)?.Files.ToList() ?? originalBeside?.Result().ToList() ?? Hasher.HashFile(source, c.Token);
             }
             volume.Dispose();
             File.Move(temp, output, overwrite: true);
@@ -98,16 +103,17 @@ public static class Xbox360Jobs
     /// <summary>Null when the archive's own hash holds and every file reads back with the disc's SHA-1; else what's wrong.</summary>
     private static string? Check(string path, Dictionary<string, byte[]> expected, long total, JobContext c)
     {
+        // One front-to-back pass: the archive's SHA-256 and every file's SHA-1, each block decompressed once.
         using var reader = ZArchiveReader.Open(path);
-        if (!reader.CheckIntegrity(token: c.Token)) return "its SHA-256 doesn't match";
         long done = 0;
+        var length = Math.Max(1, reader.Length);
+        var hashed = reader.HashFiles(HashAlgorithmName.SHA1, n => c.Report.SetProgress(0.8 + 0.2 * (done += n) / length), c.Token);
+        if (!hashed.IntegrityOk) return "its SHA-256 doesn't match";
         int found = 0;
         foreach (var entry in reader.Walk().Where(e => e.IsFile))
         {
             if (!expected.TryGetValue(entry.Path.TrimStart('/'), out var sha1)) return $"{entry.Path} wasn't on the disc";
-            using var hashing = new HashingStream(Stream.Null);
-            reader.CopyFile(entry, hashing, n => c.Report.SetProgress(total > 0 ? 0.8 + 0.2 * (done += n) / total : 1), c.Token);
-            if (!hashing.Finish().AsSpan().SequenceEqual(sha1)) return $"{entry.Path} reads back differently";
+            if (!hashed.Files[entry.Path].AsSpan().SequenceEqual(sha1)) return $"{entry.Path} reads back differently";
             found++;
         }
         return found == expected.Count ? null : $"{expected.Count - found} files are missing";

@@ -32,13 +32,14 @@ internal static class ArchiveExtractor
     /// <summary>Later parts of a split file (.002, .003, ...), which the .001 brings in.</summary>
     public static bool IsSecondaryVolume(string path) => ArchiveFiles.IsSecondaryVolume(path);
 
-    public static void Extract(string archivePath, string destination, IProgress<double>? progress, CancellationToken token)
+    /// <param name="threads">Threads 7-Zip may decode with; 0 for every processor.</param>
+    public static void Extract(string archivePath, string destination, IProgress<double>? progress, CancellationToken token, int threads = 0)
     {
         // By name and by content, so a RAR renamed to .zip is refused too.
         if (IsRar(archivePath) || ArchiveFiles.HasRarSignature(archivePath)) throw new NotSupportedException(RarNotSupported);
         if (NativeEngineFor(archivePath) is { } engine)
         {
-            using (engine) engine.Extract(archivePath, destination, Report(progress), token);
+            using (engine) engine.Extract(archivePath, destination, threads, Report(progress), token);
             return;
         }
         ArchiveReader.Extract(archivePath, destination, Report(progress), token);

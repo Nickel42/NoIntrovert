@@ -167,7 +167,7 @@ internal sealed class InputPreparer(string tempRoot, IsoMode isoMode, ILog log)
             var target = Path.Combine(work.Path, "unpacked-" + depth + "-" + prepared.Discs.Count);
             Directory.CreateDirectory(target);
             log.Info($"Unpacking {Path.GetFileName(path)}...");
-            ArchiveExtractor.Extract(path, target, Stage("Unpacking archive"), token);
+            ArchiveExtractor.Extract(path, target, Stage("Unpacking archive"), token, Threads);
 
             var inner = DiscFiles.SelectPrimaries(Directory.EnumerateFiles(target, "*", SearchOption.AllDirectories));
             if (inner.Count == 0)

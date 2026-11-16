@@ -64,7 +64,7 @@ public static class VitaJobs
             c.Report.SetStage("Unpacking");
             var keys = KeysForTests?.Invoke() ?? PkgKeys.BuiltIn();
             var progress = new InlineProgress<OperationProgress>(p => c.Report.SetProgress(p.Fraction * 0.5));
-            unpacked = new VitaConverter(keys).ExtractPkgAsync(pkgPath, zrif, work.Path, null, progress, c.Token).GetAwaiter().GetResult();
+            unpacked = new VitaConverter(keys).ExtractPkgAsync(pkg, zrif, work.Path, null, progress, c.Token).GetAwaiter().GetResult();
         }
         catch (MissingLicenseException ex) { return JobOutcome.Failed($"{ex.Message} {NoZrifHelp}"); }
         catch (Exception ex) when (ex is VitaFormatException or MissingKeyException or IOException or UnauthorizedAccessException)

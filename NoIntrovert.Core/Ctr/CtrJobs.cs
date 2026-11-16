@@ -86,7 +86,8 @@ public static class CtrJobs
         if (ArchiveExtractor.IsArchive(source))
         {
             c.Report.SetStage("Unpacking");
-            ArchiveExtractor.Extract(source, work.Path, new InlineProgress<double>(f => c.Report.SetProgress(f * 0.3)), c.Token);
+            ArchiveExtractor.Extract(source, work.Path, new InlineProgress<double>(f => c.Report.SetProgress(f * 0.3)), c.Token,
+                s.Performance.EffectiveThreadsPerJob);
             input = Directory.EnumerateFiles(work.Path, "*", SearchOption.AllDirectories)
                         .FirstOrDefault(f => CtrFacts.Of(f) is { Type: CtrFileType.Cci or CtrFileType.Cia, IsGame: true })
                     ?? throw new InvalidDataException("no 3DS game inside");

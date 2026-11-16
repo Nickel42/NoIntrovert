@@ -33,16 +33,31 @@ public static class Hasher
         var crc = new System.IO.Hashing.Crc32();
         using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
         using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
-        var buffer = new byte[1 << 20];
+        // MD5, SHA-1 + CRC32 and the next read run side by side: MD5 alone sets the pace, not the sum of all three.
+        var current = new byte[1 << 20];
+        var next = new byte[1 << 20];
         long size = 0;
-        int read;
-        while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+        var read = stream.Read(current, 0, current.Length);
+        while (read > 0)
         {
             token.ThrowIfCancellationRequested();
-            crc.Append(buffer.AsSpan(0, read));
-            sha.AppendData(buffer, 0, read);
-            md5.AppendData(buffer, 0, read);
-            size += read;
+            var chunk = current;
+            var count = read;
+            var nextRead = 0;
+            try
+            {
+                Parallel.Invoke(
+                    () => md5.AppendData(chunk, 0, count),
+                    () => { crc.Append(chunk.AsSpan(0, count)); sha.AppendData(chunk, 0, count); },
+                    () => nextRead = stream.Read(next, 0, next.Length));
+            }
+            catch (AggregateException ex) when (ex.InnerExceptions.Count == 1)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex.InnerException!).Throw();
+            }
+            size += count;
+            (current, next) = (next, current);
+            read = nextRead;
         }
         return new HashedFile(name, size, crc.GetCurrentHashAsUInt32().ToString("X8"), Convert.ToHexString(sha.GetHashAndReset()),
             Md5: Convert.ToHexString(md5.GetHashAndReset()));

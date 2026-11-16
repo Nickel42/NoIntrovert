@@ -29,9 +29,11 @@ public static class RvzJobs
     /// <summary>One prepared GameCube/Wii disc → .rvz in <paramref name="outputFolder"/>, then optionally verified.</summary>
     /// <param name="source">The job's input. When the disc is that file itself (not one unpacked from an archive), its
     /// hashes come from the hash cache, where R11 has usually just put them, instead of decoding it again.</param>
+    /// <param name="recordSource">Put the job's own disc in the hash cache (R11's original hashes) from the bytes the
+    /// conversion decodes, even when it isn't verified.</param>
     internal static (DiscResult Result, string Output, OperationStats? Stats) ConvertDisc(
         JobContext c, PreparedDisc disc, string outputFolder, string discLabel, bool verify, double barStart = 0, double barSpan = 1,
-        string? source = null)
+        string? source = null, bool recordSource = false)
     {
         var s = c.Settings;
         var log = c.Log;
@@ -58,7 +60,7 @@ public static class RvzJobs
         // The verify's source hash, when nothing has it yet: taken by the conversion as it reads the disc. A scrubbed
         // disc is hashed as scrubbed (what the RVZ decodes to), so it's checked too, but isn't the file's hash to cache.
         var ownInput = !settings.Scrub && source is not null && PathNames.Same(source, disc.InputPath);
-        var hashWhileConverting = verify && (settings.Scrub || !ownInput
+        var hashWhileConverting = (verify || (recordSource && ownInput)) && (settings.Scrub || !ownInput
                                              || (!BackgroundHash.IsRunning(source!) && KnownHashes.Cached(source!) is null));
         // The job's own disc goes in the hash cache in the form Verify & match keeps, with MD5 (as SourceHash fills it).
         var cacheSource = hashWhileConverting && ownInput && Dats.VerifyJobs.IsNintendoDisc(source!);
@@ -126,6 +128,10 @@ public static class RvzJobs
         var f = KnownHashes.Single(files);
         return f is null ? Decode() : (f.Sha1!, f.Size);
     }
+
+    /// <summary>A WIA or GCZ disc: a container the conversion has to decode, so it's best hashed while converting.</summary>
+    internal static bool IsCompressedNintendoDisc(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() is ".wia" or ".gcz";
 
     /// <summary>
     /// Starts hashing the GameCube/Wii disc file <paramref name="source"/> into the hash cache on another thread, with
