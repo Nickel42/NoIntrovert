@@ -36,6 +36,10 @@ public sealed record PresetValues
     public uint RvzBlockSize { get; set; } = 0x20000;
     public bool Scrub { get; set; }
 
+    // ---- NSZ and XCZ ----
+    /// <summary>zstd level; 18 is nsz's default.</summary>
+    public int NszLevel { get; set; } = 18;
+
     // ---- 7z and zip ----
     public ArchiveLevel ArchiveLevel { get; set; } = ArchiveLevel.Normal;
     public bool Solid { get; set; } = true;
@@ -59,6 +63,7 @@ public sealed record PresetValues
         s.Nintendo.CompressionLevel = RvzLevel;
         s.Nintendo.BlockSize = RvzBlockSize;
         s.Nintendo.Scrub = Scrub;
+        s.Switch.CompressionLevel = NszLevel;
         s.Archives.Level = ArchiveLevel;
         s.Archives.Solid = Solid;
         s.Archives.TestAfter = TestArchives;
@@ -81,6 +86,7 @@ public sealed record PresetValues
         RvzLevel = s.Nintendo.CompressionLevel,
         RvzBlockSize = s.Nintendo.BlockSize,
         Scrub = s.Nintendo.Scrub,
+        NszLevel = s.Switch.CompressionLevel,
         ArchiveLevel = s.Archives.Level,
         Solid = s.Archives.Solid,
         TestArchives = s.Archives.TestAfter,

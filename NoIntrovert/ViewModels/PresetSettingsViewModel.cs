@@ -67,11 +67,25 @@ public sealed partial class PresetSettingsViewModel : ViewModelBase
     public bool IsSevenZip => Values.Target == TargetKind.SevenZip;
     public bool IsExtract => Values.Target == TargetKind.DiscImage;
     public bool IsUnpack => Values.Target == TargetKind.Files;
+    public bool IsSwitchCompressed => Values.Target is TargetKind.Nsz or TargetKind.Xcz;
     public bool HasNothingToSet => Values.Target is TargetKind.Iso or TargetKind.Wua or TargetKind.Cci or TargetKind.Zcci
-        or TargetKind.Nsz or TargetKind.Xcz or TargetKind.Nsp or TargetKind.Xci or TargetKind.Xiso or TargetKind.XboxCci or TargetKind.Zar
+        or TargetKind.Nsp or TargetKind.Xci or TargetKind.Xiso or TargetKind.XboxCci or TargetKind.Zar
         or TargetKind.Ps3Iso or TargetKind.Ps3Folder
         or TargetKind.Cso or TargetKind.Zso;
     public bool UsesZstandard => Values.UsesZstandard;
+
+    /// <summary>NSZ/XCZ zstd level (1-22).</summary>
+    public decimal NszLevel
+    {
+        get => _scratch.Switch.CompressionLevel;
+        set
+        {
+            var level = Math.Clamp((int)value, 1, 22);
+            if (level == _scratch.Switch.CompressionLevel) return;
+            _scratch.Switch.CompressionLevel = level;
+            Pull();
+        }
+    }
 
     /// <summary>Compression's codecs, at the right of its label: "cdzs, cdzl, cdfl", or "Default codecs".</summary>
     public string CodecsText => CodecsFor(Values);
@@ -174,7 +188,7 @@ public sealed partial class PresetSettingsViewModel : ViewModelBase
     private void RaiseAll()
     {
         foreach (var name in new[] { nameof(SelectedFormat), nameof(IsChd), nameof(IsRvz), nameof(IsArchive), nameof(IsSevenZip), nameof(IsExtract),
-                     nameof(IsUnpack), nameof(HasNothingToSet), nameof(UsesZstandard), nameof(CodecsText), nameof(ResetLabel), nameof(CanReset) })
+                     nameof(IsUnpack), nameof(IsSwitchCompressed), nameof(NszLevel), nameof(HasNothingToSet), nameof(UsesZstandard), nameof(CodecsText), nameof(ResetLabel), nameof(CanReset) })
             OnPropertyChanged(name);
     }
 }

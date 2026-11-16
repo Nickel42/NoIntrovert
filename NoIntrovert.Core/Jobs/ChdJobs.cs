@@ -28,11 +28,15 @@ public static class ChdJobs
         log.Info($"Converting {name}");
         // R11: the source's own hashes, so the CHD or RVZ can still be checked against No-Intro and Redump.
         IReadOnlyList<Dats.HashedFile>? originals = null;
-        // A GameCube/Wii disc on its way to RVZ is hashed beside the compression, which reads it anyway.
-        using var originalsBeside = s.TargetFormats.RecordOriginalHashes && s.Nintendo.Target == NintendoTarget.Rvz
+        // A WIA/GCZ disc on its way to RVZ is hashed by the conversion itself, which decodes it anyway: hashing it
+        // beside would decode the container a second time.
+        var originalsFromConvert = s.TargetFormats.RecordOriginalHashes && s.Nintendo.Target == NintendoTarget.Rvz
+                                   && RvzJobs.IsCompressedNintendoDisc(source);
+        // Any other GameCube/Wii disc on its way to RVZ is hashed beside the compression, which reads it anyway.
+        using var originalsBeside = s.TargetFormats.RecordOriginalHashes && s.Nintendo.Target == NintendoTarget.Rvz && !originalsFromConvert
             ? RvzJobs.HashBeside(c, source, md5: false)
             : null;
-        if (s.TargetFormats.RecordOriginalHashes && originalsBeside is null)
+        if (s.TargetFormats.RecordOriginalHashes && originalsBeside is null && !originalsFromConvert)
         {
             c.Report.SetStage("Hashing the original");
             originals = Dats.VerifyJobs.HashesOf(c, source);
@@ -62,7 +66,8 @@ public static class ChdJobs
 
             if (disc.IsNintendo && s.Nintendo.Target == NintendoTarget.Rvz)
             {
-                var (result, rvzOutput, rvzStats) = RvzJobs.ConvertDisc(c, disc, outputFolder, discLabel, mustVerify, discStart, discShare, source);
+                var (result, rvzOutput, rvzStats) = RvzJobs.ConvertDisc(c, disc, outputFolder, discLabel, mustVerify, discStart, discShare, source,
+                    recordSource: originalsFromConvert);
                 switch (result)
                 {
                     case RvzJobs.DiscResult.Skipped: skipped++; break;
@@ -130,6 +135,9 @@ public static class ChdJobs
             return JobOutcome.Skipped(skipped > 0 ? "Already RVZ" : "Nothing to convert");
 
         originals ??= originalsBeside?.Result();
+        // Hashed by the conversion into the hash cache; read now only when it couldn't be (a scrubbed or unpacked disc).
+        if (originalsFromConvert)
+            originals ??= KnownHashes.Cached(source) ?? Dats.VerifyJobs.HashesOf(c, source);
         if (originals is not null)
             foreach (var (made, _) in created) Dats.OriginalHashes.Default.Set(made, source, originals);
 

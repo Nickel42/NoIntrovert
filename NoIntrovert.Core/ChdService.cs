@@ -128,7 +128,20 @@ internal static class ChdService
     /// out): the same names, sizes, CRC32s, SHA-1s and MD5s that hashing those files gives, but streamed
     /// from the CHD so nothing is written to disk.
     /// </summary>
-    public static List<HashedFile> HashTracks(Chdman chdman, string chdPath, CancellationToken token)
+    public static List<HashedFile> HashTracks(Chdman chdman, string chdPath, CancellationToken token) =>
+        HashTracks(chdman, chdPath, verify: false, token).Files;
+
+    /// <summary>
+    /// <see cref="HashTracks(Chdman, string, CancellationToken)"/> and <see cref="Verify"/> (without fix) in one
+    /// pass, so the CHD is decompressed once for both. A hunk that can't be read throws <see cref="ChdmanException"/>.
+    /// </summary>
+    public static (List<HashedFile> Files, ChdVerifyResult Verdict) HashAndVerifyTracks(Chdman chdman, string chdPath, CancellationToken token)
+    {
+        var (files, verdict) = HashTracks(chdman, chdPath, verify: true, token);
+        return (files, verdict!);
+    }
+
+    private static (List<HashedFile> Files, ChdVerifyResult? Verdict) HashTracks(Chdman chdman, string chdPath, bool verify, CancellationToken token)
     {
         var info = chdman.Info(chdPath, cancellationToken: token);
         var format = ResolveFormat(info, ExtractFormat.Auto);
@@ -137,12 +150,18 @@ internal static class ChdService
         {
             var toc = name + (format == ExtractFormat.Gdi ? ".gdi" : ".cue");
             var cdSink = new HashingSink(toc);
-            chdman.ExtractCdToSink(chdPath, toc, cdSink, outputBin: null, splitBin: format == ExtractFormat.CueBin, cancellationToken: token);
-            return cdSink.Files;
+            var splitBin = format == ExtractFormat.CueBin;
+            var cdVerdict = verify
+                ? chdman.ExtractCdToSinkAndVerify(chdPath, toc, cdSink, outputBin: null, splitBin: splitBin, cancellationToken: token)
+                : null;
+            if (!verify) chdman.ExtractCdToSink(chdPath, toc, cdSink, outputBin: null, splitBin: splitBin, cancellationToken: token);
+            return (cdSink.Files, cdVerdict);
         }
         var sink = new HashingSink();
-        chdman.ExtractRawToSink(chdPath, name + RawExtension(info, format), sink, cancellationToken: token);
-        return sink.Files;
+        var output = name + RawExtension(info, format);
+        var verdict = verify ? chdman.ExtractRawToSinkAndVerify(chdPath, output, sink, cancellationToken: token) : null;
+        if (!verify) chdman.ExtractRawToSink(chdPath, output, sink, cancellationToken: token);
+        return (sink.Files, verdict);
     }
 
     /// <summary>Writes the 2048-byte user data of each Mode 1 / Mode 2 Form 1 sector of a raw bin.</summary>

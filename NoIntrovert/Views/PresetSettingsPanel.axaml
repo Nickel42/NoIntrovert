@@ -114,6 +114,14 @@
             <CheckBox IsChecked="{Binding Chd.VerifyAfterCreate}"><TextBlock Text="Verify each RVZ after it is written" TextWrapping="Wrap" /></CheckBox>
         </StackPanel>
 
+        <!-- NSZ and XCZ -->
+        <StackPanel Classes="field" IsVisible="{Binding IsSwitchCompressed}">
+            <Grid ColumnDefinitions="*,110">
+                <TextBlock Text="zstd level (18 smallest, 12 much faster)" Classes="label" TextWrapping="Wrap" />
+                <NumericUpDown Grid.Column="1" Value="{Binding NszLevel}" Minimum="1" Maximum="22" Increment="1" FormatString="0" />
+            </Grid>
+        </StackPanel>
+
         <!-- 7z and zip -->
         <StackPanel Classes="field" IsVisible="{Binding IsArchive}">
             <TextBlock Text="Compression" Classes="label" />

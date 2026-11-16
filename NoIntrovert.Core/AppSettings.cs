@@ -22,6 +22,7 @@ public sealed class AppSettings
     public ChdSettings Chd { get; set; } = new();
     public NintendoSettings Nintendo { get; set; } = new();
     public ArchiveSettings Archives { get; set; } = new();
+    public SwitchSettings Switch { get; set; } = new();
     public KeySettings Keys { get; set; } = new();
     public DiagnosticsSettings Diagnostics { get; set; } = new();
     public LibrarySettings Library { get; set; } = new();
@@ -448,6 +449,13 @@ public sealed class NintendoSettings
     public int CompressionLevel { get; set; } = 5;
     public uint BlockSize { get; set; } = 0x20000;
     public bool Scrub { get; set; }
+}
+
+/// <summary>Switch packages (lib-nx-kit).</summary>
+public sealed class SwitchSettings
+{
+    /// <summary>zstd level for .nsz/.xcz; 18 is nsz's own default (smallest, slowest).</summary>
+    public int CompressionLevel { get; set; } = 18;
 }
 
 /// <summary>7z and zip archives (7-Zip's engine).</summary>

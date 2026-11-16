@@ -131,6 +131,10 @@ public static class FormatPresets
     private static PresetValues Rvz(int level) => new() { Target = TargetKind.Rvz, RvzLevel = level };
     private static PresetValues Extract(ExtractFormat format, bool split = true) => new() { Target = TargetKind.DiscImage, ExtractFormat = format, SplitBin = split };
     private static PresetValues Kind(TargetKind kind) => new() { Target = kind };
+    private static PresetValues Ncz(TargetKind kind, int level) => new() { Target = kind, NszLevel = level };
+
+    /// <summary>NSZ/XCZ · Fast: zstd 12 is several times quicker than 18 for a few percent more size.</summary>
+    public const int FastNszLevel = 12;
     private static PresetValues NotYet() => new() { Target = TargetKind.Leave };
 
     // ---- Shared presets ----
@@ -222,7 +226,9 @@ public static class FormatPresets
         ["switch"] =
         [
             new("nsz-standard", "NSZ", "Standard", "Smallest; Ryujinx, the yuzu family and installers read it", Kind(TargetKind.Nsz), Recommended: true),
+            new("nsz-fast", "NSZ", "Fast", "Several times quicker to make, a few percent larger", Ncz(TargetKind.Nsz, FastNszLevel)),
             new("xcz-standard", "XCZ", "Standard", "A compressed cartridge image; keeps a cartridge dump a cartridge", Kind(TargetKind.Xcz)),
+            new("xcz-fast", "XCZ", "Fast", "Several times quicker to make, a few percent larger", Ncz(TargetKind.Xcz, FastNszLevel)),
             new("nsp-standard", "NSP/XCI", "Uncompressed", "Back to a plain .nsp (or .xci for a cartridge image)", Kind(TargetKind.Nsp)),
         ],
     };
@@ -471,6 +477,7 @@ public static class FormatPresets
             TargetKind.SevenZip or TargetKind.Zip => a.ArchiveLevel == b.ArchiveLevel && a.Solid == b.Solid && a.TestArchives == b.TestArchives
                                                      && a.Grouping == b.Grouping && a.SingleName == b.SingleName,
             TargetKind.Files => a.UnpackToOwnFolder == b.UnpackToOwnFolder,
+            TargetKind.Nsz or TargetKind.Xcz => a.NszLevel == b.NszLevel,
             _ => true,
         };
     }

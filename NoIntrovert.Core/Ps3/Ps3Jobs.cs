@@ -192,7 +192,12 @@ public static class Ps3Jobs
         Ps3Result result;
         try
         {
-            result = Ps3Converter.FolderToIso(source, output, new Ps3Options { Verify = true, Overwrite = s.Output.Overwrite },
+            result = Ps3Converter.FolderToIso(source, output, new Ps3Options
+                {
+                    Verify = true, Overwrite = s.Output.Overwrite,
+                    // Small files read ahead several at once, unless a hard drive is involved.
+                    MaxParallelFiles = !Drives.IsSpinning(source) && !Drives.IsSpinning(folder) ? 4 : 1,
+                },
                 ProgressFor(c, "Making the ISO"), c.Token);
         }
         catch (Ps3Exception ex) { return JobOutcome.Failed(ex.Message); }

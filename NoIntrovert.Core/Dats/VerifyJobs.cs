@@ -20,8 +20,16 @@ public static class VerifyJobs
         var set = FormatRegistry.Default.Identify(path) ?? new FileSet(path, [path], ConvertTargets.OtherFile);
         var system = TargetFormats.ById(SystemDetector.SystemOf(set));
 
-        // FR-9: a damaged file isn't worth hashing.
-        if (Integrity(c, set) is { } damage)
+        // A CHD not hashed yet is verified and hashed in one pass (it's decompressed once); anything else is
+        // checked first (FR-9: a damaged file isn't worth hashing).
+        IReadOnlyList<HashedFile>? hashedWhileVerifying = null;
+        string? damage;
+        if (set.Format == KnownFormats.Chd && !c.Settings.Chd.FixHeaderSha1
+            && OriginalHashes.Default.Get(path) is null && cache.TryGet(path) is null)
+            (damage, hashedWhileVerifying) = VerifyAndHashChd(c, set.Primary);
+        else
+            damage = Integrity(c, set);
+        if (damage is not null)
         {
             var bad = MatchResult.Of(MatchStatus.Damaged, damage);
             matches.Set(path, bad);
@@ -44,7 +52,7 @@ public static class VerifyJobs
         else
         {
             c.Report.SetStage("Hashing");
-            files = cache.GetOrAdd(path, () => Hash(c, set));
+            files = cache.GetOrAdd(path, () => hashedWhileVerifying?.ToList() ?? Hash(c, set));
         }
 
         var result = Matcher.Match(path, files, dats.For(system, c.Settings.Dats.OwnFolder));
@@ -113,9 +121,7 @@ public static class VerifyJobs
             ChdVerifyResult result;
             try { (result, _) = ChdService.Verify(c.Chdman, set.Primary, c.Settings.Chd.FixHeaderSha1, c.Token); }
             catch (ChdmanException ex) { return $"Damaged: {ex.Message}"; } // a hunk that won't even decompress
-            return result.Outcome is ChdVerifyOutcome.Ok or ChdVerifyOutcome.Fixed or ChdVerifyOutcome.NotApplicable
-                ? null
-                : result.Outcome == ChdVerifyOutcome.RawMismatch ? "Damaged: the CHD's data doesn't match its checksum" : "Damaged: checksum mismatch";
+            return ChdDamage(result);
         }
         if (ArchiveJobs.IsConvertible(set.Primary))
         {
@@ -123,12 +129,29 @@ public static class VerifyJobs
             try
             {
                 using var engine = new SevenZipEngine();
-                engine.Test(set.Primary, c.Report.SetProgress, c.Token);
+                engine.Test(set.Primary, c.Settings.Performance.EffectiveThreadsPerJob, c.Report.SetProgress, c.Token);
             }
             catch (ArchiveException ex) { return $"Damaged: {ex.Message}"; }
         }
         return null;
     }
+
+    /// <summary>A CHD's verify and track hashes from one decompression: the damage (null when intact) and, when intact, the hashes.</summary>
+    private static (string? Damage, List<HashedFile>? Files) VerifyAndHashChd(JobContext c, string chd)
+    {
+        c.TrackChdman("Verifying and hashing the tracks");
+        try
+        {
+            var (files, verdict) = ChdService.HashAndVerifyTracks(c.Chdman, chd, c.Token);
+            return ChdDamage(verdict) is { } damage ? (damage, null) : (null, files);
+        }
+        catch (ChdmanException ex) { return ($"Damaged: {ex.Message}", null); } // a hunk that won't even decompress
+    }
+
+    private static string? ChdDamage(ChdVerifyResult result) =>
+        result.Outcome is ChdVerifyOutcome.Ok or ChdVerifyOutcome.Fixed or ChdVerifyOutcome.NotApplicable
+            ? null
+            : result.Outcome == ChdVerifyOutcome.RawMismatch ? "Damaged: the CHD's data doesn't match its checksum" : "Damaged: checksum mismatch";
 
     /// <summary>The inputs FR-5 hashes; Wii U, CSO/ZSO and the like aren't.</summary>
     private static bool CanHash(FileSet set)

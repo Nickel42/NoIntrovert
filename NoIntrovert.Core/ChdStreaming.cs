@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Security.Cryptography;
 using LibChdKit;
 using NoIntrovert.Core.Cd;
@@ -32,11 +33,35 @@ internal sealed class HashingSink(params string[] skip) : ChdExtractSink
     public override void Write(ReadOnlySpan<byte> data)
     {
         if (_crc is null) return;
-        _crc.Append(data);
-        _sha1!.AppendData(data);
-        _md5!.AppendData(data);
         _size += data.Length;
+        if (data.Length < ParallelFrom)
+        {
+            _crc.Append(data);
+            _sha1!.AppendData(data);
+            _md5!.AppendData(data);
+            return;
+        }
+        // The CHD now decodes on several threads, so hashing is the slow part: MD5 runs beside SHA-1 + CRC32.
+        // The span is native memory, valid only during this call, so it's copied for the second thread first.
+        var copy = ArrayPool<byte>.Shared.Rent(data.Length);
+        data.CopyTo(copy);
+        var count = data.Length;
+        var md5 = Task.Run(() => _md5!.AppendData(copy, 0, count));
+        try
+        {
+            _crc.Append(data);
+            _sha1!.AppendData(data);
+        }
+        finally
+        {
+            // The copy goes back to the pool only once MD5 is done with it.
+            try { md5.GetAwaiter().GetResult(); }
+            finally { ArrayPool<byte>.Shared.Return(copy); }
+        }
     }
+
+    /// <summary>Chunks at least this big are hashed on two threads (lib-chd-kit hands over up to 32 MiB at a time).</summary>
+    private const int ParallelFrom = 1 << 20;
 
     public override void EndFile()
     {

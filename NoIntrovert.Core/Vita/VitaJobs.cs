@@ -64,7 +64,7 @@ public static class VitaJobs
             c.Report.SetStage("Unpacking");
             var keys = KeysForTests?.Invoke() ?? PkgKeys.BuiltIn();
             var progress = new InlineProgress<OperationProgress>(p => c.Report.SetProgress(p.Fraction * 0.5));
-            unpacked = new VitaConverter(keys).ExtractPkgAsync(pkgPath, zrif, work.Path, null, progress, c.Token).GetAwaiter().GetResult();
+            unpacked = new VitaConverter(keys).ExtractPkgAsync(pkg, zrif, work.Path, null, progress, c.Token).GetAwaiter().GetResult();
         }
         catch (MissingLicenseException ex) { return JobOutcome.Failed($"{ex.Message} {NoZrifHelp}"); }
         catch (Exception ex) when (ex is VitaFormatException or MissingKeyException or IOException or UnauthorizedAccessException)
@@ -77,6 +77,8 @@ public static class VitaJobs
         // temporary folder, is the original: the zip is tested whenever the .pkg is to be removed.
         var zip = s.Clone();
         zip.Archives.Format = ArchiveFormat.Zip;
+        // NoNpDrm game files stay PFS-encrypted, so Deflate can't shrink them: storing is several times faster.
+        zip.Archives.Level = ArchiveLevel.Store;
         zip.Archives.TestAfter = s.Archives.TestAfter || s.Output.ReplacesOriginals;
         if (zip.Output.ReplacesOriginals) zip.Output.SaveTo = SaveTo.NextToOriginals;
         var sub = new ArchiveJobs.SubReport(c.Report, 0.5, 0.5, "");

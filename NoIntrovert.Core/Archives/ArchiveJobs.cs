@@ -155,7 +155,7 @@ public static class ArchiveJobs
 
         c.Log.Info($"Converting {Path.GetFileName(archive)} → {Path.GetFileName(output)}");
         c.Report.SetStage("Extracting");
-        engine.Extract(archive, contents, f => c.Report.SetProgress(f * 0.4), c.Token);
+        engine.Extract(archive, contents, c.Settings.Performance.EffectiveThreadsPerJob, f => c.Report.SetProgress(f * 0.4), c.Token);
         if (!Directory.EnumerateFileSystemEntries(contents).Any())
             return JobOutcome.Skipped("Archive is empty");
 
@@ -196,7 +196,7 @@ public static class ArchiveJobs
 
         c.Log.Info($"Recompressing {Path.GetFileName(archive)} ({FormatName(format)}, {s.Archives.Level})");
         c.Report.SetStage("Extracting");
-        engine.Extract(archive, contents, f => c.Report.SetProgress(f * 0.4), c.Token);
+        engine.Extract(archive, contents, c.Settings.Performance.EffectiveThreadsPerJob, f => c.Report.SetProgress(f * 0.4), c.Token);
         if (!Directory.EnumerateFileSystemEntries(contents).Any())
             return JobOutcome.Skipped("Archive is empty");
 
@@ -204,7 +204,7 @@ public static class ArchiveJobs
         engine.Compress(format, s.Archives.Level, s.Performance.EffectiveThreadsPerJob, s.Archives.Solid, [contents], packed,
             contentsOnly: true, f => c.Report.SetProgress(0.4 + f * 0.5), c.Token);
         c.Report.SetStage("Testing");
-        try { engine.Test(packed, f => c.Report.SetProgress(0.9 + f * 0.1), c.Token); }
+        try { engine.Test(packed, c.Settings.Performance.EffectiveThreadsPerJob, f => c.Report.SetProgress(0.9 + f * 0.1), c.Token); }
         catch (ArchiveException ex)
         {
             c.Log.Error($"  testing the new {Path.GetFileName(archive)} failed: {ex.Message}; the original is unchanged.");
@@ -262,7 +262,7 @@ public static class ArchiveJobs
             using (var engine = new SevenZipEngine())
             {
                 c.Report.SetStage("Extracting");
-                engine.Extract(archive, staging, c.Report.SetProgress, c.Token);
+                engine.Extract(archive, staging, c.Settings.Performance.EffectiveThreadsPerJob, c.Report.SetProgress, c.Token);
             }
 
             c.Report.SetStage("Moving into place");
@@ -350,7 +350,7 @@ public static class ArchiveJobs
             c.Report.SetStage("Testing");
             try
             {
-                engine.Test(output, c.Report.SetProgress, c.Token);
+                engine.Test(output, c.Settings.Performance.EffectiveThreadsPerJob, c.Report.SetProgress, c.Token);
                 c.Log.Debug($"  {Path.GetFileName(output)} tested OK");
             }
             catch (ArchiveException ex)
