@@ -3,8 +3,10 @@ namespace NoIntrovert.Core.Formats;
 /// <summary>
 /// Unpacks zip, 7z, tar and gz archives into a work folder, and joins plain
 /// split files (game.bin.001, .002, ...) back into one. RAR is refused.
-/// The work is done by lib-7z-zip-kit's managed reader (<see cref="ArchiveReader"/>,
-/// <see cref="ArchiveFiles"/>); this keeps the app's own wording and progress type.
+/// 7z and zip go through 7-Zip's native engine (<see cref="SevenZipEngine"/>) when it's
+/// there, which decodes several times faster; everything else, and 7z/zip without the
+/// engine, through lib-7z-zip-kit's managed reader (<see cref="ArchiveReader"/>,
+/// <see cref="ArchiveFiles"/>). This keeps the app's own wording and progress type.
 /// </summary>
 internal static class ArchiveExtractor
 {
@@ -34,7 +36,21 @@ internal static class ArchiveExtractor
     {
         // By name and by content, so a RAR renamed to .zip is refused too.
         if (IsRar(archivePath) || ArchiveFiles.HasRarSignature(archivePath)) throw new NotSupportedException(RarNotSupported);
+        if (NativeEngineFor(archivePath) is { } engine)
+        {
+            using (engine) engine.Extract(archivePath, destination, Report(progress), token);
+            return;
+        }
         ArchiveReader.Extract(archivePath, destination, Report(progress), token);
+    }
+
+    /// <summary>7-Zip's engine for a .7z or .zip, or null for other types or when its libraries are missing.</summary>
+    private static SevenZipEngine? NativeEngineFor(string archivePath)
+    {
+        var ext = Path.GetExtension(archivePath);
+        if (!ext.Equals(".7z", StringComparison.OrdinalIgnoreCase) && !ext.Equals(".zip", StringComparison.OrdinalIgnoreCase)) return null;
+        try { return new SevenZipEngine(); }
+        catch (ArchiveException) { return null; }
     }
 
     public static string JoinSplitParts(string firstPart, string destinationDirectory, IProgress<double>? progress, CancellationToken token) =>

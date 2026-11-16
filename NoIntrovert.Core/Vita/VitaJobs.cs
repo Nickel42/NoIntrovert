@@ -77,6 +77,8 @@ public static class VitaJobs
         // temporary folder, is the original: the zip is tested whenever the .pkg is to be removed.
         var zip = s.Clone();
         zip.Archives.Format = ArchiveFormat.Zip;
+        // NoNpDrm game files stay PFS-encrypted, so Deflate can't shrink them: storing is several times faster.
+        zip.Archives.Level = ArchiveLevel.Store;
         zip.Archives.TestAfter = s.Archives.TestAfter || s.Output.ReplacesOriginals;
         if (zip.Output.ReplacesOriginals) zip.Output.SaveTo = SaveTo.NextToOriginals;
         var sub = new ArchiveJobs.SubReport(c.Report, 0.5, 0.5, "");

@@ -170,7 +170,8 @@ public static class CtrJobs
         if (s.Chd.VerifyAfterCreate || s.Output.ReplacesOriginals)
         {
             c.Report.SetStage("Checking");
-            var report = new CtrVerifier(keys).Verify(output, new CtrVerifyOptions(), progress, c.Token);
+            // Only the verdict is used, so skip the whole-file hashes (the read still decompresses a .zcci).
+            var report = new CtrVerifier(keys).Verify(output, new CtrVerifyOptions { HashKinds = Lib3dsKit.Hashing.HashKinds.None }, progress, c.Token);
             if (report.Verdict == CtrVerdict.Bad)
             {
                 FileRemover.Remove([output], useBin: false, c.Log);
