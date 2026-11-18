@@ -94,6 +94,7 @@ public static class WuaJobs
             Progress = c.Report.SetProgress,
             Log = (level, m) => Log(log, level, m),
             CancellationToken = c.Token,
+            Threads = Math.Max(1, s.Performance.EffectiveThreadsPerJob),
         });
 
         var stats = new OperationStats(result.Elapsed, result.InputBytes, result.OutputBytes);
