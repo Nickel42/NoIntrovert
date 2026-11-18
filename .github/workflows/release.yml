@@ -198,6 +198,13 @@ jobs:
       - name: Build lib-wii-gamecube-kit (universal) and run its tests
         run: bash app/native/lib-wii-gamecube-kit/scripts/build-mac.sh
 
+      - name: Self-test (quick, synthetic discs)
+        # As on Linux: the app's own tests against the universal native libraries just built,
+        # run on this Apple silicon runner. test-roms isn't available here, so the tests generate stand-in discs.
+        run: |
+          dotnet run --project app/NoIntrovert.Tests/NoIntrovert.Tests.csproj -c Release \
+            -- --quick --synthetic
+
       - name: Publish, bundle and zip
         run: |
           mkdir -p dist
