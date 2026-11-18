@@ -107,7 +107,7 @@ public static class Xbox360Jobs
         using var reader = ZArchiveReader.Open(path);
         long done = 0;
         var length = Math.Max(1, reader.Length);
-        var hashed = reader.HashFiles(HashAlgorithmName.SHA1, n => c.Report.SetProgress(0.8 + 0.2 * (done += n) / length), c.Token);
+        var hashed = reader.HashFiles(HashAlgorithmName.SHA1, Math.Max(1, c.Settings.Performance.EffectiveThreadsPerJob), n => c.Report.SetProgress(0.8 + 0.2 * (done += n) / length), c.Token);
         if (!hashed.IntegrityOk) return "its SHA-256 doesn't match";
         int found = 0;
         foreach (var entry in reader.Walk().Where(e => e.IsFile))
