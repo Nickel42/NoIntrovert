@@ -188,12 +188,19 @@ internal static class JobPerformanceTests
             var disc = Path.Combine(folder, "Perf Game (USA).iso");
             NintendoDiscs.WriteGameCube(disc);
             var hits = HashCache.Default.Hits;
-            var o = runJob(c => ChdJobs.Convert(c, disc), s =>
+            // A solid-state drive, whatever the runner's disk says: on a spinning one the hash waits for the conversion.
+            Drives.ForTests = _ => false;
+            JobOutcome o;
+            try
             {
-                s.Output.Folder = dir("perf-rvz-out");
-                s.TargetFormats.RecordOriginalHashes = true;
-                s.Chd.VerifyAfterCreate = true;
-            });
+                o = runJob(c => ChdJobs.Convert(c, disc), s =>
+                {
+                    s.Output.Folder = dir("perf-rvz-out");
+                    s.TargetFormats.RecordOriginalHashes = true;
+                    s.Chd.VerifyAfterCreate = true;
+                });
+            }
+            finally { Drives.ForTests = null; }
             if (o.Status != JobStatus.Succeeded) return $"{o.Status}: {o.Summary}";
             // R11 hashed the ISO (a miss); the verify then found it in the cache instead of decoding it again.
             return HashCache.Default.Hits == hits + 1 ? null : $"{HashCache.Default.Hits - hits} cache hits, expected 1";

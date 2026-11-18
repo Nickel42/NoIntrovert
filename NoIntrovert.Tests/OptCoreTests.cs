@@ -188,7 +188,7 @@ internal static class OptCoreTests
                     var disc = Path.Combine(folder, name);
                     NintendoDiscs.WriteGameCube(disc);
                     var before = BackgroundHash.Count;
-                    Drives.ForTests = spinning ? _ => true : null;
+                    Drives.ForTests = spinning ? _ => true : _ => false; // never the runner's own disk, which may report itself as spinning
                     try
                     {
                         var o = runJob(c => ChdJobs.Convert(c, disc), s =>
