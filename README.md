@@ -404,6 +404,24 @@ writers, which follow the same layouts the decoders read, so those tests check
 the conversion logic but not compatibility with files from the original tools.
 Try real files from those tools on the Convert page to confirm.
 
+### ROM test matrix (noi against every game)
+
+`scripts\test-roms.cmd` runs the built `noi` against each game in a test folder
+(`test-src` in or beside the repo, or `-Source <folder>`), one call per game per
+test: `info`, `verify`, `convert` once for each preset noi offers for the file,
+`verify` on each convert's output, and `optimize --new-library`. Add
+`-Tests all` for `test roundtrip` as well. The originals are never changed.
+Every call's result, time, sizes and message go to `test-results\<date-time>\results.csv`
+(with `matrix.csv` for one row per game, `summary.txt`, and each call's log).
+Run with `-Baseline <earlier run folder>` to list what got better or worse.
+
+```
+scripts\test-roms.cmd -Source D:\test-src
+scripts\test-roms.cmd -Tests convert,verify-output -PresetIds chd-standard -Include "PS1\*"
+scripts\test-roms.cmd -Baseline test-results\20261119-101500
+scripts\test-roms.cmd -Help
+```
+
 ## License
 
 NoIntrovert is free software: you can redistribute it and/or modify it under
