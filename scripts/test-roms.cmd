@@ -2,6 +2,8 @@
 rem ---------------------------------------------------------------------------------------------
 rem  NoIntrovert ROM test matrix: runs noi against every game in a test folder, one at a time,
 rem  with each preset, and records the result of every command for every game.
+rem  What it makes goes to test-dest (beside test-src) as an ES-DE tree: roms\<system>\<preset>\.
+rem  test-dest is emptied each time a run starts.
 rem
 rem    test-roms.cmd                                   test-src next to the repo, every default test
 rem    test-roms.cmd -Source D:\test-src               another folder

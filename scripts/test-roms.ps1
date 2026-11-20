@@ -9,16 +9,26 @@
 
       info           noi info: the system, and the presets noi offers for the file
       verify         noi verify on the original (damage check and database lookup)
-      convert        noi convert -p <preset> into a scratch folder, once for each preset (-Presets)
-      verify-output  noi verify on what each convert made
-      optimize       noi optimize --new-library into a scratch folder (verify, convert, rename, file)
+      convert        noi convert -p <preset>, once for each preset (-Presets)
+      verify-output  noi verify on what each convert made, where it landed in -Dest
+      optimize       noi optimize --new-library (verify, convert, rename, file)
       roundtrip      noi test roundtrip (lib-chd-kit: create, verify, extract, compare); disc images only
 
-    The originals are never changed: convert and optimize always write into the run's work folder, which is
-    emptied after each game unless -KeepOutputs is given.
+    What convert and optimize make lands in -Dest (test-dest beside test-src) as an ES-DE tree, one folder
+    per preset inside each system's folder, so every result can be opened in an emulator:
+
+      test-dest\roms\psx\chd-standard\Crash Bandicoot (USA).chd
+      test-dest\roms\psx\optimize\Crash Bandicoot (USA).chd
+      test-dest\roms\gc\rvz-smallest\...
+      test-dest\_unsorted\<preset>\...      (noi couldn't tell the system)
+
+    Point ES-DE's ROM directory at test-dest\roms. Two games that make the same name in the same folder:
+    the second goes into a subfolder named after its original. -Dest is emptied when a run starts (not
+    with -Resume). The originals in -Source are never changed.
 
     Each run gets its own folder under -Out with:
-      results.csv    one row per noi call: game, system, test, preset, result, exit code, time, sizes, message
+      results.csv    one row per noi call: game, system, test, preset, result, exit code, time, sizes, message,
+                     and where its output is in -Dest
       matrix.csv     one row per game, one column per test/preset: the result, to see a game's whole story
       summary.txt    the totals and every result that wasn't a pass
       changes.csv    with -Baseline: what got better, worse or is new since that run
@@ -36,6 +46,10 @@
 
 .PARAMETER Noi
     noi.exe to test. Default: $env:NOI_EXE, then the newest noi built in NoIntrovert.Cli\bin, then noi on PATH.
+
+.PARAMETER Dest
+    Where the converted files go, as an ES-DE tree; emptied at the start of each run. Default: test-dest
+    beside -Source.
 
 .PARAMETER Out
     Where to put this run's results. Default: test-results\<date-time> in the repo (git ignores it).
@@ -67,10 +81,8 @@
     An earlier run's results.csv (or its folder): changes.csv and the summary list what got better or worse.
 
 .PARAMETER Resume
-    Carry on an interrupted run: give its folder as -Out and the calls already recorded are skipped.
-
-.PARAMETER KeepOutputs
-    Keep what convert and optimize made (work\<game>\...) instead of deleting it after each game.
+    Carry on an interrupted run: give its folder as -Out and the calls already recorded are skipped. -Dest
+    isn't emptied, so what the run made so far stays.
 
 .PARAMETER DryRun
     Pass --dry-run to convert and optimize: test the planning only, quickly.
@@ -97,6 +109,7 @@
 param(
     [string]   $Source,
     [string]   $Noi,
+    [string]   $Dest,
     [string]   $Out,
     [string[]] $Tests = @('info', 'verify', 'convert', 'verify-output', 'optimize'),
     [ValidateSet('usable', 'recommended', 'all')]
@@ -108,7 +121,6 @@ param(
     [int]      $TimeoutMinutes = 60,
     [string]   $Baseline,
     [switch]   $Resume,
-    [switch]   $KeepOutputs,
     [switch]   $DryRun,
     [switch]   $NoDbUpdate,
     [switch]   $Rehash,
@@ -211,9 +223,26 @@ if ($Out.StartsWith($SourceRoot + [IO.Path]::DirectorySeparatorChar, [StringComp
 }
 $null = New-Item -ItemType Directory -Force -Path $Out
 $LogRoot = Join-Path $Out 'logs'
-$WorkRoot = Join-Path $Out 'work'
 $ResultsCsv = Join-Path $Out 'results.csv'
-$null = New-Item -ItemType Directory -Force -Path $LogRoot, $WorkRoot
+$null = New-Item -ItemType Directory -Force -Path $LogRoot
+
+# -Dest: test-dest beside test-src. It's emptied below, so make sure it's nothing else.
+if (-not $Dest) { $Dest = Join-Path (Split-Path -Parent $SourceRoot) 'test-dest' }
+$DestRoot = [IO.Path]::GetFullPath($Dest).TrimEnd('\', '/')
+function Test-Inside([string] $Path, [string] $Folder) {
+    $Path.StartsWith($Folder.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
+}
+$sameAs = { param($a, $b) [string]::Equals($a.TrimEnd('\', '/'), $b.TrimEnd('\', '/'), [StringComparison]::OrdinalIgnoreCase) }
+if (-not (Split-Path -Parent $DestRoot) -or (& $sameAs $DestRoot ([IO.Path]::GetPathRoot($DestRoot)))) { throw "-Dest can't be a drive's root ($DestRoot): it's emptied when a run starts." }
+foreach ($keep in @(@{ Name = '-Source'; Path = $SourceRoot }, @{ Name = 'the repo'; Path = $RepoRoot }, @{ Name = '-Out'; Path = $Out }, @{ Name = 'your home folder'; Path = $HOME })) {
+    if (-not $keep.Path) { continue }
+    if ((& $sameAs $DestRoot $keep.Path) -or (Test-Inside $keep.Path $DestRoot)) { throw "-Dest ($DestRoot) is or holds $($keep.Name); it's emptied when a run starts. Choose another folder." }
+}
+if (Test-Inside $DestRoot $SourceRoot) { throw "-Dest is inside -Source; its files would be tested as games. Choose another folder." }
+$DestRoms = Join-Path $DestRoot 'roms'
+$DestUnsorted = Join-Path $DestRoot '_unsorted'
+# Each noi call writes into a work folder on the same drive as -Dest, then its files are moved into place.
+$WorkRoot = Join-Path $DestRoot '_work'
 
 $Rows = New-Object System.Collections.Generic.List[object]
 $Done = @{}
@@ -335,7 +364,7 @@ $Counter = @{ Index = 0; Total = 0 }
 
 function Add-Result {
     param($Game, [string] $Test, [string] $Preset = '', [string] $Result, $Run = $null, [string] $Message = '',
-          $InBytes = $null, $OutBytes = $null, [string] $Detail = '')
+          $InBytes = $null, $OutBytes = $null, [string] $Detail = '', [string[]] $Output = @())
     $ratio = ''
     if ($InBytes -and $OutBytes) { $ratio = '{0:0.0}%' -f (100.0 * $OutBytes / $InBytes) }
     $row = [pscustomobject]@{
@@ -351,11 +380,12 @@ function Add-Result {
         Ratio    = $ratio
         Detail   = $Detail
         Message  = $Message
+        Output   = (@($Output | Where-Object { $_ } | ForEach-Object { $_.Substring($DestRoot.Length + 1) }) -join '; ')
         Log      = if ($Run) { $Run.Log } else { '' }
         When     = (Get-Date -Format 's')
     }
     $Rows.Add($row)
-    $row | Export-Csv -LiteralPath $ResultsCsv -Append -NoTypeInformation -Encoding UTF8
+    $row | Export-Csv -LiteralPath $ResultsCsv -Append -NoTypeInformation -Encoding UTF8 -Force
 
     $color = switch ($Result) { 'pass' { 'Green' } 'skipped' { 'DarkGray' } 'missing' { 'Yellow' } default { 'Red' } }
     $what = if ($Preset) { "$Test $Preset" } else { $Test }
@@ -367,6 +397,71 @@ function Add-Result {
 
 function Test-Done($Game, [string] $Test, [string] $Preset = '') {
     $Done.ContainsKey("$($Game.Relative)|$Test|$Preset")
+}
+
+# ================================================================================================
+#  test-dest
+# ================================================================================================
+
+function Clear-Dest {
+    if (Test-Path -LiteralPath $DestRoot) {
+        Write-Host "Emptying $DestRoot..."
+        Get-ChildItem -LiteralPath $DestRoot -Force | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
+    }
+    $null = New-Item -ItemType Directory -Force -Path $DestRoms
+}
+
+<#
+  Moves what one noi call made (in $Staging) into -Dest: roms\<system>\* to roms\<system>\<Label>\, anything
+  else to _unsorted\<Label>\ (unless -RomsOnly). Returns the paths of what was moved (the top-level files and
+  folders), for verify-output and the results.
+#>
+function Move-ToDest($Game, [string] $Staging, [string] $Label, [switch] $RomsOnly) {
+    if (-not (Test-Path -LiteralPath $Staging)) { return @() }
+    $label = Get-SafeName $Label
+    $moves = @()   # @{ Items; Target }
+    $stagedRoms = Join-Path $Staging 'roms'
+    if (Test-Path -LiteralPath $stagedRoms -PathType Container) {
+        foreach ($sys in @(Get-ChildItem -LiteralPath $stagedRoms -Directory -Force)) {
+            $moves += @{ Items = @(Get-ChildItem -LiteralPath $sys.FullName -Force); Target = Join-Path (Join-Path $DestRoms $sys.Name) $label }
+        }
+        $loose = @(Get-ChildItem -LiteralPath $stagedRoms -File -Force)
+        if ($loose.Count -gt 0) { $moves += @{ Items = $loose; Target = Join-Path $DestUnsorted $label } }
+    }
+    if (-not $RomsOnly) {
+        $other = @(Get-ChildItem -LiteralPath $Staging -Force | Where-Object { $_.Name -ne 'roms' })
+        if ($other.Count -gt 0) { $moves += @{ Items = $other; Target = Join-Path $DestUnsorted $label } }
+    }
+    $moved = @()
+    foreach ($m in $moves) {
+        if ($m.Items.Count -eq 0) { continue }
+        $target = $m.Target
+        # Another game already made one of these names here: this game's files go in a folder of its own.
+        if (@($m.Items | Where-Object { Test-Path -LiteralPath (Join-Path $target $_.Name) }).Count -gt 0) {
+            $target = Join-Path $target (Get-SafeName ([IO.Path]::GetFileNameWithoutExtension($Game.Path)))
+            $n = 2
+            $base = $target
+            while (@($m.Items | Where-Object { Test-Path -LiteralPath (Join-Path $target $_.Name) }).Count -gt 0) { $target = "$base ($n)"; $n++ }
+        }
+        $null = New-Item -ItemType Directory -Force -Path $target
+        foreach ($item in $m.Items) {
+            $to = Join-Path $target $item.Name
+            Move-Item -LiteralPath $item.FullName -Destination $to
+            $moved += $to
+        }
+    }
+    $moved
+}
+
+# The games among moved paths: a .cue and not the .bin files it lists (noi verify takes the .cue).
+function Select-Games([string[]] $Paths) {
+    $companions = @{}
+    foreach ($p in $Paths) {
+        if (Test-Path -LiteralPath $p -PathType Leaf) {
+            foreach ($c in Get-Companions (Get-Item -LiteralPath $p)) { $companions[$c.ToLowerInvariant()] = $true }
+        }
+    }
+    @($Paths | Where-Object { -not $companions.ContainsKey([IO.Path]::GetFullPath($_).ToLowerInvariant()) })
 }
 
 # ================================================================================================
@@ -443,24 +538,24 @@ function Test-Convert($Game, $State) {
                 $result = 'skipped'; $text = 'noi found nothing to convert'
             }
             $detail = ($files | ForEach-Object { "$(Get-Prop $_ 'result') $(Get-Prop $_ 'target')" }) -join '; '
+            # Into test-dest, whatever the result: a failed convert that left something behind is worth a look too.
+            $moved = @(Move-ToDest $Game $outDir $c.Name)
             Add-Result $Game 'convert' $c.Name $result $run (Get-Message $run $text) `
-                (Get-Prop $summary 'inBytes') (Get-Prop $summary 'outBytes') $detail
+                (Get-Prop $summary 'inBytes') (Get-Prop $summary 'outBytes') $detail $moved
             $converted = ($result -eq 'pass') -and -not $DryRun
-        }
-        if ($Tests -contains 'verify-output' -and -not (Test-Done $Game 'verify-output' $c.Name)) {
-            if ($converted -and (Get-ChildItem -LiteralPath $outDir -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1)) {
-                Test-VerifyOutput $Game $c.Name $outDir
+            if ($Tests -contains 'verify-output' -and $converted -and $moved.Count -gt 0) {
+                Test-VerifyOutput $Game $c.Name (Select-Games $moved)
             }
         }
     }
 }
 
-function Test-VerifyOutput($Game, [string] $Preset, [string] $Folder) {
-    $run = Invoke-Noi "verify-output-$Preset" @('verify', $Folder) $Game.LogDir
+function Test-VerifyOutput($Game, [string] $Preset, [string[]] $Paths) {
+    $run = Invoke-Noi "verify-output-$Preset" (@('verify') + $Paths) $Game.LogDir
     $files = @(Get-Prop $run.Json 'files' | Where-Object { $_ })
     $detail = ($files | ForEach-Object { "$(Get-Prop $_ 'result'): $(Split-Path -Leaf (Get-Prop $_ 'path'))" }) -join '; '
     $text = ($files | Where-Object { (Get-Prop $_ 'result') -notin @('ok', 'verified') } | ForEach-Object { Get-Prop $_ 'text' }) -join '; '
-    Add-Result $Game 'verify-output' $Preset (Get-Result $run) $run (Get-Message $run $text) -Detail $detail
+    Add-Result $Game 'verify-output' $Preset (Get-Result $run) $run (Get-Message $run $text) -Detail $detail -Output $Paths
 }
 
 function Test-Optimize($Game, $State) {
@@ -475,7 +570,8 @@ function Test-Optimize($Game, $State) {
     $text = ($steps | Where-Object { (Get-Prop $_ 'reason') } | ForEach-Object { "$(Get-Prop $_ 'kind'): $(Get-Prop $_ 'reason')" } | Select-Object -First 3) -join '; '
     $result = Get-Result $run
     if ($result -eq 'pass' -and $summary -and [int](Get-Prop $summary 'failed') -gt 0) { $result = 'fail' }
-    Add-Result $Game 'optimize' -Result $result -Run $run -Message (Get-Message $run $text) -Detail $detail
+    $moved = @(Move-ToDest $Game $library 'optimize' -RomsOnly)
+    Add-Result $Game 'optimize' -Result $result -Run $run -Message (Get-Message $run $text) -Detail $detail -Output $moved
 }
 
 function Test-RoundTrip($Game, $State) {
@@ -611,6 +707,7 @@ function Write-Reports {
     $null = $sb.AppendLine("NoIntrovert ROM test matrix  $(Get-Date -Format 'yyyy-MM-dd HH:mm')")
     $null = $sb.AppendLine("noi:     $NoiPath")
     $null = $sb.AppendLine("source:  $SourceRoot")
+    $null = $sb.AppendLine("dest:    $DestRoms  (ES-DE ROM directory)")
     $null = $sb.AppendLine("results: $Out")
     $null = $sb.AppendLine('')
     $results = @($all | ForEach-Object { $_.Result } | Sort-Object -Unique)
@@ -655,6 +752,7 @@ function Write-Reports {
 
 Write-Host "noi:      $NoiPath"
 Write-Host "source:   $SourceRoot"
+Write-Host "dest:     $DestRoot"
 Write-Host "results:  $Out"
 Write-Host "tests:    $($Tests -join ', ')"
 Write-Host ''
@@ -677,6 +775,9 @@ try { $null = $info.AppendLine((& $NoiPath keys --no-color 2>&1 | Out-String).Tr
 try { $null = $info.AppendLine((& $NoiPath db --no-color 2>&1 | Out-String).Trim()) } catch { }
 $ErrorActionPreference = 'Stop'
 Set-Content -LiteralPath (Join-Path $Out 'run-info.txt') -Value $info.ToString() -Encoding UTF8
+
+if ($Resume) { $null = New-Item -ItemType Directory -Force -Path $DestRoms } else { Clear-Dest }
+$null = New-Item -ItemType Directory -Force -Path $WorkRoot
 
 $games = @(Get-Games)
 if ($games.Count -eq 0) { throw "No games found under $SourceRoot$(if ($Include -or $Exclude) { ' with -Include / -Exclude' })." }
@@ -732,10 +833,9 @@ foreach ($g in $games) {
             'roundtrip' { Test-RoundTrip $g $state }
         }
     }
-    if (-not $KeepOutputs -and (Test-Path -LiteralPath $g.WorkDir)) {
-        Remove-Item -LiteralPath $g.WorkDir -Recurse -Force -ErrorAction SilentlyContinue
-    }
+    if (Test-Path -LiteralPath $g.WorkDir) { Remove-Item -LiteralPath $g.WorkDir -Recurse -Force -ErrorAction SilentlyContinue }
 }
+if (Test-Path -LiteralPath $WorkRoot) { Remove-Item -LiteralPath $WorkRoot -Recurse -Force -ErrorAction SilentlyContinue }
 
 $changes = Write-Reports
 $worse = @($changes | Where-Object { $_ -and $_.Change -eq 'WORSE' }).Count

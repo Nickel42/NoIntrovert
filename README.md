@@ -411,6 +411,10 @@ Try real files from those tools on the Convert page to confirm.
 test: `info`, `verify`, `convert` once for each preset noi offers for the file,
 `verify` on each convert's output, and `optimize --new-library`. Add
 `-Tests all` for `test roundtrip` as well. The originals are never changed.
+What noi makes lands in `test-dest` (beside test-src, or `-Dest <folder>`) as an
+ES-DE tree with a folder per preset, e.g. `test-dest\roms\psx\chd-standard\`,
+so each result can be opened in an emulator; point ES-DE's ROM directory at
+`test-dest\roms`. test-dest is emptied when a run starts.
 Every call's result, time, sizes and message go to `test-results\<date-time>\results.csv`
 (with `matrix.csv` for one row per game, `summary.txt`, and each call's log).
 Run with `-Baseline <earlier run folder>` to list what got better or worse.
